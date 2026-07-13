@@ -1,0 +1,72 @@
+.TH BROWSER-TAB 1
+.SH NAME
+browser\-tab \- browser\-tab — MCP server + CLI + TUI (single bin, subcommand dispatch)
+.SH SYNOPSIS
+\fBbrowser\-tab\fR [OPTIONS] [COMMAND]
+.SH DESCRIPTION
+browser\-tab — MCP server + CLI + TUI (single bin, subcommand dispatch)
+.PP
+.SH OPTIONS
+.TP
+\fB\-\-json\fR
+Emit machine\-readable JSON output
+.TP
+\fB\-q, \-\-quiet\fR
+Suppress non\-error output
+.TP
+\fB\-v, \-\-verbose\fR
+Log debug\-level info to stderr
+.TP
+\fB\-\-no\-color\fR
+Disable colors
+.SH COMMANDS
+.TP
+\fBmcp\fR
+Run the MCP server (stdio default; \-\-http for Streamable HTTP)
+.TP
+\fBtui\fR
+Launch the Ink TUI
+.TP
+\fBdoctor\fR
+Run preflight checks (Node version, native module, config dir)
+.TP
+\fBrepl\fR
+Interactive REPL driving the in\-process dispatcher
+.RS
+\fIAliases: \fRconsole
+.RE
+.TP
+\fBhealth\fR
+Print server health snapshot (calls health_check in\-process)
+.TP
+\fBnoop\fR
+Demo: call the noop tool
+.SH "BROWSER-TAB MCP"
+Run the MCP server (stdio default; \-\-http for Streamable HTTP)
+.PP
+\fBUsage:\fR browser\-tab mcp [OPTIONS]
+.PP
+\fBOptions:\fR
+.PP
+.TP
+\fB\-\-http\fR
+Use Streamable HTTP transport (requires MCP_HTTP_TOKEN)
+.TP
+\fB\-\-port\fR \fI<port>\fR
+HTTP port (default 8080)
+.TP
+\fB\-\-bind\fR \fI<host>\fR
+HTTP bind addr (default 127.0.0.1)
+.SH "BROWSER-TAB NOOP"
+Demo: call the noop tool
+.PP
+\fBUsage:\fR browser\-tab noop [OPTIONS]
+.PP
+\fBOptions:\fR
+.PP
+.TP
+\fB\-\-input\fR \fI<text>\fR
+Input string to echo
+.TP
+\fB\-\-upper\fR
+Return upper\-cased

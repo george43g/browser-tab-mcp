@@ -10,6 +10,12 @@
 [tools]
 node = "24"
 pnpm = "10.29.3"
+# `usage` (https://usage.jdx.dev) generates bash/zsh/fish completions +
+# manpage + markdown docs from .usage.kdl. Required by the CI
+# cli-artifacts-drift gate and by `mise run artifacts` in apps/browser-tab-mcp/.
+# Pinned: usage(1) emits slightly different completion shells between
+# minor versions; a floating "latest" makes the drift gates flap.
+usage = "3.3.0"
 
 [env]
 # Default to non-dev mode unless overridden. Test runs flip it via .env.test.
