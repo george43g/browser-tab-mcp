@@ -1,0 +1,26 @@
+# Template-level ignore for any future root npm publish (typically unused since root is private).
+# Apps and packages each ship their own .npmignore controlling what makes it into the published tarball.
+src/
+tests/
+scripts/
+docs/
+.github/
+.agents/
+.claude/
+.cursor/
+.cursorrules
+.releaserc.json
+biome.json
+vitest.config.ts
+vite.config.ts
+tsconfig*.json
+turbo.json
+pnpm-workspace.yaml
+pnpm-lock.yaml
+*.tsbuildinfo
+coverage/
+.turbo/
+.env*
+!.env.example
+*.tape
+*.tgz

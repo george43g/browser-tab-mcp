@@ -1,0 +1,78 @@
+# Dependencies
+node_modules/
+.pnpm-store/
+
+# Build output
+dist/
+build/
+*.tsbuildinfo
+
+# Native artifacts (built per-platform, not checked in)
+*.node
+apps/rust-accel/target/
+
+# Env files (lock to repo: .env.example only)
+.env
+.env.local
+.env.*.local
+.env.development
+.env.production
+.env.test
+
+# MCP host overrides (each developer's own)
+.mcp.local.json
+
+# Test/coverage output
+coverage/
+.nyc_output/
+*.lcov
+
+# Stress harness reports
+stress-mcp-report.json
+stress-tui-report.json
+watchdog-state.json
+
+# Logs
+*.log
+npm-debug.log*
+pnpm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Editor/IDE
+.vscode/
+!.vscode/extensions.json
+!.vscode/settings.recommended.json
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Turbo
+.turbo/
+
+# semantic-release
+release/
+*.tgz
+
+# Screenshots regenerated on-demand
+docs/screenshots/*.png
+!docs/screenshots/.gitkeep
+
+# Claude Code per-session locks (transient)
+.claude/scheduled_tasks.lock
+
+# MCPB artifacts (regenerate with `pnpm pack:mcpb`)
+*.mcpb
+
+# example/ output is committed (it's the scaffolder-output reference) but
+# its install/build artifacts are not. Regenerate with `pnpm regen:example`.
+example/**/node_modules
+example/**/dist
+example/**/.turbo
+example/**/coverage
+example/**/*.tsbuildinfo
+example/**/*.node

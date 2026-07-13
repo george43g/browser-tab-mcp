@@ -1,0 +1,11 @@
+{
+  "name": "@george43g/tsconfig",
+  "version": "0.0.0",
+  "private": true,
+  "license": "MIT",
+  "files": [
+    "base.json",
+    "node.json",
+    "react.json"
+  ]
+}

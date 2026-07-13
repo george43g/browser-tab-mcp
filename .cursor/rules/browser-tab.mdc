@@ -1,0 +1,28 @@
+---
+description: browser-tab project conventions — symlinked from AGENTS.md so Cursor sees the same agent guide as Claude Code and other agents.
+alwaysApply: true
+---
+
+See `AGENTS.md` in the repo root for the canonical guide. CLAUDE.md and
+.cursorrules are also symlinks to AGENTS.md — keep the single source.
+
+Key rules every agent must follow:
+
+1. Every MCP tool runs through `withTimeout` — declare in
+   `ToolDefinition.timeoutMs` or rely on the default.
+2. `noteActivity()` fires on every dispatch (feeds the idle watchdog).
+3. Wrap a `perf()` span around every handler.
+4. Errors get an actionable hint + tool name via `wrapToolError`.
+5. Honor `AbortSignal` in long-running loops.
+6. NEVER `console.log` after `StdioServerTransport.connect()` — JSON-RPC
+   owns stdout. Log via `@george43g/robustness/logger`.
+7. Sanitize user-content surfaces with `sanitize()`. Wrap external
+   content with `wrapUntrusted()`. UUID-gate any embedded instructions.
+
+After any change:
+- `pnpm build`
+- Restart the MCP host so it picks up the dev proxy's reloaded child.
+- Call the relevant `mcp__browser-tab-mcp-dev__*` tool to confirm the
+  change works end-to-end.
+- `pnpm test` (or `pnpm verify` for the full suite).
+- `pnpm stress` if the change touches dispatcher / lifecycle / transport.

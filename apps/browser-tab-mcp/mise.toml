@@ -1,0 +1,49 @@
+# App-local mise tasks for browser-tab-mcp.
+#
+# Run from inside this directory with `mise run <task>`, or from the repo
+# root with `mise run --cd apps/browser-tab-mcp <task>`.
+#
+# These tasks generate shell completions, the manpage, and CLI markdown
+# docs from .usage.kdl — keep .usage.kdl in sync with src/cli.ts and the
+# generated artifacts under completions/ + man/ + docs/ stay current.
+#
+# Docs: https://mise.jdx.dev · https://usage.jdx.dev
+
+[tools]
+# Pinned: usage(1) emits slightly different completion shells between
+# minor versions; a floating "latest" makes check:usage drift gates flap.
+usage = "3.3.0"
+
+[tasks.docs]
+description = "Generate markdown docs for each subcommand"
+run = """
+  set -eu  # mise runs tasks via /bin/sh — dash on Ubuntu rejects `pipefail`; this task doesn't pipe
+  mkdir -p docs/cli
+  usage g markdown -f .usage.kdl -m --out-dir docs/cli/
+"""
+
+[tasks."completions:bash"]
+description = "Generate bash completion script"
+run = "mkdir -p completions && usage g completion bash browser-tab -f .usage.kdl > completions/browser-tab.bash"
+
+[tasks."completions:zsh"]
+description = "Generate zsh completion script"
+run = "mkdir -p completions && usage g completion zsh browser-tab -f .usage.kdl > completions/_browser-tab"
+
+[tasks."completions:fish"]
+description = "Generate fish completion script"
+run = "mkdir -p completions && usage g completion fish browser-tab -f .usage.kdl > completions/browser-tab.fish"
+
+[tasks.completions]
+description = "Generate completions for bash, zsh, and fish"
+depends = ["completions:bash", "completions:zsh", "completions:fish"]
+run = "echo 'completions generated in completions/ — run ./scripts/install-completions.sh to install for your shell'"
+
+[tasks.manpage]
+description = "Generate man page"
+run = "mkdir -p man && usage g manpage -f .usage.kdl -o man/browser-tab.1"
+
+[tasks.artifacts]
+description = "Regenerate every usage(1) artifact (docs + completions + manpage)"
+depends = ["docs", "completions", "manpage"]
+run = "echo 'all artifacts regenerated'"

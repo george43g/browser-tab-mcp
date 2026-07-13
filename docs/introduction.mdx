@@ -1,0 +1,36 @@
+---
+title: Introduction
+description: 'browser-tab — MCP server + CLI + TUI in a single bin.'
+---
+
+# browser-tab
+
+A Model Context Protocol server scaffolded from [`mcp-cli-starter-template`](https://github.com/george43g/mcp-cli-starter-template), shipping four surfaces from a single bin:
+
+<CardGroup cols={2}>
+  <Card title="MCP server" icon="server" href="/surfaces/mcp-server">
+    Stdio (default) or Streamable HTTP. Hosts include Claude Desktop/Code, Cursor, Warp, OpenCode.
+  </Card>
+  <Card title="CLI" icon="terminal" href="/surfaces/cli">
+    Every tool is also a Commander subcommand, auto-derived from its Zod schema.
+  </Card>
+  <Card title="TUI" icon="display" href="/surfaces/tui">
+    Ink/React full-screen UI with vim keybindings, dev stats overlay, theme system.
+  </Card>
+  <Card title="REPL" icon="message" href="/surfaces/repl">
+    Interactive console — same dispatcher as MCP, parsed line-by-line through commander.
+  </Card>
+</CardGroup>
+
+## Why one bin
+
+Three bins (`-mcp`, `-cli`, `-tui`) duplicates installation friction and entry points. One bin with subcommands keeps the public surface small and lets all four (MCP/CLI/TUI/REPL) share the same in-process dispatcher — zero drift between what an AI agent can call over MCP and what a human can call from the shell.
+
+## Production-grade from commit 1
+
+The template lifts every reusable pattern from two shipped MCP servers (`imsg-mcp`, `Gmail-MCP-Server`):
+
+- **Robustness harness**: event-loop watchdog (spike + sustained-lag), RSS/heap leak detector, idle restart, shutdown registry trapping SIGINT/TERM/HUP/QUIT, stdin EOF, orphan-reparent detection.
+- **Structured logging**: NDJSON files + 500-line ring buffer + perf spans + heartbeats.
+- **MCP best practices**: per-tool timeouts via `withTimeout`, `AbortSignal` honored in long loops, structured error wrapping, prompt-injection guardrails (UUID-gated instructions), sanitization (ANSI/OSC strip, C0 → U+FFFD, max-length).
+- **Optional Rust acceleration**: `napi-rs` v3 module with hand-mirrored types and a CI drift-check.

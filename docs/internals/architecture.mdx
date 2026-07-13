@@ -1,0 +1,39 @@
+---
+title: Architecture
+description: 'How the packages and apps fit together.'
+---
+
+For the full architecture walk-through, see [`ARCHITECTURE.md`](https://github.com/george43g/mcp-cli-starter-template/blob/main/docs/ARCHITECTURE.md) in the repo. Highlights:
+
+## Workspace topology
+
+```
+apps/
+  browser-tab-mcp/    your tool (clone-and-rename target)
+  rust-accel/      napi-rs crate (optional acceleration)
+
+packages/
+  robustness/      logger + watchdog + shutdown + with-timeout + health + retry + rate-limit
+  mcp-kit/         tool-registry + dispatch + stdio/http transports + sanitize + prompt-injection
+  cli-kit/         commander helpers + tty/color/output + env↔flag binder + REPL
+  tui-kit/         ink themes + hooks (useDevStats, useMouse, useVimKeys) + components
+  env-loader/      Vite-style .env precedence in plain Node
+  secrets/         env-json → 1Password → file chain (no keychain)
+  shared-types/    Zod schemas + Rust mirror + drift-check
+  tsconfig/        base + node + react TS configs
+  biome-config/    single biome.json source
+  vitest-config/   shared preset with c8 coverage
+```
+
+## The single-bin model
+
+The bin (`dist/cli.js`) is the only entry users see. It dispatches:
+
+```
+browser-tab mcp   → runMcpServer({ transport: 'stdio' | 'http' })
+browser-tab tui   → dynamic import of src/tui/index.tsx → runTui()
+browser-tab repl  → readline loop → program.parseAsync per line
+browser-tab <tool> → callMcpTool(toolName, argsFromFlags)
+```
+
+All four paths share the same `getDispatcher()` — so adding a tool to the registry is automatically reflected everywhere.

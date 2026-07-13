@@ -1,0 +1,26 @@
+{
+  "manifest_version": "0.3",
+  "name": "browser-tab-mcp",
+  "display_name": "browser-tab",
+  "version": "0.0.0",
+  "description": "browser-tab — MCP server + CLI + TUI. Cloned from mcp-cli-starter-template; ready to extend with your own tools.",
+  "author": {
+    "name": "George G"
+  },
+  "license": "MIT",
+  "server": {
+    "type": "node",
+    "entry_point": "dist/index.js",
+    "mcp_config": {
+      "command": "node",
+      "args": ["${__dirname}/dist/index.js"]
+    }
+  },
+  "compatibility": {
+    "claude_desktop": ">=1.0.0",
+    "platforms": ["darwin", "linux", "win32"],
+    "runtimes": {
+      "node": ">=24.0.0"
+    }
+  }
+}

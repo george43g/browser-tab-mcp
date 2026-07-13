@@ -1,0 +1,82 @@
+name: Screenshots
+
+# Regenerates VHS-driven PNGs/GIFs whenever a .tape file changes on main.
+# Skips on PRs unless the PR touches a .tape file (saves CI minutes).
+# Commits regenerated assets back to docs/screenshots/ with [skip ci].
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "apps/**/scripts/screenshots/*.tape"
+      - ".github/workflows/screenshots.yml"
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - "apps/**/scripts/screenshots/*.tape"
+
+permissions:
+  contents: write
+
+jobs:
+  regenerate:
+    runs-on: ubuntu-latest
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: "24"
+
+      - uses: pnpm/action-setup@v6
+        with:
+          version: 10.29.3
+          run_install: false
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Install VHS
+        # VHS publishes versioned assets (vhs_<ver>_Linux_x86_64.tar.gz)
+        # rather than a stable "latest" path, so we pin to a known good
+        # release. Bump VHS_VERSION to update; the tarball extracts to
+        # vhs_<ver>_Linux_x86_64/vhs.
+        env:
+          VHS_VERSION: "0.11.0"
+        run: |
+          curl -sSL "https://github.com/charmbracelet/vhs/releases/download/v${VHS_VERSION}/vhs_${VHS_VERSION}_Linux_x86_64.tar.gz" \
+            | tar -xz -C /tmp
+          sudo mv "/tmp/vhs_${VHS_VERSION}_Linux_x86_64/vhs" /usr/local/bin/vhs
+          vhs --version
+
+      - name: Install ttyd (VHS runtime dependency)
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ttyd ffmpeg
+
+      - name: Build the tool (so VHS captures the real bin)
+        run: pnpm build
+
+      - name: Regenerate screenshots
+        run: |
+          mkdir -p docs/screenshots
+          for f in apps/*/scripts/screenshots/*.tape; do
+            echo "▶ $f"
+            vhs "$f"
+          done
+
+      - name: Commit regenerated screenshots (push only)
+        if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          if [[ -n $(git status --porcelain docs/screenshots/) ]]; then
+            git add docs/screenshots/
+            git commit -m "chore(screenshots): regenerate via VHS [skip ci]"
+            git push
+          else
+            echo "No screenshot changes to commit."
+          fi

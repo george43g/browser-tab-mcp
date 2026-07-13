@@ -1,0 +1,12 @@
+---
+title: Release
+description: 'Enabling semantic-release for npm publishing.'
+---
+
+See [`RELEASE.md`](https://github.com/george43g/mcp-cli-starter-template/blob/main/docs/RELEASE.md) in the repo for the full guide.
+
+## TL;DR
+
+- `.github/workflows/release.yml` ships **disabled** by default — the `on:` trigger is commented.
+- To enable: uncomment the trigger and add an `NPM_TOKEN` secret in your repo settings.
+- The pipeline uses `semantic-release` with the Keep-a-Changelog plugin chain — conventional commits drive version bumps.

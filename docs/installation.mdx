@@ -1,0 +1,66 @@
+---
+title: Installation
+description: 'Install browser-tab via npm/pnpm/npx or clone the template.'
+---
+
+## Run without installing
+
+```bash
+npx @george43g/browser-tab-mcp mcp
+```
+
+This downloads, runs, and exits. Use this when wiring the tool into an MCP host config.
+
+## Install globally
+
+```bash
+npm  install -g @george43g/browser-tab-mcp
+pnpm add  -g @george43g/browser-tab-mcp
+```
+
+After install, `browser-tab` is on your `$PATH`. All subcommands dispatch through that bin.
+
+## Verify
+
+```bash
+browser-tab doctor
+```
+
+The `doctor` subcommand reports:
+- Node version (must be ≥24)
+- Optional native module presence
+- Required env vars and their resolved values
+- Log directory writability
+
+## Connect from your editor
+
+Add this to your MCP host's config file:
+
+```json
+{
+  "mcpServers": {
+    "browser-tab": {
+      "command": "npx",
+      "args": ["-y", "@george43g/browser-tab-mcp", "mcp"]
+    }
+  }
+}
+```
+
+Config file paths:
+- **Claude Desktop**: `~/Library/Application Support/Claude/claude_desktop_config.json` (macOS), `%APPDATA%\Claude\claude_desktop_config.json` (Windows)
+- **Claude Code**: `.mcp.json` at your project root
+- **Cursor**: `.cursor/mcp.json` at your project root
+- **OpenCode**: `opencode.json` at your project root
+- **Warp**: Settings → AI → MCP Servers (UI)
+
+## Source build
+
+```bash
+git clone https://github.com/george43g/mcp-cli-starter-template.git
+cd mcp-cli-starter-template
+mise install   # node + pnpm at pinned versions
+pnpm install
+pnpm build
+pnpm verify
+```

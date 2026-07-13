@@ -1,0 +1,34 @@
+{
+  "name": "@george43g/rust-accel",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Optional Rust acceleration via napi-rs v3. Hand-mirrored types match @george43g/shared-types; CI drift-check enforces parity.",
+  "main": "index.js",
+  "types": "index.d.ts",
+  "files": [
+    "index.js",
+    "index.d.ts",
+    "*.node",
+    "Cargo.toml",
+    "src",
+    "build.rs"
+  ],
+  "napi": {
+    "binaryName": "rust-accel",
+    "targets": [
+      "aarch64-apple-darwin",
+      "x86_64-apple-darwin",
+      "x86_64-unknown-linux-gnu",
+      "aarch64-unknown-linux-gnu",
+      "x86_64-pc-windows-msvc"
+    ]
+  },
+  "scripts": {
+    "build": "napi build --platform --release",
+    "build:debug": "napi build --platform",
+    "clean": "rm -rf target *.node index.js index.d.ts"
+  },
+  "devDependencies": {
+    "@napi-rs/cli": "^3.7.2"
+  }
+}

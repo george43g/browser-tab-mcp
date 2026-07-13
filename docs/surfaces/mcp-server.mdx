@@ -1,0 +1,42 @@
+---
+title: MCP server
+description: 'Stdio and Streamable HTTP transports, tool registry, dispatcher invariants.'
+---
+
+The MCP server is the canonical entry point — the other surfaces (CLI/TUI/REPL) all dispatch through the same in-process registry.
+
+## Run it
+
+```bash
+browser-tab mcp              # stdio (default)
+browser-tab mcp --http       # Streamable HTTP
+```
+
+## Tools shipped in the template
+
+| Tool | Read-only | Description |
+|------|-----------|-------------|
+| `health_check` | ✓ | Server/runtime/transport snapshot. Never touches external I/O. |
+| `noop` | ✓ | Echo + optional uppercase. Demonstrates the Rust acceleration path. |
+| `get_logs` | ✓ | Dev-mode only (`BROWSER_TAB_DEV=1`). Returns the ring buffer. |
+
+## Dispatcher invariants
+
+Every tool runs through `src/dispatcher.ts`, which enforces:
+
+1. Each call goes through `withTimeout` (per-tool override or default 30s).
+2. `noteActivity()` fires on every dispatch (feeds the idle watchdog).
+3. A `perf()` span wraps every handler.
+4. Errors are wrapped with an actionable hint + tool name (never bare `error.message`).
+5. The `AbortSignal` from the MCP host is honored — long loops check `signal?.aborted`.
+6. NEVER `console.log` after the stdio transport opens — JSON-RPC owns stdout. Log via `@george43g/robustness/logger`.
+
+## Adding a tool
+
+1. Create `src/tools/<name>.ts` with `input`/`output` Zod schemas and a `handler`.
+2. `.describe(...)` every field — those become the LLM-facing docs.
+3. Register in `src/tools/registry.ts`.
+4. Add a unit test colocated as `<name>.test.ts`.
+5. Add an integration assertion in `tests/integration.test.ts`.
+
+Because of the unified registry, the new tool appears in MCP `tools/list`, the CLI as a subcommand, and the REPL — no per-surface changes needed.

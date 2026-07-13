@@ -1,0 +1,41 @@
+// usage spec — drives completions (bash/zsh/fish/pwsh) + manpage + markdown docs.
+// Generate: `usage g completion <shell> -f .usage.kdl`, `usage g markdown -f .usage.kdl -m --out-dir <dir>/`.
+// Docs: https://usage.jdx.dev/spec
+//
+// Keep this in sync with the commander program in src/cli.ts.
+
+name "browser-tab"
+bin "browser-tab"
+about "browser-tab — MCP server + CLI + TUI (single bin, subcommand dispatch)"
+
+flag "--json" help="Emit machine-readable JSON output"
+flag "-q --quiet" help="Suppress non-error output"
+flag "-v --verbose" help="Log debug-level info to stderr"
+flag "--no-color" help="Disable colors"
+
+cmd "mcp" help="Run the MCP server (stdio default; --http for Streamable HTTP)" {
+    flag "--http" help="Use Streamable HTTP transport (requires MCP_HTTP_TOKEN)"
+    flag "--port" help="HTTP port (default 8080)" {
+        arg "<port>"
+    }
+    flag "--bind" help="HTTP bind addr (default 127.0.0.1)" {
+        arg "<host>"
+    }
+}
+
+cmd "tui" help="Launch the Ink TUI"
+
+cmd "doctor" help="Run preflight checks (Node version, native module, config dir)"
+
+cmd "repl" help="Interactive REPL driving the in-process dispatcher" {
+    alias "console"
+}
+
+cmd "health" help="Print server health snapshot (calls health_check in-process)"
+
+cmd "noop" help="Demo: call the noop tool" {
+    flag "--input" required=#true help="Input string to echo" {
+        arg "<text>"
+    }
+    flag "--upper" help="Return upper-cased"
+}

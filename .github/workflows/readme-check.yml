@@ -1,0 +1,75 @@
+# README-update check — fails CI when src/** changes without a README
+# update. Bypass with [skip-readme] in commit message or PR title.
+#
+# Lifted from Gmail-MCP-Server's pattern.
+
+name: README check
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  readme-check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Check skip flag
+        id: skip
+        env:
+          PR_TITLE: ${{ github.event.pull_request.title }}
+        run: |
+          COMMIT_MSG=$(git log -1 --format=%s)
+          if echo "$COMMIT_MSG" | grep -qiE '\[(skip-readme|no-readme)\]'; then
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+          elif echo "$PR_TITLE" | grep -qiE '\[(skip-readme|no-readme)\]'; then
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+          elif echo "$COMMIT_MSG" | grep -qiE '^Merge branch'; then
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "skip=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: PR — verify README was updated alongside src
+        if: github.event_name == 'pull_request' && steps.skip.outputs.skip == 'false'
+        run: |
+          DIFF_RANGE="origin/${{ github.base_ref }}...HEAD"
+          SRC_CHANGED=$(git diff --name-only $DIFF_RANGE | grep -cE '^(apps|packages)/[^/]+/src/' || true)
+          if [ "$SRC_CHANGED" -eq 0 ]; then
+            echo "No source code changes — README check skipped."
+            exit 0
+          fi
+          README_CHANGED=$(git diff --name-only $DIFF_RANGE | grep -cE '(^|/)README\.md$' || true)
+          if [ "$README_CHANGED" -eq 0 ]; then
+            echo "::error::Source code changed but no README.md was updated."
+            echo "Add a [skip-readme] tag to your commit/PR title if a docs update is genuinely not warranted."
+            exit 1
+          fi
+
+      - name: Push — verify README was updated alongside src
+        if: github.event_name == 'push' && steps.skip.outputs.skip == 'false'
+        env:
+          BEFORE_SHA: ${{ github.event.before }}
+        run: |
+          if [ "$BEFORE_SHA" = "0000000000000000000000000000000000000000" ]; then
+            DIFF_RANGE="HEAD~1..HEAD"
+          else
+            DIFF_RANGE="$BEFORE_SHA..HEAD"
+          fi
+          SRC_CHANGED=$(git diff --name-only $DIFF_RANGE | grep -cE '^(apps|packages)/[^/]+/src/' || true)
+          if [ "$SRC_CHANGED" -eq 0 ]; then
+            echo "No source code changes — README check skipped."
+            exit 0
+          fi
+          README_CHANGED=$(git diff --name-only $DIFF_RANGE | grep -cE '(^|/)README\.md$' || true)
+          if [ "$README_CHANGED" -eq 0 ]; then
+            echo "::error::Source code changed but no README.md was updated."
+            exit 1
+          fi

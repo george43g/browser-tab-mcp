@@ -1,0 +1,70 @@
+# Release workflow — semantic-release driven npm publish.
+#
+# DISABLED BY DEFAULT: the only trigger is `workflow_dispatch`, so this
+# workflow never runs on its own — you have to fire it manually from the
+# Actions tab. To enable automatic releases on push to main:
+#
+#   1. Uncomment the `push:` trigger below.
+#   2. Add NPM_TOKEN as a repository secret (with publish scope for the
+#      packages listed in .releaserc.json or your tool's package.json).
+#   3. Decide which packages to publish: the starter ships private:true
+#      on every workspace package — set `private: false` only on the apps
+#      / packages you want to publish, then customize `.releaserc.json`
+#      accordingly.
+#
+# See docs/RELEASE.md for the full flow.
+
+name: Release
+
+on:
+  workflow_dispatch:
+  # push:
+  #   branches: [main]
+
+permissions:
+  contents: write
+  issues: write
+  pull-requests: write
+  id-token: write
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  release:
+    if: "!contains(github.event.head_commit.message, '[skip ci]')"
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+          persist-credentials: true
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v6
+        with:
+          version: 10.29.3
+
+      - name: Setup Node
+        uses: actions/setup-node@v6
+        with:
+          node-version: "24"
+          cache: pnpm
+          registry-url: https://registry.npmjs.org
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Verify (lint + typecheck + test + build)
+        run: pnpm verify
+
+      - name: Run semantic-release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: pnpm dlx semantic-release

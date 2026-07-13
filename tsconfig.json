@@ -1,0 +1,5 @@
+{
+  "extends": "@george43g/tsconfig/base.json",
+  "files": [],
+  "references": []
+}

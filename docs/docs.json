@@ -1,0 +1,57 @@
+{
+  "$schema": "https://mintlify.com/docs.json",
+  "name": "browser-tab",
+  "theme": "mint",
+  "colors": {
+    "primary": "#1982FC",
+    "light": "#5BA9FD",
+    "dark": "#0F62C8"
+  },
+  "favicon": "/favicon.svg",
+  "navigation": {
+    "tabs": [
+      {
+        "tab": "Guide",
+        "groups": [
+          {
+            "group": "Get Started",
+            "pages": ["introduction", "installation", "quickstart"]
+          },
+          {
+            "group": "Surfaces",
+            "pages": ["surfaces/mcp-server", "surfaces/cli", "surfaces/tui", "surfaces/repl"]
+          },
+          {
+            "group": "Internals",
+            "pages": [
+              "internals/architecture",
+              "internals/http-mode",
+              "internals/rust-acceleration",
+              "internals/tui-design",
+              "internals/guardrails",
+              "internals/release"
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "navbar": {
+    "links": [
+      {
+        "label": "GitHub",
+        "href": "https://github.com/george43g/mcp-cli-starter-template"
+      }
+    ],
+    "primary": {
+      "type": "button",
+      "label": "Install",
+      "href": "/installation"
+    }
+  },
+  "footer": {
+    "socials": {
+      "github": "https://github.com/george43g/mcp-cli-starter-template"
+    }
+  }
+}

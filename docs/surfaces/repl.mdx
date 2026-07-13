@@ -1,0 +1,37 @@
+---
+title: REPL
+description: 'Interactive console driving the in-process dispatcher.'
+---
+
+```bash
+browser-tab repl
+```
+
+A readline loop where each line is parsed by the same commander program that powers the [CLI](/surfaces/cli). Zero drift between what you can type at the prompt and what you can pass on the command line.
+
+## Built-in commands
+
+| Command | Description |
+|---------|-------------|
+| `.help` | Show available commands |
+| `.tools` | List registered tools |
+| `.raw <method> <args>` | Send a raw JSON-RPC envelope (debugging) |
+| `.quit`, `.exit` | Exit the REPL |
+
+## Tool shortcuts
+
+Tools are also exposed as REPL commands with the same flags they have on the CLI:
+
+```
+> noop --input "hi" --upper
+{ "echo": "HI", "upper": true }
+
+> health
+Status: healthy
+Uptime: 12.3s
+RSS: 84 MB
+```
+
+## Output formatting
+
+Output is colored and pretty-printed unless `--json` is set globally. The REPL never wraps output in JSON envelopes (unlike the MCP transport).

@@ -1,0 +1,7 @@
+# Cargo build artifacts — never committed.
+target/
+
+# Per-platform built .node binaries — built in CI per platform, downloaded
+# at install time by consumers. Local builds are fine but shouldn't be
+# tracked.
+*.node

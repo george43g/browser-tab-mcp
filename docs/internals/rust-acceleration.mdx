@@ -1,0 +1,21 @@
+---
+title: Rust acceleration
+description: 'Optional napi-rs module with hand-mirrored types + CI drift-check.'
+---
+
+See [`RUST_ACCELERATION.md`](https://github.com/george43g/mcp-cli-starter-template/blob/main/docs/RUST_ACCELERATION.md) in the repo for the full guide.
+
+## At a glance
+
+- `apps/rust-accel/` contains a [napi-rs v3](https://napi.rs) crate.
+- Build: `pnpm --filter rust-accel build` produces `apps/rust-accel/*.node`.
+- The MCP loads it via `apps/browser-tab-mcp/src/native-bridge.ts:tryLoadNative()`.
+- On failure or when `MCP_DISABLE_NATIVE=1`, the TS fallback is used transparently.
+
+## Drift check
+
+Types are hand-mirrored between:
+- `packages/shared-types/src/index.ts` (Zod)
+- `apps/rust-accel/src/types.rs` (serde)
+
+The drift-check test (`packages/shared-types/tests/drift.test.ts`) parses the Rust file and fails CI if field names diverge.

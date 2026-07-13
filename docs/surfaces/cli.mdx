@@ -1,0 +1,38 @@
+---
+title: CLI
+description: 'Single bin, subcommand dispatch, env var ↔ flag pairing.'
+---
+
+The CLI is `browser-tab` — a single bin that dispatches to subcommands. Every tool exposed via MCP is automatically also a subcommand here.
+
+## Subcommands
+
+```
+browser-tab mcp [--http] [--port N] [--bind H]   run the MCP server
+browser-tab tui                                   launch the Ink TUI
+browser-tab doctor                                preflight checks
+browser-tab repl                                  interactive REPL
+browser-tab health                                one-shot health snapshot
+browser-tab noop --input <text> [--upper]         demo tool invocation
+```
+
+## Global flags
+
+| Flag | Description |
+|------|-------------|
+| `--json` | Machine-readable JSON output. |
+| `-q, --quiet` | Suppress non-error output. |
+| `-v, --verbose` | Debug-level info to stderr. |
+| `--no-color` | Disable colors (also auto-disabled when stdout is not a TTY). |
+
+## Env vars ↔ flags
+
+Every recognized env var is also accepted as a CLI flag (see `@george43g/cli-kit/env-flag-binder`). Examples:
+
+| Env | Flag | Purpose |
+|-----|------|---------|
+| `MCP_HTTP_TOKEN` | `--http-token` | Bearer token for HTTP transport |
+| `MCP_LOG_DIR` | `--log-dir` | Override default `$TMPDIR/browser-tab/` |
+| `MCP_DISABLE_NATIVE` | `--no-native` | Force TS fallback (skip Rust accel) |
+| `MCP_TOOL_TIMEOUT_DEFAULT_MS` | `--tool-timeout-ms` | Per-tool default timeout |
+| `BROWSER_TAB_DEV` | `--dev` | Enable dev-only tools (`get_logs`) |

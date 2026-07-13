@@ -1,0 +1,54 @@
+---
+title: Quickstart
+description: 'Run browser-tab the four ways you can.'
+---
+
+After [installing](/installation), pick the surface that matches your context.
+
+## As an MCP server (for AI hosts)
+
+```bash
+browser-tab mcp
+```
+
+Stdio transport by default. The host (Claude/Cursor/Warp/OpenCode) spawns this as a child process and speaks JSON-RPC over stdin/stdout. Logs go to NDJSON files under `$TMPDIR/browser-tab/` — never to stdout.
+
+For HTTP transport:
+
+```bash
+export MCP_HTTP_TOKEN=$(openssl rand -hex 32)
+browser-tab mcp --http --port 8080
+```
+
+See [HTTP mode](/internals/http-mode) for reverse-proxy patterns.
+
+## From the CLI
+
+```bash
+browser-tab noop --input "hello world" --upper
+browser-tab health
+browser-tab doctor
+```
+
+The CLI is 1:1 with MCP — any tool exposed via `tools/list` is also a CLI subcommand with `--flags` derived from its Zod input schema.
+
+## As a TUI
+
+```bash
+browser-tab tui
+```
+
+Full-screen Ink/React app with vim keybindings (`j/k`, `gg/G`, `Ctrl+D/U`), dev-stats panel toggle (`d`), and the standard ThemeProvider (`safe` glyphs by default, `powerline` for nerd-font terminals).
+
+## In an interactive REPL
+
+```bash
+browser-tab repl
+> health
+> noop --input "hi"
+> get_logs --count 50    # dev mode only
+> .help
+> .quit
+```
+
+The REPL parses each line through the same commander program — there's no separate REPL grammar.

@@ -1,0 +1,37 @@
+---
+title: TUI
+description: 'Ink/React full-screen UI with vim keybindings.'
+---
+
+```bash
+browser-tab tui
+```
+
+## Keybindings
+
+| Keys | Action |
+|------|--------|
+| `j` / `k` | Move down / up |
+| `gg` | Jump to top (double-press; uses the same number-buffer pattern as vim) |
+| `G` | Jump to bottom |
+| `Ctrl+D` / `Ctrl+U` | Half-page down / up |
+| `d` | Toggle dev-stats panel |
+| `q` / `Esc` | Quit |
+
+## Theme system
+
+```bash
+browser-tab tui --theme powerline --accent '#1982FC'
+```
+
+Or via env:
+
+```bash
+MCP_TUI_THEME=powerline MCP_TUI_ACCENT='#1982FC' browser-tab tui
+```
+
+The palette is derived from the accent (HSL math in `packages/tui-kit/src/theme/color.ts`). Glyph presets: `safe` (geometric/emoji, works in any terminal) and `powerline` (requires a Nerd Font).
+
+## Architecture
+
+Components live in `packages/tui-kit/src/components/`. Hooks (`useDevStats`, `useMouse`, `useVimKeys`) are reusable across apps. See [TUI design](/internals/tui-design) for deeper details.

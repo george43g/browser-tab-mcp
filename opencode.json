@@ -1,0 +1,15 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  "mcp": {
+    "browser-tab-mcp-dev": {
+      "type": "local",
+      "command": ["pnpm", "tsx", "apps/browser-tab-mcp/scripts/mcp-dev-proxy.ts"],
+      "enabled": true,
+      "environment": {
+        "MCP_DEV": "1",
+        "MCP_DEV_CMD": "pnpm tsx apps/browser-tab-mcp/src/index.ts",
+        "MCP_DEV_WATCH_DIR": "apps/browser-tab-mcp/src"
+      }
+    }
+  }
+}

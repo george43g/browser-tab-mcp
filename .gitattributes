@@ -1,0 +1,12 @@
+# Anti-footgun: never auto-track *.db with Git LFS.
+# Synthetic fixtures should be regenerated, not committed; real DBs are user data.
+*.db -filter -diff -merge text
+*.sqlite -filter -diff -merge text
+*.sqlite3 -filter -diff -merge text
+
+# Normalize line endings — committed text is LF, even on Windows.
+* text=auto eol=lf
+
+# Generated napi bindings — keep them out of "changed files" review noise.
+apps/rust-accel/index.js linguist-generated=true
+apps/rust-accel/index.d.ts linguist-generated=true

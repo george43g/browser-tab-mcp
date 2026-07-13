@@ -1,0 +1,32 @@
+{
+  "name": "@george43g/env-loader",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Vite-style .env precedence loader in plain Node. Use when you need to read env vars before spawning a subprocess (e.g. the dev MCP proxy).",
+  "type": "module",
+  "license": "MIT",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run",
+    "clean": "rm -rf dist coverage"
+  },
+  "devDependencies": {
+    "@george43g/tsconfig": "workspace:*",
+    "@george43g/vitest-config": "workspace:*",
+    "@types/node": "^24.13.3",
+    "typescript": "^5.7.0",
+    "vitest": "^3.2.7"
+  }
+}
