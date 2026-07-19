@@ -1,0 +1,21 @@
+{
+  "name": "@george43g/chrome-extension",
+  "version": "0.0.0",
+  "private": true,
+  "description": "browser-tab connector — Chrome MV3 extension. Streams tab/window state to the browser-tab daemon over a localhost WebSocket and executes true state-preserving tab moves (chrome.tabs.move). Load dist/ unpacked via chrome://extensions.",
+  "type": "module",
+  "scripts": {
+    "build": "vite build",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "clean": "rm -rf dist"
+  },
+  "dependencies": {
+    "@george43g/extension-core": "workspace:*"
+  },
+  "devDependencies": {
+    "@george43g/tsconfig": "workspace:*",
+    "@types/chrome": "^0.0.280",
+    "typescript": "^5.7.0",
+    "vite": "^6.3.6"
+  }
+}

@@ -12,7 +12,7 @@ apps/
 packages/
   robustness/     — env helpers, logger, watchdog, shutdown, with-timeout,
                     health, retry, rate-limit. ZERO domain knowledge.
-  mcp-kit/        — tool-registry, dispatcher, stdio + HTTP transports,
+  mcp-kit/        — tool-registry, dispatcher, stdio transport,
                     sanitize, prompt-injection helpers.
   cli-kit/        — commander program builder, tty/color/output helpers,
                     env↔CLI-flag binder, interactive REPL.
@@ -76,18 +76,9 @@ Three watchdog monitors fire on unref'd timers and self-kill the process via `sh
 
 External observers can sample the watchdog state by setting `MCP_WATCHDOG_STATE_PATH` — the watchdog writes a JSON snapshot per event-loop tick. The CI stress harness uses this.
 
-## Transport: stdio vs HTTP
+## Transport: stdio
 
-Both transports go through the same `Server` instance and dispatcher:
-
-```ts
-runMcpServer({ transport: "stdio" })  // default
-runMcpServer({ transport: "http" })   // requires MCP_HTTP_TOKEN
-```
-
-stdio is the right default for tools used locally by an MCP host. HTTP is for tools running as a remote service behind a reverse proxy (the bearer-token check is constant-time; bind defaults to 127.0.0.1; `/health` is open for probes).
-
-To remove HTTP entirely: delete `src/cli.ts`'s `http` subcommand, the `--http` branch in `src/index.ts`, and case #9 from `scripts/stress-mcp.ts`.
+The MCP server speaks stdio only — the right shape for a tool spawned locally by an MCP host. `runMcpServer()` wires the `Server` instance to `startStdio` from `@george43g/mcp-kit`.
 
 ## Optional Rust acceleration
 
@@ -104,7 +95,7 @@ Two complementary mechanisms:
 1. **Node-native `--env-file-if-exists`** in every package.json script. Loads in order: `.env`, `.env.local`, `.env.[mode]`, `.env.[mode].local`. Vite-style precedence — last write wins.
 2. **`@george43g/env-loader`** for tools that need to read env before spawning a subprocess (e.g., the dev MCP proxy).
 
-Every recognized env var is also accepted as a CLI flag via `@george43g/cli-kit/env-flag-binder`. `MCP_LOG_DIR` ↔ `--log-dir`, `MCP_HTTP_TOKEN` ↔ `--http-token`, etc.
+Every recognized env var is also accepted as a CLI flag via `@george43g/cli-kit/env-flag-binder`. `MCP_LOG_DIR` ↔ `--log-dir`, `MCP_DISABLE_NATIVE` ↔ `--disable-native`, etc.
 
 ## Secrets
 
@@ -117,6 +108,5 @@ Env-JSON is the CI / Docker / k8s primary path. 1Password is optional — gracef
 Each surface is independently deletable:
 
 - **No TUI**: delete `apps/browser-tab-mcp/src/tui/`, the `browser-tab-tui` bin entry in `package.json`, the `tui` subcommand from `src/cli.ts`, and the TUI entry from `vite.config.ts`. Optionally delete `packages/tui-kit` from `pnpm-workspace.yaml`.
-- **No HTTP**: delete the `http` subcommand from `src/cli.ts`, the `--http` branch from `src/index.ts`, case #9 from `scripts/stress-mcp.ts`, and `MCP_HTTP_TOKEN` from `.env.example`.
 - **No Rust**: delete `apps/rust-accel/`, `src/native-bridge.ts`, and the `tryLoadNative()` call in `src/tools/noop.ts`. Remove `MIRRORED_SCHEMAS` from `packages/shared-types/src/index.ts` and the drift-check test.
 - **No `get_logs`**: delete `src/tools/get-logs.ts` and remove it from `src/tools/registry.ts`.

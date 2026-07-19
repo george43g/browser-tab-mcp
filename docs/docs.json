@@ -25,7 +25,6 @@
             "group": "Internals",
             "pages": [
               "internals/architecture",
-              "internals/http-mode",
               "internals/rust-acceleration",
               "internals/tui-design",
               "internals/guardrails",

@@ -10,12 +10,28 @@
 
 import { makeRegistry, type ToolRegistry } from "@george43g/mcp-kit";
 import { envBool } from "@george43g/robustness";
+import { closeTabTool } from "./close-tab.js";
+import { daemonStatusTool } from "./daemon-status.js";
+import { focusTabTool } from "./focus-tab.js";
 import { getLogsTool } from "./get-logs.js";
 import { healthCheckTool } from "./health-check.js";
+import { listTabsTool } from "./list-tabs.js";
+import { moveTabTool } from "./move-tab.js";
 import { noopTool } from "./noop.js";
+import { openTabTool } from "./open-tab.js";
 
 export function makeAppRegistry(): ToolRegistry {
-  return makeRegistry([healthCheckTool, noopTool, getLogsTool]);
+  return makeRegistry([
+    healthCheckTool,
+    listTabsTool,
+    focusTabTool,
+    moveTabTool,
+    openTabTool,
+    closeTabTool,
+    daemonStatusTool,
+    noopTool,
+    getLogsTool,
+  ]);
 }
 
 export function devModeEnabled(): boolean {

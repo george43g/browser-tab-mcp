@@ -1,0 +1,12 @@
+{
+  "manifest_version": 3,
+  "name": "browser-tab connector",
+  "version": "0.1.0",
+  "description": "Streams tab/window state to the local browser-tab daemon and executes state-preserving tab commands.",
+  "permissions": ["tabs", "storage", "alarms"],
+  "background": {
+    "service_worker": "background.js",
+    "type": "module"
+  },
+  "options_page": "options.html"
+}

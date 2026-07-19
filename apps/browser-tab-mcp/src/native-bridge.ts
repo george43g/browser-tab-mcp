@@ -14,7 +14,7 @@
 import { createRequire } from "node:module";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
-import type { NoopInput, NoopOutput } from "@george43g/shared-types";
+import type { CgWindowInfo, NoopInput, NoopOutput } from "@george43g/shared-types";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
@@ -23,6 +23,8 @@ export interface NativeModule {
   noopAccel(input: NoopInput): Promise<NoopOutput>;
   /** Plain hello-world used by integration tests. */
   hello(name: string): string;
+  /** On-screen CG windows (id/pid/bounds/layer) for yabai correlation. */
+  listCgWindows(): CgWindowInfo[];
 }
 
 let _native: NativeModule | null | undefined;

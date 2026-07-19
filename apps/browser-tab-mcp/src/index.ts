@@ -1,5 +1,5 @@
 /**
- * MCP server entry — stdio by default, --http delegates to commands/http.ts.
+ * MCP server entry — stdio transport.
  *
  * This file is BOTH a library entry (exports `runMcpServer`, `callMcpTool`
  * for in-process consumers) AND a direct-invocation entry (the stress
@@ -12,7 +12,6 @@
  * INVARIANT: never console.log after the stdio transport opens. All output
  * goes through @george43g/robustness/logger.
  *
- * To remove HTTP support: see `src/commands/http.ts` (delete-this-file header).
  * To remove the dev-only get_logs tool: drop it from src/tools/registry.ts.
  */
 
@@ -26,18 +25,16 @@ import {
   ListToolsRequestSchema,
   ReadResourceRequestSchema,
 } from "@modelcontextprotocol/sdk/types.js";
-import { runHttpMcp } from "./commands/http.js";
 import { getDispatcher } from "./dispatcher.js";
 import { APP_NAME, APP_VERSION } from "./meta.js";
 import { makeResourcesProvider } from "./resources/registry.js";
 import { devModeEnabled, makeAppRegistry } from "./tools/registry.js";
 
-export async function runMcpServer(opts: { transport?: "stdio" | "http" } = {}): Promise<void> {
+export async function runMcpServer(): Promise<void> {
   // Brand the log directory so different tools' logs don't collide.
   const slug = APP_NAME.replace(/^@[^/]+\//, "");
   setLogFilePrefix(slug);
 
-  const transport = opts.transport ?? (process.argv.includes("--http") ? "http" : "stdio");
   const includeDevOnly = devModeEnabled();
   const registry = makeAppRegistry();
 
@@ -67,11 +64,7 @@ export async function runMcpServer(opts: { transport?: "stdio" | "http" } = {}):
     server.setRequestHandler(ReadResourceRequestSchema, onRead);
   }
 
-  if (transport === "http") {
-    await runHttpMcp({ server });
-  } else {
-    await startStdio({ server, entrypoint: APP_NAME });
-  }
+  await startStdio({ server, entrypoint: APP_NAME });
 }
 
 // Run when invoked directly (stress harness, manual node invocation).

@@ -8,7 +8,7 @@ The CLI is `browser-tab` — a single bin that dispatches to subcommands. Every 
 ## Subcommands
 
 ```
-browser-tab mcp [--http] [--port N] [--bind H]   run the MCP server
+browser-tab mcp                                   run the MCP server (stdio)
 browser-tab tui                                   launch the Ink TUI
 browser-tab doctor                                preflight checks
 browser-tab repl                                  interactive REPL
@@ -31,7 +31,6 @@ Every recognized env var is also accepted as a CLI flag (see `@george43g/cli-kit
 
 | Env | Flag | Purpose |
 |-----|------|---------|
-| `MCP_HTTP_TOKEN` | `--http-token` | Bearer token for HTTP transport |
 | `MCP_LOG_DIR` | `--log-dir` | Override default `$TMPDIR/browser-tab/` |
 | `MCP_DISABLE_NATIVE` | `--no-native` | Force TS fallback (skip Rust accel) |
 | `MCP_TOOL_TIMEOUT_DEFAULT_MS` | `--tool-timeout-ms` | Per-tool default timeout |

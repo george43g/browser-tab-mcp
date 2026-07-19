@@ -16,6 +16,13 @@ tokio = { version = "1", features = ["rt", "rt-multi-thread"] }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 
+# CGWindowList access for yabai window-id correlation. macOS-only so the
+# CI ubuntu matrix (and any non-mac contributor) still builds the crate;
+# the TS side gets an empty vec elsewhere.
+[target.'cfg(target_os = "macos")'.dependencies]
+core-foundation = "0.10"
+core-graphics = "0.24"
+
 [build-dependencies]
 napi-build = "2"
 

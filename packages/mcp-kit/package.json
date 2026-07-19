@@ -2,7 +2,7 @@
   "name": "@george43g/mcp-kit",
   "version": "0.0.0",
   "private": true,
-  "description": "MCP server building blocks: tool registry types, dispatcher with timeout/perf/abort/error-wrap baked in, stdio + Streamable HTTP transports, sanitize() for user content, UUID-gated prompt-injection helpers.",
+  "description": "MCP server building blocks: tool registry types, dispatcher with timeout/perf/abort/error-wrap baked in, stdio transport, sanitize() for user content, UUID-gated prompt-injection helpers.",
   "type": "module",
   "license": "MIT",
   "main": "./dist/index.js",
@@ -11,10 +11,6 @@
     ".": {
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js"
-    },
-    "./http": {
-      "types": "./dist/transports/http.d.ts",
-      "import": "./dist/transports/http.js"
     },
     "./stdio": {
       "types": "./dist/transports/stdio.d.ts",

@@ -24,3 +24,20 @@ pub struct NoopOutput {
     #[napi(js_name = "durationMicros")]
     pub duration_micros: u32,
 }
+
+/// One on-screen CoreGraphics window. windowId is the CGWindowID — the
+/// same id namespace yabai reports, which makes it the join key between
+/// browser windows and the window manager. No titles are read (that would
+/// require the Screen Recording TCC permission).
+#[napi(object)]
+pub struct CgWindowInfo {
+    #[napi(js_name = "windowId")]
+    pub window_id: u32,
+    #[napi(js_name = "ownerPid")]
+    pub owner_pid: i32,
+    pub x: f64,
+    pub y: f64,
+    pub w: f64,
+    pub h: f64,
+    pub layer: i32,
+}

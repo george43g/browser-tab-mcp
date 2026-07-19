@@ -22,6 +22,8 @@ beforeEach(() => {
 
 afterEach(() => {
   delete process.env.MCP_DISABLE_NATIVE;
+  delete process.env.BROWSER_TAB_FAKE_ADAPTER;
+  delete process.env.BROWSER_TAB_BROWSERS;
 });
 
 describe("registry", () => {
@@ -80,6 +82,67 @@ describe("noop", () => {
     process.env.MCP_DISABLE_NATIVE = "1";
     const r = await callMcpTool("noop", { input: "x" });
     expect((r.structuredContent as { engine: string }).engine).toBe("ts");
+  });
+});
+
+describe("list_tabs (fake adapter)", () => {
+  beforeEach(() => {
+    process.env.BROWSER_TAB_FAKE_ADAPTER = "1";
+    process.env.BROWSER_TAB_BROWSERS = "chrome,safari";
+  });
+
+  it("returns a schema-valid snapshot across enabled browsers", async () => {
+    const { SnapshotSchema } = await import("@george43g/shared-types");
+    const r = await callMcpTool("list_tabs", {});
+    expect(r.isError).toBeUndefined();
+    const snapshot = SnapshotSchema.parse(r.structuredContent);
+    expect(snapshot.source).toBe("osascript-direct");
+    expect(snapshot.browsers.map((b) => b.browser)).toEqual(["chrome", "safari"]);
+    const chrome = snapshot.browsers[0];
+    expect(chrome?.windows).toHaveLength(2);
+    expect(chrome?.windows[0]?.tabs[0]?.tabId).toMatch(/^t:chrome:\d+$/);
+    const safari = snapshot.browsers[1];
+    expect(safari?.windows[0]?.tabs[0]?.tabId).toMatch(/^t:safari:w\d+:i\d+$/);
+  });
+
+  it("sanitizes ANSI escapes out of tab titles", async () => {
+    const r = await callMcpTool("list_tabs", { browser: "chrome" });
+    const text = JSON.stringify(r.structuredContent);
+    expect(text).toContain("Hacker News");
+    expect(text).not.toContain("\\u001b");
+  });
+
+  it("filters by browser", async () => {
+    const r = await callMcpTool("list_tabs", { browser: "safari" });
+    const sc = r.structuredContent as { browsers: { browser: string }[] };
+    expect(sc.browsers.map((b) => b.browser)).toEqual(["safari"]);
+  });
+
+  it("filters tabs by urlFilter and drops empty windows", async () => {
+    const r = await callMcpTool("list_tabs", { browser: "chrome", urlFilter: "github.com" });
+    const sc = r.structuredContent as {
+      browsers: { windows: { tabs: { url: string }[] }[] }[];
+    };
+    const windows = sc.browsers[0]?.windows ?? [];
+    expect(windows).toHaveLength(1);
+    expect(windows[0]?.tabs.every((t) => t.url.includes("github.com"))).toBe(true);
+  });
+
+  it("filters by windowId", async () => {
+    const all = await callMcpTool("list_tabs", { browser: "chrome" });
+    const first = (all.structuredContent as { browsers: { windows: { windowId: string }[] }[] })
+      .browsers[0]?.windows[0]?.windowId;
+    expect(first).toBeTruthy();
+    const r = await callMcpTool("list_tabs", { browser: "chrome", windowId: first });
+    const sc = r.structuredContent as { browsers: { windows: { windowId: string }[] }[] };
+    expect(sc.browsers[0]?.windows).toHaveLength(1);
+    expect(sc.browsers[0]?.windows[0]?.windowId).toBe(first);
+  });
+
+  it("rejects an invalid browser value via schema", async () => {
+    const r = await callMcpTool("list_tabs", { browser: "netscape" });
+    expect(r.isError).toBe(true);
+    expect(r.content[0]?.text).toMatch(/Invalid arguments/);
   });
 });
 

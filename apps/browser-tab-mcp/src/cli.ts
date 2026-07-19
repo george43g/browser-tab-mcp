@@ -2,22 +2,20 @@
  * browser-tab — the single bin. Commander dispatch over subcommands.
  *
  * Subcommands:
- *   mcp [--http]        Run the MCP server (stdio default; --http via Streamable HTTP)
+ *   mcp                 Run the MCP server (stdio)
  *   tui                 Launch the Ink TUI
  *   doctor              Run preflight checks
  *   health              Print a health snapshot (calls health_check in-process)
  *   noop --input ...    Demo: call the noop tool in-process
  *   repl                Drop into an interactive REPL driving the dispatcher
  *
- * To remove HTTP support: delete `src/commands/http.ts` and the
- *   `registerHttpCommand(program)` call below.
  * To remove TUI support: delete the `tui` subcommand below + `src/tui/`.
  */
 
 import { color, isInteractive } from "@george43g/cli-kit";
 import { Command } from "commander";
 import { checkLocalAccess, formatAccessReport } from "./access-check.js";
-import { applyHttpEnvFromOpts, registerHttpCommand } from "./commands/http.js";
+import { registerDaemonCommand } from "./commands/daemon.js";
 import { callMcpTool } from "./dispatcher.js";
 import { runMcpServer } from "./index.js";
 import { APP_NAME, APP_VERSION } from "./meta.js";
@@ -45,19 +43,12 @@ export async function main(argv: readonly string[] = process.argv): Promise<void
     .option("-v, --verbose", "Log debug-level info to stderr")
     .option("--no-color", "Disable colors");
 
-  const mcpCmd = program
+  program
     .command("mcp")
-    .description("Run the MCP server (stdio by default; --http for Streamable HTTP)")
-    .action(async (opts: { http?: boolean; port?: string; bind?: string }) => {
-      if (opts.http) {
-        applyHttpEnvFromOpts(opts);
-        await runMcpServer({ transport: "http" });
-      } else {
-        await runMcpServer({ transport: "stdio" });
-      }
+    .description("Run the MCP server (stdio)")
+    .action(async () => {
+      await runMcpServer();
     });
-  // HTTP wiring lives in commands/http.ts — delete that file to drop HTTP support.
-  registerHttpCommand(mcpCmd);
 
   program
     .command("tui")
@@ -90,6 +81,85 @@ export async function main(argv: readonly string[] = process.argv): Promise<void
       const result = await callMcpTool("health_check", {});
       await printResult(result, json);
     });
+
+  program
+    .command("list")
+    .description("List open browser windows and tabs (Chrome/Brave/Chromium/Safari)")
+    .option("--browser <name>", "Restrict to one browser: chrome|chromium|brave|safari")
+    .option("--window <id>", "Restrict to one window (opaque windowId from a previous list)")
+    .option("--url <substring>", "Filter tabs by URL substring (drops non-matching windows)")
+    .action(async (opts: { browser?: string; window?: string; url?: string }) => {
+      const json = program.opts<{ json?: boolean }>().json ?? false;
+      const result = await callMcpTool("list_tabs", {
+        ...(opts.browser ? { browser: opts.browser } : {}),
+        ...(opts.window ? { windowId: opts.window } : {}),
+        ...(opts.url ? { urlFilter: opts.url } : {}),
+      });
+      await printResult(result, json);
+    });
+
+  program
+    .command("focus")
+    .description("Focus a tab and raise its window")
+    .argument("<tabId>", "Opaque tabId from `browser-tab list`")
+    .action(async (tabId: string) => {
+      const json = program.opts<{ json?: boolean }>().json ?? false;
+      await printResult(await callMcpTool("focus_tab", { tabId }), json);
+    });
+
+  program
+    .command("close")
+    .description("Close a tab")
+    .argument("<tabId>", "Opaque tabId from `browser-tab list`")
+    .action(async (tabId: string) => {
+      const json = program.opts<{ json?: boolean }>().json ?? false;
+      await printResult(await callMcpTool("close_tab", { tabId }), json);
+    });
+
+  program
+    .command("open")
+    .description("Open an http(s) URL in a new tab")
+    .argument("<url>", "URL to open")
+    .option("--browser <name>", "chrome|chromium|brave|safari")
+    .option("--window <id>", "Open in a specific window (opaque windowId)")
+    .option("--no-activate", "Open in the background")
+    .action(async (url: string, opts: { browser?: string; window?: string; activate: boolean }) => {
+      const json = program.opts<{ json?: boolean }>().json ?? false;
+      const result = await callMcpTool("open_tab", {
+        url,
+        activate: opts.activate,
+        ...(opts.browser ? { browser: opts.browser } : {}),
+        ...(opts.window ? { windowId: opts.window } : {}),
+      });
+      await printResult(result, json);
+    });
+
+  program
+    .command("move")
+    .description("Move a tab to another window (true moves need daemon + extension)")
+    .argument("<tabId>", "Opaque tabId from `browser-tab list`")
+    .option("--target-window <id>", "Destination windowId")
+    .option("--index <n>", "0-based destination position")
+    .option("--new-window", "Move into a newly created window", false)
+    .option("--allow-reload", "Safari: accept the reload-based AppleScript move", false)
+    .action(
+      async (
+        tabId: string,
+        opts: { targetWindow?: string; index?: string; newWindow: boolean; allowReload: boolean },
+      ) => {
+        const json = program.opts<{ json?: boolean }>().json ?? false;
+        const result = await callMcpTool("move_tab", {
+          tabId,
+          newWindow: opts.newWindow,
+          allowReload: opts.allowReload,
+          ...(opts.targetWindow ? { targetWindowId: opts.targetWindow } : {}),
+          ...(opts.index !== undefined ? { targetIndex: Number.parseInt(opts.index, 10) } : {}),
+        });
+        await printResult(result, json);
+      },
+    );
+
+  registerDaemonCommand(program);
 
   program
     .command("noop")
@@ -129,6 +199,12 @@ export async function main(argv: readonly string[] = process.argv): Promise<void
             tool: "health_check",
             help: "Print server health snapshot",
             buildArgs: () => ({}),
+          },
+          {
+            command: "list",
+            tool: "list_tabs",
+            help: "list [browser] — list open browser windows/tabs",
+            buildArgs: (a) => (a[0] ? { browser: a[0] } : {}),
           },
           {
             command: "noop",

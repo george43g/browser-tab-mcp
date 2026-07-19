@@ -8,15 +8,15 @@ MCP server + CLI + TUI, cloned from `mcp-cli-starter-template`.
 pnpm install
 pnpm build           # compile TS + (optional) Rust accelerator
 pnpm test            # run unit + integration tests
-pnpm stress          # 9-case robustness harness
+pnpm stress          # 8-case robustness harness
 ```
 
 ## Bins
 
 | Bin | Purpose | Default transport |
 |-----|---------|-------------------|
-| `browser-tab-mcp` | MCP server | stdio (`--http` for Streamable HTTP) |
-| `browser-tab-cli` | Commander CLI: `mcp`, `http`, `tui`, `doctor`, `health`, `noop`, `cli` (REPL) | n/a (in-process dispatch) |
+| `browser-tab-mcp` | MCP server | stdio |
+| `browser-tab-cli` | Commander CLI: `mcp`, `tui`, `doctor`, `health`, `noop`, `cli` (REPL) | n/a (in-process dispatch) |
 | `browser-tab-tui` | Ink TUI | n/a |
 
 ## Adding a tool
@@ -31,7 +31,6 @@ The dispatcher already wires `withTimeout`, `perf` spans, abort propagation, str
 
 ## Removing surfaces
 
-- **Drop HTTP support**: delete the `http` subcommand from `src/cli.ts`, the `--http` branch from `src/index.ts`, and case #9 from `scripts/stress-mcp.ts`. Remove `MCP_HTTP_TOKEN` from `.env.example`.
 - **Drop TUI support**: delete `src/tui/`, the `tui` subcommand from `src/cli.ts`, the `browser-tab-tui` bin entry from `package.json`, and the TUI entry from `vite.config.ts` `lib.entry`.
 - **Drop Rust acceleration**: delete `apps/rust-accel/`, the `src/native-bridge.ts` file, and the `tryLoadNative()` call in `src/tools/noop.ts`.
 - **Drop `get_logs`**: delete `src/tools/get-logs.ts` and remove it from the registry.

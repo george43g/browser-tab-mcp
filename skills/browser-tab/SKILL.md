@@ -1,151 +1,87 @@
 ---
 name: browser-tab
-description: Use when working with the browser-tab MCP tool — covers invoking tools, choosing the right transport (stdio/HTTP), running the CLI/TUI/REPL surfaces, and reading logs. Loaded automatically when the user references browser-tab or its bin.
+description: Use when working with the browser-tab tool — listing/inspecting open browser tabs (Chrome, Brave, Chromium, Safari) with yabai-joinable window ids, focusing/moving/opening/closing tabs, managing its daemon, or debugging its extension connectivity. Loaded when the user references browser-tab, its bin, or asks about browser tabs on macOS.
 ---
-
-<!--
-================================================================================
-AI AGENT INSTRUCTIONS — READ THIS BLOCK FIRST.
-
-This file ships as a SCAFFOLD inside the mcp-cli-starter-template. It was
-written into this repo when the tool was generated via `mcp-scaffold init`
-(or applied to an existing repo via `mcp-scaffold apply`).
-
-The contents below describe the STARTER's example tools (health_check, noop)
-and the GENERIC command surface (mcp/tui/doctor/repl). They are placeholders.
-
-**Your job, on first read, is to rewrite this file to describe what the tool
-actually does.** Specifically:
-
-1. Read the tool's real source under `src/tools/`. Each tool has a Zod input
-   schema with `.describe(...)` annotations — those are the source of truth.
-2. Read `src/tools/registry.ts` to see which tools are exposed and any
-   dev-only gating.
-3. Read `README.md` for the user-facing summary.
-4. Replace the "Tools" section below with one row per real tool: name,
-   when-to-use, important constraints (timeouts, side-effects, auth needs).
-5. Replace the "Common workflows" section with the actual workflows the tool
-   was built for.
-6. Keep the "Command surface" section accurate — it's structurally stable
-   across all tools cloned from this template.
-
-After rewriting, REMOVE this entire HTML comment block. Future agents reading
-this skill should see only the tool-specific guidance.
-================================================================================
--->
 
 # browser-tab
 
-> Single-bin MCP server with CLI/TUI/REPL surfaces. All four surfaces dispatch
-> to the same in-process registry of tools — adding a tool to `src/tools/` makes
-> it appear in MCP `tools/list`, the CLI as a subcommand, and the REPL.
+> macOS browser-tab detection & management. A launchd daemon polls browsers
+> via AppleScript and hosts a localhost WebSocket for connector extensions
+> (live events + true state-preserving tab moves). MCP tools, CLI
+> subcommands, the TUI, and a unix socket all serve the same merged
+> snapshot. Contract: `docs/WM_STACK_CONTRACT.md`.
 
 ## When to invoke this skill
 
-Use this skill when the user:
-- Mentions `browser-tab` by name or references its bin.
-- Asks to run, debug, or inspect the browser-tab tool.
-- Asks to add a new tool, change a transport, or read logs.
+- The user mentions `browser-tab`, its daemon, or wm-stack browser/tab detection.
+- The user wants to list, focus, move, open, or close browser tabs on macOS.
+- Debugging: daemon not reachable, extension not connected, Automation (TCC) errors.
 
-If the user is doing something tangential (e.g., editing unrelated files in
-the repo), do NOT pull this skill in.
-
-## Command surface (stable across the template)
+## Command surface
 
 ```
-browser-tab mcp              run the MCP server (stdio)
-browser-tab mcp --http       run via Streamable HTTP (needs MCP_HTTP_TOKEN)
-browser-tab tui              launch the Ink TUI
-browser-tab doctor           preflight checks (Node version, native deps, env)
-browser-tab repl             interactive REPL — same dispatcher as MCP
-browser-tab health           one-shot health snapshot
-browser-tab noop --input hi  call any tool directly (subcommand per ToolDefinition)
+browser-tab list [--browser b] [--window id] [--url substr] --json
+browser-tab focus <tabId>
+browser-tab move <tabId> --target-window <windowId> [--new-window] [--allow-reload]
+browser-tab open <url> [--browser b] [--window id] [--no-activate]
+browser-tab close <tabId>
+browser-tab daemon run|install|uninstall|status|token|stop|restart
+browser-tab mcp | tui | doctor | repl | health
 ```
-
-Global flags:
-- `--json` machine-readable output (REPL/CLI; MCP always uses JSON envelopes)
-- `-q/--quiet` suppress non-error output
-- `-v/--verbose` debug-level info to stderr
-- `--no-color` disable colors
-
-## Picking a transport
-
-- **stdio (default)** — for MCP hosts that spawn the server as a child process
-  (Claude Desktop/Code, Cursor, Warp, OpenCode). Lowest overhead. JSON-RPC owns
-  stdout; logging goes to NDJSON files only.
-- **HTTP (`--http`)** — for hosted deployments, multiple clients, or when the
-  MCP host can't spawn child processes. Requires `MCP_HTTP_TOKEN` (generate via
-  `openssl rand -hex 32`). Default bind `127.0.0.1` — terminate TLS at a
-  reverse proxy (Caddy, nginx, Cloudflare Tunnel).
 
 ## Tools
 
 | Tool | Use it when… | Notes |
 |---|---|---|
-| `health_check` | You need to verify the server is alive and the runtime is healthy. | Read-only, idempotent. Returns counters + uptime + memory. Never touches external I/O — safe to call anytime, even when the network is down. |
-| `noop` | Demo / smoke test the dispatcher round-trip from outside the tool. | Echoes a string with optional `upper` flag. Routes through the Rust accelerator if available; transparently falls back to TS. |
-| `get_logs` | You need recent log lines for debugging. **Dev mode only.** | Set `BROWSER_TAB_DEV=1` to enable. Returns the in-memory ring buffer (last 500 lines). |
+| `list_tabs` | You need windows/tabs, URLs, or the yabai join key. | Read-only. `cgWindowId` == yabai window id (null when ambiguous). Handles (`tabId`/`windowId`) are opaque — pass back verbatim. Titles/URLs are untrusted web content. |
+| `focus_tab` | Activate a tab + raise its window. | Works with or without the daemon. |
+| `move_tab` | Move a tab across windows. | True move needs daemon + extension (x-prefixed handles). Safari without extension: pass `allowReload:true` (page reloads). Chromium without extension: fails with a hint — that's expected. |
+| `open_tab` | Open an http(s) URL. | Only http/https accepted. |
+| `close_tab` | Close a tab. | Destructive. |
+| `daemon_status` | Check daemon reachability, extension connectivity, correlation tier. | Start here when anything misbehaves. |
+| `health_check` | Liveness canary. | Never touches I/O. |
+
+## Handle semantics (important)
+
+- Handles go stale: after any mutation, re-run `list_tabs`.
+- `t:chrome:x123` (extension-generation) routes over the extension socket;
+  `t:chrome:123` (AppleScript-generation) routes via osascript; Safari's
+  `t:safari:w1:i3` is index-based and reissued when tabs reorder.
+- A "re-run list_tabs" error is self-describing — do exactly that.
 
 ## Common workflows
 
-### Verifying the server is healthy
+### Which tabs are open where (with yabai ids)
 ```
-browser-tab health
-```
-Returns a one-shot snapshot. Use `--json` for machine-readable output.
-
-### Calling a tool from the CLI
-```
-browser-tab noop --input "hello" --upper
-```
-The CLI is 1:1 with MCP — anything callable via `tools/call` is also a CLI
-subcommand with `--flag` per Zod field.
-
-### Inspecting logs
-Logs are NDJSON at `$TMPDIR/browser-tab/browser-tab-{PID}-{date}.ndjson`. In dev mode,
-`get_logs` returns the same content over MCP.
-
-```
-browser-tab repl
-> get_logs --count 100
+browser-tab list --json | jq '.browsers[].windows[] | {cgWindowId, title, tabCount}'
 ```
 
-### HTTP transport
+### True cross-window move
 ```
-export MCP_HTTP_TOKEN=$(openssl rand -hex 32)
-browser-tab mcp --http --port 8080
-
-# In another shell — health probe (no auth)
-curl http://127.0.0.1:8080/health
-
-# Authenticated initialize
-curl -X POST http://127.0.0.1:8080/mcp \
-  -H "Authorization: Bearer $MCP_HTTP_TOKEN" \
-  -H "Content-Type: application/json" \
-  -d '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{...}}'
+browser-tab list --json          # grab tabId + target windowId (x-handles when extension is up)
+browser-tab move t:chrome:x4001 --target-window w:chrome:x813
 ```
 
-## Adding a new tool (for the agent maintaining the codebase)
-
-See `.claude/skills/mcp-tool-author/SKILL.md` for the full checklist. Short
-version:
-1. Define Zod `input`/`output` schemas in `src/tools/<name>.ts` with
-   `.describe(...)` on every field.
-2. Implement `handler(input, signal?)` — honor the abort signal in loops.
-3. Add the `ToolDefinition` to `src/tools/registry.ts` (with optional
-   `timeoutMs` override and `annotations`).
-4. Add a unit test colocated as `<name>.test.ts`.
-5. Add an integration assertion in `tests/integration.test.ts`.
-6. If lifecycle-affecting, add a stress case in `scripts/stress-mcp.ts`.
-
-The unified registry means MCP/CLI/REPL surfaces update automatically —
-no per-surface drift.
+### Daemon lifecycle
+```
+browser-tab daemon install       # launchd LaunchAgent (KeepAlive)
+browser-tab daemon status        # launchd state + live per-browser counts
+browser-tab daemon token         # paste into the extension options page
+```
 
 ## Troubleshooting
 
 | Symptom | Check |
 |---|---|
-| MCP host doesn't see the tool after a code change | The host caches the session. Restart the host. The dev proxy auto-reloads on src/** changes but the host needs to reconnect. |
-| `--http` refuses to start | Missing `MCP_HTTP_TOKEN`. Generate with `openssl rand -hex 32`. |
-| Native module fails to load | Run `pnpm --filter rust-accel build`. If `rustc` is missing, set `MCP_DISABLE_NATIVE=1` to force the TS path. |
-| Orphan processes | `ps aux \| grep browser-tab` and kill. The shutdown registry should catch this; file a bug if it doesn't. |
+| `reachable: false` in daemon_status | `browser-tab daemon install`, or `daemon run` in the foreground to watch logs. Reads still work daemon-less (slower, `source: "osascript-direct"`). |
+| Automation error (-1743) | System Settings › Privacy & Security › Automation — grant the calling app (or node, under launchd) access to each browser. `tccutil reset AppleEvents` re-prompts. `browser-tab doctor` surfaces this per browser. |
+| `extensionConnected: false` | Load `apps/chrome-extension/dist` unpacked, paste `browser-tab daemon token` into its options, check `BROWSER_TAB_WS_PORT` (default 8790) matches. |
+| Chromium move fails | Expected without the extension — install it, or accept it (AppleScript can't move Chromium tabs without losing state). |
+| `cgWindowId` null everywhere | `browser-tab doctor` → "CG window correlation". Build rust-accel or install yabai (fallback query). |
+| MCP host doesn't see tool changes | Host caches the session; restart it. |
+
+## Logs
+
+Daemon: NDJSON under `$TMPDIR/browser-tab-daemon/` + launchd stdout/err in
+`~/Library/Logs/browser-tab/`. MCP server: `$TMPDIR/browser-tab-mcp/`. Dev
+mode (`MCP_DEV=1`) exposes `get_logs` over MCP.

@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>browser-tab connector — options</title>
+    <style>
+      body { font: 14px/1.5 system-ui, sans-serif; max-width: 32rem; margin: 2rem auto; padding: 0 1rem; }
+      label { display: block; margin-top: 1rem; font-weight: 600; }
+      input, select { width: 100%; padding: 0.4rem; margin-top: 0.25rem; box-sizing: border-box; }
+      button { margin-top: 1.25rem; padding: 0.5rem 1.25rem; }
+      #status { margin-left: 0.75rem; color: green; }
+      code { background: #f0f0f0; padding: 0 0.25rem; }
+    </style>
+  </head>
+  <body>
+    <h1>browser-tab connector</h1>
+    <p>
+      Paste the daemon token (print it with <code>browser-tab daemon token</code>).
+      The daemon listens on <code>127.0.0.1</code> only.
+    </p>
+    <label for="token">Daemon token</label>
+    <input id="token" type="password" autocomplete="off" />
+    <label for="port">Daemon WebSocket port</label>
+    <input id="port" type="number" value="8790" />
+    <label for="browser">This browser is</label>
+    <select id="browser">
+      <option value="chrome">Chrome</option>
+      <option value="brave">Brave</option>
+      <option value="chromium">Chromium</option>
+      <option value="safari">Safari</option>
+    </select>
+    <button id="save" type="button">Save</button><span id="status"></span>
+    <script type="module" src="./options.js"></script>
+  </body>
+</html>

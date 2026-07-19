@@ -19,7 +19,7 @@ mod types;
 use napi::Error;
 use napi_derive::napi;
 use std::time::Instant;
-use types::{NoopInput, NoopOutput};
+use types::{CgWindowInfo, NoopInput, NoopOutput};
 
 /// Plain hello-world for integration tests.
 #[napi]
@@ -45,6 +45,99 @@ pub fn noop_accel(input: NoopInput) -> Result<NoopOutput, Error> {
         engine: "rust".to_string(),
         duration_micros,
     })
+}
+
+/// Enumerate on-screen CoreGraphics windows: CGWindowID, owner pid,
+/// bounds, layer. CGWindowIDs are the same namespace yabai window ids
+/// live in, so this is the correlation source for `cgWindowId`.
+///
+/// Deliberately does NOT read kCGWindowName — window titles require the
+/// Screen Recording TCC permission; ids/pids/bounds do not.
+#[napi]
+pub fn list_cg_windows() -> Vec<CgWindowInfo> {
+    list_cg_windows_impl()
+}
+
+#[cfg(target_os = "macos")]
+fn list_cg_windows_impl() -> Vec<CgWindowInfo> {
+    use core_foundation::array::CFArray;
+    use core_foundation::base::{CFType, TCFType};
+    use core_foundation::dictionary::CFDictionary;
+    use core_foundation::number::CFNumber;
+    use core_foundation::string::CFString;
+    use core_graphics::window::{
+        kCGNullWindowID, kCGWindowListExcludeDesktopElements, kCGWindowListOptionAll,
+        CGWindowListCopyWindowInfo,
+    };
+
+    // kCGWindowListOptionAll (not OnScreenOnly): browser windows living on
+    // other Spaces/displays must still correlate — OnScreenOnly hides them.
+    let raw = unsafe {
+        CGWindowListCopyWindowInfo(
+            kCGWindowListOptionAll | kCGWindowListExcludeDesktopElements,
+            kCGNullWindowID,
+        )
+    };
+    if raw.is_null() {
+        return Vec::new();
+    }
+    let entries: CFArray<CFDictionary<CFString, CFType>> =
+        unsafe { CFArray::wrap_under_create_rule(raw) };
+
+    // The CGWindow dictionary keys are CFStrings whose contents equal the
+    // constant names ("kCGWindowNumber", ...) — documented, stable API.
+    let key_number = CFString::from_static_string("kCGWindowNumber");
+    let key_pid = CFString::from_static_string("kCGWindowOwnerPID");
+    let key_layer = CFString::from_static_string("kCGWindowLayer");
+    let key_bounds = CFString::from_static_string("kCGWindowBounds");
+    let key_x = CFString::from_static_string("X");
+    let key_y = CFString::from_static_string("Y");
+    let key_w = CFString::from_static_string("Width");
+    let key_h = CFString::from_static_string("Height");
+
+    let num = |dict: &CFDictionary<CFString, CFType>, key: &CFString| -> Option<f64> {
+        dict.find(key)
+            .and_then(|v| v.downcast::<CFNumber>())
+            .and_then(|n| n.to_f64())
+    };
+
+    let mut out = Vec::new();
+    for dict in entries.iter() {
+        let (Some(window_id), Some(owner_pid)) = (num(&dict, &key_number), num(&dict, &key_pid))
+        else {
+            continue;
+        };
+        let layer = num(&dict, &key_layer).unwrap_or(0.0);
+        let bounds = dict
+            .find(&key_bounds)
+            .and_then(|v| v.downcast::<CFDictionary>())
+            .map(|b| {
+                let b: CFDictionary<CFString, CFType> =
+                    unsafe { CFDictionary::wrap_under_get_rule(b.as_concrete_TypeRef()) };
+                (
+                    num(&b, &key_x).unwrap_or(0.0),
+                    num(&b, &key_y).unwrap_or(0.0),
+                    num(&b, &key_w).unwrap_or(0.0),
+                    num(&b, &key_h).unwrap_or(0.0),
+                )
+            })
+            .unwrap_or((0.0, 0.0, 0.0, 0.0));
+        out.push(CgWindowInfo {
+            window_id: window_id as u32,
+            owner_pid: owner_pid as i32,
+            x: bounds.0,
+            y: bounds.1,
+            w: bounds.2,
+            h: bounds.3,
+            layer: layer as i32,
+        });
+    }
+    out
+}
+
+#[cfg(not(target_os = "macos"))]
+fn list_cg_windows_impl() -> Vec<CgWindowInfo> {
+    Vec::new()
 }
 
 #[cfg(test)]
