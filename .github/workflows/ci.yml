@@ -72,7 +72,7 @@ jobs:
       - name: Verify npm tarball is publishable
         run: pnpm --filter "@george43g/*-mcp" exec npm pack --dry-run
 
-      - name: Stress harness (11 cases including HTTP)
+      - name: Stress harness (10 cases · daemon + dispatch lifecycle)
         run: pnpm --filter "@george43g/*-mcp" stress
       - name: Upload stress report
         if: always()

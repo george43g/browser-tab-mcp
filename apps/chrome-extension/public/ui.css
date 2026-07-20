@@ -1,0 +1,291 @@
+/* browser-tab connector — WM Stack instrument-panel theme.
+   Tokens inlined from wm-stack/design-system (dark-blue default). No remote
+   font import: extension-page CSP blocks it, so we use the system mono stack
+   from the design system's own fallback chain. */
+
+:root {
+  --bg-deep: #0f1218;
+  --bg: rgba(15, 18, 24, 0.96);
+  --bg-panel: rgba(255, 255, 255, 0.05);
+  --bg-panel-hot: rgba(255, 255, 255, 0.08);
+  --bg-sunken: rgba(0, 0, 0, 0.28);
+  --bg-gradient: radial-gradient(
+    680px 340px at 50% -8%,
+    rgba(110, 168, 254, 0.18),
+    transparent 60%
+  );
+
+  --border: rgba(255, 255, 255, 0.18);
+  --rule: rgba(255, 255, 255, 0.08);
+  --panel-border: rgba(255, 255, 255, 0.1);
+
+  --text: rgba(255, 255, 255, 0.95);
+  --text-dim: rgba(255, 255, 255, 0.64);
+  --text-faint: rgba(255, 255, 255, 0.45);
+
+  --accent: #6ea8fe;
+  --accent-soft: rgba(110, 168, 254, 0.15);
+  --accent-border: rgba(110, 168, 254, 0.3);
+
+  --ok: #7ee09a;
+  --warn: #fabd2f;
+  --bad: #ff6b6b;
+  --muted: #9ca3af;
+
+  --font-mono: ui-monospace, "SF Mono", SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  --radius-sm: 6px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+  --ease: cubic-bezier(0.2, 0, 0, 1);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  color: var(--text);
+  background: var(--bg-gradient), var(--bg-deep);
+  font-family: var(--font-mono);
+  font-size: 12px;
+  line-height: 1.4;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* ---- header: /// mark + wordmark + version badge ---- */
+.wm-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 14px 16px 10px;
+}
+.wm-mark {
+  width: 22px;
+  height: 22px;
+  color: var(--accent);
+  flex: none;
+}
+.wm-word {
+  font-weight: 800;
+  font-size: 12px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+}
+.wm-word b {
+  color: var(--accent);
+  font-weight: 800;
+}
+.wm-badge {
+  margin-left: auto;
+  font-size: 9px;
+  letter-spacing: 0.08em;
+  color: var(--text-faint);
+  border: 1px solid var(--panel-border);
+  border-radius: var(--radius-pill, 999px);
+  padding: 2px 7px;
+  text-transform: uppercase;
+}
+
+/* ---- panels ---- */
+.wm-panel {
+  margin: 0 16px 12px;
+  padding: 12px 13px;
+  background: var(--bg-panel);
+  border: 1px solid var(--panel-border);
+  border-radius: var(--radius-lg);
+}
+.wm-eyebrow {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.9px;
+  text-transform: uppercase;
+  color: var(--text-dim);
+  margin: 0 0 8px;
+}
+
+/* ---- status line: dot + word + detail ---- */
+.wm-status {
+  display: flex;
+  align-items: baseline;
+  gap: 9px;
+}
+.wm-dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 999px;
+  flex: none;
+  align-self: center;
+  background: var(--muted);
+  box-shadow: 0 0 0 0 transparent;
+}
+.wm-dot.ok {
+  background: var(--ok);
+  animation: wm-pulse 1.6s ease-in-out infinite;
+}
+.wm-dot.warn {
+  background: var(--warn);
+  animation: wm-pulse 1.6s ease-in-out infinite;
+}
+.wm-dot.bad {
+  background: var(--bad);
+}
+.wm-dot.muted {
+  background: var(--muted);
+}
+@keyframes wm-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.4;
+  }
+}
+.wm-word-status {
+  font-weight: 700;
+  font-size: 13px;
+}
+.wm-detail {
+  margin-left: auto;
+  color: var(--text-faint);
+  font-size: 11px;
+  text-align: right;
+}
+
+/* ---- stats grid ---- */
+.wm-stats {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1px;
+  margin-top: 2px;
+  background: var(--rule);
+  border: 1px solid var(--rule);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+}
+.wm-stat {
+  background: var(--bg-deep);
+  padding: 9px 11px;
+}
+.wm-stat .k {
+  font-size: 9px;
+  letter-spacing: 0.7px;
+  text-transform: uppercase;
+  color: var(--text-faint);
+}
+.wm-stat .v {
+  font-size: 15px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: var(--text);
+  margin-top: 2px;
+}
+.wm-stat .v small {
+  font-size: 10px;
+  font-weight: 500;
+  color: var(--text-faint);
+}
+
+/* ---- error strip ---- */
+.wm-err {
+  margin: 0 16px 12px;
+  padding: 9px 11px;
+  font-size: 11px;
+  color: var(--bad);
+  background: rgba(255, 107, 107, 0.08);
+  border: 1px solid rgba(255, 107, 107, 0.28);
+  border-radius: var(--radius-md);
+  word-break: break-word;
+}
+.wm-err.hidden {
+  display: none;
+}
+
+/* ---- form fields (options) ---- */
+.wm-field {
+  margin-bottom: 11px;
+}
+.wm-field label {
+  display: block;
+  font-size: 10px;
+  letter-spacing: 0.7px;
+  text-transform: uppercase;
+  color: var(--text-dim);
+  margin-bottom: 5px;
+}
+.wm-field input,
+.wm-field select {
+  width: 100%;
+  font-family: var(--font-mono);
+  font-size: 13px;
+  color: var(--text);
+  background: var(--bg-sunken);
+  border: 1px solid var(--panel-border);
+  border-radius: var(--radius-md);
+  padding: 8px 10px;
+  outline: none;
+  transition:
+    box-shadow 120ms var(--ease),
+    border-color 120ms var(--ease);
+}
+.wm-field input:focus,
+.wm-field select:focus {
+  border-color: var(--accent-border);
+  box-shadow: inset 2px 0 0 0 var(--accent);
+}
+
+/* ---- buttons ---- */
+.wm-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 0 16px 16px;
+}
+.wm-btn {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.3px;
+  color: var(--text);
+  background: var(--bg-panel);
+  border: 1px solid var(--panel-border);
+  border-radius: var(--radius-md);
+  padding: 8px 14px;
+  cursor: pointer;
+  transition:
+    border-color 120ms var(--ease),
+    background 120ms var(--ease);
+}
+.wm-btn:hover {
+  background: var(--bg-panel-hot);
+  border-color: var(--accent-border);
+}
+.wm-btn.primary {
+  color: var(--accent);
+  background: var(--accent-soft);
+  border-color: var(--accent-border);
+}
+.wm-note {
+  color: var(--ok);
+  font-size: 11px;
+  min-height: 14px;
+}
+.wm-foot {
+  padding: 0 16px 14px;
+  color: var(--text-faint);
+  font-size: 10px;
+  line-height: 1.5;
+}
+.wm-link {
+  color: var(--accent);
+  cursor: pointer;
+  text-decoration: none;
+  background: none;
+  border: none;
+  font: inherit;
+  padding: 0;
+}
+.wm-link:hover {
+  text-decoration: underline;
+}

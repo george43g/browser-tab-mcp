@@ -3,13 +3,11 @@
   <head>
     <meta charset="utf-8" />
     <meta name="color-scheme" content="dark" />
-    <title>browser-tab connector — settings</title>
+    <title>browser-tab</title>
     <link rel="stylesheet" href="./ui.css" />
     <style>
       body {
-        width: 420px;
-        max-width: 100%;
-        margin: 0 auto;
+        width: 320px;
       }
     </style>
   </head>
@@ -22,7 +20,7 @@
           <line x1="302" y1="372" x2="366" y2="140" stroke-width="46" />
         </g>
       </svg>
-      <span class="wm-word">browser<b>-tab</b> connector</span>
+      <span class="wm-word">browser<b>-tab</b></span>
       <span class="wm-badge" id="st-version">v—</span>
     </header>
 
@@ -33,7 +31,11 @@
         <span class="wm-word-status" id="st-word">…</span>
         <span class="wm-detail" id="st-detail"></span>
       </div>
-      <div class="wm-stats" style="margin-top: 10px">
+    </section>
+
+    <section class="wm-panel">
+      <div class="wm-eyebrow">Live tabs</div>
+      <div class="wm-stats">
         <div class="wm-stat"><div class="k">windows</div><div class="v" id="st-windows">—</div></div>
         <div class="wm-stat"><div class="k">tabs</div><div class="v" id="st-tabs">—</div></div>
         <div class="wm-stat"><div class="k">last event</div><div class="v" id="st-event">—</div></div>
@@ -43,38 +45,11 @@
 
     <div class="wm-err hidden" id="st-err"></div>
 
-    <section class="wm-panel">
-      <div class="wm-eyebrow">Settings</div>
-      <div class="wm-field">
-        <label for="token">daemon token</label>
-        <input id="token" type="password" autocomplete="off" spellcheck="false" placeholder="paste from `browser-tab daemon token`" />
-      </div>
-      <div class="wm-field">
-        <label for="port">websocket port</label>
-        <input id="port" type="number" value="8790" />
-      </div>
-      <div class="wm-field">
-        <label for="browser">this browser is</label>
-        <select id="browser">
-          <option value="chrome">Chrome</option>
-          <option value="brave">Brave</option>
-          <option value="chromium">Chromium</option>
-          <option value="safari">Safari</option>
-        </select>
-      </div>
-    </section>
-
     <div class="wm-actions">
-      <button type="button" class="wm-btn primary" id="save">save</button>
-      <button type="button" class="wm-btn" id="test">test connection</button>
-      <span class="wm-note" id="note"></span>
+      <button type="button" class="wm-btn primary" id="reconnect">reconnect</button>
+      <button type="button" class="wm-btn" id="settings">settings</button>
     </div>
 
-    <p class="wm-foot">
-      the daemon listens on <b>127.0.0.1</b> only. print the token with
-      <b>browser-tab daemon token</b>. changes apply immediately — no reload needed.
-    </p>
-
-    <script src="./options.js" defer></script>
+    <script src="./popup.js" defer></script>
   </body>
 </html>

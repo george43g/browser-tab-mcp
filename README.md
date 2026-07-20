@@ -96,7 +96,7 @@ Every MCP tool is also a CLI subcommand and a REPL command (one in-process dispa
 | `noop` | Echo demo (Rust acceleration path). | read-only, idempotent |
 | `get_logs` | **Dev-mode only** (`MCP_DEV=1`). Last N in-memory log lines. | read-only |
 
-The connector extension lives in `apps/chrome-extension` (load `dist/` unpacked, paste `browser-tab daemon token` in its options page) with a Safari wrapper in `apps/safari-extension` (needs Xcode — see its README). Without an extension, everything except true Chromium moves still works via AppleScript.
+The connector extension lives in `apps/chrome-extension` (load `dist/` unpacked, paste `browser-tab daemon token` in its options page) with Safari packaging in `apps/safari-extension` (`pnpm --filter @george43g/safari-extension sideload`; needs Xcode — see its README). Its toolbar **popup** and **settings page** show live connection status, window/tab counts, and the real error if it can't connect. Without an extension, everything except true Chromium moves still works via AppleScript.
 
 ## Install the companion skill
 

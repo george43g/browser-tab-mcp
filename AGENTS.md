@@ -42,11 +42,14 @@ apps/
   browser-tab-mcp/    # the tool: cli.ts (bin), detect/ (osascript adapters+engine+ids+correlate),
                       # daemon/ (state, engine-loop, merge, ipc-server, ws-server, launchd, token),
                       # client/ (daemon-client, tabs-service), tools/ (MCP ToolDefinitions), tui/
-  chrome-extension/   # MV3 connector — vite build → dist/ (load unpacked)
-  safari-extension/   # Xcode wrapper via safari-web-extension-converter (needs full Xcode)
+  chrome-extension/   # MV3 connector: background (socket+status), popup + settings page (live
+                      # status/stats, wm-stack theme). Self-contained IIFE build → dist/. See its README.
+  safari-extension/   # Safari packaging (workspace pkg): convert.sh (generate Xcode project, gitignored)
+                      # + rebuild.sh (fast reload loop) + clean.sh (prune dup registrations). Needs full Xcode.
   rust-accel/         # napi crate: noop demo + list_cg_windows() (CGWindowList → yabai ids)
 packages/
-  extension-core/     # shared WebExtension TS: DaemonSocket, snapshot/event mappers, commands
+  extension-core/     # shared WebExtension TS: DaemonSocket (+getState liveness), snapshot/event mappers,
+                      # commands, status presenter (describeStatus/derivePhase), [browser-tab] logger
   robustness/         # logger + watchdog + shutdown + with-timeout + health + retry + rate-limit
   mcp-kit/            # tool-registry + dispatch + stdio transport + sanitize + prompt-injection
   cli-kit/            # commander helpers + tty/color/output + env↔flag binder + interactive REPL
@@ -80,10 +83,27 @@ Per-app:
 - `pnpm --filter browser-tab-mcp tui` — launch the Ink TUI
 - `pnpm --filter browser-tab-mcp doctor` — preflight checks (Node, native module, Automation TCC, correlation tier)
 - `node apps/browser-tab-mcp/dist/cli.js daemon run|install|status|token` — daemon lifecycle (launchd label `com.george43g.browser-tab`)
-- `pnpm --filter @george43g/chrome-extension build` — MV3 bundle → `apps/chrome-extension/dist`
+- `pnpm --filter @george43g/chrome-extension build` — MV3 bundle → `apps/chrome-extension/dist` (load unpacked)
+- `pnpm --filter @george43g/safari-extension convert` — (re)generate the Safari Xcode project (full Xcode; only when the file set / manifest structure changes — regen re-unsigns)
+- `pnpm --filter @george43g/safari-extension sideload` — fast Safari loop: prune → build dist → `xcodebuild` → open app to re-register (code-only changes; **named `sideload`, not `rebuild`, which is a pnpm built-in**)
+- `pnpm --filter @george43g/safari-extension unregister` — prune stale/duplicate Safari extension registrations (`clean.sh --all` for a hard reset)
 - `pnpm --filter @george43g/browser-tab-mcp stress:tui` — TUI memory/lag soak
 
 State/paths at runtime: socket `~/.browser-tab/daemon.sock`, extension token `~/.browser-tab/extension-token`, snapshot cache `~/.cache/browser-tab/{snapshot,last}.json`, launchd logs `~/Library/Logs/browser-tab/`.
+
+## Connector extension (Chrome + Safari)
+
+One bundle (`apps/chrome-extension`, built from `packages/extension-core`) serves Chrome/Brave/Chromium and — packaged via `apps/safari-extension` — Safari. Full details in `apps/chrome-extension/README.md`. Non-obvious constraints that WILL bite:
+
+- **Self-contained IIFE build, not ES modules.** Safari doesn't support `background.type:"module"` and loads the background as a *classic* script that can't `import`. `vite.config.ts` builds each entry (`background`/`options`/`popup`) fully inlined (`format:"iife"`, `inlineDynamicImports`, one pass per `EXT_ENTRY`). Page `<script>` tags are classic. Don't reintroduce module syntax or shared chunks.
+- **Dual background keys.** Manifest ships `background.service_worker` (Chrome) **and** `background.scripts` (Safari/Firefox background page). Safari's MV3 service worker is unreliable (idles out, never lists in *Develop → Web Extension Backgrounds*, unmessageable); the `scripts` background page is persistent and works. Chrome uses the service worker and may warn about `scripts` — harmless.
+- **Cross-browser runtime messaging.** Chrome resolves `sendMessage` via `sendResponse`+`return true`; Safari/Firefox only resolve if the listener **returns a promise**. `background.ts` detects `globalThis.browser` and does both. Get this wrong → the popup/settings show "background worker isn't responding".
+- **Observability.** Background logs `[browser-tab] …`; popup + settings show a live status dot / last error / window+tab counts via a `getStatus` message. `DaemonSocket.getState()` + `describeStatus()`/`derivePhase()` (extension-core `status.ts`) are the single source of truth both pages render.
+- **Safari packaging.** `convert.sh` generates an Xcode project that **references `dist/` in place** (fileRefs, not copies) — the Extension's on-disk `Resources/` looks empty; that's normal, and code-only edits need no re-convert. The project is **gitignored** (personal signing team + machine paths); regenerate with `convert`. `sideload` builds into Xcode's **default** DerivedData so it and ⌘R don't produce two registered apps (the duplicate trap). See `apps/safari-extension/README.md`.
+
+## Extension–daemon merge (why the extension "wins")
+
+`src/daemon/merge.ts` decides, per browser, whether extension-fed state or the AppleScript poll wins. The extension only pushes a snapshot on tab/window **events** (no heartbeat), so gating on snapshot *age* made an idle-but-connected browser silently revert to AppleScript data + AppleScript handles — routing a subsequent `move` down the state-losing close+reopen path. Fixed: authority tracks **socket liveness, not snapshot freshness** — the WS server `touch()`es the feed on every inbound frame (a pong every ≤20s is enough), a ping/pong heartbeat (`ws-server.ts`) terminates genuinely-dead sessions so `onDisconnect`→`clearExtension` fires, and the feed TTL is floored at 60s (`extFeedTtlMs()` in `engine-loop.ts`). Don't re-gate the merge on snapshot age.
 
 ## Env layout (Vite-style precedence)
 

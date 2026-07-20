@@ -75,7 +75,7 @@ browser-tab daemon token         # paste into the extension options page
 |---|---|
 | `reachable: false` in daemon_status | `browser-tab daemon install`, or `daemon run` in the foreground to watch logs. Reads still work daemon-less (slower, `source: "osascript-direct"`). |
 | Automation error (-1743) | System Settings › Privacy & Security › Automation — grant the calling app (or node, under launchd) access to each browser. `tccutil reset AppleEvents` re-prompts. `browser-tab doctor` surfaces this per browser. |
-| `extensionConnected: false` | Load `apps/chrome-extension/dist` unpacked, paste `browser-tab daemon token` into its options, check `BROWSER_TAB_WS_PORT` (default 8790) matches. |
+| `extensionConnected: false` | Load `apps/chrome-extension/dist` unpacked, paste `browser-tab daemon token` into its options, check `BROWSER_TAB_WS_PORT` (default 8790) matches. The extension's **toolbar popup / settings page** show the live status + the actual connect error; the background logs `[browser-tab] …` (Chrome SW console / Safari *Develop → Web Extension Backgrounds*). Safari: `pnpm --filter @george43g/safari-extension sideload`, then toggle it off/on. |
 | Chromium move fails | Expected without the extension — install it, or accept it (AppleScript can't move Chromium tabs without losing state). |
 | `cgWindowId` null everywhere | `browser-tab doctor` → "CG window correlation". Build rust-accel or install yabai (fallback query). |
 | MCP host doesn't see tool changes | Host caches the session; restart it. |

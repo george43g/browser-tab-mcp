@@ -13,8 +13,10 @@
 import type { ExtServerMessage } from "@george43g/shared-types";
 import { type CommandArgs, executeCommand } from "./commands.js";
 import { debounce, wireEvents } from "./events.js";
+import { log, logError } from "./log.js";
 import type { BrowserName } from "./runtime.js";
 import { buildSnapshot } from "./snapshot.js";
+import type { SnapshotSummary, SocketState } from "./status.js";
 
 export interface DaemonSocketConfig {
   port: number;
@@ -40,6 +42,21 @@ export class DaemonSocket {
 
   /** True when the socket is open and authenticated. */
   connected = false;
+  private connectedAt: number | null = null;
+  private lastSnapshot: SnapshotSummary | null = null;
+  private lastError: string | null = null;
+  private reconnectAttempts = 0;
+
+  /** Observable snapshot of liveness for the popup/options pages. */
+  getState(): SocketState {
+    return {
+      connected: this.connected,
+      connectedAt: this.connectedAt,
+      lastSnapshot: this.lastSnapshot,
+      lastError: this.lastError,
+      reconnectAttempts: this.reconnectAttempts,
+    };
+  }
 
   start(): void {
     this.stopped = false;
@@ -90,7 +107,11 @@ export class DaemonSocket {
       }
       if (msg.type === "helloAck") {
         this.connected = true;
+        this.connectedAt = Date.now();
+        this.lastError = null;
+        this.reconnectAttempts = 0;
         this.reconnectDelay = RECONNECT_MIN_MS;
+        log(`connected to daemon 127.0.0.1:${this.config.port} as ${this.config.browser}`);
         void this.sendSnapshot();
         return;
       }
@@ -103,15 +124,39 @@ export class DaemonSocket {
       }
     });
 
-    const scheduleReconnect = () => {
+    const scheduleReconnect = (info?: {
+      code?: number | undefined;
+      reason?: string | undefined;
+    }) => {
       this.connected = false;
+      this.connectedAt = null;
+      if (info) {
+        // Surface *why* we dropped — 4001 = bad token, 1006 = daemon
+        // unreachable (or refused). This is what the pages/console show.
+        this.lastError =
+          info.reason && info.reason.length > 0
+            ? info.reason
+            : info.code === 4001
+              ? "rejected: bad token"
+              : info.code === 1006
+                ? "daemon unreachable (is `browser-tab daemon` running?)"
+                : `closed (${info.code ?? "?"})`;
+      }
       if (this.stopped) return;
+      this.reconnectAttempts += 1;
       const delay = this.reconnectDelay;
       this.reconnectDelay = Math.min(this.reconnectDelay * 2, RECONNECT_MAX_MS);
       setTimeout(() => this.ensureConnected(), delay);
     };
-    ws.addEventListener("close", scheduleReconnect);
-    ws.addEventListener("error", () => ws.close());
+    ws.addEventListener("close", (event) => {
+      const closeEvent = event as unknown as { code?: number; reason?: string };
+      scheduleReconnect({ code: closeEvent.code, reason: closeEvent.reason });
+    });
+    ws.addEventListener("error", () => {
+      this.lastError ??= "websocket error (daemon down or blocked)";
+      logError(`websocket error → 127.0.0.1:${this.config.port}`);
+      ws.close();
+    });
   }
 
   private async runCommand(requestId: number, kind: string, args: CommandArgs): Promise<void> {
@@ -136,6 +181,11 @@ export class DaemonSocket {
     try {
       const snapshot = await buildSnapshot();
       this.ws.send(JSON.stringify(snapshot));
+      this.lastSnapshot = {
+        windows: snapshot.windows.length,
+        tabs: snapshot.windows.reduce((n, w) => n + w.tabs.length, 0),
+        at: Date.now(),
+      };
     } catch {
       // Snapshot failures are transient (mid-teardown); the next event retries.
     }

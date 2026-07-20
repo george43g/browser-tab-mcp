@@ -122,6 +122,8 @@ importers:
         specifier: ^3.7.2
         version: 3.7.3(@emnapi/core@1.11.2)(@emnapi/runtime@1.11.2)(@types/node@24.13.3)
 
+  apps/safari-extension: {}
+
   packages/biome-config: {}
 
   packages/cli-kit:

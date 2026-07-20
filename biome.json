@@ -16,6 +16,7 @@
       "!apps/rust-accel/target",
       "!apps/rust-accel/index.js",
       "!apps/rust-accel/index.d.ts",
+      "!apps/safari-extension/xcode",
       "!**/*.tsbuildinfo"
     ]
   },

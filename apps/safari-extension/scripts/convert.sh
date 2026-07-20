@@ -25,6 +25,15 @@ if [[ ! -f "$DIST/manifest.json" ]]; then
   exit 1
 fi
 
+# Clean regenerate. The converter REFERENCES the web bundle in place
+# (pbxproj fileRefs point at ../../chrome-extension/dist/*), it does not copy
+# it — so the Extension's on-disk Resources dir looks empty, which is normal.
+# But when the file SET changes (adding popup.html/ui.css/icons/…), `--force`
+# over an existing project can leave stale/missing references. Wiping the
+# project dir guarantees a pbxproj that references exactly the current dist.
+# Signing (DEVELOPMENT_TEAM) is overwritten by the converter regardless.
+rm -rf "$APP_DIR/xcode"
+
 xcrun safari-web-extension-converter "$DIST" \
   --project-location "$APP_DIR/xcode" \
   --app-name "Browser Tab Helper" \
