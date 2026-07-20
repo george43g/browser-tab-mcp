@@ -64,11 +64,22 @@ options storage) lives in `packages/extension-core`.
 
 ## Testing
 
-This app currently has **no automated tests** — only its pure logic is covered
-(via `packages/extension-core/src/{status,snapshot}.test.ts`). The runtime
-(`background.ts`, socket, messaging, popup/options) and the built bundle are
-unvalidated, so CI cannot catch the class of bugs this connector hit (module
-SW, dual background, cross-browser messaging). The plan to close that —
-a real client↔server Node integration test, static build-output guards, and
-coverage enforcement — is in **`docs/FOLLOWUPS.md`** (with a harness sketch).
-Read it before adding tests here.
+Run `pnpm --filter @george43g/chrome-extension test` (turbo builds `dist/`
+first, since the build-output guards read it). This app now has:
+
+- `tests/messaging.test.ts` — the cross-browser reply regression: the
+  `onMessage` listener must RETURN a promise under `globalThis.browser`
+  (Safari/Firefox) and call `sendResponse` + `return true` under Chrome. Drives
+  both branches via `vi.resetModules()` (the namespace check is import-frozen).
+- `tests/build-output.test.ts` — static guards on the built `dist/`: MV3, BOTH
+  `background.service_worker` and `background.scripts`, no
+  `background.type:"module"`, IIFE-not-ESM entry JS, no `type="module"` script
+  tags, and every referenced asset present on disk.
+
+DOM-touching tests opt into a DOM with `// @vitest-environment happy-dom` at
+the top of the file (the default env is node). Shared fixtures + the
+`installFakeChrome` fake come from `@george43g/test-kit`. The end-to-end
+`DaemonSocket`↔`ExtensionServer` path is covered by
+`apps/browser-tab-mcp/tests/ext-socket.integration.test.ts`. Remaining
+follow-ups (Playwright E2E stub, coverage gating) are tracked in
+**`docs/FOLLOWUPS.md § 1`**.

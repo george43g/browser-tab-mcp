@@ -12,6 +12,22 @@ Safari); these are hardening / productization items, not blockers.
 
 ## 1. Test/CI hardening — make green meaningful for the browser extension
 
+> **STATUS: DONE (2026-07-21).** Shipped: `@george43g/test-kit` (factories +
+> `installFakeChrome`/`withDaemonEnv`/`installNodeWebSocket`, consumed by every
+> package; the 4 hand-rolled builder clusters were retrofitted onto it); the
+> real `DaemonSocket`↔`ExtensionServer` integration test (P1a), the messaging
+> regression (P1b), the build-output guards (P1c), WS-protocol + snapshot
+> contract tests, and extension-core unit tests (commands/events/runtime/options).
+> Coverage is wired as a two-flag design (`COVERAGE=1` collects + uploads lcov;
+> `COVERAGE_GATE=1` gates — **dormant**, we collect+report but don't gate yet).
+> CI gained the coverage step, a shellcheck step, and a gated-off Playwright
+> stub job; the stress harness now writes its report. Acceptance verified: the
+> three sabotages below each turn a test RED. The taxonomy + "where a new test
+> goes" decision tree now live in `AGENTS.md` (§ Testing posture & taxonomy).
+> The sections below are the original plan, kept as the implementation record.
+> Still open here: **P3 Playwright E2E** (stub only) and coverage **gating**
+> (flip `COVERAGE_GATE=1` in CI when the suite matures).
+
 **Why.** CI green is meaningful for the daemon / MCP / kits (24 test files,
 stress harness, both-OS build incl. Rust native) but **not** for the browser
 extension — the layer that broke repeatedly this session. Concretely:

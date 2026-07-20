@@ -2,35 +2,10 @@
  * Pure mapper tests — fixture chrome API shapes, no browser needed.
  */
 
+import { makeChromeTab as tab, makeChromeWindow as win } from "@george43g/test-kit";
 import { describe, expect, it } from "vitest";
 import { debounce } from "./events.js";
 import { mapTab, mapWindow, mapWindows } from "./snapshot.js";
-
-const tab = (over: Partial<Parameters<typeof mapTab>[0]> = {}) => ({
-  id: 42,
-  windowId: 7,
-  index: 0,
-  url: "https://example.com/",
-  title: "Example",
-  active: true,
-  pinned: false,
-  audible: false,
-  discarded: false,
-  ...over,
-});
-
-const win = (over: Partial<Parameters<typeof mapWindow>[0]> = {}) => ({
-  id: 7,
-  focused: true,
-  incognito: false,
-  left: 0,
-  top: 25,
-  width: 1440,
-  height: 875,
-  type: "normal",
-  tabs: [tab()],
-  ...over,
-});
 
 describe("mapTab", () => {
   it("maps a full tab", () => {

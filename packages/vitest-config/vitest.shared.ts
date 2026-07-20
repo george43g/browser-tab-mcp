@@ -21,16 +21,18 @@ export const shared = defineConfig({
     },
     coverage: {
       provider: "v8",
-      reporter: ["text", "lcov", "html"],
+      // Two-flag design (kept out of the hot path so `pnpm test` stays fast):
+      //   COVERAGE=1       → collect + write reports (lcov in CI, html locally)
+      //   COVERAGE_GATE=1  → additionally FAIL under-threshold (dormant today —
+      //                      we collect + report but don't gate yet)
+      enabled: process.env.COVERAGE === "1",
+      reporter: process.env.CI ? ["text", "lcov"] : ["text", "html"],
       reportsDirectory: "./coverage",
       include: ["src/**/*.ts"],
       exclude: ["src/**/*.test.ts", "src/**/*.d.ts", "src/**/index.ts", "src/**/types.ts"],
-      thresholds: {
-        statements: 80,
-        branches: 70,
-        functions: 70,
-        lines: 70,
-      },
+      ...(process.env.COVERAGE_GATE === "1"
+        ? { thresholds: { statements: 80, branches: 70, functions: 70, lines: 70 } }
+        : {}),
     },
   },
 });

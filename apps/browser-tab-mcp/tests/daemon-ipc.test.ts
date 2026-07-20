@@ -4,10 +4,17 @@
  * exactly the pathway MCP/CLI/TUI clients use.
  */
 
-import { existsSync, mkdtempSync, rmSync } from "node:fs";
-import { tmpdir } from "node:os";
+import { existsSync, rmSync } from "node:fs";
 import { join } from "node:path";
 import type { Snapshot } from "@george43g/shared-types";
+import {
+  makeBrowserState,
+  makeContractTab,
+  makeContractWindow,
+  makeSnapshot,
+  makeTmpDir,
+  withDaemonEnv,
+} from "@george43g/test-kit";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { DaemonClient, DaemonUnavailableError } from "../src/client/daemon-client.js";
 import { type DaemonHandle, startDaemon } from "../src/daemon/index.js";
@@ -16,30 +23,18 @@ import { diffSnapshots } from "../src/daemon/state.js";
 
 let tmp: string;
 let daemon: DaemonHandle | null = null;
+let env: { restore(): void } | null = null;
 
 beforeEach(() => {
-  tmp = mkdtempSync(join(tmpdir(), "browser-tab-test-"));
-  process.env.BROWSER_TAB_FAKE_ADAPTER = "1";
-  process.env.BROWSER_TAB_BROWSERS = "chrome,safari";
-  process.env.BROWSER_TAB_SOCKET_PATH = join(tmp, "daemon.sock");
-  process.env.BROWSER_TAB_SNAPSHOT_PATH = join(tmp, "snapshot.json");
-  process.env.BROWSER_TAB_CACHE_DIR = tmp;
-  process.env.BROWSER_TAB_POLL_MS = "60000"; // no surprise ticks mid-test
+  tmp = makeTmpDir();
+  env = withDaemonEnv(tmp, { browsers: "chrome,safari" });
 });
 
 afterEach(async () => {
   await daemon?.stop();
   daemon = null;
-  for (const key of [
-    "BROWSER_TAB_FAKE_ADAPTER",
-    "BROWSER_TAB_BROWSERS",
-    "BROWSER_TAB_SOCKET_PATH",
-    "BROWSER_TAB_SNAPSHOT_PATH",
-    "BROWSER_TAB_CACHE_DIR",
-    "BROWSER_TAB_POLL_MS",
-  ]) {
-    delete process.env[key];
-  }
+  env?.restore();
+  env = null;
   rmSync(tmp, { recursive: true, force: true });
 });
 
@@ -162,43 +157,27 @@ describe("daemon IPC", () => {
 
 describe("diffSnapshots", () => {
   function snap(tabs: { tabId: string; url: string; index: number; active?: boolean }[]): Snapshot {
-    return {
-      version: 1,
-      generatedAt: 0,
-      source: "daemon",
+    return makeSnapshot({
       browsers: [
-        {
-          browser: "chrome",
-          bundleId: "x",
-          pid: 1,
-          running: true,
-          extensionConnected: false,
-          dataSource: "applescript",
+        makeBrowserState({
           windows: [
-            {
-              windowId: "w:chrome:1",
-              cgWindowId: null,
-              title: "t",
+            makeContractWindow({
               bounds: null,
               focused: false,
-              incognito: false,
-              activeTabIndex: 0,
-              tabCount: tabs.length,
-              tabs: tabs.map((t) => ({
-                tabId: t.tabId,
-                index: t.index,
-                url: t.url,
-                title: "t",
-                active: t.active ?? false,
-                pinned: false,
-                audible: false,
-                discarded: false,
-              })),
-            },
+              tabs: tabs.map((t) =>
+                makeContractTab({
+                  tabId: t.tabId,
+                  index: t.index,
+                  url: t.url,
+                  title: "t",
+                  active: t.active ?? false,
+                }),
+              ),
+            }),
           ],
-        },
+        }),
       ],
-    };
+    });
   }
 
   it("emits tab-created / tab-removed / tab-moved / tab-activated", () => {

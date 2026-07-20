@@ -22,7 +22,7 @@
  */
 
 import { type ChildProcessWithoutNullStreams, spawn } from "node:child_process";
-import { existsSync, mkdtempSync, rmSync } from "node:fs";
+import { existsSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { createConnection } from "node:net";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
@@ -426,6 +426,22 @@ async function main(): Promise<void> {
   const failed = results.filter((r) => !r.pass);
   const passed = results.length - failed.length;
   console.log(`\n${passed} passed, ${failed.length} failed.`);
+  // Emit the report the CI upload step + turbo `stress.outputs` expect.
+  writeFileSync(
+    resolve(ROOT, "stress-mcp-report.json"),
+    `${JSON.stringify(
+      {
+        suite: "stress-mcp",
+        generatedAt: new Date().toISOString(),
+        entry: ENTRY,
+        passed,
+        failed: failed.length,
+        cases: results,
+      },
+      null,
+      2,
+    )}\n`,
+  );
   process.exit(failed.length > 0 ? 1 : 0);
 }
 
