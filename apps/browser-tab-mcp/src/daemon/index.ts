@@ -201,6 +201,7 @@ export async function startDaemon(): Promise<DaemonHandle> {
       merger.setExtensionState(browser, state);
       void loop.remerge();
     },
+    onLiveness: (browser) => merger.touch(browser),
     onDisconnect: (browser) => {
       merger.clearExtension(browser);
       void loop.remerge();

@@ -135,6 +135,9 @@ export async function enrichWithCgWindowIds(
   snapshot: Snapshot,
   signal?: AbortSignal,
 ): Promise<Snapshot> {
+  // Fixture snapshots have no real CG windows to join — skip correlation so
+  // tests never spawn `yabai`/native (deterministic + fast, no timing flake).
+  if (process.env.BROWSER_TAB_FAKE_ADAPTER === "1") return snapshot;
   try {
     const cgWindows = await readCgWindows(signal);
     if (!cgWindows) return snapshot;

@@ -3,8 +3,12 @@
  * AppleScript poll wins.
  *
  * Rules:
- *  - An extension snapshot wins while its socket is alive AND the data is
- *    fresh (younger than 2× the poll interval).
+ *  - An extension snapshot wins while its socket is alive AND the feed has
+ *    shown liveness within maxExtensionAgeMs. The extension only pushes on
+ *    tab/window events, so an idle-but-connected browser would otherwise age
+ *    out; the WS server calls touch() on every inbound frame (incl. pongs)
+ *    to keep a live-but-quiet feed authoritative. A dead socket stops
+ *    ponging and is dropped by the server heartbeat → clearExtension().
  *  - AppleScript fills in browsers with no extension (Safari until M6,
  *    anything the user didn't install the extension in).
  *  - Correlation enrichment (cgWindowId) is applied AFTER merging, since
@@ -27,6 +31,16 @@ export class SourceMerger {
 
   setExtensionState(browser: BrowserId, state: BrowserState): void {
     this.extensionFeeds.set(browser, { state, receivedAt: Date.now() });
+  }
+
+  /**
+   * Refresh a feed's liveness without replacing its state. Called by the WS
+   * server on any inbound frame (a pong is enough) so a connected extension
+   * that simply has no tab activity doesn't age out of the freshness window.
+   */
+  touch(browser: BrowserId): void {
+    const feed = this.extensionFeeds.get(browser);
+    if (feed) feed.receivedAt = Date.now();
   }
 
   clearExtension(browser: BrowserId): void {

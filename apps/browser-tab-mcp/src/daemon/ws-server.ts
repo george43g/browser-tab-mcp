@@ -37,6 +37,9 @@ export function wsPort(): number {
 interface Session {
   browser: BrowserId;
   socket: WebSocket;
+  /** Set on every inbound frame; the heartbeat clears it before each ping and
+   *  terminates a session that produced nothing since the previous ping. */
+  alive: boolean;
 }
 
 export interface ExtensionServerOptions {
@@ -44,6 +47,11 @@ export interface ExtensionServerOptions {
   token: string;
   onSnapshot: (browser: BrowserId, state: BrowserState) => void;
   onDisconnect: (browser: BrowserId) => void;
+  /** Called on any inbound frame from a live session (snapshot, commandResult,
+   *  or pong) so the merger can keep an idle-but-connected feed authoritative. */
+  onLiveness?: (browser: BrowserId) => void;
+  /** Ping/heartbeat cadence; defaults to PING_INTERVAL_MS. Injectable for tests. */
+  pingIntervalMs?: number;
 }
 
 export class ExtensionServer {
@@ -55,8 +63,11 @@ export class ExtensionServer {
   >();
   private nextRequestId = 1;
   private pingTimer: NodeJS.Timeout | null = null;
+  private readonly pingIntervalMs: number;
 
-  constructor(private readonly opts: ExtensionServerOptions) {}
+  constructor(private readonly opts: ExtensionServerOptions) {
+    this.pingIntervalMs = opts.pingIntervalMs ?? PING_INTERVAL_MS;
+  }
 
   async start(): Promise<void> {
     this.wss = new WebSocketServer({ host: "127.0.0.1", port: this.opts.port });
@@ -65,7 +76,7 @@ export class ExtensionServer {
       this.wss?.once("error", reject);
     });
     this.wss.on("connection", (socket) => this.onConnection(socket));
-    this.pingTimer = setInterval(() => this.pingAll(), PING_INTERVAL_MS);
+    this.pingTimer = setInterval(() => this.heartbeat(), this.pingIntervalMs);
     this.pingTimer.unref();
     info("ws_listening", { port: this.opts.port });
   }
@@ -125,9 +136,22 @@ export class ExtensionServer {
     });
   }
 
-  private pingAll(): void {
+  /**
+   * Ping every session; first drop any that produced no frame since the last
+   * ping (a dead/half-open socket whose `close` never fired). Terminating
+   * triggers the socket's `close` → drop() → onDisconnect → clearExtension,
+   * so a wedged extension can't keep serving stale x-handles.
+   */
+  private heartbeat(): void {
     const line = JSON.stringify({ type: "ping", ts: Date.now() });
-    for (const s of this.sessions.values()) s.socket.send(line);
+    for (const s of [...this.sessions.values()]) {
+      if (!s.alive) {
+        s.socket.terminate();
+        continue;
+      }
+      s.alive = false;
+      s.socket.send(line);
+    }
   }
 
   private onConnection(socket: WebSocket): void {
@@ -161,7 +185,7 @@ export class ExtensionServer {
         browser = m.browser;
         const existing = this.sessions.get(browser);
         if (existing) existing.socket.terminate(); // newest wins
-        this.sessions.set(browser, { browser, socket });
+        this.sessions.set(browser, { browser, socket, alive: true });
         socket.send(JSON.stringify({ type: "helloAck" }));
         info("ws_extension_connected", { browser, extVersion: m.extVersion });
         return;
@@ -169,6 +193,12 @@ export class ExtensionServer {
       if (!browser) {
         socket.terminate(); // data before hello
         return;
+      }
+      // Any post-hello frame (snapshot, commandResult, pong) proves liveness.
+      const session = this.sessions.get(browser);
+      if (session?.socket === socket) {
+        session.alive = true;
+        this.opts.onLiveness?.(browser);
       }
       if (m.type === "snapshot") {
         this.opts.onSnapshot(browser, extSnapshotToBrowserState(browser, m));

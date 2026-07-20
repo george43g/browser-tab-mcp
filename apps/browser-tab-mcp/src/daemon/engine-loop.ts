@@ -23,6 +23,17 @@ export function pollMs(): number {
   return envNum("BROWSER_TAB_POLL_MS", 5_000);
 }
 
+/**
+ * How long an extension feed stays authoritative without a fresh frame. The
+ * WS server touches the feed on every pong (≤20s cadence), so this only has
+ * to comfortably exceed one ping interval — floored at 60s so a fast poll
+ * (default 5s) can't collapse it to the old 10s window where an idle-but-
+ * connected browser silently reverted to AppleScript handles.
+ */
+export function extFeedTtlMs(): number {
+  return Math.max(pollMs() * 2, 60_000);
+}
+
 export class EngineLoop {
   private timer: NodeJS.Timeout | null = null;
   private tickCount = 0;
@@ -74,7 +85,7 @@ export class EngineLoop {
     this.queue = this.queue
       .then(async () => {
         if (!this.lastPolled) return;
-        const merged = await this.merger.merge(this.lastPolled, pollMs() * 2);
+        const merged = await this.merger.merge(this.lastPolled, extFeedTtlMs());
         this.store.update(merged);
       })
       .catch(() => {});
@@ -99,7 +110,7 @@ export class EngineLoop {
         this.lastPolled = this.mergePolled(this.lastPolled, polled);
       }
       if (this.lastPolled) {
-        const merged = await this.merger.merge(this.lastPolled, pollMs() * 2);
+        const merged = await this.merger.merge(this.lastPolled, extFeedTtlMs());
         this.store.update(merged);
       }
       this.lastScanDurationMs = Date.now() - started;
