@@ -13,15 +13,7 @@ flag "-q --quiet" help="Suppress non-error output"
 flag "-v --verbose" help="Log debug-level info to stderr"
 flag "--no-color" help="Disable colors"
 
-cmd "mcp" help="Run the MCP server (stdio default; --http for Streamable HTTP)" {
-    flag "--http" help="Use Streamable HTTP transport (requires MCP_HTTP_TOKEN)"
-    flag "--port" help="HTTP port (default 8080)" {
-        arg "<port>"
-    }
-    flag "--bind" help="HTTP bind addr (default 127.0.0.1)" {
-        arg "<host>"
-    }
-}
+cmd "mcp" help="Run the MCP server (stdio)"
 
 cmd "tui" help="Launch the Ink TUI"
 
@@ -32,6 +24,59 @@ cmd "repl" help="Interactive REPL driving the in-process dispatcher" {
 }
 
 cmd "health" help="Print server health snapshot (calls health_check in-process)"
+
+cmd "list" help="List open browser windows and tabs (Chrome/Brave/Chromium/Safari)" {
+    flag "--browser" help="Restrict to one browser: chrome|chromium|brave|safari" {
+        arg "<name>"
+    }
+    flag "--window" help="Restrict to one window (opaque windowId)" {
+        arg "<id>"
+    }
+    flag "--url" help="Filter tabs by URL substring" {
+        arg "<substring>"
+    }
+}
+
+cmd "focus" help="Focus a tab and raise its window" {
+    arg "<tabId>"
+}
+
+cmd "close" help="Close a tab" {
+    arg "<tabId>"
+}
+
+cmd "open" help="Open an http(s) URL in a new tab" {
+    arg "<url>"
+    flag "--browser" help="chrome|chromium|brave|safari" {
+        arg "<name>"
+    }
+    flag "--window" help="Open in a specific window (opaque windowId)" {
+        arg "<id>"
+    }
+    flag "--no-activate" help="Open in the background"
+}
+
+cmd "move" help="Move a tab to another window (true moves need daemon + extension)" {
+    arg "<tabId>"
+    flag "--target-window" help="Destination windowId" {
+        arg "<id>"
+    }
+    flag "--index" help="0-based destination position" {
+        arg "<n>"
+    }
+    flag "--new-window" help="Move into a newly created window"
+    flag "--allow-reload" help="Safari: accept the reload-based AppleScript move"
+}
+
+cmd "daemon" help="Manage the browser-tab daemon" {
+    cmd "run" help="Run the daemon in the foreground (launchd invokes this)"
+    cmd "install" help="Install + start the launchd LaunchAgent"
+    cmd "uninstall" help="Stop + remove the launchd LaunchAgent"
+    cmd "status" help="Show launchd + live daemon status"
+    cmd "token" help="Print the extension auth token"
+    cmd "stop" help="Stop the daemon (launchctl bootout)"
+    cmd "restart" help="Restart the daemon (launchctl kickstart -k)"
+}
 
 cmd "noop" help="Demo: call the noop tool" {
     flag "--input" required=#true help="Input string to echo" {

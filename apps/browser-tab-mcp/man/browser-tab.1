@@ -22,7 +22,7 @@ Disable colors
 .SH COMMANDS
 .TP
 \fBmcp\fR
-Run the MCP server (stdio default; \-\-http for Streamable HTTP)
+Run the MCP server (stdio)
 .TP
 \fBtui\fR
 Launch the Ink TUI
@@ -39,24 +39,98 @@ Interactive REPL driving the in\-process dispatcher
 \fBhealth\fR
 Print server health snapshot (calls health_check in\-process)
 .TP
+\fBlist\fR
+List open browser windows and tabs (Chrome/Brave/Chromium/Safari)
+.TP
+\fBfocus\fR
+Focus a tab and raise its window
+.TP
+\fBclose\fR
+Close a tab
+.TP
+\fBopen\fR
+Open an http(s) URL in a new tab
+.TP
+\fBmove\fR
+Move a tab to another window (true moves need daemon + extension)
+.TP
+\fBdaemon\fR
+Manage the browser\-tab daemon
+.TP
+\fBdaemon run\fR
+Run the daemon in the foreground (launchd invokes this)
+.TP
+\fBdaemon install\fR
+Install + start the launchd LaunchAgent
+.TP
+\fBdaemon uninstall\fR
+Stop + remove the launchd LaunchAgent
+.TP
+\fBdaemon status\fR
+Show launchd + live daemon status
+.TP
+\fBdaemon token\fR
+Print the extension auth token
+.TP
+\fBdaemon stop\fR
+Stop the daemon (launchctl bootout)
+.TP
+\fBdaemon restart\fR
+Restart the daemon (launchctl kickstart \-k)
+.TP
 \fBnoop\fR
 Demo: call the noop tool
-.SH "BROWSER-TAB MCP"
-Run the MCP server (stdio default; \-\-http for Streamable HTTP)
+.SH "BROWSER-TAB LIST"
+List open browser windows and tabs (Chrome/Brave/Chromium/Safari)
 .PP
-\fBUsage:\fR browser\-tab mcp [OPTIONS]
+\fBUsage:\fR browser\-tab list [OPTIONS]
 .PP
 \fBOptions:\fR
 .PP
 .TP
-\fB\-\-http\fR
-Use Streamable HTTP transport (requires MCP_HTTP_TOKEN)
+\fB\-\-browser\fR \fI<name>\fR
+Restrict to one browser: chrome|chromium|brave|safari
 .TP
-\fB\-\-port\fR \fI<port>\fR
-HTTP port (default 8080)
+\fB\-\-window\fR \fI<id>\fR
+Restrict to one window (opaque windowId)
 .TP
-\fB\-\-bind\fR \fI<host>\fR
-HTTP bind addr (default 127.0.0.1)
+\fB\-\-url\fR \fI<substring>\fR
+Filter tabs by URL substring
+.SH "BROWSER-TAB OPEN"
+Open an http(s) URL in a new tab
+.PP
+\fBUsage:\fR browser\-tab open [OPTIONS] <url>
+.PP
+\fBOptions:\fR
+.PP
+.TP
+\fB\-\-browser\fR \fI<name>\fR
+chrome|chromium|brave|safari
+.TP
+\fB\-\-window\fR \fI<id>\fR
+Open in a specific window (opaque windowId)
+.TP
+\fB\-\-no\-activate\fR
+Open in the background
+.SH "BROWSER-TAB MOVE"
+Move a tab to another window (true moves need daemon + extension)
+.PP
+\fBUsage:\fR browser\-tab move [OPTIONS] <tabId>
+.PP
+\fBOptions:\fR
+.PP
+.TP
+\fB\-\-target\-window\fR \fI<id>\fR
+Destination windowId
+.TP
+\fB\-\-index\fR \fI<n>\fR
+0\-based destination position
+.TP
+\fB\-\-new\-window\fR
+Move into a newly created window
+.TP
+\fB\-\-allow\-reload\fR
+Safari: accept the reload\-based AppleScript move
 .SH "BROWSER-TAB NOOP"
 Demo: call the noop tool
 .PP

@@ -2,21 +2,24 @@
 
 > `CLAUDE.md` and `.cursorrules` are symlinks to this file. Edit `AGENTS.md`; the others follow.
 
-This repo was generated from `mcp-cli-starter-template` via `mcp-scaffold init`. Names and scopes have already been substituted; you can start working directly.
+This repo was generated from `mcp-cli-starter-template` via `mcp-scaffold init`.
 
 ## What This Repo Is
 
-A Turborepo monorepo that ships **four surfaces** from a **single bin** (`browser-tab`):
+macOS browser-tab detection & management for the yabai/Hammerspoon wm-stack (`~/dotfiles/wm-stack`): which tabs are open in which browser windows (Chrome, Brave, Chromium, Safari), joined to yabai window ids via `cgWindowId` (== CGWindowID), plus tab commands — including true state-preserving cross-window moves via the connector browser extension. The consumer contract lives in `docs/WM_STACK_CONTRACT.md`.
+
+A Turborepo monorepo shipping a **single bin** (`browser-tab`):
 
 | Subcommand | Surface |
 |---|---|
-| `browser-tab mcp` | MCP server (stdio default; `--http` for Streamable HTTP) |
-| `browser-tab tui` | Ink/React full-screen TUI |
-| `browser-tab doctor` | Preflight checks (Node version, native module, env) |
+| `browser-tab daemon run\|install\|status\|token\|…` | launchd daemon: AppleScript polling + extension WebSocket (127.0.0.1, token-auth) + unix-socket IPC + snapshot cache file |
+| `browser-tab list\|focus\|move\|open\|close` | Direct tool invocation — one CLI subcommand per `ToolDefinition` |
+| `browser-tab mcp` | MCP server (stdio) |
+| `browser-tab tui` | Ink/React live tab manager |
+| `browser-tab doctor` | Preflight checks (Node, native module, Automation TCC per browser, correlation tier) |
 | `browser-tab repl` (alias `console`) | Interactive REPL driving the in-process dispatcher |
-| `browser-tab health`, `browser-tab noop`, … | Direct tool invocation — one CLI subcommand per `ToolDefinition` |
 
-Delete any surface you don't need: see `docs/ARCHITECTURE.md`. The starter ships all four wired up so the patterns are visible.
+Architecture: MCP/CLI/TUI are daemon *clients* (unix socket); reads degrade to direct osascript when the daemon is down. Extensions (`apps/chrome-extension` + `apps/safari-extension` wrapper + shared `packages/extension-core`) push live tab events and execute `move_tab` via `chrome.tabs.move`. Opaque handle scheme: AppleScript-generation ids (`t:chrome:123`), extension-generation ids (`t:chrome:x123`), Safari synthetic ids (`t:safari:w1:i3`) — see `src/detect/ids.ts`.
 
 ## Stack
 
@@ -36,19 +39,27 @@ Delete any surface you don't need: see `docs/ARCHITECTURE.md`. The starter ships
 
 ```
 apps/
-  browser-tab-mcp/   # the tool — clone-and-rename target
-  rust-accel/     # napi crate, optional acceleration
+  browser-tab-mcp/    # the tool: cli.ts (bin), detect/ (osascript adapters+engine+ids+correlate),
+                      # daemon/ (state, engine-loop, merge, ipc-server, ws-server, launchd, token),
+                      # client/ (daemon-client, tabs-service), tools/ (MCP ToolDefinitions), tui/
+  chrome-extension/   # MV3 connector: background (socket+status), popup + settings page (live
+                      # status/stats, wm-stack theme). Self-contained IIFE build → dist/. See its README.
+  safari-extension/   # Safari packaging (workspace pkg): convert.sh (generate Xcode project, gitignored)
+                      # + rebuild.sh (fast reload loop) + clean.sh (prune dup registrations). Needs full Xcode.
+  rust-accel/         # napi crate: noop demo + list_cg_windows() (CGWindowList → yabai ids)
 packages/
-  robustness/     # logger + watchdog + shutdown + with-timeout + health + retry + rate-limit
-  mcp-kit/        # tool-registry + dispatch + stdio/http transports + sanitize + prompt-injection
-  cli-kit/        # commander helpers + tty/color/output + env↔flag binder + interactive REPL
-  tui-kit/        # ink theme system + hooks (useDevStats, useMouse, useVimKeys) + components
-  env-loader/     # Vite-style precedence loader for pre-subprocess env reads
-  secrets/        # env-json → 1Password → file chain (no keychain)
-  shared-types/   # Zod schemas + Rust mirror + drift-check test
-  tsconfig/       # shared base/node/react TS configs
-  biome-config/   # single biome.json source
-  vitest-config/  # shared preset with coverage
+  extension-core/     # shared WebExtension TS: DaemonSocket (+getState liveness), snapshot/event mappers,
+                      # commands, status presenter (describeStatus/derivePhase), [browser-tab] logger
+  robustness/         # logger + watchdog + shutdown + with-timeout + health + retry + rate-limit
+  mcp-kit/            # tool-registry + dispatch + stdio transport + sanitize + prompt-injection
+  cli-kit/            # commander helpers + tty/color/output + env↔flag binder + interactive REPL
+  tui-kit/            # ink theme system + hooks (useDevStats, useMouse, useVimKeys) + components
+  env-loader/         # Vite-style precedence loader for pre-subprocess env reads
+  secrets/            # env-json → 1Password → file chain (no keychain)
+  shared-types/       # Zod schemas (Snapshot contract + tool inputs + WS protocol) + Rust mirror
+  tsconfig/           # shared base/node/react TS configs
+  biome-config/       # single biome.json source
+  vitest-config/      # shared preset with coverage
 ```
 
 ## Commands
@@ -63,15 +74,36 @@ packages/
 | `pnpm typecheck` | Turbo: `tsc --noEmit` per package |
 | `pnpm lint` | Biome check |
 | `pnpm lint:fix` | Biome write |
-| `pnpm stress` | Run 11-case stress harness against the built MCP |
+| `pnpm stress` | Run 10-case stress harness against the built MCP |
 | `pnpm verify` | lint + typecheck + test + build (CI shape) |
 
 Per-app:
 - `pnpm --filter browser-tab-mcp dev:mcp` — `tsx src/cli.ts mcp` with env files loaded
 - `pnpm --filter browser-tab-mcp mcp` — run the built MCP via stdio
-- `pnpm --filter browser-tab-mcp mcp -- --http` — run the built MCP via Streamable HTTP (requires `MCP_HTTP_TOKEN`)
 - `pnpm --filter browser-tab-mcp tui` — launch the Ink TUI
-- `pnpm --filter browser-tab-mcp doctor` — preflight checks (Node version, deps, native module, env)
+- `pnpm --filter browser-tab-mcp doctor` — preflight checks (Node, native module, Automation TCC, correlation tier)
+- `node apps/browser-tab-mcp/dist/cli.js daemon run|install|status|token` — daemon lifecycle (launchd label `com.george43g.browser-tab`)
+- `pnpm --filter @george43g/chrome-extension build` — MV3 bundle → `apps/chrome-extension/dist` (load unpacked)
+- `pnpm --filter @george43g/safari-extension convert` — (re)generate the Safari Xcode project (full Xcode; only when the file set / manifest structure changes — regen re-unsigns)
+- `pnpm --filter @george43g/safari-extension sideload` — fast Safari loop: prune → build dist → `xcodebuild` → open app to re-register (code-only changes; **named `sideload`, not `rebuild`, which is a pnpm built-in**)
+- `pnpm --filter @george43g/safari-extension unregister` — prune stale/duplicate Safari extension registrations (`clean.sh --all` for a hard reset)
+- `pnpm --filter @george43g/browser-tab-mcp stress:tui` — TUI memory/lag soak
+
+State/paths at runtime: socket `~/.browser-tab/daemon.sock`, extension token `~/.browser-tab/extension-token`, snapshot cache `~/.cache/browser-tab/{snapshot,last}.json`, launchd logs `~/Library/Logs/browser-tab/`.
+
+## Connector extension (Chrome + Safari)
+
+One bundle (`apps/chrome-extension`, built from `packages/extension-core`) serves Chrome/Brave/Chromium and — packaged via `apps/safari-extension` — Safari. Full details in `apps/chrome-extension/README.md`. Non-obvious constraints that WILL bite:
+
+- **Self-contained IIFE build, not ES modules.** Safari doesn't support `background.type:"module"` and loads the background as a *classic* script that can't `import`. `vite.config.ts` builds each entry (`background`/`options`/`popup`) fully inlined (`format:"iife"`, `inlineDynamicImports`, one pass per `EXT_ENTRY`). Page `<script>` tags are classic. Don't reintroduce module syntax or shared chunks.
+- **Dual background keys.** Manifest ships `background.service_worker` (Chrome) **and** `background.scripts` (Safari/Firefox background page). Safari's MV3 service worker is unreliable (idles out, never lists in *Develop → Web Extension Backgrounds*, unmessageable); the `scripts` background page is persistent and works. Chrome uses the service worker and may warn about `scripts` — harmless.
+- **Cross-browser runtime messaging.** Chrome resolves `sendMessage` via `sendResponse`+`return true`; Safari/Firefox only resolve if the listener **returns a promise**. `background.ts` detects `globalThis.browser` and does both. Get this wrong → the popup/settings show "background worker isn't responding".
+- **Observability.** Background logs `[browser-tab] …`; popup + settings show a live status dot / last error / window+tab counts via a `getStatus` message. `DaemonSocket.getState()` + `describeStatus()`/`derivePhase()` (extension-core `status.ts`) are the single source of truth both pages render.
+- **Safari packaging.** `convert.sh` generates an Xcode project that **references `dist/` in place** (fileRefs, not copies) — the Extension's on-disk `Resources/` looks empty; that's normal, and code-only edits need no re-convert. The project is **gitignored** (personal signing team + machine paths); regenerate with `convert`. `sideload` builds into Xcode's **default** DerivedData so it and ⌘R don't produce two registered apps (the duplicate trap). See `apps/safari-extension/README.md`.
+
+## Extension–daemon merge (why the extension "wins")
+
+`src/daemon/merge.ts` decides, per browser, whether extension-fed state or the AppleScript poll wins. The extension only pushes a snapshot on tab/window **events** (no heartbeat), so gating on snapshot *age* made an idle-but-connected browser silently revert to AppleScript data + AppleScript handles — routing a subsequent `move` down the state-losing close+reopen path. Fixed: authority tracks **socket liveness, not snapshot freshness** — the WS server `touch()`es the feed on every inbound frame (a pong every ≤20s is enough), a ping/pong heartbeat (`ws-server.ts`) terminates genuinely-dead sessions so `onDisconnect`→`clearExtension` fires, and the feed TTL is floored at 60s (`extFeedTtlMs()` in `engine-loop.ts`). Don't re-gate the merge on snapshot age.
 
 ## Env layout (Vite-style precedence)
 
@@ -88,7 +120,7 @@ For any `--mode`, env files load in this order (each overrides the previous):
 
 Scripts in each app's `package.json` pass `--env-file-if-exists` flags so the precedence is honored without dotenv. The `@george43g/env-loader` package implements the same precedence for tools that need to read env before spawning a subprocess (e.g., the dev MCP proxy).
 
-**Rule**: every recognized env var is also accepted as a CLI flag (binder in `@george43g/cli-kit/env-flag-binder`). `MCP_HTTP_TOKEN` ↔ `--http-token`, `MCP_LOG_DIR` ↔ `--log-dir`, etc.
+**Rule**: every recognized env var is also accepted as a CLI flag (binder in `@george43g/cli-kit/env-flag-binder`). `MCP_LOG_DIR` ↔ `--log-dir`, `MCP_DISABLE_NATIVE` ↔ `--disable-native`, etc.
 
 ## MCP best practices enforced in this codebase
 
@@ -129,18 +161,9 @@ NDJSON files written to `$TMPDIR/browser-tab-mcp/browser-tab-mcp-{PID}-{date}.nd
 
 Also in-memory ring buffer (last 500 lines). In dev mode (`MCP_DEV=1`), a `get_logs` MCP tool is registered for AI-driven log inspection.
 
-## HTTP transport
-
-Default off (stdio mode). Enable with `browser-tab mcp --http`. Requires `MCP_HTTP_TOKEN` (generate with `openssl rand -hex 32`).
-
-- **POST /mcp** — MCP Streamable HTTP (bearer-token required)
-- **GET /health** — health snapshot (no auth; for reverse-proxy probes; returns 503 if unhealthy)
-- Default bind: 127.0.0.1 (TLS via reverse proxy — Caddy/nginx/Cloudflare Tunnel)
-- Stateful sessions: server hands out `mcp-session-id` on `initialize`, clients echo on subsequent requests
-
 ## Stress harness
 
-`pnpm stress` covers 11 lifecycle assertions (in `apps/browser-tab-mcp/scripts/stress-mcp.ts`):
+`pnpm stress` covers 10 cases (in `apps/browser-tab-mcp/scripts/stress-mcp.ts`):
 
 1. handshake + tools/list returns the full catalog
 2. `health_check` returns `Status: healthy`
@@ -150,9 +173,8 @@ Default off (stdio mode). Enable with `browser-tab mcp --http`. Requires `MCP_HT
 6. `MCP_TOOL_TIMEOUT_FORCE_MS=1` triggers a clean timeout
 7. SIGTERM produces exit code 0 (handler intercepted)
 8. `MCP_MAX_RSS_MB=50` triggers a watchdog kill
-9. HTTP `/health` returns 200
-10. HTTP `/mcp` without bearer returns 401
-11. HTTP `/mcp` initialize roundtrip with bearer + session-id succeeds
+9. `list_tabs` with `BROWSER_TAB_FAKE_ADAPTER=1` returns a valid snapshot
+10. daemon lifecycle: socket serves 20 parallel getSnapshot; SIGTERM exits 0 and unlinks the socket
 
 Add a case whenever you ship something touching lifecycle, dispatch, error handling, or transport.
 
@@ -183,7 +205,7 @@ Types are hand-mirrored between `packages/shared-types/src/index.ts` (Zod) and `
 
 ## CI / Release
 
-- `.github/workflows/ci.yml` — matrix `ubuntu-latest + macos-latest`, runs lint + typecheck + test + test:no-native + build + `pnpm check:usage` (completions/manpage/docs freshness gate) + `npm pack --dry-run` + stress (all 11 cases).
+- `.github/workflows/ci.yml` — matrix `ubuntu-latest + macos-latest`, runs lint + typecheck + test + test:no-native + build + `pnpm check:usage` (completions/manpage/docs freshness gate) + `npm pack --dry-run` + stress (all 10 cases).
 - `.github/workflows/release.yml` — semantic-release with `@semantic-release/{commit-analyzer,release-notes-generator,changelog,npm,github,git}`. **Disabled by default** — `on:` trigger is commented. To enable: uncomment + add `NPM_TOKEN` secret. See `docs/RELEASE.md`.
 - `.github/workflows/readme-check.yml` — fails CI if `src/**` changed without a `README.md` update. Bypass with `[skip-readme]` in commit/PR title.
 
@@ -198,6 +220,5 @@ Types are hand-mirrored between `packages/shared-types/src/index.ts` (Zod) and `
 
 - **Build hangs**: check `pnpm dev` isn't already running in another shell (Vite watch can deadlock turbo).
 - **Native module fails to load**: run `pnpm --filter rust-accel build` manually. If it fails with "rustc not found", install Rust or set `MCP_DISABLE_NATIVE=1`.
-- **`browser-tab-cli http` refuses to start**: requires `MCP_HTTP_TOKEN`. Generate one with `openssl rand -hex 32`.
 - **MCP host doesn't see tool changes**: the dev proxy auto-reloads on `src/**` but the host caches the session. Restart your MCP host (Cursor/Claude/Warp).
 - **Orphaned MCP processes**: `ps aux | grep browser-tab` and kill stragglers. The shutdown registry should catch this, but if it doesn't, file a bug.

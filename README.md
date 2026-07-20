@@ -2,7 +2,7 @@
 
 # browser-tab
 
-**MCP server + CLI + TUI — one bin, three surfaces, production-ready from commit 1.**
+**macOS browser-tab detection & management for window-manager stacks — daemon + MCP server + CLI + TUI from a single bin.**
 
 [![CI](https://github.com/george43g/mcp-cli-starter-template/actions/workflows/ci.yml/badge.svg)](https://github.com/george43g/mcp-cli-starter-template/actions/workflows/ci.yml)
 [![npm version](https://img.shields.io/npm/v/@george43g/browser-tab-mcp.svg)](https://www.npmjs.com/package/@george43g/browser-tab-mcp)
@@ -17,7 +17,7 @@
 
 ---
 
-> **This README is a scaffold.** Edit it to describe what your tool actually does. The structure below — install snippets, tool table, IDE integrations, skill install — is the recommended public-style format.
+Knows which tabs are open in which browser windows (Chrome, Brave, Chromium, Safari), joins them to yabai window ids (`cgWindowId` == CGWindowID), and executes tab commands — including **true state-preserving cross-window moves** via the bundled browser extension (`chrome.tabs.move`; AppleScript can't do that). Built for [wm-stack](https://github.com/george43g) but generally useful: a launchd daemon polls via AppleScript, extensions push live events over a localhost WebSocket, and MCP/CLI/TUI/unix-socket clients all consume the same merged snapshot. See [`docs/WM_STACK_CONTRACT.md`](docs/WM_STACK_CONTRACT.md) for the consumer contract.
 
 ## Install
 
@@ -33,13 +33,17 @@ pnpm add  -g @george43g/browser-tab-mcp
 After install, `browser-tab` is on your PATH. All subcommands route through that single bin:
 
 ```bash
+browser-tab daemon install   # launchd daemon: polling + extension socket + IPC
+browser-tab daemon token     # print the extension auth token
+browser-tab list --json      # windows + tabs + cgWindowId (yabai join key)
+browser-tab focus <tabId>    # activate a tab and raise its window
+browser-tab move <tabId> --target-window <windowId>   # true move (extension)
+browser-tab open <url>       # open a tab
+browser-tab close <tabId>    # close a tab
+browser-tab tui              # live tab manager (Ink)
 browser-tab mcp              # run the MCP server (stdio)
-browser-tab mcp --http       # run via Streamable HTTP (requires MCP_HTTP_TOKEN)
-browser-tab tui              # launch the Ink TUI
-browser-tab doctor           # preflight checks (Node version, native deps, env)
+browser-tab doctor           # preflight: Automation permission, correlation tier
 browser-tab repl             # interactive REPL — same dispatcher as MCP
-browser-tab health           # one-shot health snapshot
-browser-tab noop --input hi  # call any tool directly from the CLI
 ```
 
 ## One-click install
@@ -78,13 +82,21 @@ Identical JSON snippet — they all consume the same shape under `mcpServers`. S
 
 ## Tools
 
-The starter ships two demo tools plus a dev-only log inspector. Replace these with your own — declare a `ToolDefinition` in `src/tools/<name>.ts`, register it in `src/tools/registry.ts`, and it'll appear in MCP `tools/list`, the CLI as a subcommand, and the REPL automatically.
+Every MCP tool is also a CLI subcommand and a REPL command (one in-process dispatcher).
 
 | Tool | Description | Annotations |
 |---|---|---|
-| `health_check` | Returns server/runtime/transport snapshot. Never touches external I/O. | read-only, idempotent |
-| `noop` | Echo a string (optionally upper-cased). Demonstrates the Rust acceleration fallback path. | read-only, idempotent |
-| `get_logs` | **Dev-mode only** (`BROWSER_TAB_DEV=1`). Returns the last N lines from the in-memory ring buffer. | read-only |
+| `list_tabs` | Windows + tabs across Chrome/Brave/Chromium/Safari with opaque handles, bounds, and `cgWindowId` (yabai join key). Filters: `browser`, `windowId`, `urlFilter`. | read-only, idempotent |
+| `focus_tab` | Activate a tab and raise its window. | |
+| `move_tab` | Move a tab across windows. True state-preserving move via the extension; Safari AppleScript fallback with `allowReload:true`. | |
+| `open_tab` | Open an http(s) URL, optionally in a specific window/browser or in the background. | open-world |
+| `close_tab` | Close a tab. | destructive |
+| `daemon_status` | Daemon reachability, poll interval, correlation tier, per-browser counts + extension connectivity. | read-only |
+| `health_check` | Server/runtime snapshot. Never touches external I/O. | read-only, idempotent |
+| `noop` | Echo demo (Rust acceleration path). | read-only, idempotent |
+| `get_logs` | **Dev-mode only** (`MCP_DEV=1`). Last N in-memory log lines. | read-only |
+
+The connector extension lives in `apps/chrome-extension` (load `dist/` unpacked, paste `browser-tab daemon token` in its options page) with Safari packaging in `apps/safari-extension` (`pnpm --filter @george43g/safari-extension sideload`; needs Xcode — see its README). Its toolbar **popup** and **settings page** show live connection status, window/tab counts, and the real error if it can't connect. Without an extension, everything except true Chromium moves still works via AppleScript.
 
 ## Install the companion skill
 
@@ -105,7 +117,6 @@ ln -s "$(pwd)/skills/browser-tab/SKILL.md" ~/.claude/skills/browser-tab/SKILL.md
 |---|---|
 | [`AGENTS.md`](AGENTS.md) | Canonical agent guide (also `CLAUDE.md`, `.cursorrules` as symlinks) |
 | [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) | How packages fit together; which to delete if you don't need a surface |
-| [`docs/HTTP_MODE.md`](docs/HTTP_MODE.md) | Streamable HTTP transport: bearer auth, `/health`, reverse-proxy patterns |
 | [`docs/RUST_ACCELERATION.md`](docs/RUST_ACCELERATION.md) | napi-rs build, `.node` binary handling, drift-check between Zod and serde |
 | [`docs/TUI_DESIGN.md`](docs/TUI_DESIGN.md) | Theme system, keybindings, dev stats, cache invariants |
 | [`docs/GUARDRAILS_MCP_RESPONSES.md`](docs/GUARDRAILS_MCP_RESPONSES.md) | UUID-gated instructions + prompt-injection defense |
@@ -121,14 +132,13 @@ apps/
     src/
       cli.ts                THE SINGLE BIN — commander dispatch
       index.ts              runMcpServer() + callMcpTool() (library exports)
-      commands/http.ts      HTTP transport wiring (delete file to drop HTTP)
       tui/                  Ink TUI — delete dir + the `tui` subcmd if not needed
       tools/                health_check + noop demo + dev-only get_logs
       dispatcher.ts         invariants block; withTimeout + perf + abort + error wrap
       native-bridge.ts      tryLoadNative() with MCP_DISABLE_NATIVE escape
     scripts/
       mcp-dev-proxy.ts      handshake-replay proxy for live source-reload
-      stress-mcp.ts         9-case robustness harness
+      stress-mcp.ts         8-case robustness harness
       screenshots/          VHS .tape files driving docs/screenshots/*.gif
     .usage.kdl              CLI spec → completions + manpage + markdown docs
   rust-accel/               napi-rs crate (optional acceleration)

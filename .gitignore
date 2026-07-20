@@ -47,6 +47,15 @@ yarn-error.log*
 *.swp
 *.swo
 
+# Per-developer agent tooling scaffolding (not part of the project)
+.agents/
+.codex/
+
+# Generated Safari Xcode project (regenerate with
+# `pnpm --filter @george43g/safari-extension convert`; carries personal
+# signing/DerivedData paths, so it's not checked in)
+apps/safari-extension/xcode/
+
 # OS
 .DS_Store
 Thumbs.db

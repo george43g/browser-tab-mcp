@@ -47,6 +47,7 @@ export default defineConfig({
         "react",
         "react/jsx-runtime",
         "react/jsx-dev-runtime",
+        "ws",
         "zod",
       ],
       output: {

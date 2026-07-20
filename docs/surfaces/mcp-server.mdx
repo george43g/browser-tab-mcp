@@ -1,6 +1,6 @@
 ---
 title: MCP server
-description: 'Stdio and Streamable HTTP transports, tool registry, dispatcher invariants.'
+description: 'Stdio transport, tool registry, dispatcher invariants.'
 ---
 
 The MCP server is the canonical entry point — the other surfaces (CLI/TUI/REPL) all dispatch through the same in-process registry.
@@ -8,8 +8,7 @@ The MCP server is the canonical entry point — the other surfaces (CLI/TUI/REPL
 ## Run it
 
 ```bash
-browser-tab mcp              # stdio (default)
-browser-tab mcp --http       # Streamable HTTP
+browser-tab mcp              # stdio
 ```
 
 ## Tools shipped in the template

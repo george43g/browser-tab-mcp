@@ -11,16 +11,7 @@ After [installing](/installation), pick the surface that matches your context.
 browser-tab mcp
 ```
 
-Stdio transport by default. The host (Claude/Cursor/Warp/OpenCode) spawns this as a child process and speaks JSON-RPC over stdin/stdout. Logs go to NDJSON files under `$TMPDIR/browser-tab/` — never to stdout.
-
-For HTTP transport:
-
-```bash
-export MCP_HTTP_TOKEN=$(openssl rand -hex 32)
-browser-tab mcp --http --port 8080
-```
-
-See [HTTP mode](/internals/http-mode) for reverse-proxy patterns.
+Stdio transport. The host (Claude/Cursor/Warp/OpenCode) spawns this as a child process and speaks JSON-RPC over stdin/stdout. Logs go to NDJSON files under `$TMPDIR/browser-tab/` — never to stdout.
 
 ## From the CLI
 

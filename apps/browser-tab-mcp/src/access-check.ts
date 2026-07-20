@@ -10,6 +10,9 @@
 import { existsSync, statSync } from "node:fs";
 import { homedir } from "node:os";
 import { join } from "node:path";
+import { correlationTier } from "./detect/correlate.js";
+import { enabledBrowsers, specFor } from "./detect/engine.js";
+import { OsaPermissionError, osaQuote, probeProcess, runOsa } from "./detect/osascript.js";
 import { APP_NAME } from "./meta.js";
 import { hasNativeModule } from "./native-bridge.js";
 
@@ -105,8 +108,81 @@ function checkConfigDir(): AccessCheckItem {
   }
 }
 
+/**
+ * Per-browser Automation (TCC Apple Events) probe. Only probes browsers
+ * that are actually running — an osascript against a stopped app would
+ * LAUNCH it. Denied permission (AppleScript -1743) is the classic silent
+ * failure under launchd, so it's an explicit doctor error with the fix.
+ */
+async function checkBrowser(
+  browser: ReturnType<typeof enabledBrowsers>[number],
+): Promise<AccessCheckItem> {
+  const spec = specFor(browser);
+  const key = `browser:${browser}`;
+  const { running } = await probeProcess(spec.processName);
+  if (!running) {
+    return {
+      key,
+      label: spec.appName,
+      status: "info",
+      detail: "not running — Automation permission probe skipped.",
+    };
+  }
+  try {
+    // No explicit timeout: first contact gets the long TCC-consent grace
+    // window so the user can answer the Automation prompt mid-doctor.
+    await runOsa(`tell application ${osaQuote(spec.appName)} to count windows`, {
+      appName: spec.appName,
+    });
+    return {
+      key,
+      label: spec.appName,
+      status: "ok",
+      detail: "running; Automation permission granted.",
+    };
+  } catch (err) {
+    if (err instanceof OsaPermissionError) {
+      return { key, label: spec.appName, status: "error", detail: err.message };
+    }
+    return {
+      key,
+      label: spec.appName,
+      status: "warn",
+      detail: `running, but the Apple Events probe failed: ${(err as Error).message}`,
+    };
+  }
+}
+
+/** Which source can supply cgWindowId (the yabai join key). */
+async function checkCorrelation(): Promise<AccessCheckItem> {
+  const tier = await correlationTier();
+  const key = "cgCorrelation";
+  const label = "CG window correlation";
+  if (tier === "native") {
+    return { key, label, status: "ok", detail: "native CGWindowList binding loaded." };
+  }
+  if (tier === "yabai") {
+    return { key, label, status: "ok", detail: "falling back to `yabai -m query --windows`." };
+  }
+  return {
+    key,
+    label,
+    status: "warn",
+    detail:
+      "unavailable — cgWindowId will be null. Build the native module " +
+      "(`pnpm --filter @george43g/rust-accel build`) or install yabai.",
+  };
+}
+
 export async function checkLocalAccess(): Promise<AccessReport> {
-  const items = [checkNode(), checkNative(), checkConfigDir()];
+  const browserItems =
+    process.env.BROWSER_TAB_FAKE_ADAPTER === "1"
+      ? []
+      : [
+          ...(await Promise.all(enabledBrowsers().map((b) => checkBrowser(b)))),
+          await checkCorrelation(),
+        ];
+  const items = [checkNode(), checkNative(), checkConfigDir(), ...browserItems];
   const ok = items.every((i) => i.status !== "error");
   return { ok, items };
 }

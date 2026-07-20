@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="color-scheme" content="dark" />
+    <title>browser-tab</title>
+    <link rel="stylesheet" href="./ui.css" />
+    <style>
+      body {
+        width: 320px;
+      }
+    </style>
+  </head>
+  <body>
+    <header class="wm-head">
+      <svg class="wm-mark" viewBox="0 0 512 512" aria-hidden="true">
+        <g stroke-linecap="round" fill="none" stroke="currentColor">
+          <line x1="150" y1="372" x2="214" y2="140" stroke-opacity="0.42" stroke-width="46" />
+          <line x1="226" y1="372" x2="290" y2="140" stroke-opacity="0.68" stroke-width="46" />
+          <line x1="302" y1="372" x2="366" y2="140" stroke-width="46" />
+        </g>
+      </svg>
+      <span class="wm-word">browser<b>-tab</b></span>
+      <span class="wm-badge" id="st-version">v—</span>
+    </header>
+
+    <section class="wm-panel">
+      <div class="wm-eyebrow">Connection</div>
+      <div class="wm-status">
+        <span class="wm-dot muted" id="st-dot"></span>
+        <span class="wm-word-status" id="st-word">…</span>
+        <span class="wm-detail" id="st-detail"></span>
+      </div>
+    </section>
+
+    <section class="wm-panel">
+      <div class="wm-eyebrow">Live tabs</div>
+      <div class="wm-stats">
+        <div class="wm-stat"><div class="k">windows</div><div class="v" id="st-windows">—</div></div>
+        <div class="wm-stat"><div class="k">tabs</div><div class="v" id="st-tabs">—</div></div>
+        <div class="wm-stat"><div class="k">last event</div><div class="v" id="st-event">—</div></div>
+        <div class="wm-stat"><div class="k">browser</div><div class="v" id="st-browser">—</div></div>
+      </div>
+    </section>
+
+    <div class="wm-err hidden" id="st-err"></div>
+
+    <div class="wm-actions">
+      <button type="button" class="wm-btn primary" id="reconnect">reconnect</button>
+      <button type="button" class="wm-btn" id="settings">settings</button>
+    </div>
+
+    <script src="./popup.js" defer></script>
+  </body>
+</html>

@@ -1,0 +1,11 @@
+{
+  "name": "@george43g/safari-extension",
+  "version": "0.0.0",
+  "private": true,
+  "description": "browser-tab connector — Safari Web Extension packaging (containing app generated from apps/chrome-extension/dist via safari-web-extension-converter).",
+  "scripts": {
+    "convert": "bash scripts/convert.sh",
+    "sideload": "bash scripts/rebuild.sh",
+    "unregister": "bash scripts/clean.sh"
+  }
+}

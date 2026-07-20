@@ -25,9 +25,22 @@ Disable colors
 
 ## Subcommands
 
-- [`browser-tab mcp [FLAGS]`](/mcp.md)
+- [`browser-tab mcp`](/mcp.md)
 - [`browser-tab tui`](/tui.md)
 - [`browser-tab doctor`](/doctor.md)
 - [`browser-tab repl`](/repl.md)
 - [`browser-tab health`](/health.md)
+- [`browser-tab list [FLAGS]`](/list.md)
+- [`browser-tab focus <tabId>`](/focus.md)
+- [`browser-tab close <tabId>`](/close.md)
+- [`browser-tab open [FLAGS] <url>`](/open.md)
+- [`browser-tab move [FLAGS] <tabId>`](/move.md)
+- [`browser-tab daemon <SUBCOMMAND>`](/daemon.md)
+- [`browser-tab daemon run`](/daemon/run.md)
+- [`browser-tab daemon install`](/daemon/install.md)
+- [`browser-tab daemon uninstall`](/daemon/uninstall.md)
+- [`browser-tab daemon status`](/daemon/status.md)
+- [`browser-tab daemon token`](/daemon/token.md)
+- [`browser-tab daemon stop`](/daemon/stop.md)
+- [`browser-tab daemon restart`](/daemon/restart.md)
 - [`browser-tab noop <--input <text>> [--upper]`](/noop.md)

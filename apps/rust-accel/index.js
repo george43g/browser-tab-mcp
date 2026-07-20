@@ -588,4 +588,5 @@ if (!nativeBinding) {
 
 module.exports = nativeBinding
 module.exports.hello = nativeBinding.hello
+module.exports.listCgWindows = nativeBinding.listCgWindows
 module.exports.noopAccel = nativeBinding.noopAccel
