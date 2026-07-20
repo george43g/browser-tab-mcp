@@ -59,7 +59,9 @@ packages/
   shared-types/       # Zod schemas (Snapshot contract + tool inputs + WS protocol) + Rust mirror
   tsconfig/           # shared base/node/react TS configs
   biome-config/       # single biome.json source
-  vitest-config/      # shared preset with coverage
+  vitest-config/      # shared/app/extension coverage presets (two-flag COVERAGE/COVERAGE_GATE)
+  test-kit/           # test fixtures + fakes (make* factories, installFakeChrome,
+                      # withDaemonEnv, installNodeWebSocket). Raw TS, no build. See its README.
 ```
 
 ## Commands
@@ -69,8 +71,10 @@ packages/
 | `pnpm install` | Install workspace deps |
 | `pnpm build` | Turbo: build everything (TS + optional native) |
 | `pnpm dev` | Turbo: watch mode across all packages |
-| `pnpm test` | Run all unit + integration tests |
+| `pnpm test` | Run all unit + integration tests (no coverage — fast) |
 | `pnpm test:no-native` | Force TS fallback path (`MCP_DISABLE_NATIVE=1`) |
+| `COVERAGE=1 pnpm test` | Collect coverage + write reports (lcov in CI, html locally). **Non-gating.** |
+| `COVERAGE=1 COVERAGE_GATE=1 pnpm test` | Additionally FAIL under-threshold (the future gate; dormant in CI today) |
 | `pnpm typecheck` | Turbo: `tsc --noEmit` per package |
 | `pnpm lint` | Biome check |
 | `pnpm lint:fix` | Biome write |
@@ -203,9 +207,32 @@ Force TS path: `MCP_DISABLE_NATIVE=1`. CI tests both paths.
 
 Types are hand-mirrored between `packages/shared-types/src/index.ts` (Zod) and `apps/rust-accel/src/types.rs` (serde). The drift-check test in `packages/shared-types/tests/drift.test.ts` parses the Rust file and fails CI if field names diverge.
 
-## Testing posture & known gaps
+## Testing posture & taxonomy
 
-CI green exercises the **daemon / MCP / kits** (unit + integration + stress + both-OS build incl. Rust native) — NOT the **browser-extension runtime**. Gaps: `apps/chrome-extension` has no tests; `ws-server.test.ts` drives a hand-rolled fake client, not the real `extension-core` `DaemonSocket`; nothing validates the built bundle (manifest / IIFE-not-module / classic scripts); coverage thresholds exist in `vitest-config` but aren't enforced (`vitest run`, no `--coverage`). Every extension bug this repo hit (module SW, dual background, cross-browser messaging) was invisible to CI. **The concrete hardening plan — integration-test harness sketch, build-output guards, coverage enablement — is in `docs/FOLLOWUPS.md`. Read it before adding extension tests.** (Release/npm enablement + the monorepo decision also live there.)
+CI green now exercises the **browser-extension runtime too**, not just the daemon/MCP/kits. The layer that broke repeatedly (module SW, dual background, cross-browser messaging) is covered:
+
+- **Integration** (`apps/browser-tab-mcp/tests/ext-socket.integration.test.ts`): the REAL `extension-core` `DaemonSocket` drives the REAL daemon `ExtensionServer` over loopback (`installNodeWebSocket` bridges `ws` onto `globalThis.WebSocket`; `installFakeChrome` backs `buildSnapshot`/`executeCommand`) — the seam `ws-server.test.ts`'s hand-rolled client skips.
+- **Messaging regression** (`apps/chrome-extension/tests/messaging.test.ts`): asserts the `onMessage` listener returns a Promise under `globalThis.browser` (Safari/Firefox) and `sendResponse`+`true` under Chrome.
+- **Build-output guards** (`apps/chrome-extension/tests/build-output.test.ts`): reads `dist/` — MV3, BOTH background keys, no `background.type:"module"`, IIFE-not-ESM entry JS, no `type="module"` script tags, every asset present.
+- **Contract** (`packages/shared-types/tests/ws-protocol.contract.test.ts`, `apps/browser-tab-mcp/tests/snapshot.contract.test.ts`): WS message round-trips + `extSnapshotToBrowserState` shape/x-handle grammar.
+- **Coverage**: collected + uploaded in CI (`COVERAGE=1`), **not gated yet** — arm with `COVERAGE_GATE=1` later.
+
+Acceptance held when built: dropping `background.scripts`, reintroducing `background.type:"module"`, or making the messaging listener Chrome-only each turns a test RED.
+
+**Where a new test goes** — four layers:
+
+| Layer | Lives | Naming | May touch |
+|---|---|---|---|
+| unit | colocated `src/**/*.test.ts` | `<module>.test.ts` | one module's logic; fakes ok, no sockets/FS/daemon |
+| integration | `tests/*.test.ts` | `<feature>.test.ts` | real components wired (daemon+client, `DaemonSocket`↔`ExtensionServer`), temp FS, loopback WS |
+| contract | `tests/*.contract.test.ts` | `.contract.test.ts` | schema/wire invariants two implementations must agree on |
+| e2e | `apps/chrome-extension/e2e/*` | `.e2e.test.ts` | built `dist/` in real Chromium — **deferred/stub** |
+
+Decision tree: pure logic → unit (colocated). Crosses a process/socket/FS boundary or wires 2+ real components → integration (`tests/`) with `withDaemonEnv` + `installFakeChrome`/`installNodeWebSocket` from `@george43g/test-kit`. Defines a shape another implementation must match (Rust struct, WS wire, MCP tool I/O) → contract. Needs a real browser rendering the bundle → e2e (deferred). **DOM-touching test → add `// @vitest-environment happy-dom` at the top** (default env is node so `socket.ts` timer tests stay DOM-free).
+
+**Fixtures live in `@george43g/test-kit`** — `make*` factories + `install*`/`with*` global-lifecycle fakes only; never import an app (cycle). Add a helper there only when ≥2 packages need it. See `packages/test-kit/README.md`.
+
+Still deferred: Safari runtime + packaging scripts can't be automated (no headless Safari / Xcode-in-CI) — manual smoke only (`apps/safari-extension/README.md`); Playwright E2E is a gated-off stub job. Release/npm enablement + the monorepo decision live in `docs/FOLLOWUPS.md`.
 
 ## CI / Release
 

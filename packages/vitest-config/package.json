@@ -7,7 +7,8 @@
   "main": "./vitest.shared.ts",
   "files": [
     "vitest.shared.ts",
-    "vitest.app.ts"
+    "vitest.app.ts",
+    "vitest.extension.ts"
   ],
   "peerDependencies": {
     "vitest": "^3.2.7"

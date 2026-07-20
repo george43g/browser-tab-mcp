@@ -1,0 +1,43 @@
+{
+  "name": "@george43g/test-kit",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Test fixtures + fakes for browser-tab: typed make* factories over @george43g/shared-types and install*/with* global-lifecycle fakes (chrome API, daemon env, Node WebSocket). Raw TS, no build — consumed like @george43g/vitest-config. Keep it lean: see README.",
+  "type": "module",
+  "license": "MIT",
+  "main": "./src/index.ts",
+  "exports": {
+    ".": {
+      "types": "./src/index.ts",
+      "import": "./src/index.ts"
+    },
+    "./node": {
+      "types": "./src/node.ts",
+      "import": "./src/node.ts"
+    }
+  },
+  "files": [
+    "src",
+    "README.md"
+  ],
+  "scripts": {
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "peerDependencies": {
+    "ws": "^8.21.1"
+  },
+  "peerDependenciesMeta": {
+    "ws": {
+      "optional": true
+    }
+  },
+  "devDependencies": {
+    "@george43g/shared-types": "workspace:*",
+    "@george43g/tsconfig": "workspace:*",
+    "@types/chrome": "^0.0.280",
+    "@types/node": "^24.13.3",
+    "@types/ws": "^8.18.1",
+    "typescript": "^5.7.0",
+    "ws": "^8.21.1"
+  }
+}

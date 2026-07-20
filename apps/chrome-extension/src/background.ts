@@ -53,7 +53,7 @@ const EMPTY_SOCKET_STATE: SocketState = {
   reconnectAttempts: 0,
 };
 
-function currentStatus(): ConnectorStatus {
+export function currentStatus(): ConnectorStatus {
   const socketState = socket?.getState() ?? EMPTY_SOCKET_STATE;
   return {
     phase: derivePhase(socketState, lastConfig.hasToken),
@@ -68,7 +68,7 @@ function currentStatus(): ConnectorStatus {
   };
 }
 
-async function ensureSocket(force = false): Promise<void> {
+export async function ensureSocket(force = false): Promise<void> {
   const options = await loadOptions();
   lastConfig = { browser: options.browser, port: options.port, hasToken: options.token.length > 0 };
   if (!options.token) {
@@ -122,7 +122,7 @@ function installKeepalive(): void {
 const USES_PROMISE_MESSAGING = typeof (globalThis as { browser?: unknown }).browser !== "undefined";
 
 /** Popup / options pages ask for status and can force a reconnect. */
-function installMessaging(): void {
+export function installMessaging(): void {
   api.runtime.onMessage.addListener(
     (message: PageMessage, _sender, sendResponse: (r: ConnectorStatus) => void) => {
       if (message?.type !== "getStatus" && message?.type !== "reconnect") return undefined;

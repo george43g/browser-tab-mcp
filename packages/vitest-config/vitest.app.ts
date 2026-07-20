@@ -13,12 +13,11 @@ export const app = mergeConfig(
   defineConfig({
     test: {
       coverage: {
-        thresholds: {
-          statements: 50,
-          branches: 40,
-          functions: 40,
-          lines: 40,
-        },
+        // Dormant until COVERAGE_GATE=1 (see vitest.shared). Overrides the
+        // shared library thresholds with the lower app bar when gating is on.
+        ...(process.env.COVERAGE_GATE === "1"
+          ? { thresholds: { statements: 50, branches: 40, functions: 40, lines: 40 } }
+          : {}),
       },
     },
   }),

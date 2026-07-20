@@ -6,90 +6,36 @@
  * liveness ages out of the window back to AppleScript data.
  */
 
-import type { BrowserState, Snapshot } from "@george43g/shared-types";
+import type { Snapshot } from "@george43g/shared-types";
+import {
+  makeBrowserState,
+  makeContractTab,
+  makeContractWindow,
+  makeSnapshot,
+} from "@george43g/test-kit";
 import { describe, expect, it } from "vitest";
 import { SourceMerger } from "../src/daemon/merge.js";
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
-function appleChrome(): BrowserState {
-  return {
-    browser: "chrome",
-    bundleId: "com.google.Chrome",
-    pid: 4242,
-    running: true,
-    extensionConnected: false,
-    dataSource: "applescript",
-    windows: [
-      {
-        windowId: "w:chrome:100",
-        cgWindowId: null,
-        title: "poll",
-        bounds: { x: 0, y: 25, w: 1440, h: 875 },
-        focused: true,
-        incognito: false,
-        activeTabIndex: 0,
-        tabCount: 1,
-        tabs: [
-          {
-            tabId: "t:chrome:101",
-            index: 0,
-            url: "https://poll.example/",
-            title: "poll",
-            active: true,
-            pinned: false,
-            audible: false,
-            discarded: false,
-          },
-        ],
-      },
-    ],
-  };
-}
+// The daemon-side AppleScript defaults ARE the makeBrowserState defaults
+// (chrome, applescript source, pid 4242, tab t:chrome:101).
+const appleChrome = () => makeBrowserState();
 
-function extChrome(): BrowserState {
-  return {
-    browser: "chrome",
-    bundleId: "com.google.Chrome",
+const extChrome = () =>
+  makeBrowserState({
     pid: null,
-    running: true,
     extensionConnected: true,
     dataSource: "extension",
     windows: [
-      {
+      makeContractWindow({
         windowId: "w:chrome:x800",
-        cgWindowId: null,
-        title: "ext",
-        bounds: { x: 0, y: 25, w: 1440, h: 875 },
-        focused: true,
-        incognito: false,
-        activeTabIndex: 0,
-        tabCount: 1,
-        tabs: [
-          {
-            tabId: "t:chrome:x900",
-            index: 0,
-            url: "https://ext.example/",
-            title: "ext",
-            active: true,
-            pinned: false,
-            audible: false,
-            discarded: false,
-          },
-        ],
-      },
+        tabs: [makeContractTab({ tabId: "t:chrome:x900" })],
+      }),
     ],
-  };
-}
+  });
 
-function polled(): Snapshot {
-  return {
-    version: 1,
-    generatedAt: Date.now(),
-    source: "osascript-direct",
-    browsers: [appleChrome()],
-  };
-}
+const polled = (): Snapshot => makeSnapshot({ source: "osascript-direct" });
 
 const chromeOf = (s: Snapshot) => s.browsers.find((b) => b.browser === "chrome");
 

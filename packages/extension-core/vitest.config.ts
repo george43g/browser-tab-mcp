@@ -1,3 +1,5 @@
-import shared from "@george43g/vitest-config/vitest.shared";
+import extension from "@george43g/vitest-config/vitest.extension";
 
-export default shared;
+// Browser-runtime glue (socket/reconnect timers, the `api` Proxy), not a pure
+// library — uses the middle "extension" coverage tier, not the strict shared bar.
+export default extension;

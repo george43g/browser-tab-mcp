@@ -5,10 +5,16 @@
  * temp socket, ephemeral WS port).
  */
 
-import { mkdtempSync, rmSync } from "node:fs";
-import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { rmSync } from "node:fs";
 import type { Snapshot } from "@george43g/shared-types";
+import {
+  makeExtSnapshot,
+  makeExtTab,
+  makeExtWindow,
+  makeTmpDir,
+  randomWsPort,
+  withDaemonEnv,
+} from "@george43g/test-kit";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import WebSocket from "ws";
 import { DaemonClient } from "../src/client/daemon-client.js";
@@ -18,17 +24,12 @@ import { ensureToken } from "../src/daemon/token.js";
 let tmp: string;
 let daemon: DaemonHandle | null = null;
 let token = "";
-const WS_PORT = 18790 + Math.floor(Math.random() * 500);
+let env: { restore(): void } | null = null;
+const WS_PORT = randomWsPort();
 
 beforeEach(async () => {
-  tmp = mkdtempSync(join(tmpdir(), "browser-tab-ws-test-"));
-  process.env.BROWSER_TAB_FAKE_ADAPTER = "1";
-  process.env.BROWSER_TAB_BROWSERS = "chrome";
-  process.env.BROWSER_TAB_SOCKET_PATH = join(tmp, "daemon.sock");
-  process.env.BROWSER_TAB_CACHE_DIR = tmp;
-  process.env.BROWSER_TAB_TOKEN_PATH = join(tmp, "extension-token");
-  process.env.BROWSER_TAB_POLL_MS = "60000";
-  process.env.BROWSER_TAB_WS_PORT = String(WS_PORT);
+  tmp = makeTmpDir("browser-tab-ws-test-");
+  env = withDaemonEnv(tmp, { browsers: "chrome", wsPort: WS_PORT });
   token = ensureToken();
   daemon = await startDaemon();
   await daemon.loop.refresh();
@@ -37,17 +38,8 @@ beforeEach(async () => {
 afterEach(async () => {
   await daemon?.stop();
   daemon = null;
-  for (const key of [
-    "BROWSER_TAB_FAKE_ADAPTER",
-    "BROWSER_TAB_BROWSERS",
-    "BROWSER_TAB_SOCKET_PATH",
-    "BROWSER_TAB_CACHE_DIR",
-    "BROWSER_TAB_TOKEN_PATH",
-    "BROWSER_TAB_POLL_MS",
-    "BROWSER_TAB_WS_PORT",
-  ]) {
-    delete process.env[key];
-  }
+  env?.restore();
+  env = null;
   rmSync(tmp, { recursive: true, force: true });
 });
 
@@ -107,30 +99,9 @@ function connectFakeExtension(authToken: string): Promise<FakeExtension> {
   });
 }
 
-const EXT_SNAPSHOT = {
-  type: "snapshot",
-  windows: [
-    {
-      id: 812,
-      focused: true,
-      incognito: false,
-      bounds: { x: 0, y: 25, w: 1440, h: 875 },
-      tabs: [
-        {
-          id: 4001,
-          windowId: 812,
-          index: 0,
-          url: "https://ext.example/",
-          title: "From extension",
-          active: true,
-          pinned: true,
-          audible: false,
-          discarded: false,
-        },
-      ],
-    },
-  ],
-};
+const EXT_SNAPSHOT = makeExtSnapshot({
+  windows: [makeExtWindow({ id: 812, tabs: [makeExtTab({ id: 4001, pinned: true })] })],
+});
 
 describe("extension WebSocket server", () => {
   it("rejects a bad token", async () => {

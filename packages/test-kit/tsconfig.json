@@ -1,0 +1,9 @@
+{
+  "extends": "@george43g/tsconfig/node.json",
+  "compilerOptions": {
+    "noEmit": true,
+    "types": ["node", "chrome"]
+  },
+  "include": ["src/**/*"],
+  "exclude": ["node_modules"]
+}

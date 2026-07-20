@@ -5,6 +5,8 @@
   "globalEnv": [
     "CI",
     "NODE_ENV",
+    "COVERAGE",
+    "COVERAGE_GATE",
     "MCP_LOG_DIR",
     "MCP_LOG_RING_SIZE",
     "MCP_LOG_MAX_BYTES",

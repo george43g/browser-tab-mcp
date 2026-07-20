@@ -42,6 +42,12 @@ jobs:
       - name: Lint
         run: pnpm lint
 
+      - name: Shellcheck (safari packaging scripts)
+        # Static analysis is OS-independent; run once on Linux. shellcheck is
+        # preinstalled on GitHub's Ubuntu runners.
+        if: runner.os == 'Linux'
+        run: shellcheck apps/safari-extension/scripts/*.sh
+
       - name: Typecheck
         run: pnpm typecheck
 
@@ -55,6 +61,19 @@ jobs:
         env:
           MCP_DISABLE_NATIVE: "1"
         run: pnpm test:no-native
+
+      - name: Coverage (collect + report — non-gating)
+        # COVERAGE=1 collects + writes lcov (CI reporter). COVERAGE_GATE is
+        # intentionally unset: we report coverage but don't fail on thresholds
+        # yet. Arm the gate later by adding COVERAGE_GATE=1 here.
+        run: COVERAGE=1 pnpm test
+      - name: Upload coverage
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: coverage-${{ matrix.os }}
+          path: "**/coverage/lcov.info"
+          if-no-files-found: ignore
 
       - name: Install usage(1) via mise
         # The freshness gate (next step) shells out to usage(1) to
@@ -81,3 +100,16 @@ jobs:
           name: stress-report-${{ matrix.os }}
           path: apps/**/stress-*-report.json
           if-no-files-found: ignore
+
+  # Deferred: headed-Chromium E2E of the built extension against a throwaway
+  # daemon. Scaffolded but gated off so it never runs the hot matrix. Flip the
+  # `if:` to a label/dispatch trigger (and fill in the steps) when picked up.
+  # Safari is NOT automatable — keep the manual smoke checklist in
+  # apps/safari-extension/README.md. See docs/FOLLOWUPS.md § 1 (P3).
+  e2e-chromium:
+    name: e2e (chromium, deferred)
+    if: ${{ false }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - run: echo "Placeholder — build chrome-extension, playwright install chromium, run e2e/*.e2e.test.ts"
