@@ -61,3 +61,14 @@ options storage) lives in `packages/extension-core`.
 - **Cross-browser messaging.** Chrome resolves `sendMessage` via
   `sendResponse` + `return true`; Safari/Firefox only resolve if the listener
   **returns a promise**. `background.ts` detects the namespace and does both.
+
+## Testing
+
+This app currently has **no automated tests** — only its pure logic is covered
+(via `packages/extension-core/src/{status,snapshot}.test.ts`). The runtime
+(`background.ts`, socket, messaging, popup/options) and the built bundle are
+unvalidated, so CI cannot catch the class of bugs this connector hit (module
+SW, dual background, cross-browser messaging). The plan to close that —
+a real client↔server Node integration test, static build-output guards, and
+coverage enforcement — is in **`docs/FOLLOWUPS.md`** (with a harness sketch).
+Read it before adding tests here.

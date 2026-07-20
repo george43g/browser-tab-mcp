@@ -67,6 +67,14 @@ shared-types (incl. Rust drift) all green; `pnpm verify`, `pnpm test:no-native`,
      "requires MV2" warning. To make Chrome pristine, a Safari-only manifest
      (drop `service_worker`) would need a `convert` + re-sign — not worth it
      unless the warning bothers someone.
+   - **Test/CI hardening + npm release enablement** — captured with concrete
+     detail in **`docs/FOLLOWUPS.md`**. CI green covers the daemon/MCP/kits but
+     NOT the browser-extension runtime (no `apps/chrome-extension` tests; the
+     WS test uses a fake client, not the real `DaemonSocket`; no bundle
+     validation; coverage unenforced). FOLLOWUPS has the integration-test
+     harness sketch, build-output guards, and the release plan (distribution
+     is "eventually"). The monorepo decision (own repo + JSON/socket contract)
+     is recorded there too.
    - Mobile Safari: **deferred** (user decision).
 
 **Both browser extensions are DONE and verified** (2026-07-21). The Chrome and

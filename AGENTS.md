@@ -203,6 +203,10 @@ Force TS path: `MCP_DISABLE_NATIVE=1`. CI tests both paths.
 
 Types are hand-mirrored between `packages/shared-types/src/index.ts` (Zod) and `apps/rust-accel/src/types.rs` (serde). The drift-check test in `packages/shared-types/tests/drift.test.ts` parses the Rust file and fails CI if field names diverge.
 
+## Testing posture & known gaps
+
+CI green exercises the **daemon / MCP / kits** (unit + integration + stress + both-OS build incl. Rust native) — NOT the **browser-extension runtime**. Gaps: `apps/chrome-extension` has no tests; `ws-server.test.ts` drives a hand-rolled fake client, not the real `extension-core` `DaemonSocket`; nothing validates the built bundle (manifest / IIFE-not-module / classic scripts); coverage thresholds exist in `vitest-config` but aren't enforced (`vitest run`, no `--coverage`). Every extension bug this repo hit (module SW, dual background, cross-browser messaging) was invisible to CI. **The concrete hardening plan — integration-test harness sketch, build-output guards, coverage enablement — is in `docs/FOLLOWUPS.md`. Read it before adding extension tests.** (Release/npm enablement + the monorepo decision also live there.)
+
 ## CI / Release
 
 - `.github/workflows/ci.yml` — matrix `ubuntu-latest + macos-latest`, runs lint + typecheck + test + test:no-native + build + `pnpm check:usage` (completions/manpage/docs freshness gate) + `npm pack --dry-run` + stress (all 10 cases).
