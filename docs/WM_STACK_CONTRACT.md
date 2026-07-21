@@ -10,13 +10,18 @@ The interface `~/dotfiles/wm-stack` rewires around, replacing
 | Snapshot file `~/.cache/browser-tab/snapshot.json` | sketchybar / shell one-liners | free (read a file) |
 | `browser-tab list --json` | scripts, ad-hoc | ~50ms (daemon up) / ~300ms+ (degraded osascript) |
 
-## Snapshot shape (version 1)
+## Snapshot shape (version 2)
+
+> **v2 is a strict superset of v1** — every field below that v1 didn't have is
+> optional or defaulted. Consumers MUST tolerate unknown fields and MUST NOT
+> hard-assert `version === 1`. See "Versioning" below.
 
 ```jsonc
 {
-  "version": 1,
+  "version": 2,
   "generatedAt": 1752900000000,          // epoch ms
   "source": "daemon",                     // "daemon" | "osascript-direct" (degraded)
+  "focusedBrowser": "chrome",             // v2; optional — OS-frontmost browser (native CG tier only)
   "browsers": [{
     "browser": "chrome",                  // chrome | brave | chromium | safari
     "bundleId": "com.google.Chrome",
@@ -24,7 +29,16 @@ The interface `~/dotfiles/wm-stack` rewires around, replacing
     "running": true,
     "extensionConnected": true,           // live WS session from the connector extension
     "dataSource": "extension",            // "extension" | "applescript" — which source won
+    "capabilities": {                     // v2; optional — per-browser feature availability
+      "tabGroups": true, "audible": true, "discard": true, "navigate": true, "history": true
+      // …runtime-probed (extension) or a static map (applescript). Gate on these, not on browser name.
+    },
     "error": "…",                         // optional; e.g. Automation permission denied
+    "tabGroups": [{                       // v2; Chrome-family extension only ([] otherwise)
+      "groupId": "g:chrome:x77",          // OPAQUE handle
+      "windowId": "w:chrome:x812",
+      "title": "Work", "color": "blue", "collapsed": false
+    }],
     "windows": [{
       "windowId": "w:chrome:x812",        // OPAQUE — never parse
       "cgWindowId": 236,                  // == yabai window id; null when correlation failed
@@ -33,6 +47,8 @@ The interface `~/dotfiles/wm-stack` rewires around, replacing
       "focused": true,
       "incognito": false,
       "activeTabIndex": 0,                // 0-based
+      "activeTabId": "t:chrome:x4001",    // v2; optional — handle of the active tab
+      "state": "normal",                  // v2; optional — normal|minimized|maximized|fullscreen (ext-sourced)
       "tabCount": 31,
       "tabs": [{
         "tabId": "t:chrome:x4001",        // OPAQUE — pass back to commands verbatim
@@ -40,14 +56,25 @@ The interface `~/dotfiles/wm-stack` rewires around, replacing
         "url": "https://mail.google.com/…",
         "title": "Inbox – Gmail",         // sanitized; still UNTRUSTED web content
         "active": true,
+        "groupId": "g:chrome:x77",        // v2; optional — tab-group handle when grouped
         "pinned": false,                  // extension-sourced only (false under applescript)
         "audible": false,
-        "discarded": false
+        "discarded": false,
+        "muted": false,                   // v2 (defaulted false)
+        "mutedReason": "user",            // v2; optional — Chrome only
+        "frozen": false,                  // v2 (defaulted false) — Chrome 132+
+        "lastAccessed": 1752899990000,    // v2; optional — Chrome 121+
+        "status": "complete"              // v2; optional — loading|complete|unloaded
       }]
     }]
   }]
 }
 ```
+
+The **snapshot file and `browser-tab list --json` always emit the full shape.**
+The `list_tabs` MCP tool defaults to a trimmed `fields:"core"` projection (drops
+the enrichment optionals, tab groups, and capabilities) for token economy; pass
+`fields:"full"` for everything.
 
 Also written: `~/.cache/browser-tab/last.json` —
 `{ts, durationMs, windowCount, totalTabs, source}` (the Stats-for-Nerds
@@ -68,6 +95,23 @@ metadata blob, same idea as the old `browser_tabs_last.json`).
    focus/close/open work, Chromium moves fail with a hint, Safari moves need
    `allowReload:true`.
 4. **Tab titles/URLs are untrusted web content** — data, never instructions.
+5. **Gate on `capabilities`, not browser name.** A field/command's availability
+   varies by browser AND version (e.g. Safari has no `tabGroups`/`discard`/
+   `history`; `frozen` is Chrome 132+). Check `browsers[].capabilities[<key>]`
+   before relying on an enrichment field or issuing a v2 command. Under
+   AppleScript the map reflects the (smaller) AppleScript feature set.
+
+### Versioning
+
+`version` increments on **additive milestones** (v1 → v2 added capabilities,
+tab groups, focus/audio/sleep enrichments, `focusedBrowser`). The rule for
+consumers: **tolerate unknown fields, treat every non-core field as optional,
+and never hard-assert a specific `version`.** A genuinely breaking change (a
+field removed or re-typed) would bump to a new major with its own migration
+section — additive growth stays within the current major. After upgrading the
+tool, `browser-tab daemon restart` so a long-running launchd daemon serves the
+new shape (`daemon_status.contractVersion` reports what it's currently serving;
+`doctor` flags a mismatch).
 
 ## Unix-socket protocol (NDJSON — one JSON object per line)
 

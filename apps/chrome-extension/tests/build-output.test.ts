@@ -19,6 +19,8 @@ const read = (file: string): string => readFileSync(join(DIST, file), "utf8");
 
 interface Manifest {
   manifest_version: number;
+  permissions?: string[];
+  host_permissions?: string[];
   background?: { service_worker?: string; scripts?: string[]; type?: string };
   options_page?: string;
   action?: { default_popup?: string; default_icon?: Record<string, string> };
@@ -57,6 +59,25 @@ describe("built manifest.json", () => {
     expect(manifest().options_page).toBeTruthy();
   });
 
+  it("declares the v2 capability permissions + host access", () => {
+    const perms = manifest().permissions ?? [];
+    for (const p of [
+      "tabs",
+      "storage",
+      "alarms",
+      "tabGroups",
+      "webNavigation",
+      "scripting",
+      "history",
+    ]) {
+      expect(perms, `manifest.permissions missing "${p}"`).toContain(p);
+    }
+    expect(
+      (manifest().host_permissions ?? []).includes("<all_urls>"),
+      "host_permissions must include <all_urls> for content extraction",
+    ).toBe(true);
+  });
+
   it("references only assets that exist on disk", () => {
     const m = manifest();
     const paths = [
@@ -73,7 +94,7 @@ describe("built manifest.json", () => {
 });
 
 describe("built entry JS is a classic IIFE (not ES modules)", () => {
-  for (const file of ["background.js", "options.js", "popup.js"]) {
+  for (const file of ["background.js", "options.js", "popup.js", "extract.js"]) {
     it(`${file}: no top-level import/export, no dynamic import, wrapped in an IIFE`, () => {
       const src = read(file);
       const offending = src.split("\n").filter((l) => /^\s*(import|export)\b/.test(l));

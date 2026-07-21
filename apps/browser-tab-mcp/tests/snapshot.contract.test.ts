@@ -5,11 +5,11 @@
  * pins the daemon's mapping of the extension wire onto the contract.
  */
 
-import { BrowserStateSchema } from "@george43g/shared-types";
-import { makeExtSnapshot, makeExtTab, makeExtWindow } from "@george43g/test-kit";
+import { BrowserStateSchema, TAB_ENRICHMENT_FIELDS } from "@george43g/shared-types";
+import { makeExtSnapshot, makeExtTab, makeExtTabGroup, makeExtWindow } from "@george43g/test-kit";
 import { describe, expect, it } from "vitest";
 import { extSnapshotToBrowserState } from "../src/daemon/ws-server.js";
-import { parseTabId, parseWindowId } from "../src/detect/ids.js";
+import { parseGroupId, parseTabId, parseWindowId } from "../src/detect/ids.js";
 
 const snap = makeExtSnapshot({
   windows: [
@@ -48,5 +48,67 @@ describe("extSnapshotToBrowserState", () => {
     expect(state.dataSource).toBe("extension");
     expect(state.extensionConnected).toBe(true);
     expect(state.pid).toBeNull();
+  });
+});
+
+describe("extSnapshotToBrowserState — v2 enrichments", () => {
+  const fullSnap = makeExtSnapshot({
+    groups: [makeExtTabGroup({ id: 77, windowId: 812 })],
+    windows: [
+      makeExtWindow({
+        id: 812,
+        state: "maximized",
+        tabs: [
+          makeExtTab({
+            id: 4001,
+            active: true,
+            groupId: 77,
+            pinned: true,
+            audible: true,
+            discarded: true,
+            muted: true,
+            mutedReason: "user",
+            frozen: true,
+            lastAccessed: 987654,
+            status: "complete",
+          }),
+        ],
+      }),
+    ],
+  });
+  const caps = { tabGroups: true, history: false };
+  const full = extSnapshotToBrowserState("chrome", fullSnap, caps);
+
+  it("validates against BrowserState with every field populated", () => {
+    const parsed = BrowserStateSchema.safeParse(full);
+    expect(parsed.success, parsed.success ? "" : JSON.stringify(parsed.error?.issues)).toBe(true);
+  });
+
+  it("surfaces every enrichment field onto the contract tab (parity)", () => {
+    const tab = full.windows[0]?.tabs[0];
+    expect(tab).toBeDefined();
+    for (const field of TAB_ENRICHMENT_FIELDS) {
+      expect(tab, `extSnapshotToBrowserState dropped enrichment "${field}"`).toHaveProperty(field);
+    }
+    expect(tab?.muted).toBe(true);
+    expect(tab?.mutedReason).toBe("user");
+    expect(tab?.frozen).toBe(true);
+    expect(tab?.lastAccessed).toBe(987654);
+    expect(tab?.status).toBe("complete");
+  });
+
+  it("maps group membership + tab groups to g-handles", () => {
+    const win = full.windows[0];
+    expect(win?.state).toBe("maximized");
+    expect(win?.activeTabId).toBe("t:chrome:x4001");
+    expect(win?.tabs[0]?.groupId).toBe("g:chrome:x77");
+    const grp = full.tabGroups[0];
+    expect(grp?.groupId).toBe("g:chrome:x77");
+    expect(parseGroupId(grp?.groupId ?? "")?.nativeId).toBe("77");
+    expect(grp?.windowId).toBe("w:chrome:x812");
+  });
+
+  it("carries the capability map through unchanged", () => {
+    expect(full.capabilities).toEqual(caps);
   });
 });

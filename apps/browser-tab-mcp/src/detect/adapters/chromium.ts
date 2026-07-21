@@ -84,6 +84,7 @@ export function makeChromiumAdapter(spec: AdapterSpec): BrowserAdapter {
     extensionConnected: false,
     dataSource: "applescript",
     ...(error !== undefined ? { error } : {}),
+    tabGroups: [],
     windows: [],
   });
 
@@ -126,6 +127,8 @@ export function makeChromiumAdapter(spec: AdapterSpec): BrowserAdapter {
           pinned: false,
           audible: false,
           discarded: false,
+          muted: false,
+          frozen: false,
         })),
       };
     });

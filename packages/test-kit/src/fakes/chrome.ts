@@ -1,18 +1,22 @@
 /**
  * A `chrome`-shaped fake for driving extension-core / connector code under
- * Node. Models the `@types/chrome` surface the code actually touches — window
- * & tab APIs (+ the 8 tab event registries `wireEvents` attaches), runtime
- * messaging, storage.local, and alarms — NOT any app helper (importing an app
- * would be a cycle).
+ * Node. Models the `@types/chrome` surface the code actually touches — window,
+ * tab & tab-group APIs (+ the tab/tabGroups/webNavigation event registries the
+ * connector wires), runtime messaging, storage.local, scripting, history, and
+ * alarms — NOT any app helper (importing an app would be a cycle).
  *
  * Returns a handle: assign the namespace with `restore()` to undo it, program
  * `windows.getAll` via `setWindows`, fire a wired listener with `emit`, grab a
  * registered listener with `listener` (e.g. the runtime.onMessage handler), and
  * inspect recorded call args via `.calls` and stored values via `.storage`.
- * Omit `alarms` (`withAlarms: false`) to simulate Safari.
+ *
+ * `profile` shapes which capability APIs exist so the runtime capability probe
+ * reports the right map: "chrome" (default) exposes everything; "safari" omits
+ * the APIs Safari lacks (tabGroups, tabs.discard, history). `withAlarms:false`
+ * additionally drops chrome.alarms (Safari's MV3 service worker).
  */
 
-import type { ChromeWindowLike } from "../factories/chrome-api.js";
+import type { ChromeTabGroupLike, ChromeWindowLike } from "../factories/chrome-api.js";
 
 type AnyFn = (...args: unknown[]) => unknown;
 
@@ -22,8 +26,12 @@ const DEFAULT_WINDOW_ID = 7;
 export interface FakeChromeConfig {
   /** Namespace to install onto globalThis. Default "chrome". */
   namespace?: "chrome" | "browser";
+  /** Which browser's capability surface to model. Default "chrome". */
+  profile?: "chrome" | "safari";
   /** Initial windows `windows.getAll` returns. */
   windows?: ChromeWindowLike[];
+  /** Tab groups `tabGroups.query` returns (chrome profile only). */
+  groups?: ChromeTabGroupLike[];
   /** `runtime.getManifest().version`. Default "0.0.0-test". */
   version?: string;
   /** Seed for `storage.local`. */
@@ -59,8 +67,11 @@ export interface FakeChrome {
 
 export function installFakeChrome(config: FakeChromeConfig = {}): FakeChrome {
   const namespace = config.namespace ?? "chrome";
+  const profile = config.profile ?? "chrome";
+  const isSafari = profile === "safari";
   const withAlarms = config.withAlarms ?? true;
   let windows: ChromeWindowLike[] = config.windows ?? [];
+  const groups: ChromeTabGroupLike[] = config.groups ?? [];
   let nextWindowId = 900;
 
   const storage = new Map<string, unknown>(Object.entries(config.storage ?? {}));
@@ -108,7 +119,64 @@ export function installFakeChrome(config: FakeChromeConfig = {}): FakeChrome {
     "onReplaced",
   ] as const;
 
-  const fake = {
+  const flatTabs = (): unknown[] => windows.flatMap((w) => w.tabs ?? []);
+
+  const tabs: Record<string, unknown> = {
+    query: (queryInfo?: unknown) => {
+      record("tabs.query", [queryInfo]);
+      return Promise.resolve(flatTabs());
+    },
+    create: (props: { url?: string; active?: boolean; windowId?: number }) => {
+      record("tabs.create", [props]);
+      return Promise.resolve({
+        id: 9999,
+        windowId: props.windowId ?? DEFAULT_WINDOW_ID,
+        index: 0,
+      });
+    },
+    move: (tabId: number, moveProps: { windowId?: number; index?: number }) => {
+      record("tabs.move", [tabId, moveProps]);
+      return Promise.resolve({ id: tabId, windowId: moveProps.windowId, index: moveProps.index });
+    },
+    update: (tabId: number, props?: unknown) => {
+      record("tabs.update", [tabId, props]);
+      return Promise.resolve({ id: tabId, windowId: DEFAULT_WINDOW_ID });
+    },
+    remove: (tabId: number) => {
+      record("tabs.remove", [tabId]);
+      return Promise.resolve();
+    },
+    reload: (tabId?: number, props?: unknown) => {
+      record("tabs.reload", [tabId, props]);
+      return Promise.resolve();
+    },
+    goBack: (tabId?: number) => {
+      record("tabs.goBack", [tabId]);
+      return Promise.resolve();
+    },
+    goForward: (tabId?: number) => {
+      record("tabs.goForward", [tabId]);
+      return Promise.resolve();
+    },
+    duplicate: (tabId: number) => {
+      record("tabs.duplicate", [tabId]);
+      return Promise.resolve({ id: tabId + 1, windowId: DEFAULT_WINDOW_ID });
+    },
+    captureVisibleTab: (windowId?: number, opts?: unknown) => {
+      record("tabs.captureVisibleTab", [windowId, opts]);
+      return Promise.resolve("data:image/jpeg;base64,/9j/AA==");
+    },
+    ...Object.fromEntries(tabsEvents.map((name) => [name, makeEvent(`tabs.${name}`)])),
+  };
+  // Safari lacks tabs.discard (and the discarded state entirely).
+  if (!isSafari) {
+    tabs.discard = (tabId?: number) => {
+      record("tabs.discard", [tabId]);
+      return Promise.resolve({ id: tabId, discarded: true });
+    };
+  }
+
+  const fake: Record<string, unknown> = {
     windows: {
       getAll: (query?: unknown) => {
         record("windows.getAll", [query]);
@@ -122,32 +190,24 @@ export function installFakeChrome(config: FakeChromeConfig = {}): FakeChrome {
         record("windows.update", [windowId, info]);
         return Promise.resolve({ id: windowId });
       },
+      remove: (windowId: number) => {
+        record("windows.remove", [windowId]);
+        return Promise.resolve();
+      },
       onCreated: makeEvent("windows.onCreated"),
       onRemoved: makeEvent("windows.onRemoved"),
       onFocusChanged: makeEvent("windows.onFocusChanged"),
     },
-    tabs: {
-      create: (props: { url?: string; active?: boolean; windowId?: number }) => {
-        record("tabs.create", [props]);
-        return Promise.resolve({
-          id: 9999,
-          windowId: props.windowId ?? DEFAULT_WINDOW_ID,
-          index: 0,
-        });
+    tabs,
+    scripting: {
+      executeScript: (injection?: unknown) => {
+        record("scripting.executeScript", [injection]);
+        return Promise.resolve([{ result: undefined }]);
       },
-      move: (tabId: number, moveProps: { windowId?: number; index?: number }) => {
-        record("tabs.move", [tabId, moveProps]);
-        return Promise.resolve({ id: tabId, windowId: moveProps.windowId, index: moveProps.index });
-      },
-      update: (tabId: number, props?: unknown) => {
-        record("tabs.update", [tabId, props]);
-        return Promise.resolve({ id: tabId, windowId: DEFAULT_WINDOW_ID });
-      },
-      remove: (tabId: number) => {
-        record("tabs.remove", [tabId]);
-        return Promise.resolve();
-      },
-      ...Object.fromEntries(tabsEvents.map((name) => [name, makeEvent(`tabs.${name}`)])),
+    },
+    webNavigation: {
+      onCommitted: makeEvent("webNavigation.onCommitted"),
+      onBeforeNavigate: makeEvent("webNavigation.onBeforeNavigate"),
     },
     runtime: {
       getManifest: () => ({ version: config.version ?? "0.0.0-test", manifest_version: 3 }),
@@ -193,6 +253,38 @@ export function installFakeChrome(config: FakeChromeConfig = {}): FakeChrome {
         }
       : {}),
   };
+
+  // Chrome-family only: tab groups + history APIs (Safari has neither).
+  if (!isSafari) {
+    fake.tabGroups = {
+      query: (queryInfo?: unknown) => {
+        record("tabGroups.query", [queryInfo]);
+        return Promise.resolve(groups);
+      },
+      update: (groupId: number, props?: unknown) => {
+        record("tabGroups.update", [groupId, props]);
+        return Promise.resolve({ id: groupId });
+      },
+      move: (groupId: number, props?: unknown) => {
+        record("tabGroups.move", [groupId, props]);
+        return Promise.resolve({ id: groupId });
+      },
+      onCreated: makeEvent("tabGroups.onCreated"),
+      onUpdated: makeEvent("tabGroups.onUpdated"),
+      onMoved: makeEvent("tabGroups.onMoved"),
+      onRemoved: makeEvent("tabGroups.onRemoved"),
+    };
+    fake.history = {
+      search: (query?: unknown) => {
+        record("history.search", [query]);
+        return Promise.resolve([]);
+      },
+      getVisits: (details?: unknown) => {
+        record("history.getVisits", [details]);
+        return Promise.resolve([]);
+      },
+    };
+  }
 
   const holder = globalThis as Record<string, unknown>;
   const hadPrev = namespace in holder;

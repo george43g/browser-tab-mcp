@@ -6,6 +6,8 @@
 
 import { api } from "./runtime.js";
 
+type ZeroArgEvent = { addListener?: (fn: () => void) => void } | undefined;
+
 export function wireEvents(onChange: () => void): void {
   // A zero-arg handler is assignable to every chrome event callback shape.
   const handler = () => onChange();
@@ -20,6 +22,14 @@ export function wireEvents(onChange: () => void): void {
   api.windows.onCreated.addListener(handler);
   api.windows.onRemoved.addListener(handler);
   api.windows.onFocusChanged.addListener(handler);
+  // Tab-group changes — Chrome-family only; guarded so Safari (no tabGroups
+  // API) doesn't throw at wire time.
+  const tabGroups = (api as unknown as { tabGroups?: Record<string, ZeroArgEvent> }).tabGroups;
+  if (tabGroups) {
+    for (const ev of ["onCreated", "onUpdated", "onMoved", "onRemoved"] as const) {
+      tabGroups[ev]?.addListener?.(handler);
+    }
+  }
 }
 
 export function debounce(fn: () => void, waitMs: number): () => void {

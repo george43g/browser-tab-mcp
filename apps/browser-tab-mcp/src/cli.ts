@@ -88,12 +88,14 @@ export async function main(argv: readonly string[] = process.argv): Promise<void
     .option("--browser <name>", "Restrict to one browser: chrome|chromium|brave|safari")
     .option("--window <id>", "Restrict to one window (opaque windowId from a previous list)")
     .option("--url <substring>", "Filter tabs by URL substring (drops non-matching windows)")
-    .action(async (opts: { browser?: string; window?: string; url?: string }) => {
+    .option("--fields <set>", "Field set: core (trimmed) or full (default)", "full")
+    .action(async (opts: { browser?: string; window?: string; url?: string; fields?: string }) => {
       const json = program.opts<{ json?: boolean }>().json ?? false;
       const result = await callMcpTool("list_tabs", {
         ...(opts.browser ? { browser: opts.browser } : {}),
         ...(opts.window ? { windowId: opts.window } : {}),
         ...(opts.url ? { urlFilter: opts.url } : {}),
+        fields: opts.fields === "core" ? "core" : "full",
       });
       await printResult(result, json);
     });

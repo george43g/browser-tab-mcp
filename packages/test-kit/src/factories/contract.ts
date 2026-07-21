@@ -11,6 +11,7 @@ import type {
   BrowserWindow,
   Snapshot,
   Tab,
+  TabGroup,
   WindowBounds,
 } from "@george43g/shared-types";
 
@@ -26,6 +27,19 @@ export function makeContractTab(over: Partial<Tab> = {}): Tab {
     pinned: false,
     audible: false,
     discarded: false,
+    muted: false,
+    frozen: false,
+    ...over,
+  };
+}
+
+export function makeTabGroup(over: Partial<TabGroup> = {}): TabGroup {
+  return {
+    groupId: "g:chrome:x77",
+    windowId: "w:chrome:100",
+    title: "Work",
+    color: "blue",
+    collapsed: false,
     ...over,
   };
 }
@@ -54,6 +68,7 @@ export function makeBrowserState(over: Partial<BrowserState> = {}): BrowserState
     running: true,
     extensionConnected: false,
     dataSource: "applescript",
+    tabGroups: over.tabGroups ?? [],
     windows: over.windows ?? [makeContractWindow()],
     ...over,
   };
@@ -61,7 +76,7 @@ export function makeBrowserState(over: Partial<BrowserState> = {}): BrowserState
 
 export function makeSnapshot(over: Partial<Snapshot> = {}): Snapshot {
   return {
-    version: 1,
+    version: 2,
     generatedAt: 0,
     source: "daemon",
     browsers: over.browsers ?? [makeBrowserState()],

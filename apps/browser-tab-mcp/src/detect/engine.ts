@@ -17,6 +17,7 @@ import { CHROMIUM_SPECS, makeChromiumAdapter } from "./adapters/chromium.js";
 import { fakeAdapterEnabled, makeFakeAdapter } from "./adapters/fake.js";
 import { makeSafariAdapter, SAFARI_SPEC } from "./adapters/safari.js";
 import type { AdapterSpec, BrowserAdapter } from "./adapters/types.js";
+import { applescriptCaps } from "./capabilities.js";
 import { enrichWithCgWindowIds } from "./correlate.js";
 
 export const DEFAULT_BROWSERS: readonly BrowserId[] = ["chrome", "brave", "safari"];
@@ -75,16 +76,20 @@ export async function readSnapshot(
           extensionConnected: false,
           dataSource: "applescript" as const,
           error: (err as Error).message,
+          tabGroups: [],
           windows: [],
         };
       }
     }),
   );
+  // AppleScript-sourced browsers carry the static capability map so consumers
+  // see the same shape whether or not the extension is connected.
+  const withCaps = states.map((s) => ({ ...s, capabilities: applescriptCaps(s.browser) }));
   const snapshot: Snapshot = {
-    version: 1,
+    version: 2,
     generatedAt: Date.now(),
     source: "osascript-direct",
-    browsers: states,
+    browsers: withCaps,
   };
   // Fixture data has synthetic pids/bounds — correlation would be noise.
   if (fakeAdapterEnabled()) return snapshot;

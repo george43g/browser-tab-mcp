@@ -35,7 +35,7 @@ export interface DaemonEvent {
 
 export class StateStore extends EventEmitter {
   private snapshot: Snapshot = {
-    version: 1,
+    version: 2,
     generatedAt: Date.now(),
     source: "daemon",
     browsers: [],

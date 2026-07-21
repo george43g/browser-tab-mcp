@@ -304,7 +304,7 @@ async function caseListTabsFakeAdapter(): Promise<void> {
         browsers?: { browser: string; windows: unknown[] }[];
       };
       ok =
-        snapshot.version === 1 &&
+        snapshot.version === 2 &&
         snapshot.source === "osascript-direct" &&
         Array.isArray(snapshot.browsers) &&
         snapshot.browsers.length === 2 &&

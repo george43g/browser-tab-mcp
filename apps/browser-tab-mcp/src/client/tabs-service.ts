@@ -17,6 +17,7 @@ import type {
   OpenTabInput,
   Snapshot,
 } from "@george43g/shared-types";
+import { SnapshotSchema } from "@george43g/shared-types";
 import { fakeAdapterEnabled } from "../detect/adapters/fake.js";
 import { enabledBrowsers, makeAdapter, readSnapshot } from "../detect/engine.js";
 import { parseTabId, parseWindowId } from "../detect/ids.js";
@@ -39,6 +40,21 @@ function browserOf(handle: string): BrowserId {
   return parsed.browser;
 }
 
+/**
+ * Tolerate a still-running v1 daemon after a client upgrade: a v1 snapshot
+ * is re-stamped v2 and parsed so Zod defaults backfill the new fields
+ * (capabilities, tabGroups, muted/frozen). v2 responses pass through
+ * untouched (no re-parse on the happy path). The right long-term fix is
+ * `browser-tab daemon restart`, which the doctor flags.
+ */
+function upgradeSnapshot(raw: unknown): Snapshot {
+  const obj = raw as { version?: number } | null;
+  if (obj && obj.version === 1) {
+    return SnapshotSchema.parse({ ...(raw as object), version: 2 });
+  }
+  return raw as Snapshot;
+}
+
 export async function getSnapshot(opts: {
   browsers?: BrowserId[];
   signal?: AbortSignal;
@@ -46,7 +62,7 @@ export async function getSnapshot(opts: {
   // Fixture mode must stay deterministic — never shadowed by a live daemon.
   if (fakeAdapterEnabled()) return readSnapshot(opts);
   try {
-    const snapshot = await viaDaemon((c) => c.request<Snapshot>("getSnapshot"));
+    const snapshot = upgradeSnapshot(await viaDaemon((c) => c.request<unknown>("getSnapshot")));
     if (opts.browsers) {
       const set = new Set(opts.browsers);
       return { ...snapshot, browsers: snapshot.browsers.filter((b) => set.has(b.browser)) };

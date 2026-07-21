@@ -2,7 +2,12 @@
  * Pure mapper tests — fixture chrome API shapes, no browser needed.
  */
 
-import { makeChromeTab as tab, makeChromeWindow as win } from "@george43g/test-kit";
+import { TAB_ENRICHMENT_FIELDS } from "@george43g/shared-types";
+import {
+  makeChromeTabGroup as group,
+  makeChromeTab as tab,
+  makeChromeWindow as win,
+} from "@george43g/test-kit";
 import { describe, expect, it } from "vitest";
 import { debounce } from "./events.js";
 import { mapTab, mapWindow, mapWindows } from "./snapshot.js";
@@ -19,7 +24,41 @@ describe("mapTab", () => {
       pinned: false,
       audible: false,
       discarded: false,
+      muted: false,
+      frozen: false,
     });
+  });
+
+  it("surfaces every enrichment field from a fully-populated tab (parity)", () => {
+    const t = mapTab(
+      tab({
+        pinned: true,
+        audible: true,
+        discarded: true,
+        mutedInfo: { muted: true, reason: "user" },
+        frozen: true,
+        lastAccessed: 123456,
+        status: "complete",
+        groupId: 5,
+      }),
+    );
+    expect(t).not.toBeNull();
+    if (!t) return;
+    // If a new enrichment field is added to the schema but mapTab forgets to
+    // read it, this loop goes red.
+    for (const field of TAB_ENRICHMENT_FIELDS) {
+      expect(t, `mapTab dropped enrichment field "${field}"`).toHaveProperty(field);
+    }
+    expect(t.muted).toBe(true);
+    expect(t.mutedReason).toBe("user");
+    expect(t.frozen).toBe(true);
+    expect(t.lastAccessed).toBe(123456);
+    expect(t.status).toBe("complete");
+    expect(t.groupId).toBe(5);
+  });
+
+  it("omits groupId when ungrouped (chrome -1 sentinel)", () => {
+    expect(mapTab(tab({ groupId: -1 }))?.groupId).toBeUndefined();
   });
 
   it("falls back to pendingUrl and empty strings", () => {
@@ -51,6 +90,11 @@ describe("mapWindow", () => {
   it("drops idless windows", () => {
     expect(mapWindow(win({ id: undefined }))).toBeNull();
   });
+
+  it("carries window state when present", () => {
+    expect(mapWindow(win({ state: "minimized" }))?.state).toBe("minimized");
+    expect(mapWindow(win())?.state).toBeUndefined();
+  });
 });
 
 describe("mapWindows", () => {
@@ -59,6 +103,14 @@ describe("mapWindows", () => {
     expect(snap.type).toBe("snapshot");
     expect(snap.windows).toHaveLength(1);
     expect(snap.windows[0]?.tabs).toHaveLength(1);
+    expect(snap.groups).toEqual([]);
+  });
+
+  it("carries tab groups", () => {
+    const snap = mapWindows([win()], [group({ id: 3, windowId: 7 })]);
+    expect(snap.groups).toEqual([
+      { id: 3, windowId: 7, title: "Work", color: "blue", collapsed: false },
+    ]);
   });
 });
 

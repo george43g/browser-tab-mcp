@@ -71,6 +71,8 @@ function buildWindows(browser: BrowserId, seeds: FakeTabSeed[][]): BrowserWindow
         pinned: false,
         audible: false,
         discarded: false,
+        muted: false,
+        frozen: false,
       })),
     };
   });
@@ -88,6 +90,7 @@ export function makeFakeAdapter(spec: AdapterSpec): BrowserAdapter {
     running: true,
     extensionConnected: false,
     dataSource: "applescript",
+    tabGroups: [],
     windows: buildWindows(
       spec.browser,
       spec.browser === "safari" ? SAFARI_WINDOWS : CHROMIUM_WINDOWS,
