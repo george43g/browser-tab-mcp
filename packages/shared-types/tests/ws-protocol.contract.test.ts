@@ -18,15 +18,28 @@ import {
 } from "../src/index.js";
 
 const clientMessages: ExtClientMessage[] = [
+  // Legacy hello (no protocolVersion/capabilities) — proves an old extension
+  // still parses against the v2 daemon.
   { type: "hello", browser: "chrome", extVersion: "1.2.3", token: "secret" },
+  // v2 hello with the capability map + protocol version.
+  {
+    type: "hello",
+    browser: "chrome",
+    extVersion: "2.0.0",
+    token: "secret",
+    protocolVersion: 2,
+    capabilities: { tabGroups: true, history: false },
+  },
   {
     type: "snapshot",
+    groups: [{ id: 5, windowId: 1, title: "Work", color: "blue", collapsed: false }],
     windows: [
       {
         id: 1,
         focused: true,
         incognito: false,
         bounds: null,
+        state: "normal",
         tabs: [
           {
             id: 2,
@@ -35,9 +48,12 @@ const clientMessages: ExtClientMessage[] = [
             url: "https://x/",
             title: "x",
             active: true,
+            groupId: 5,
             pinned: false,
             audible: false,
             discarded: false,
+            muted: false,
+            frozen: false,
           },
         ],
       },
@@ -50,6 +66,7 @@ const clientMessages: ExtClientMessage[] = [
 
 const serverMessages: ExtServerMessage[] = [
   { type: "helloAck" },
+  { type: "helloAck", protocolVersion: 2 },
   { type: "command", requestId: 1, kind: "move_tab", args: { tabId: 4 } },
   { type: "ping", ts: 456 },
 ];

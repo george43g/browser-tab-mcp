@@ -10,6 +10,11 @@
  * the mappers' fallback branches, exactly like the builders they replace.
  */
 
+export interface ChromeMutedInfoLike {
+  muted: boolean;
+  reason?: string;
+}
+
 export interface ChromeTabLike {
   id?: number;
   windowId: number;
@@ -21,6 +26,11 @@ export interface ChromeTabLike {
   pinned: boolean;
   audible?: boolean;
   discarded?: boolean;
+  mutedInfo?: ChromeMutedInfoLike;
+  frozen?: boolean;
+  lastAccessed?: number;
+  status?: string;
+  groupId?: number;
 }
 
 export interface ChromeWindowLike {
@@ -32,7 +42,16 @@ export interface ChromeWindowLike {
   width?: number;
   height?: number;
   type?: string;
+  state?: string;
   tabs?: ChromeTabLike[];
+}
+
+export interface ChromeTabGroupLike {
+  id: number;
+  windowId: number;
+  title?: string;
+  color: string;
+  collapsed: boolean;
 }
 
 export function makeChromeTab(over: Partial<ChromeTabLike> = {}) {
@@ -62,5 +81,16 @@ export function makeChromeWindow(over: Partial<ChromeWindowLike> = {}) {
     type: "normal",
     ...over,
     tabs: over.tabs ?? [makeChromeTab()],
+  };
+}
+
+export function makeChromeTabGroup(over: Partial<ChromeTabGroupLike> = {}) {
+  return {
+    id: 77,
+    windowId: 7,
+    title: "Work",
+    color: "blue",
+    collapsed: false,
+    ...over,
   };
 }

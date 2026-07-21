@@ -3,6 +3,7 @@
  */
 
 import type { CgWindowInfo, Snapshot } from "@george43g/shared-types";
+import { makeBrowserState, makeContractWindow, makeSnapshot } from "@george43g/test-kit";
 import { describe, expect, it } from "vitest";
 import { correlateSnapshot } from "../src/detect/correlate.js";
 
@@ -10,32 +11,25 @@ function snapshotWith(
   windows: { windowId: string; bounds: { x: number; y: number; w: number; h: number } | null }[],
   pid: number | null = 878,
 ): Snapshot {
-  return {
-    version: 1,
-    generatedAt: 0,
+  return makeSnapshot({
     source: "osascript-direct",
     browsers: [
-      {
-        browser: "chrome",
-        bundleId: "com.google.Chrome",
+      makeBrowserState({
         pid,
-        running: true,
-        extensionConnected: false,
-        dataSource: "applescript",
-        windows: windows.map((w) => ({
-          windowId: w.windowId,
-          cgWindowId: null,
-          title: "t",
-          bounds: w.bounds,
-          focused: false,
-          incognito: false,
-          activeTabIndex: 0,
-          tabCount: 0,
-          tabs: [],
-        })),
-      },
+        windows: windows.map((w) =>
+          makeContractWindow({
+            windowId: w.windowId,
+            title: "t",
+            bounds: w.bounds,
+            focused: false,
+            activeTabIndex: 0,
+            tabCount: 0,
+            tabs: [],
+          }),
+        ),
+      }),
     ],
-  };
+  });
 }
 
 function cg(
@@ -121,5 +115,22 @@ describe("correlateSnapshot", () => {
     ]);
     const ids = out.browsers[0]?.windows.map((w) => w.cgWindowId);
     expect(ids).toEqual([11, 22, null]);
+  });
+
+  it("does not stamp focusedBrowser without z-order (yabai tier)", () => {
+    const snap = snapshotWith([{ windowId: "w:chrome:1", bounds: { x: 0, y: 0, w: 10, h: 10 } }]);
+    const out = correlateSnapshot(snap, [cg(236, 878, 0, 0, 10, 10)]);
+    expect(out.focusedBrowser).toBeUndefined();
+  });
+
+  it("stamps focusedBrowser from the first layer-0 browser window when z-ordered", () => {
+    const snap = snapshotWith([{ windowId: "w:chrome:1", bounds: { x: 0, y: 0, w: 10, h: 10 } }]);
+    // Front-to-back: a non-browser window first, then the browser's window.
+    const out = correlateSnapshot(
+      snap,
+      [cg(900, 4321, 0, 0, 800, 600), cg(236, 878, 0, 0, 10, 10)],
+      true,
+    );
+    expect(out.focusedBrowser).toBe("chrome");
   });
 });

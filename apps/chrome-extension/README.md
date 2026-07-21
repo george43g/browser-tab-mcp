@@ -31,6 +31,22 @@ toolbar icon shows the live status; a green dot = connected.
 
 Safari packaging lives in `apps/safari-extension` (see its README).
 
+### Permissions (v2)
+
+The manifest requests `tabs`, `storage`, `alarms`, `tabGroups`, `webNavigation`,
+`scripting`, and `history`, plus `host_permissions: ["<all_urls>"]`. These back
+the full v2 surface — tab-group reads, focus/navigation journals, on-demand page
+content extraction, screenshots, and browser history. The extension probes which
+of these actually work at runtime and reports a **capability map** to the daemon
+(Safari lacks `tabGroups`/`discard`/`history`), so nothing is assumed from the
+manifest alone.
+
+**Re-approval after a permission bump:** Chrome disables an unpacked extension
+until you re-enable it whenever its permissions grow — reload it on
+`chrome://extensions` after updating. On Safari, `<all_urls>` maps to per-site
+prompts; grant **Always Allow on Every Website** for content extraction to work
+everywhere.
+
 ## Layout
 
 | File | Role |

@@ -11,10 +11,11 @@
  */
 
 import type { ExtServerMessage } from "@george43g/shared-types";
+import { probeCapabilities } from "./capabilities.js";
 import { type CommandArgs, executeCommand } from "./commands.js";
 import { debounce, wireEvents } from "./events.js";
 import { log, logError } from "./log.js";
-import type { BrowserName } from "./runtime.js";
+import { api, type BrowserName } from "./runtime.js";
 import { buildSnapshot } from "./snapshot.js";
 import type { SnapshotSummary, SocketState } from "./status.js";
 
@@ -24,6 +25,9 @@ export interface DaemonSocketConfig {
   browser: BrowserName;
   extVersion: string;
 }
+
+/** Wire protocol version this extension speaks (v2: capabilities + enrichments). */
+export const PROTOCOL_VERSION = 2;
 
 const RECONNECT_MIN_MS = 1_000;
 const RECONNECT_MAX_MS = 30_000;
@@ -88,14 +92,7 @@ export class DaemonSocket {
     this.ws = ws;
 
     ws.addEventListener("open", () => {
-      ws.send(
-        JSON.stringify({
-          type: "hello",
-          browser: this.config.browser,
-          extVersion: this.config.extVersion,
-          token: this.config.token,
-        }),
-      );
+      void this.sendHello(ws);
     });
 
     ws.addEventListener("message", (event) => {
@@ -157,6 +154,29 @@ export class DaemonSocket {
       logError(`websocket error → 127.0.0.1:${this.config.port}`);
       ws.close();
     });
+  }
+
+  /** Authenticate + advertise the runtime capability map. */
+  private async sendHello(ws: WebSocket): Promise<void> {
+    let sampleTab: Record<string, unknown> | undefined;
+    try {
+      const tabsApi = api.tabs as unknown as { query: (q: object) => Promise<unknown[]> };
+      const tabs = await tabsApi.query({});
+      sampleTab = (tabs[0] as Record<string, unknown> | undefined) ?? undefined;
+    } catch {
+      // No sample — API-existence capabilities are still accurate.
+    }
+    if (ws.readyState !== WebSocket.OPEN) return;
+    ws.send(
+      JSON.stringify({
+        type: "hello",
+        browser: this.config.browser,
+        extVersion: this.config.extVersion,
+        token: this.config.token,
+        protocolVersion: PROTOCOL_VERSION,
+        capabilities: probeCapabilities(sampleTab),
+      }),
+    );
   }
 
   private async runCommand(requestId: number, kind: string, args: CommandArgs): Promise<void> {

@@ -35,6 +35,9 @@ cmd list help="List open browser windows and tabs (Chrome/Brave/Chromium/Safari)
     flag --url help="Filter tabs by URL substring" {
         arg <substring>
     }
+    flag --fields help="Field set: core (trimmed) or full (default)" {
+        arg <set>
+    }
 }
 cmd focus help="Focus a tab and raise its window" {
     arg <tabId>

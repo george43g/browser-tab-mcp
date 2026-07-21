@@ -18,6 +18,10 @@ const ENTRIES = {
   background: "src/background.ts",
   options: "src/options.ts",
   popup: "src/popup.ts",
+  // Injected on demand via chrome.scripting.executeScript (page content /
+  // state extraction). A stub in PR1 — batched into the file set now so the
+  // Safari Xcode project only needs regenerating once.
+  extract: "src/extract.ts",
 } as const;
 
 type EntryName = keyof typeof ENTRIES;

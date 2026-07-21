@@ -116,6 +116,25 @@ describe("DaemonSocket ↔ ExtensionServer", () => {
     }
   });
 
+  it("carries the extension's probed capability map into the served snapshot", async () => {
+    connect();
+    const client = new DaemonClient();
+    try {
+      const chrome = await pollChrome(
+        client,
+        (c) => c?.dataSource === "extension" && c.capabilities !== undefined,
+      );
+      // The fake models the full Chrome surface, so the probe (run in hello)
+      // reports these as available and the daemon threads them through.
+      expect(chrome?.capabilities?.tabGroups).toBe(true);
+      expect(chrome?.capabilities?.captureVisibleTab).toBe(true);
+      expect(chrome?.capabilities?.history).toBe(true);
+      expect(chrome?.capabilities?.navigate).toBe(true);
+    } finally {
+      client.close();
+    }
+  });
+
   it("surfaces a bad token as lastError (daemon closes 4001)", async () => {
     const s = connect("wrong-token");
     await waitUntil(() => s.getState().lastError !== null);

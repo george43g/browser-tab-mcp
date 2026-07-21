@@ -10,6 +10,7 @@
  *   tab (chromium AS):     "t:<browser>:<id>"              — stable per session
  *   tab (extension):       "t:<browser>:x<id>"             — chrome.tabs id
  *   tab (safari AS):       "t:safari:w<windowId>:i<index1>" — synthetic, reissued on reorder
+ *   tab group (extension): "g:<browser>:x<id>"             — chrome.tabGroups id
  *
  * AppleScript ids and extension ids are DIFFERENT id spaces — the "x"
  * prefix keeps them apart. While a browser's extension is connected,
@@ -41,6 +42,23 @@ export function makeExtWindowId(browser: BrowserId, extId: string | number): str
 
 export function makeExtTabId(browser: BrowserId, extId: string | number): string {
   return `t:${browser}:x${extId}`;
+}
+
+/** Tab groups exist only in the extension pathway (chrome.tabGroups). */
+export function makeExtGroupId(browser: BrowserId, extId: string | number): string {
+  return `g:${browser}:x${extId}`;
+}
+
+export interface ParsedGroupId {
+  browser: BrowserId;
+  nativeId: string;
+}
+
+/** Strict parser for tab-group handles — null on anything malformed. */
+export function parseGroupId(id: string): ParsedGroupId | null {
+  const m = /^g:([a-z]+):x(\d+)$/.exec(id);
+  if (!m || !m[1] || !m[2] || !BROWSERS.includes(m[1])) return null;
+  return { browser: m[1] as BrowserId, nativeId: m[2] };
 }
 
 export interface ParsedWindowId {

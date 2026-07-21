@@ -16,19 +16,23 @@ import { envNum, info, error as logError, warn } from "@george43g/robustness";
 import type {
   BrowserId,
   BrowserState,
+  Capabilities,
   CommandResult,
   ExtServerMessage,
   ExtSnapshot,
+  TabGroup,
 } from "@george43g/shared-types";
-import { ExtClientMessageSchema } from "@george43g/shared-types";
+import { ExtClientMessageSchema, pickEnrichment } from "@george43g/shared-types";
 import { type WebSocket, WebSocketServer } from "ws";
 import { specFor } from "../detect/engine.js";
-import { makeExtTabId, makeExtWindowId } from "../detect/ids.js";
+import { makeExtGroupId, makeExtTabId, makeExtWindowId } from "../detect/ids.js";
 import { tokenMatches } from "./token.js";
 
 const PING_INTERVAL_MS = 20_000;
 const HELLO_TIMEOUT_MS = 3_000;
 const COMMAND_TIMEOUT_MS = 5_000;
+/** Wire protocol version the daemon speaks (v2: capabilities + enrichments). */
+const PROTOCOL_VERSION = 2;
 
 export function wsPort(): number {
   return envNum("BROWSER_TAB_WS_PORT", 8790);
@@ -40,6 +44,8 @@ interface Session {
   /** Set on every inbound frame; the heartbeat clears it before each ping and
    *  terminates a session that produced nothing since the previous ping. */
   alive: boolean;
+  /** Runtime capability map reported in the extension's hello (v2+). */
+  capabilities?: Capabilities;
 }
 
 export interface ExtensionServerOptions {
@@ -185,9 +191,18 @@ export class ExtensionServer {
         browser = m.browser;
         const existing = this.sessions.get(browser);
         if (existing) existing.socket.terminate(); // newest wins
-        this.sessions.set(browser, { browser, socket, alive: true });
-        socket.send(JSON.stringify({ type: "helloAck" }));
-        info("ws_extension_connected", { browser, extVersion: m.extVersion });
+        this.sessions.set(browser, {
+          browser,
+          socket,
+          alive: true,
+          ...(m.capabilities ? { capabilities: m.capabilities } : {}),
+        });
+        socket.send(JSON.stringify({ type: "helloAck", protocolVersion: PROTOCOL_VERSION }));
+        info("ws_extension_connected", {
+          browser,
+          extVersion: m.extVersion,
+          protocolVersion: m.protocolVersion ?? 1,
+        });
         return;
       }
       if (!browser) {
@@ -201,7 +216,7 @@ export class ExtensionServer {
         this.opts.onLiveness?.(browser);
       }
       if (m.type === "snapshot") {
-        this.opts.onSnapshot(browser, extSnapshotToBrowserState(browser, m));
+        this.opts.onSnapshot(browser, extSnapshotToBrowserState(browser, m, session?.capabilities));
       } else if (m.type === "commandResult") {
         const pending = this.pending.get(m.requestId);
         if (pending) {
@@ -227,8 +242,19 @@ export class ExtensionServer {
 }
 
 /** Convert an extension snapshot into the contract BrowserState shape. */
-export function extSnapshotToBrowserState(browser: BrowserId, snap: ExtSnapshot): BrowserState {
+export function extSnapshotToBrowserState(
+  browser: BrowserId,
+  snap: ExtSnapshot,
+  capabilities?: Capabilities,
+): BrowserState {
   const spec = specFor(browser);
+  const tabGroups: TabGroup[] = snap.groups.map((g) => ({
+    groupId: makeExtGroupId(browser, g.id),
+    windowId: makeExtWindowId(browser, g.windowId),
+    title: g.title,
+    color: g.color,
+    collapsed: g.collapsed,
+  }));
   return {
     browser,
     bundleId: spec.bundleId,
@@ -236,7 +262,10 @@ export function extSnapshotToBrowserState(browser: BrowserId, snap: ExtSnapshot)
     running: true,
     extensionConnected: true,
     dataSource: "extension",
+    ...(capabilities ? { capabilities } : {}),
+    tabGroups,
     windows: snap.windows.map((w) => {
+      const activeTab = w.tabs.find((t) => t.active);
       const activeIdx = Math.max(
         0,
         w.tabs.findIndex((t) => t.active),
@@ -244,11 +273,13 @@ export function extSnapshotToBrowserState(browser: BrowserId, snap: ExtSnapshot)
       return {
         windowId: makeExtWindowId(browser, w.id),
         cgWindowId: null, // correlation enrichment happens post-merge
-        title: sanitize(w.tabs.find((t) => t.active)?.title ?? "") ?? "",
+        title: sanitize(activeTab?.title ?? "") ?? "",
         bounds: w.bounds,
         focused: w.focused,
         incognito: w.incognito,
         activeTabIndex: activeIdx,
+        ...(activeTab ? { activeTabId: makeExtTabId(browser, activeTab.id) } : {}),
+        ...(w.state ? { state: w.state } : {}),
         tabCount: w.tabs.length,
         tabs: w.tabs.map((t) => ({
           tabId: makeExtTabId(browser, t.id),
@@ -256,9 +287,10 @@ export function extSnapshotToBrowserState(browser: BrowserId, snap: ExtSnapshot)
           url: sanitize(t.url) ?? "",
           title: sanitize(t.title) ?? "",
           active: t.active,
-          pinned: t.pinned,
-          audible: t.audible,
-          discarded: t.discarded,
+          ...(t.groupId !== undefined && t.groupId >= 0
+            ? { groupId: makeExtGroupId(browser, t.groupId) }
+            : {}),
+          ...pickEnrichment(t),
         })),
       };
     }),

@@ -7,9 +7,12 @@
  */
 
 export {
+  type ChromeMutedInfoLike,
+  type ChromeTabGroupLike,
   type ChromeTabLike,
   type ChromeWindowLike,
   makeChromeTab,
+  makeChromeTabGroup,
   makeChromeWindow,
 } from "./factories/chrome-api.js";
 export {
@@ -17,8 +20,14 @@ export {
   makeContractTab,
   makeContractWindow,
   makeSnapshot,
+  makeTabGroup,
 } from "./factories/contract.js";
-export { makeExtSnapshot, makeExtTab, makeExtWindow } from "./factories/ext-wire.js";
+export {
+  makeExtSnapshot,
+  makeExtTab,
+  makeExtTabGroup,
+  makeExtWindow,
+} from "./factories/ext-wire.js";
 export { type FakeChrome, type FakeChromeConfig, installFakeChrome } from "./fakes/chrome.js";
 export {
   type DaemonEnvOptions,

@@ -222,11 +222,13 @@ export async function startDaemon(): Promise<DaemonHandle> {
     onStatus: async () => ({
       pid: process.pid,
       version: APP_VERSION,
+      contractVersion: store.getSnapshot().version,
       uptimeS: Math.floor((Date.now() - startedAt) / 1000),
       pollMs: pollMs(),
       wsPort: ext ? wsPort() : null,
       extensions: ext?.connectedBrowsers() ?? [],
       correlationTier: await correlationTier(),
+      focusedBrowser: store.getSnapshot().focusedBrowser ?? null,
       subscribers: ipc.subscriberCount(),
       browsers: store.getSnapshot().browsers.map((b) => ({
         browser: b.browser,
@@ -235,6 +237,7 @@ export async function startDaemon(): Promise<DaemonHandle> {
         dataSource: b.dataSource,
         windowCount: b.windows.length,
         tabCount: b.windows.reduce((a, w) => a + w.tabCount, 0),
+        ...(b.capabilities !== undefined ? { capabilities: b.capabilities } : {}),
         ...(b.error !== undefined ? { error: b.error } : {}),
       })),
     }),

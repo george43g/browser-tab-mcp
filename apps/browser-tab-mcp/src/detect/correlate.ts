@@ -17,7 +17,7 @@
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 import { warn } from "@george43g/robustness";
-import type { CgWindowInfo, Snapshot } from "@george43g/shared-types";
+import type { BrowserId, CgWindowInfo, Snapshot } from "@george43g/shared-types";
 import { tryLoadNative } from "../native-bridge.js";
 
 const execFileAsync = promisify(execFile);
@@ -77,16 +77,23 @@ export async function correlationTier(): Promise<CorrelationTier> {
   return "none";
 }
 
-async function readCgWindows(signal?: AbortSignal): Promise<CgWindowInfo[] | null> {
+interface CgRead {
+  windows: CgWindowInfo[];
+  /** True when the source reports front-to-back z-order (native CG list). */
+  zOrdered: boolean;
+}
+
+async function readCgWindows(signal?: AbortSignal): Promise<CgRead | null> {
   const native = tryLoadNative();
   if (native && typeof native.listCgWindows === "function") {
     try {
-      return native.listCgWindows();
+      return { windows: native.listCgWindows(), zOrdered: true };
     } catch (err) {
       warn("cg_native_failed", { message: (err as Error).message });
     }
   }
-  return readYabaiWindows(signal);
+  const yabai = await readYabaiWindows(signal);
+  return yabai ? { windows: yabai, zOrdered: false } : null;
 }
 
 function boundsMatch(
@@ -102,12 +109,38 @@ function boundsMatch(
 }
 
 /**
+ * The frontmost browser, derived from front-to-back CG window order: the
+ * first layer-0 window owned by a running browser wins. Only meaningful
+ * when the CG list is z-ordered (native tier) — undefined otherwise.
+ */
+export function frontmostBrowser(
+  snapshot: Snapshot,
+  cgWindows: CgWindowInfo[],
+): BrowserId | undefined {
+  const pidToBrowser = new Map<number, BrowserId>();
+  for (const b of snapshot.browsers) {
+    if (b.pid !== null && b.running) pidToBrowser.set(b.pid, b.browser);
+  }
+  for (const cg of cgWindows) {
+    if (cg.layer !== 0) continue;
+    const browser = pidToBrowser.get(cg.ownerPid);
+    if (browser) return browser;
+  }
+  return undefined;
+}
+
+/**
  * Pure matching core (unit-testable): for each browser window, find the CG
  * window owned by the browser's pid whose bounds match within tolerance.
- * Multiple candidates → null (ambiguous). No pid → null.
+ * Multiple candidates → null (ambiguous). No pid → null. When `zOrdered`,
+ * also stamps `focusedBrowser` from the CG z-order.
  */
-export function correlateSnapshot(snapshot: Snapshot, cgWindows: CgWindowInfo[]): Snapshot {
-  return {
+export function correlateSnapshot(
+  snapshot: Snapshot,
+  cgWindows: CgWindowInfo[],
+  zOrdered = false,
+): Snapshot {
+  const correlated: Snapshot = {
     ...snapshot,
     browsers: snapshot.browsers.map((b) => {
       if (b.pid === null || b.windows.length === 0) return b;
@@ -128,6 +161,9 @@ export function correlateSnapshot(snapshot: Snapshot, cgWindows: CgWindowInfo[])
       };
     }),
   };
+  if (!zOrdered) return correlated;
+  const focused = frontmostBrowser(correlated, cgWindows);
+  return focused ? { ...correlated, focusedBrowser: focused } : correlated;
 }
 
 /** Enrich a snapshot with cgWindowIds. Failures degrade to null ids, never throw. */
@@ -139,9 +175,9 @@ export async function enrichWithCgWindowIds(
   // tests never spawn `yabai`/native (deterministic + fast, no timing flake).
   if (process.env.BROWSER_TAB_FAKE_ADAPTER === "1") return snapshot;
   try {
-    const cgWindows = await readCgWindows(signal);
-    if (!cgWindows) return snapshot;
-    return correlateSnapshot(snapshot, cgWindows);
+    const cg = await readCgWindows(signal);
+    if (!cg) return snapshot;
+    return correlateSnapshot(snapshot, cg.windows, cg.zOrdered);
   } catch (err) {
     warn("cg_correlation_failed", { message: (err as Error).message });
     return snapshot;

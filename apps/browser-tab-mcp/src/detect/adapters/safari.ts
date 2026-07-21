@@ -104,6 +104,7 @@ export function makeSafariAdapter(): BrowserAdapter {
     extensionConnected: false,
     dataSource: "applescript",
     ...(error !== undefined ? { error } : {}),
+    tabGroups: [],
     windows: [],
   });
 
@@ -143,6 +144,8 @@ export function makeSafariAdapter(): BrowserAdapter {
           pinned: false,
           audible: false,
           discarded: false,
+          muted: false,
+          frozen: false,
         })),
       };
     });
