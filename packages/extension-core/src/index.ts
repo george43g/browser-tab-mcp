@@ -1,6 +1,6 @@
 export { probeCapabilities } from "./capabilities.js";
 export { type CommandArgs, type CommandOutcome, executeCommand } from "./commands.js";
-export { debounce, wireEvents } from "./events.js";
+export { debounce, type ExtEventInput, wireEvents } from "./events.js";
 export { log, logError, logWarn } from "./log.js";
 export { type ConnectorOptions, loadOptions, saveOptions } from "./options.js";
 export { api, type BrowserName, detectBrowserName } from "./runtime.js";

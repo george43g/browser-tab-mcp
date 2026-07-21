@@ -34,6 +34,11 @@ export function lastScanPath(): string {
   return join(cacheDir(), "last.json");
 }
 
+/** Focus/navigation journal directory (ndjson rings). */
+export function journalDir(): string {
+  return process.env.BROWSER_TAB_JOURNAL_DIR ?? join(cacheDir(), "journal");
+}
+
 export function logDir(): string {
   return join(homedir(), "Library", "Logs", "browser-tab");
 }

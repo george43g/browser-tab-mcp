@@ -13,6 +13,7 @@ import { warn } from "@george43g/robustness";
 import type {
   BrowserId,
   CommandResult,
+  JournalOutput,
   MoveTabInput,
   OpenTabInput,
   Snapshot,
@@ -127,6 +128,20 @@ export async function daemonStatus(): Promise<Record<string, unknown>> {
       reachable: false,
       hint: "Start it with `browser-tab daemon run` (or `browser-tab daemon install` for launchd).",
     };
+  }
+}
+
+export async function journal(params: Record<string, unknown>): Promise<JournalOutput> {
+  const empty: JournalOutput = { view: String(params.view ?? "recent"), focus: [], nav: [] };
+  // Journals are daemon-only state; fixture mode and a down daemon both yield
+  // an empty result rather than an error.
+  if (fakeAdapterEnabled()) return empty;
+  try {
+    return await viaDaemon((c) => c.request<JournalOutput>("journal", params));
+  } catch (err) {
+    if (!(err instanceof DaemonUnavailableError)) throw err;
+    warn("daemon_unreachable_falling_back", { op: "journal" });
+    return empty;
   }
 }
 

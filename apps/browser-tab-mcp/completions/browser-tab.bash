@@ -39,6 +39,23 @@ cmd list help="List open browser windows and tabs (Chrome/Brave/Chromium/Safari)
         arg <set>
     }
 }
+cmd journal help="Show recorded focus/navigation history" {
+    flag --view help="windowMru | tabMru | journey | recent" {
+        arg <view>
+    }
+    flag --browser help="Restrict to one browser" {
+        arg <name>
+    }
+    flag --window help="Window handle (required for tabMru)" {
+        arg <id>
+    }
+    flag --tab help="Tab handle (required for journey)" {
+        arg <id>
+    }
+    flag --limit help="Max records" {
+        arg <n>
+    }
+}
 cmd focus help="Focus a tab and raise its window" {
     arg <tabId>
 }

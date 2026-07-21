@@ -8,7 +8,17 @@ import { api } from "./runtime.js";
 
 type ZeroArgEvent = { addListener?: (fn: () => void) => void } | undefined;
 
-export function wireEvents(onChange: () => void): void {
+/** An immediate focus/navigation frame — native chrome ids; the daemon
+ *  converts to handles and journals it. */
+export interface ExtEventInput {
+  kind: "focus" | "nav";
+  windowId?: number;
+  tabId?: number;
+  url?: string;
+  transition?: string;
+}
+
+export function wireEvents(onChange: () => void, onEvent?: (frame: ExtEventInput) => void): void {
   // A zero-arg handler is assignable to every chrome event callback shape.
   const handler = () => onChange();
   api.tabs.onCreated.addListener(handler);
@@ -30,6 +40,42 @@ export function wireEvents(onChange: () => void): void {
       tabGroups[ev]?.addListener?.(handler);
     }
   }
+  if (onEvent) wireEventFrames(onEvent);
+}
+
+interface WebNavDetails {
+  tabId: number;
+  url: string;
+  frameId: number;
+  transitionType?: string;
+}
+
+/** Attach the immediate focus/nav frame emitters (in addition to the
+ *  debounced snapshot handler above). */
+function wireEventFrames(onEvent: (frame: ExtEventInput) => void): void {
+  api.windows.onFocusChanged.addListener((windowId: number) => {
+    // -1 (WINDOW_ID_NONE) = focus left all browser windows; skip.
+    if (typeof windowId === "number" && windowId >= 0) onEvent({ kind: "focus", windowId });
+  });
+  api.tabs.onActivated.addListener((info: { tabId: number; windowId: number }) => {
+    if (info && typeof info.tabId === "number") {
+      onEvent({ kind: "focus", tabId: info.tabId, windowId: info.windowId });
+    }
+  });
+  const webNav = (
+    api as unknown as {
+      webNavigation?: { onCommitted?: { addListener?: (fn: (d: WebNavDetails) => void) => void } };
+    }
+  ).webNavigation;
+  webNav?.onCommitted?.addListener?.((details: WebNavDetails) => {
+    if (details.frameId !== 0) return; // top frame only
+    onEvent({
+      kind: "nav",
+      tabId: details.tabId,
+      url: details.url,
+      ...(details.transitionType ? { transition: details.transitionType } : {}),
+    });
+  });
 }
 
 export function debounce(fn: () => void, waitMs: number): () => void {

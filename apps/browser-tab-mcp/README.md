@@ -19,6 +19,27 @@ pnpm stress          # 8-case robustness harness
 | `browser-tab-cli` | Commander CLI: `mcp`, `tui`, `doctor`, `health`, `noop`, `cli` (REPL) | n/a (in-process dispatch) |
 | `browser-tab-tui` | Ink TUI | n/a |
 
+## Focus & navigation journals
+
+The daemon records an event-sourced history of where the user has been —
+which window/tab was focused (and in what order) and each tab's navigation
+chain. The connector extension pushes immediate focus/nav `event` frames;
+AppleScript-mode browsers get coarser events derived from poll diffs. Read it
+with the `journal` tool or CLI:
+
+```bash
+browser-tab journal --view windowMru            # windows by last focus (cross-browser)
+browser-tab journal --view tabMru --window <id> # a window's tabs by last focus
+browser-tab journal --view journey --tab <id>   # a tab's navigation chain
+browser-tab journal --view recent               # raw focus tail
+```
+
+Journals live in the daemon only (empty when it's down), persist as rotated
+NDJSON under `$BROWSER_TAB_CACHE_DIR/journal/`, and the per-tab `navEpoch`
+maintained here is the cache-busting key later capabilities reuse. Handles in
+results are for **correlation, not commands** — re-run `list` for live handles.
+See `docs/WM_STACK_CONTRACT.md` for the wire shape.
+
 ## Adding a tool
 
 1. Copy `src/tools/noop.ts` to `src/tools/<your-tool>.ts`.

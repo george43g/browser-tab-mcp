@@ -320,6 +320,28 @@ async function caseListTabsFakeAdapter(): Promise<void> {
   }
 }
 
+async function caseJournalFakeAdapter(): Promise<void> {
+  const c = new McpClient({ BROWSER_TAB_FAKE_ADAPTER: "1" });
+  try {
+    await c.initialize();
+    const r = await c.request("tools/call", { name: "journal", arguments: { view: "recent" } });
+    const text = r.result?.content?.[0]?.text ?? "";
+    let ok = false;
+    let detail = "no parseable journal";
+    try {
+      const out = JSON.parse(text) as { view?: string; focus?: unknown[]; nav?: unknown[] };
+      ok = out.view === "recent" && Array.isArray(out.focus) && Array.isArray(out.nav);
+      detail = `view=${out.view} focus=${out.focus?.length} nav=${out.nav?.length}`;
+    } catch {
+      detail = `unparseable: ${text.slice(0, 80)}`;
+    }
+    record("journal (fake adapter) returns valid empty result", ok, detail);
+  } finally {
+    c.kill();
+    await c.waitExit();
+  }
+}
+
 function ipcRequest(sock: string, method: string, timeoutMs = 5_000): Promise<unknown> {
   return new Promise((resolveReq, rejectReq) => {
     const conn = createConnection(sock);
@@ -421,6 +443,7 @@ async function main(): Promise<void> {
   await caseSigTermClean();
   await caseRssWatchdogKill();
   await caseListTabsFakeAdapter();
+  await caseJournalFakeAdapter();
   await caseDaemonLifecycle();
 
   const failed = results.filter((r) => !r.pass);
