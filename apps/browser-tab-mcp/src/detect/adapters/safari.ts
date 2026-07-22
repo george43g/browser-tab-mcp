@@ -17,14 +17,45 @@ import { sanitize } from "@george43g/mcp-kit";
 import type {
   BrowserState,
   BrowserWindow,
+  CloseWindowInput,
   CommandResult,
   MoveTabInput,
   OpenTabInput,
+  OpenWindowInput,
+  SetWindowInput,
+  TabActionInput,
+  WindowBounds,
 } from "@george43g/shared-types";
 import { makeSafariTabId, makeWindowId, parseTabId, parseWindowId } from "../ids.js";
 import { osaQuote, probeProcess, runOsa } from "../osascript.js";
 import { parseRecordOutput } from "../parse.js";
 import type { AdapterSpec, BrowserAdapter } from "./types.js";
+
+/** WindowBounds {x,y,w,h} → the AppleScript {left, top, right, bottom} list. */
+function boundsRect(b: WindowBounds): string {
+  return `{${Math.round(b.x)}, ${Math.round(b.y)}, ${Math.round(b.x + b.w)}, ${Math.round(b.y + b.h)}}`;
+}
+
+function httpUrl(raw: string): string {
+  const url = new URL(raw);
+  if (url.protocol !== "http:" && url.protocol !== "https:") {
+    throw new Error(`Only http(s) URLs are allowed; got "${url.protocol}".`);
+  }
+  return url.toString();
+}
+
+/** Safari minimizes via `miniaturized`; maximized/fullscreen aren't scriptable. */
+function safariStateLines(state: string | undefined, ref: string): string {
+  if (state === "minimized") return `  set miniaturized of ${ref} to true`;
+  if (state === "normal") return `  set miniaturized of ${ref} to false`;
+  if (state === "maximized" || state === "fullscreen") {
+    throw new Error(
+      `Window state "${state}" isn't settable for Safari via AppleScript (supported: normal, ` +
+        `minimized). Use the browser-tab extension for maximized/fullscreen.`,
+    );
+  }
+  return "";
+}
 
 export const SAFARI_SPEC: AdapterSpec = {
   browser: "safari",
@@ -328,6 +359,149 @@ end tell`;
     };
   }
 
+  async function tabAction(input: TabActionInput, signal?: AbortSignal): Promise<CommandResult> {
+    const ref = requireSafariTab(input.tabId);
+    let verb: string;
+    switch (input.action) {
+      case "navigate": {
+        if (!input.url) throw new Error("navigate requires a url.");
+        verb = `set URL of tab ${ref.index1} of target to ${osaQuote(httpUrl(input.url))}`;
+        break;
+      }
+      case "reload":
+        // Safari has no reload verb; re-setting the URL reloads the page.
+        verb = `set u to URL of tab ${ref.index1} of target\n  set URL of tab ${ref.index1} of target to u`;
+        break;
+      default:
+        throw new Error(
+          `Action "${input.action}" isn't available for Safari via AppleScript — only navigate ` +
+            `and reload are. back/forward/mute/pin/discard/duplicate need the Safari extension.`,
+        );
+    }
+    const script = `
+tell application "Safari"
+  ${findWindowClause(ref.nativeWindowId)}
+  if (count of tabs of target) < ${ref.index1} then return "not_found"
+  ${verb}
+  return "ok"
+end tell`;
+    const out = (
+      await runOsa(script, { appName: spec.appName, ...(signal ? { signal } : {}) })
+    ).trim();
+    if (out !== "ok") {
+      throw new Error(
+        `Tab not found — Safari handles are index-based and go stale when tabs reorder. Re-run list_tabs.`,
+      );
+    }
+    return {
+      ok: true,
+      command: "tab_action",
+      browser: spec.browser,
+      tabId: input.tabId,
+      payload: { action: input.action },
+    };
+  }
+
+  async function openWindow(input: OpenWindowInput, signal?: AbortSignal): Promise<CommandResult> {
+    if (input.incognito) {
+      throw new Error(
+        "Safari private windows can't be created via AppleScript. Open one manually, or use a " +
+          "Chrome-family browser for scripted incognito windows.",
+      );
+    }
+    const urls = input.urls.map(httpUrl);
+    const first = urls[0];
+    if (!first) throw new Error("open_window requires at least one url.");
+    const extraTabs = urls
+      .slice(1)
+      .map((u) => `  tell w to make new tab with properties {URL:${osaQuote(u)}}`)
+      .join("\n");
+    const geometry = input.bounds ? `  set bounds of w to ${boundsRect(input.bounds)}` : "";
+    const stateLine = safariStateLines(input.state, "w");
+    const focusLine =
+      (input.focused ?? true) && input.state !== "minimized"
+        ? `  set index of w to 1\n  activate`
+        : "";
+    const script = `
+tell application "Safari"
+  make new document with properties {URL:${osaQuote(first)}}
+  set w to front window
+${extraTabs}
+${geometry}
+${stateLine}
+${focusLine}
+  return "ok" & ${RS_EXPR} & (id of w as text)
+end tell`;
+    const out = (
+      await runOsa(script, { appName: spec.appName, ...(signal ? { signal } : {}) })
+    ).trim();
+    if (!out.startsWith("ok")) throw new Error("Failed to open Safari window.");
+    const [, winNative] = out.split("\x1e");
+    return {
+      ok: true,
+      command: "open_window",
+      browser: spec.browser,
+      ...(winNative ? { windowId: makeWindowId(spec.browser, winNative) } : {}),
+      payload: { tabCount: urls.length },
+    };
+  }
+
+  function requireSafariWindow(windowId: string): string {
+    const wparsed = parseWindowId(windowId);
+    if (
+      !wparsed ||
+      wparsed.browser !== "safari" ||
+      wparsed.ext ||
+      !/^\d+$/.test(wparsed.nativeId)
+    ) {
+      throw new Error(`windowId "${windowId}" is not a safari window handle from list_tabs.`);
+    }
+    return wparsed.nativeId;
+  }
+
+  async function setWindow(input: SetWindowInput, signal?: AbortSignal): Promise<CommandResult> {
+    const wid = requireSafariWindow(input.windowId);
+    const lines: string[] = [];
+    if (input.bounds) lines.push(`  set bounds of target to ${boundsRect(input.bounds)}`);
+    const stateLine = safariStateLines(input.state, "target");
+    if (stateLine) lines.push(stateLine);
+    if (input.focused) lines.push(`  set index of target to 1\n  activate`);
+    if (lines.length === 0) {
+      throw new Error("set_window needs at least one of bounds, display, state, focused.");
+    }
+    const script = `
+tell application "Safari"
+  ${findWindowClause(wid)}
+${lines.join("\n")}
+  return "ok"
+end tell`;
+    const out = (
+      await runOsa(script, { appName: spec.appName, ...(signal ? { signal } : {}) })
+    ).trim();
+    if (out !== "ok")
+      throw new Error(`Window not found — it may have been closed. Re-run list_tabs.`);
+    return { ok: true, command: "set_window", browser: spec.browser, windowId: input.windowId };
+  }
+
+  async function closeWindow(
+    input: CloseWindowInput,
+    signal?: AbortSignal,
+  ): Promise<CommandResult> {
+    const wid = requireSafariWindow(input.windowId);
+    const script = `
+tell application "Safari"
+  ${findWindowClause(wid)}
+  close target
+  return "ok"
+end tell`;
+    const out = (
+      await runOsa(script, { appName: spec.appName, ...(signal ? { signal } : {}) })
+    ).trim();
+    if (out !== "ok")
+      throw new Error(`Window not found — it may already be closed. Re-run list_tabs.`);
+    return { ok: true, command: "close_window", browser: spec.browser, windowId: input.windowId };
+  }
+
   return {
     spec,
     probe: (signal) => probeProcess(spec.processName, signal),
@@ -336,5 +510,9 @@ end tell`;
     closeTab,
     openTab,
     moveTab,
+    tabAction,
+    openWindow,
+    setWindow,
+    closeWindow,
   };
 }

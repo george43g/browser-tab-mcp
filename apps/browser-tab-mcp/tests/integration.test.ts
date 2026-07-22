@@ -168,6 +168,57 @@ describe("journal (fake adapter → daemon-only, empty)", () => {
   });
 });
 
+describe("write-side commands (fake adapter → AppleScript fallback)", () => {
+  beforeEach(() => {
+    process.env.BROWSER_TAB_FAKE_ADAPTER = "1";
+    process.env.BROWSER_TAB_BROWSERS = "chrome,safari";
+  });
+
+  it("tab_action navigate returns a schema-valid CommandResult", async () => {
+    const { CommandResultSchema } = await import("@george43g/shared-types");
+    const r = await callMcpTool("tab_action", {
+      tabId: "t:chrome:9900",
+      action: "navigate",
+      url: "https://example.org/",
+    });
+    expect(r.isError).toBeUndefined();
+    const out = CommandResultSchema.parse(r.structuredContent);
+    expect(out).toMatchObject({ ok: true, command: "tab_action", browser: "chrome" });
+    expect((out.payload as { action?: string }).action).toBe("navigate");
+  });
+
+  it("open_window + close_window return ok", async () => {
+    const open = await callMcpTool("open_window", {
+      urls: ["https://a/", "https://b/"],
+      bounds: { x: 0, y: 0, w: 900, h: 700 },
+    });
+    expect(open.isError).toBeUndefined();
+    expect(open.structuredContent).toMatchObject({ ok: true, command: "open_window" });
+
+    const close = await callMcpTool("close_window", { windowId: "w:chrome:100" });
+    expect(close.isError).toBeUndefined();
+    expect(close.structuredContent).toMatchObject({ ok: true, command: "close_window" });
+  });
+
+  it("group_tabs errors cleanly without an extension", async () => {
+    const r = await callMcpTool("group_tabs", { action: "create", tabIds: ["t:chrome:9900"] });
+    expect(r.isError).toBe(true);
+    expect(r.content[0]?.text).toMatch(/extension/i);
+  });
+
+  it("an AppleScript-unsupported tab_action (mute) errors with a hint", async () => {
+    const r = await callMcpTool("tab_action", { tabId: "t:chrome:9900", action: "mute" });
+    expect(r.isError).toBe(true);
+    expect(r.content[0]?.text).toMatch(/extension/i);
+  });
+
+  it("navigate without a url is rejected", async () => {
+    const r = await callMcpTool("tab_action", { tabId: "t:chrome:9900", action: "navigate" });
+    expect(r.isError).toBe(true);
+    expect(r.content[0]?.text).toMatch(/url/i);
+  });
+});
+
 describe("error paths", () => {
   it("rejects unknown tool with isError", async () => {
     const r = await callMcpTool("ghost_tool", {});

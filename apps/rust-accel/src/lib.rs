@@ -19,7 +19,7 @@ mod types;
 use napi::Error;
 use napi_derive::napi;
 use std::time::Instant;
-use types::{CgWindowInfo, NoopInput, NoopOutput};
+use types::{CgWindowInfo, DisplayInfo, NoopInput, NoopOutput};
 
 /// Plain hello-world for integration tests.
 #[napi]
@@ -137,6 +137,45 @@ fn list_cg_windows_impl() -> Vec<CgWindowInfo> {
 
 #[cfg(not(target_os = "macos"))]
 fn list_cg_windows_impl() -> Vec<CgWindowInfo> {
+    Vec::new()
+}
+
+/// Enumerate active displays with their global-screen bounds. Feeds the
+/// `display` targeting in open_window/set_window (index into this array)
+/// so window placement can be expressed per-monitor. Empty when the native
+/// module is unavailable — the TS side then errors on display targeting
+/// and still honors explicit absolute bounds.
+#[napi]
+pub fn list_displays() -> Vec<DisplayInfo> {
+    list_displays_impl()
+}
+
+#[cfg(target_os = "macos")]
+fn list_displays_impl() -> Vec<DisplayInfo> {
+    use core_graphics::display::CGDisplay;
+
+    let main_id = CGDisplay::main().id;
+    let ids = match CGDisplay::active_displays() {
+        Ok(ids) => ids,
+        Err(_) => return Vec::new(),
+    };
+    ids.into_iter()
+        .map(|id| {
+            let bounds = CGDisplay::new(id).bounds();
+            DisplayInfo {
+                display_id: id,
+                x: bounds.origin.x,
+                y: bounds.origin.y,
+                w: bounds.size.width,
+                h: bounds.size.height,
+                is_main: id == main_id,
+            }
+        })
+        .collect()
+}
+
+#[cfg(not(target_os = "macos"))]
+fn list_displays_impl() -> Vec<DisplayInfo> {
     Vec::new()
 }
 

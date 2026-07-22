@@ -12,9 +12,13 @@ import type {
   BrowserId,
   BrowserState,
   BrowserWindow,
+  CloseWindowInput,
   CommandResult,
   MoveTabInput,
   OpenTabInput,
+  OpenWindowInput,
+  SetWindowInput,
+  TabActionInput,
 } from "@george43g/shared-types";
 import { makeChromiumTabId, makeSafariTabId, makeWindowId } from "../ids.js";
 import type { AdapterSpec, BrowserAdapter } from "./types.js";
@@ -122,5 +126,39 @@ export function makeFakeAdapter(spec: AdapterSpec): BrowserAdapter {
         ...(input.targetWindowId ? { windowId: input.targetWindowId } : {}),
         index: input.targetIndex ?? 0,
       }),
+    // Model the AppleScript action boundary so degradation stays testable:
+    // navigate/reload everywhere, back/forward on Chromium only.
+    tabAction: async (input: TabActionInput) => {
+      const applescriptable =
+        input.action === "navigate" ||
+        input.action === "reload" ||
+        ((input.action === "back" || input.action === "forward") && spec.browser !== "safari");
+      if (!applescriptable) {
+        throw new Error(
+          `Action "${input.action}" isn't available for ${spec.browser} via AppleScript — needs the extension.`,
+        );
+      }
+      return okResult("tab_action", { tabId: input.tabId, payload: { action: input.action } });
+    },
+    openWindow: async (input: OpenWindowInput) => {
+      if (input.state === "maximized" || input.state === "fullscreen") {
+        throw new Error(`Window state "${input.state}" isn't settable via AppleScript.`);
+      }
+      if (input.incognito && spec.browser === "safari") {
+        throw new Error("Safari private windows can't be created via AppleScript.");
+      }
+      return okResult("open_window", {
+        windowId: makeWindowId(spec.browser, 500),
+        payload: { tabCount: input.urls.length },
+      });
+    },
+    setWindow: async (input: SetWindowInput) => {
+      if (input.state === "maximized" || input.state === "fullscreen") {
+        throw new Error(`Window state "${input.state}" isn't settable via AppleScript.`);
+      }
+      return okResult("set_window", { windowId: input.windowId });
+    },
+    closeWindow: async (input: CloseWindowInput) =>
+      okResult("close_window", { windowId: input.windowId }),
   };
 }

@@ -3,14 +3,28 @@
  * connected). The extension pathway reports a runtime-probed map in its
  * hello; this is the honest fallback for what AppleScript can do today.
  *
- * PR1 ships reads only, so every v2 feature is false here; later phases
- * flip the write-side keys (navigate/reload/back-forward/window ops) for
- * the Chromium AppleScript path as those commands land.
+ * Reads stay false (enrichments are extension-only). The write-side keys
+ * that AppleScript CAN drive are flipped on here per browser family:
+ * Chromium can navigate/reload/back-forward + open/close/resize windows;
+ * Safari can do the same minus history back/forward (no AppleScript verb).
+ * Grouping, discard, duplicate, mute/pin remain extension-only everywhere.
  */
 
 import type { BrowserId, Capabilities } from "@george43g/shared-types";
 import { CAPABILITY_KEYS } from "@george43g/shared-types";
 
-export function applescriptCaps(_browser: BrowserId): Capabilities {
-  return Object.fromEntries(CAPABILITY_KEYS.map((key) => [key, false])) as Capabilities;
+export function applescriptCaps(browser: BrowserId): Capabilities {
+  const caps = Object.fromEntries(CAPABILITY_KEYS.map((key) => [key, false])) as Record<
+    string,
+    boolean
+  >;
+  // Window ops + navigation are AppleScript-able for every supported browser.
+  caps.navigate = true;
+  caps.reload = true;
+  caps.openWindow = true;
+  caps.setWindowBounds = true;
+  caps.closeWindow = true;
+  // Chromium's dictionary has `go back`/`go forward`; Safari's does not.
+  caps.backForward = browser !== "safari";
+  return caps as Capabilities;
 }

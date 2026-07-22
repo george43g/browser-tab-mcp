@@ -9,9 +9,13 @@
 import type {
   BrowserId,
   BrowserState,
+  CloseWindowInput,
   CommandResult,
   MoveTabInput,
   OpenTabInput,
+  OpenWindowInput,
+  SetWindowInput,
+  TabActionInput,
 } from "@george43g/shared-types";
 
 export interface AdapterSpec {
@@ -42,4 +46,16 @@ export interface BrowserAdapter {
    * input.allowReload is set, else throws.
    */
   moveTab(input: MoveTabInput, signal?: AbortSignal): Promise<CommandResult>;
+  /**
+   * Single-tab action. AppleScript supports navigate/reload for every
+   * browser and back/forward on Chromium; mute/pin/discard/duplicate throw
+   * with a "needs the extension" hint (capability-gated at the tool layer).
+   */
+  tabAction(input: TabActionInput, signal?: AbortSignal): Promise<CommandResult>;
+  /** Open a window with the given URLs, optional bounds and state. */
+  openWindow(input: OpenWindowInput, signal?: AbortSignal): Promise<CommandResult>;
+  /** Move/resize/minimize/foreground an existing window. */
+  setWindow(input: SetWindowInput, signal?: AbortSignal): Promise<CommandResult>;
+  /** Close an entire window. */
+  closeWindow(input: CloseWindowInput, signal?: AbortSignal): Promise<CommandResult>;
 }

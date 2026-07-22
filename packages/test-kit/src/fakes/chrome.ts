@@ -168,11 +168,19 @@ export function installFakeChrome(config: FakeChromeConfig = {}): FakeChrome {
     },
     ...Object.fromEntries(tabsEvents.map((name) => [name, makeEvent(`tabs.${name}`)])),
   };
-  // Safari lacks tabs.discard (and the discarded state entirely).
+  // Safari lacks tabs.discard/group/ungroup (and tab groups entirely).
   if (!isSafari) {
     tabs.discard = (tabId?: number) => {
       record("tabs.discard", [tabId]);
       return Promise.resolve({ id: tabId, discarded: true });
+    };
+    tabs.group = (options: { tabIds: number | number[]; groupId?: number }) => {
+      record("tabs.group", [options]);
+      return Promise.resolve(options.groupId ?? 700);
+    };
+    tabs.ungroup = (tabIds: number | number[]) => {
+      record("tabs.ungroup", [tabIds]);
+      return Promise.resolve();
     };
   }
 
@@ -182,9 +190,15 @@ export function installFakeChrome(config: FakeChromeConfig = {}): FakeChrome {
         record("windows.getAll", [query]);
         return Promise.resolve(windows);
       },
-      create: (createData?: { tabId?: number }) => {
+      create: (createData?: { tabId?: number; url?: string | string[] }) => {
         record("windows.create", [createData]);
-        return Promise.resolve({ id: nextWindowId++, tabs: [] });
+        const urls = Array.isArray(createData?.url)
+          ? createData.url
+          : createData?.url
+            ? [createData.url]
+            : [];
+        const tabs = urls.map((u, i) => ({ id: 8000 + i, url: u, index: i, active: i === 0 }));
+        return Promise.resolve({ id: nextWindowId++, tabs });
       },
       update: (windowId: number, info?: unknown) => {
         record("windows.update", [windowId, info]);

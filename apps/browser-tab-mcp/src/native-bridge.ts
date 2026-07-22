@@ -14,7 +14,7 @@
 import { createRequire } from "node:module";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
-import type { CgWindowInfo, NoopInput, NoopOutput } from "@george43g/shared-types";
+import type { CgWindowInfo, DisplayInfo, NoopInput, NoopOutput } from "@george43g/shared-types";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
@@ -25,6 +25,8 @@ export interface NativeModule {
   hello(name: string): string;
   /** On-screen CG windows (id/pid/bounds/layer) for yabai correlation. */
   listCgWindows(): CgWindowInfo[];
+  /** Active displays with global-screen bounds (for `display` window targeting). */
+  listDisplays(): DisplayInfo[];
 }
 
 let _native: NativeModule | null | undefined;

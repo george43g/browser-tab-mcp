@@ -41,3 +41,18 @@ pub struct CgWindowInfo {
     pub h: f64,
     pub layer: i32,
 }
+
+/// One active display. x/y are the display's global-screen origin (points,
+/// top-left), so `display` targets in open_window/set_window translate into
+/// global bounds. No TCC permission required (CGDisplayBounds is public).
+#[napi(object)]
+pub struct DisplayInfo {
+    #[napi(js_name = "displayId")]
+    pub display_id: u32,
+    pub x: f64,
+    pub y: f64,
+    pub w: f64,
+    pub h: f64,
+    #[napi(js_name = "isMain")]
+    pub is_main: bool,
+}
