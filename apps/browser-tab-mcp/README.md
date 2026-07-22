@@ -40,6 +40,33 @@ maintained here is the cache-busting key later capabilities reuse. Handles in
 results are for **correlation, not commands** — re-run `list` for live handles.
 See `docs/WM_STACK_CONTRACT.md` for the wire shape.
 
+## Write-side control
+
+Beyond reads + `focus`/`move`/`open`/`close`, the tool can drive tabs and
+windows imperatively:
+
+```bash
+browser-tab act <tabId> mute            # or unmute|pin|unpin|discard|reload|back|forward|duplicate
+browser-tab act <tabId> navigate --url https://example.com
+browser-tab group create --tabs t:chrome:x1,t:chrome:x2 --title Work --color blue
+browser-tab group move --group g:chrome:x77 --target-window w:chrome:x9
+browser-tab window open https://a.com https://b.com --display 1     # fills monitor 1
+browser-tab window open https://a.com --bounds 0,0,1280,800
+browser-tab window set w:chrome:x9 --state minimized
+browser-tab window close w:chrome:x9
+```
+
+Capability boundary (runtime-probed, never hardcoded): the browser extension
+covers every action; the AppleScript fallback covers navigate/reload for all
+browsers, back/forward on Chromium only, and window bounds + normal/minimized.
+Everything else (mute/pin/discard/duplicate, **tab groups**, maximized/fullscreen)
+errors with a "needs the extension" hint. Tab-group ops are Chrome-family only.
+
+Window placement takes either explicit `--bounds x,y,w,h` (global screen points)
+or a `--display <n>` index that fills that monitor. Display targeting reads the
+active-display list from the native module; without it, use `--bounds`. List the
+available displays via `browser-tab daemon status --json` (the `displays` field).
+
 ## Adding a tool
 
 1. Copy `src/tools/noop.ts` to `src/tools/<your-tool>.ts`.

@@ -57,6 +57,24 @@ Open an http(s) URL in a new tab
 \fBmove\fR
 Move a tab to another window (true moves need daemon + extension)
 .TP
+\fBact\fR
+Run an action on a tab (mute|unmute|pin|unpin|discard|reload|navigate|back|forward|duplicate)
+.TP
+\fBgroup\fR
+Manage Chrome tab groups (create|add|remove|update|move)
+.TP
+\fBwindow\fR
+Window operations: open | set | close
+.TP
+\fBwindow open\fR
+Open a new window with one or more URLs
+.TP
+\fBwindow set\fR
+Move/resize/minimize/foreground a window
+.TP
+\fBwindow close\fR
+Close an entire window and all its tabs
+.TP
 \fBdaemon\fR
 Manage the browser\-tab daemon
 .TP
@@ -159,6 +177,91 @@ Move into a newly created window
 .TP
 \fB\-\-allow\-reload\fR
 Safari: accept the reload\-based AppleScript move
+.SH "BROWSER-TAB ACT"
+Run an action on a tab (mute|unmute|pin|unpin|discard|reload|navigate|back|forward|duplicate)
+.PP
+\fBUsage:\fR browser\-tab act [OPTIONS] <tabId> <action>
+.PP
+\fBOptions:\fR
+.PP
+.TP
+\fB\-\-url\fR \fI<url>\fR
+Destination URL (required for navigate)
+.SH "BROWSER-TAB GROUP"
+Manage Chrome tab groups (create|add|remove|update|move)
+.PP
+\fBUsage:\fR browser\-tab group [OPTIONS] <action>
+.PP
+\fBOptions:\fR
+.PP
+.TP
+\fB\-\-tabs\fR \fI<ids>\fR
+Comma\-separated tab handles (create/add/remove)
+.TP
+\fB\-\-group\fR \fI<id>\fR
+Group handle (add/remove/update/move)
+.TP
+\fB\-\-browser\fR \fI<name>\fR
+chrome|chromium|brave
+.TP
+\fB\-\-title\fR \fI<title>\fR
+Group title (create/update)
+.TP
+\fB\-\-color\fR \fI<color>\fR
+Group color (create/update)
+.TP
+\fB\-\-collapsed\fR
+Collapse the group (update)
+.TP
+\fB\-\-target\-window\fR \fI<id>\fR
+Destination window (move)
+.TP
+\fB\-\-index\fR \fI<n>\fR
+0\-based destination position (move)
+.SH "BROWSER-TAB WINDOW OPEN"
+Open a new window with one or more URLs
+.PP
+\fBUsage:\fR browser\-tab window open [OPTIONS] <url> ...
+.PP
+\fBOptions:\fR
+.PP
+.TP
+\fB\-\-browser\fR \fI<name>\fR
+chrome|chromium|brave|safari
+.TP
+\fB\-\-bounds\fR \fI<bounds>\fR
+Global\-coordinate frame x,y,w,h
+.TP
+\fB\-\-display\fR \fI<n>\fR
+0\-based display index (fills that monitor)
+.TP
+\fB\-\-state\fR \fI<state>\fR
+normal|minimized|maximized|fullscreen
+.TP
+\fB\-\-incognito\fR
+Open a private/incognito window
+.TP
+\fB\-\-no\-focus\fR
+Open in the background
+.SH "BROWSER-TAB WINDOW SET"
+Move/resize/minimize/foreground a window
+.PP
+\fBUsage:\fR browser\-tab window set [OPTIONS] <windowId>
+.PP
+\fBOptions:\fR
+.PP
+.TP
+\fB\-\-bounds\fR \fI<bounds>\fR
+Global\-coordinate frame x,y,w,h
+.TP
+\fB\-\-display\fR \fI<n>\fR
+0\-based display index (fills that monitor)
+.TP
+\fB\-\-state\fR \fI<state>\fR
+normal|minimized|maximized|fullscreen
+.TP
+\fB\-\-focus\fR
+Raise/foreground the window
 .SH "BROWSER-TAB NOOP"
 Demo: call the noop tool
 .PP

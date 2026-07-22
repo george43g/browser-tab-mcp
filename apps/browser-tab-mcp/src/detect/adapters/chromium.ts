@@ -16,14 +16,33 @@ import { sanitize } from "@george43g/mcp-kit";
 import type {
   BrowserState,
   BrowserWindow,
+  CloseWindowInput,
   CommandResult,
   MoveTabInput,
   OpenTabInput,
+  OpenWindowInput,
+  SetWindowInput,
+  TabActionInput,
+  WindowBounds,
 } from "@george43g/shared-types";
 import { makeChromiumTabId, makeWindowId, parseTabId, parseWindowId } from "../ids.js";
 import { osaQuote, probeProcess, runOsa } from "../osascript.js";
 import { parseRecordOutput } from "../parse.js";
 import type { AdapterSpec, BrowserAdapter } from "./types.js";
+
+/** WindowBounds {x,y,w,h} → the AppleScript {left, top, right, bottom} list. */
+function boundsRect(b: WindowBounds): string {
+  return `{${Math.round(b.x)}, ${Math.round(b.y)}, ${Math.round(b.x + b.w)}, ${Math.round(b.y + b.h)}}`;
+}
+
+/** http(s) validation shared by navigate/open — throws on anything else. */
+function httpUrl(raw: string): string {
+  const url = new URL(raw);
+  if (url.protocol !== "http:" && url.protocol !== "https:") {
+    throw new Error(`Only http(s) URLs are allowed; got "${url.protocol}".`);
+  }
+  return url.toString();
+}
 
 export const CHROMIUM_SPECS: readonly AdapterSpec[] = [
   {
@@ -266,6 +285,178 @@ end tell`;
     );
   }
 
+  function tabById(nid: string, verb: string): string {
+    return `
+tell application ${osaQuote(spec.appName)}
+  repeat with w in windows
+    repeat with t in tabs of w
+      if (id of t as text) is "${nid}" then
+        ${verb}
+        return "ok"
+      end if
+    end repeat
+  end repeat
+  return "not_found"
+end tell`;
+  }
+
+  async function tabAction(input: TabActionInput, signal?: AbortSignal): Promise<CommandResult> {
+    const parsed = parseTabId(input.tabId);
+    if (!parsed || parsed.browser !== spec.browser || !parsed.nativeId || parsed.ext) {
+      throw new Error(`tabId "${input.tabId}" is not a ${spec.browser} tab handle from list_tabs.`);
+    }
+    const nid = requireNumeric(parsed.nativeId, "tabId");
+    let verb: string;
+    switch (input.action) {
+      case "navigate": {
+        if (!input.url) throw new Error("navigate requires a url.");
+        verb = `set URL of t to ${osaQuote(httpUrl(input.url))}`;
+        break;
+      }
+      case "reload":
+        verb = `reload t`;
+        break;
+      case "back":
+        verb = `go back t`;
+        break;
+      case "forward":
+        verb = `go forward t`;
+        break;
+      default:
+        throw new Error(
+          `Action "${input.action}" isn't available for ${spec.appName} via AppleScript — ` +
+            `mute/pin/discard/duplicate need the browser-tab extension. Connect it, then re-run list_tabs.`,
+        );
+    }
+    const out = (
+      await runOsa(tabById(nid, verb), { appName: spec.appName, ...(signal ? { signal } : {}) })
+    ).trim();
+    if (out !== "ok") {
+      throw new Error(
+        `Tab not found — it may have been closed. Re-run list_tabs for fresh handles.`,
+      );
+    }
+    return {
+      ok: true,
+      command: "tab_action",
+      browser: spec.browser,
+      tabId: input.tabId,
+      payload: { action: input.action },
+    };
+  }
+
+  /** Reject window states AppleScript can't express so the tool degrades cleanly. */
+  function stateLines(state: string | undefined, ref: string): string {
+    if (state === "minimized") return `  set minimized of ${ref} to true`;
+    if (state === "normal") return `  set minimized of ${ref} to false`;
+    if (state === "maximized" || state === "fullscreen") {
+      throw new Error(
+        `Window state "${state}" isn't settable for ${spec.appName} via AppleScript ` +
+          `(supported: normal, minimized). Use the browser-tab extension for maximized/fullscreen.`,
+      );
+    }
+    return "";
+  }
+
+  async function openWindow(input: OpenWindowInput, signal?: AbortSignal): Promise<CommandResult> {
+    const urls = input.urls.map(httpUrl);
+    const first = urls[0];
+    if (!first) throw new Error("open_window requires at least one url.");
+    const modeProp = input.incognito ? ` with properties {mode:"incognito"}` : "";
+    const extraTabs = urls
+      .slice(1)
+      .map((u) => `  make new tab at end of tabs of w with properties {URL:${osaQuote(u)}}`)
+      .join("\n");
+    const geometry = input.bounds ? `  set bounds of w to ${boundsRect(input.bounds)}` : "";
+    const stateLine = stateLines(input.state, "w");
+    const focusLine =
+      (input.focused ?? true) && input.state !== "minimized"
+        ? `  set index of w to 1\n  activate`
+        : "";
+    const script = `
+tell application ${osaQuote(spec.appName)}
+  set w to make new window${modeProp}
+  set URL of active tab of w to ${osaQuote(first)}
+${extraTabs}
+${geometry}
+${stateLine}
+${focusLine}
+  return "ok" & ${RS_EXPR} & (id of w as text)
+end tell`;
+    const out = (
+      await runOsa(script, { appName: spec.appName, ...(signal ? { signal } : {}) })
+    ).trim();
+    if (!out.startsWith("ok")) throw new Error(`Failed to open ${spec.appName} window.`);
+    const [, winNative] = out.split("\x1e");
+    return {
+      ok: true,
+      command: "open_window",
+      browser: spec.browser,
+      ...(winNative ? { windowId: makeWindowId(spec.browser, winNative) } : {}),
+      payload: { tabCount: urls.length },
+    };
+  }
+
+  function findWindowById(wid: string, body: string): string {
+    return `
+tell application ${osaQuote(spec.appName)}
+  set target to missing value
+  repeat with w in windows
+    if (id of w as text) is "${wid}" then set target to w
+  end repeat
+  if target is missing value then return "not_found"
+${body}
+  return "ok"
+end tell`;
+  }
+
+  function requireChromiumWindow(windowId: string): string {
+    const wparsed = parseWindowId(windowId);
+    if (!wparsed || wparsed.browser !== spec.browser || wparsed.ext) {
+      throw new Error(
+        `windowId "${windowId}" is not a ${spec.browser} window handle from list_tabs.`,
+      );
+    }
+    return requireNumeric(wparsed.nativeId, "windowId");
+  }
+
+  async function setWindow(input: SetWindowInput, signal?: AbortSignal): Promise<CommandResult> {
+    const wid = requireChromiumWindow(input.windowId);
+    const lines: string[] = [];
+    if (input.bounds) lines.push(`  set bounds of target to ${boundsRect(input.bounds)}`);
+    const stateLine = stateLines(input.state, "target");
+    if (stateLine) lines.push(stateLine);
+    if (input.focused) lines.push(`  set index of target to 1\n  activate`);
+    if (lines.length === 0) {
+      throw new Error("set_window needs at least one of bounds, display, state, focused.");
+    }
+    const out = (
+      await runOsa(findWindowById(wid, lines.join("\n")), {
+        appName: spec.appName,
+        ...(signal ? { signal } : {}),
+      })
+    ).trim();
+    if (out !== "ok")
+      throw new Error(`Window not found — it may have been closed. Re-run list_tabs.`);
+    return { ok: true, command: "set_window", browser: spec.browser, windowId: input.windowId };
+  }
+
+  async function closeWindow(
+    input: CloseWindowInput,
+    signal?: AbortSignal,
+  ): Promise<CommandResult> {
+    const wid = requireChromiumWindow(input.windowId);
+    const out = (
+      await runOsa(findWindowById(wid, `  close target`), {
+        appName: spec.appName,
+        ...(signal ? { signal } : {}),
+      })
+    ).trim();
+    if (out !== "ok")
+      throw new Error(`Window not found — it may already be closed. Re-run list_tabs.`);
+    return { ok: true, command: "close_window", browser: spec.browser, windowId: input.windowId };
+  }
+
   return {
     spec,
     probe: (signal) => probeProcess(spec.processName, signal),
@@ -274,5 +465,9 @@ end tell`;
     closeTab,
     openTab,
     moveTab,
+    tabAction,
+    openWindow,
+    setWindow,
+    closeWindow,
   };
 }

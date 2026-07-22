@@ -20,6 +20,17 @@ import { callMcpTool } from "./dispatcher.js";
 import { runMcpServer } from "./index.js";
 import { APP_NAME, APP_VERSION } from "./meta.js";
 
+/** Parse a `--bounds x,y,w,h` string into a WindowBounds, or undefined when absent. */
+function parseBounds(s?: string): { x: number; y: number; w: number; h: number } | undefined {
+  if (!s) return undefined;
+  const parts = s.split(",").map((n) => Number.parseInt(n.trim(), 10));
+  const [x, y, w, h] = parts;
+  if (parts.length !== 4 || [x, y, w, h].some((n) => n === undefined || Number.isNaN(n))) {
+    throw new Error(`--bounds must be four integers "x,y,w,h"; got "${s}".`);
+  }
+  return { x: x as number, y: y as number, w: w as number, h: h as number };
+}
+
 async function printResult(result: Awaited<ReturnType<typeof callMcpTool>>, json: boolean) {
   if (json) {
     process.stdout.write(`${JSON.stringify(result.structuredContent ?? result, null, 2)}\n`);
@@ -188,6 +199,135 @@ export async function main(argv: readonly string[] = process.argv): Promise<void
         await printResult(result, json);
       },
     );
+
+  program
+    .command("act")
+    .description(
+      "Run an action on a tab (mute|unmute|pin|unpin|discard|reload|navigate|back|forward|duplicate)",
+    )
+    .argument("<tabId>", "Opaque tabId from `browser-tab list`")
+    .argument("<action>", "mute|unmute|pin|unpin|discard|reload|navigate|back|forward|duplicate")
+    .option("--url <url>", "Destination URL (required for navigate)")
+    .action(async (tabId: string, action: string, opts: { url?: string }) => {
+      const json = program.opts<{ json?: boolean }>().json ?? false;
+      const result = await callMcpTool("tab_action", {
+        tabId,
+        action,
+        ...(opts.url ? { url: opts.url } : {}),
+      });
+      await printResult(result, json);
+    });
+
+  program
+    .command("group")
+    .description("Manage Chrome tab groups (create|add|remove|update|move)")
+    .argument("<action>", "create|add|remove|update|move")
+    .option("--tabs <ids>", "Comma-separated tab handles (create/add/remove)")
+    .option("--group <id>", "Group handle (add/remove/update/move)")
+    .option("--browser <name>", "chrome|chromium|brave")
+    .option("--title <title>", "Group title (create/update)")
+    .option("--color <color>", "grey|blue|red|yellow|green|pink|purple|cyan|orange")
+    .option("--collapsed", "Collapse the group (update)")
+    .option("--target-window <id>", "Destination window (move)")
+    .option("--index <n>", "0-based destination position (move)")
+    .action(
+      async (
+        action: string,
+        opts: {
+          tabs?: string;
+          group?: string;
+          browser?: string;
+          title?: string;
+          color?: string;
+          collapsed?: boolean;
+          targetWindow?: string;
+          index?: string;
+        },
+      ) => {
+        const json = program.opts<{ json?: boolean }>().json ?? false;
+        const result = await callMcpTool("group_tabs", {
+          action,
+          ...(opts.tabs ? { tabIds: opts.tabs.split(",").map((s) => s.trim()) } : {}),
+          ...(opts.group ? { groupId: opts.group } : {}),
+          ...(opts.browser ? { browser: opts.browser } : {}),
+          ...(opts.title !== undefined ? { title: opts.title } : {}),
+          ...(opts.color ? { color: opts.color } : {}),
+          ...(opts.collapsed ? { collapsed: true } : {}),
+          ...(opts.targetWindow ? { targetWindowId: opts.targetWindow } : {}),
+          ...(opts.index !== undefined ? { index: Number.parseInt(opts.index, 10) } : {}),
+        });
+        await printResult(result, json);
+      },
+    );
+
+  const windowCmd = program.command("window").description("Window operations: open | set | close");
+  windowCmd
+    .command("open")
+    .description("Open a new window with one or more URLs")
+    .argument("<url...>", "http(s) URLs (first becomes active)")
+    .option("--browser <name>", "chrome|chromium|brave|safari")
+    .option("--bounds <x,y,w,h>", "Global-coordinate frame")
+    .option("--display <n>", "0-based display index (fills that monitor)")
+    .option("--state <state>", "normal|minimized|maximized|fullscreen")
+    .option("--incognito", "Open a private/incognito window")
+    .option("--no-focus", "Open in the background")
+    .action(
+      async (
+        urls: string[],
+        opts: {
+          browser?: string;
+          bounds?: string;
+          display?: string;
+          state?: string;
+          incognito?: boolean;
+          focus: boolean;
+        },
+      ) => {
+        const json = program.opts<{ json?: boolean }>().json ?? false;
+        const result = await callMcpTool("open_window", {
+          urls,
+          focused: opts.focus,
+          incognito: opts.incognito ?? false,
+          ...(opts.browser ? { browser: opts.browser } : {}),
+          ...(parseBounds(opts.bounds) ? { bounds: parseBounds(opts.bounds) } : {}),
+          ...(opts.display !== undefined ? { display: Number.parseInt(opts.display, 10) } : {}),
+          ...(opts.state ? { state: opts.state } : {}),
+        });
+        await printResult(result, json);
+      },
+    );
+  windowCmd
+    .command("set")
+    .description("Move/resize/minimize/foreground a window")
+    .argument("<windowId>", "Opaque windowId from `browser-tab list`")
+    .option("--bounds <x,y,w,h>", "Global-coordinate frame")
+    .option("--display <n>", "0-based display index (fills that monitor)")
+    .option("--state <state>", "normal|minimized|maximized|fullscreen")
+    .option("--focus", "Raise/foreground the window")
+    .action(
+      async (
+        windowId: string,
+        opts: { bounds?: string; display?: string; state?: string; focus?: boolean },
+      ) => {
+        const json = program.opts<{ json?: boolean }>().json ?? false;
+        const result = await callMcpTool("set_window", {
+          windowId,
+          ...(parseBounds(opts.bounds) ? { bounds: parseBounds(opts.bounds) } : {}),
+          ...(opts.display !== undefined ? { display: Number.parseInt(opts.display, 10) } : {}),
+          ...(opts.state ? { state: opts.state } : {}),
+          ...(opts.focus ? { focused: true } : {}),
+        });
+        await printResult(result, json);
+      },
+    );
+  windowCmd
+    .command("close")
+    .description("Close an entire window and all its tabs")
+    .argument("<windowId>", "Opaque windowId from `browser-tab list`")
+    .action(async (windowId: string) => {
+      const json = program.opts<{ json?: boolean }>().json ?? false;
+      await printResult(await callMcpTool("close_window", { windowId }), json);
+    });
 
   registerDaemonCommand(program);
 

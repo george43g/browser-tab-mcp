@@ -117,12 +117,30 @@ new shape (`daemon_status.contractVersion` reports what it's currently serving;
 
 Request `{"id":1,"method":"getSnapshot"}` → `{"id":1,"ok":true,"result":{…snapshot…}}`
 
-Methods: `getSnapshot` · `subscribe` · `unsubscribe` · `status` · `refresh`
-(force an immediate rescan) · `command` (params:
-`{"kind":"focus_tab"|"close_tab"|"move_tab"|"open_tab", …tool-input fields}`) ·
+Methods: `getSnapshot` · `subscribe` · `unsubscribe` · `status` (also returns
+`displays[]` and the per-browser `capabilities` map) · `refresh`
+(force an immediate rescan) · `command` (params: `{"kind": …, …tool-input fields}`) ·
 `journal` (params: `{"view":"windowMru"|"tabMru"|"journey"|"recent", browser?, windowId?, tabId?, limit?}`
 → the daemon's recorded focus/navigation history; `focus[]` for windowMru/tabMru/recent,
 `nav[]` for journey. Handles in journal records are for correlation only — they may be stale).
+
+Command `kind`s and their tool-input fields:
+
+| kind | fields | notes |
+|---|---|---|
+| `focus_tab` / `close_tab` | `tabId` | |
+| `move_tab` | `tabId`, `targetWindowId?`, `targetIndex?`, `newWindow?`, `targetGroupId?`, `allowReload?` | true move via extension; Safari AppleScript reloads (needs `allowReload`) |
+| `open_tab` | `url`, `browser?`, `windowId?`, `activate?`, `index?`, `pinned?`, `groupId?` | `index`/`pinned`/`groupId` are extension-only |
+| `tab_action` | `tabId`, `action`, `url?` | action ∈ mute\|unmute\|pin\|unpin\|discard\|reload\|navigate\|back\|forward\|duplicate; AppleScript covers navigate/reload (+ back/forward on Chromium), rest need the extension |
+| `group_tabs` | `action`, `tabIds?`, `groupId?`, `title?`, `color?`, `collapsed?`, `targetWindowId?`, `index?`, `browser?` | action ∈ create\|add\|remove\|update\|move; extension-only (Chrome-family) |
+| `open_window` | `urls[]`, `browser?`, `bounds?`, `display?`, `state?`, `incognito?`, `focused?` | `bounds` {x,y,w,h} global points wins over `display` (0-based monitor index → fills it); AppleScript supports bounds + normal/minimized |
+| `set_window` | `windowId`, `bounds?`, `display?`, `state?`, `focused?` | as above |
+| `close_window` | `windowId` | destructive — closes every tab in the window |
+
+`CommandResult` carries `{ok, command, browser, tabId?, windowId?, groupId?, index?, payload?}`.
+Handles come from `list_tabs`; a command may reissue a handle — re-list afterward.
+`display` targeting needs the native module (`list_displays()`); without it, use explicit
+`bounds` in global screen coordinates. Query available displays via the `status` method.
 
 After `subscribe`, events stream on the same connection (a full `snapshot`
 event arrives immediately, then on every change):

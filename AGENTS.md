@@ -13,13 +13,16 @@ A Turborepo monorepo shipping a **single bin** (`browser-tab`):
 | Subcommand | Surface |
 |---|---|
 | `browser-tab daemon run\|install\|status\|token\|…` | launchd daemon: AppleScript polling + extension WebSocket (127.0.0.1, token-auth) + unix-socket IPC + snapshot cache file |
-| `browser-tab list\|journal\|focus\|move\|open\|close` | Direct tool invocation — one CLI subcommand per `ToolDefinition` |
+| `browser-tab list\|journal\|focus\|move\|open\|close` | Direct read/tab-command invocation — one CLI subcommand per `ToolDefinition` |
+| `browser-tab act\|group\|window open\|set\|close` | Write-side control: tab actions (mute/pin/discard/reload/navigate/back/forward/duplicate), tab-group ops, window create/move/resize/close |
 | `browser-tab mcp` | MCP server (stdio) |
 | `browser-tab tui` | Ink/React live tab manager |
 | `browser-tab doctor` | Preflight checks (Node, native module, Automation TCC per browser, correlation tier) |
 | `browser-tab repl` (alias `console`) | Interactive REPL driving the in-process dispatcher |
 
 Architecture: MCP/CLI/TUI are daemon *clients* (unix socket); reads degrade to direct osascript when the daemon is down. Extensions (`apps/chrome-extension` + `apps/safari-extension` wrapper + shared `packages/extension-core`) push live tab events and execute `move_tab` via `chrome.tabs.move`. Opaque handle scheme: AppleScript-generation ids (`t:chrome:123`), extension-generation ids (`t:chrome:x123`), Safari synthetic ids (`t:safari:w1:i3`), tab-group ids (`g:chrome:x77`) — see `src/detect/ids.ts`.
+
+**Write-side control (`tab_action`/`group_tabs`/`open_window`/`set_window`/`close_window`).** The actuator half of the API. Command kinds flow shared-types `ExtCommand.kind` → extension-core `commands.ts` (chrome.tabs/windows/tabGroups) or the AppleScript adapters, routed in `daemon/index.ts:executeCommand` by handle generation (x-ids over the socket, else adapters). Capability truth stays runtime-probed: the extension covers everything; the AppleScript path only navigate/reload (+ back/forward on Chromium) and window bounds/normal/minimized — `applescriptCaps` (`src/detect/capabilities.ts`) is now flipped on for exactly those keys, everything else stays false and the adapters throw an actionable "needs the extension" error. `group_tabs` is extension-only (no AppleScript equivalent). Rich results ride the existing `ExtCommandResult.result` record — `CommandResult` gained `groupId?`/`payload?` with **no wire change**. `display` targeting resolves to global bounds in the client via rust-accel `list_displays()` (`src/detect/displays.ts`); absent native module → display targeting errors, explicit `bounds` still work. `DisplayInfo` is mirrored in `types.rs` + `MIRRORED_SCHEMAS` (drift-checked).
 
 **Focus/nav journals (`src/daemon/journal.ts`).** The daemon's event-sourced memory of where the user has been. The extension emits tiny immediate `event` frames (window/tab focus via `onFocusChanged`/`onActivated`, committed nav via `webNavigation.onCommitted` frameId 0); AppleScript-mode browsers get coarse events derived from `StateStore` diffs. **One ingest source per browser, switched by the merge authority** (`ingestStoreEvent` only fires for `!extensionConnected` browsers) so a browser's focus isn't double-counted; a 2s head-only dedupe covers the switchover. Records denormalize url/title (handles aren't stable) and persist as rotated ndjson under `journalDir()`. `navEpoch` (per tab-handle, bumped on committed nav) lives here — it's the cache-busting key later phases' content/screenshot caches use. Query via the `journal` tool / IPC method (`windowMru`/`tabMru`/`journey`/`recent`).
 
@@ -82,7 +85,7 @@ packages/
 | `pnpm typecheck` | Turbo: `tsc --noEmit` per package |
 | `pnpm lint` | Biome check |
 | `pnpm lint:fix` | Biome write |
-| `pnpm stress` | Run 11-case stress harness against the built MCP |
+| `pnpm stress` | Run 12-case stress harness against the built MCP |
 | `pnpm verify` | lint + typecheck + test + build (CI shape) |
 
 Per-app:
@@ -171,7 +174,7 @@ Also in-memory ring buffer (last 500 lines). In dev mode (`MCP_DEV=1`), a `get_l
 
 ## Stress harness
 
-`pnpm stress` covers 11 cases (in `apps/browser-tab-mcp/scripts/stress-mcp.ts`):
+`pnpm stress` covers 12 cases (in `apps/browser-tab-mcp/scripts/stress-mcp.ts`):
 
 1. handshake + tools/list returns the full catalog
 2. `health_check` returns `Status: healthy`
@@ -183,7 +186,8 @@ Also in-memory ring buffer (last 500 lines). In dev mode (`MCP_DEV=1`), a `get_l
 8. `MCP_MAX_RSS_MB=50` triggers a watchdog kill
 9. `list_tabs` with `BROWSER_TAB_FAKE_ADAPTER=1` returns a valid snapshot
 10. `journal` with `BROWSER_TAB_FAKE_ADAPTER=1` returns a valid empty result
-11. daemon lifecycle: socket serves 20 parallel getSnapshot; SIGTERM exits 0 and unlinks the socket
+11. write-side tools under `BROWSER_TAB_FAKE_ADAPTER=1`: `tab_action navigate` / `open_window` / `close_window` return ok; `group_tabs` + an extension-only `tab_action` error cleanly
+12. daemon lifecycle: socket serves 20 parallel getSnapshot; SIGTERM exits 0 and unlinks the socket
 
 Add a case whenever you ship something touching lifecycle, dispatch, error handling, or transport.
 
@@ -241,7 +245,7 @@ Still deferred: Safari runtime + packaging scripts can't be automated (no headle
 
 ## CI / Release
 
-- `.github/workflows/ci.yml` — matrix `ubuntu-latest + macos-latest`, runs lint + typecheck + test + test:no-native + build + `pnpm check:usage` (completions/manpage/docs freshness gate) + `npm pack --dry-run` + stress (all 10 cases).
+- `.github/workflows/ci.yml` — matrix `ubuntu-latest + macos-latest`, runs lint + typecheck + test + test:no-native + build + `pnpm check:usage` (completions/manpage/docs freshness gate) + `npm pack --dry-run` + stress (all 12 cases).
 - `.github/workflows/release.yml` — semantic-release with `@semantic-release/{commit-analyzer,release-notes-generator,changelog,npm,github,git}`. **Disabled by default** — `on:` trigger is commented. To enable: uncomment + add `NPM_TOKEN` secret. See `docs/RELEASE.md`.
 - `.github/workflows/readme-check.yml` — fails CI if `src/**` changed without a `README.md` update. Bypass with `[skip-readme]` in commit/PR title.
 

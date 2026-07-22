@@ -186,11 +186,14 @@ export function pickEnrichment(src: Record<string, unknown>): TabEnrichment {
   return TabEnrichmentSchema.parse(src);
 }
 
+/** Canonical window states, shared by the enrichment field and the window-op inputs. */
+export const WindowStateSchema = z.enum(["normal", "minimized", "maximized", "fullscreen"]);
+export type WindowState = z.infer<typeof WindowStateSchema>;
+
 export const WindowEnrichmentSchema = z.object({
-  state: z
-    .enum(["normal", "minimized", "maximized", "fullscreen"])
-    .optional()
-    .describe("Window state. Extension-sourced; absent under AppleScript."),
+  state: WindowStateSchema.optional().describe(
+    "Window state. Extension-sourced; absent under AppleScript.",
+  ),
 });
 export type WindowEnrichment = z.infer<typeof WindowEnrichmentSchema>;
 export const WINDOW_ENRICHMENT_FIELDS = Object.keys(
@@ -314,6 +317,22 @@ export const CgWindowInfoSchema = z.object({
 });
 export type CgWindowInfo = z.infer<typeof CgWindowInfoSchema>;
 
+/**
+ * One active display as reported by the rust-accel `list_displays()`
+ * binding. x/y are the display's global-screen origin (points, top-left);
+ * the `display` index in open_window/set_window is an offset into the
+ * returned array. Used to translate a display target into global bounds.
+ */
+export const DisplayInfoSchema = z.object({
+  displayId: z.number().int().describe("CoreGraphics display id."),
+  x: z.number().describe("Left edge in global screen points."),
+  y: z.number().describe("Top edge in global screen points."),
+  w: z.number().describe("Width in points."),
+  h: z.number().describe("Height in points."),
+  isMain: z.boolean().describe("True for the main (menu-bar / origin) display."),
+});
+export type DisplayInfo = z.infer<typeof DisplayInfoSchema>;
+
 // ── browser-tab tool inputs ───────────────────────────────────────────
 
 export const ListTabsInputSchema = z.object({
@@ -360,6 +379,13 @@ export const MoveTabInputSchema = z.object({
     .optional()
     .describe("0-based destination position. Omit to append at the end."),
   newWindow: z.boolean().default(false).describe("Move the tab into a newly created window."),
+  targetGroupId: z
+    .string()
+    .optional()
+    .describe(
+      "After moving, add the tab to this existing tab group (opaque g:<browser>:x<id> handle). " +
+        "Extension pathway only (Chrome-family).",
+    ),
   allowReload: z
     .boolean()
     .default(false)
@@ -378,8 +404,130 @@ export const OpenTabInputSchema = z.object({
     .optional()
     .describe("Window to open the tab in. Omit for the frontmost window."),
   activate: z.boolean().default(true).describe("Bring the tab/window to the foreground."),
+  index: z
+    .number()
+    .int()
+    .min(0)
+    .optional()
+    .describe("0-based insertion position within the window. Extension pathway only."),
+  pinned: z
+    .boolean()
+    .default(false)
+    .describe("Open the tab pinned. Extension pathway only (ignored under AppleScript)."),
+  groupId: z
+    .string()
+    .optional()
+    .describe(
+      "Add the new tab to this existing tab group (opaque g:<browser>:x<id> handle). " +
+        "Extension pathway only.",
+    ),
 });
 export type OpenTabInput = z.infer<typeof OpenTabInputSchema>;
+
+// ── write-side control tool inputs (PR3) ──────────────────────────────
+
+/** A single-tab imperative action. `navigate` requires `url`. */
+export const TabActionSchema = z.enum([
+  "mute",
+  "unmute",
+  "pin",
+  "unpin",
+  "discard",
+  "reload",
+  "navigate",
+  "back",
+  "forward",
+  "duplicate",
+]);
+export type TabAction = z.infer<typeof TabActionSchema>;
+
+export const TabActionInputSchema = z.object({
+  tabId: z.string().describe("Opaque tab handle from list_tabs."),
+  action: TabActionSchema.describe(
+    "mute/unmute audio · pin/unpin · discard (unload) · reload · navigate (needs url) · " +
+      "back/forward in history · duplicate. AppleScript supports navigate/reload (+ back/forward " +
+      "on Chromium); the rest need the extension.",
+  ),
+  url: z.string().optional().describe('http(s) URL — required when action is "navigate".'),
+});
+export type TabActionInput = z.infer<typeof TabActionInputSchema>;
+
+/** Tab-group operations. Extension pathway only (Chrome-family tabGroups API). */
+export const GroupActionSchema = z.enum(["create", "add", "remove", "update", "move"]);
+export type GroupAction = z.infer<typeof GroupActionSchema>;
+
+export const GroupTabsInputSchema = z.object({
+  action: GroupActionSchema.describe(
+    "create a group from tabIds · add tabIds to groupId · remove tabIds from their group · " +
+      "update a group's title/color/collapsed · move a group to another window/index.",
+  ),
+  browser: BrowserIdSchema.optional().describe(
+    "Browser to act on. Usually inferred from tabIds/groupId; needed only when neither is a handle.",
+  ),
+  tabIds: z.array(z.string()).optional().describe("Tab handles (create/add/remove)."),
+  groupId: z
+    .string()
+    .optional()
+    .describe("Existing group handle g:<browser>:x<id> (add/remove/update/move)."),
+  title: z.string().optional().describe("Group title (create/update)."),
+  color: z
+    .string()
+    .optional()
+    .describe("Group color (create/update): grey|blue|red|yellow|green|pink|purple|cyan|orange."),
+  collapsed: z.boolean().optional().describe("Collapse/expand the group (update)."),
+  targetWindowId: z.string().optional().describe("Destination window handle (move)."),
+  index: z.number().int().optional().describe("0-based destination position (move)."),
+});
+export type GroupTabsInput = z.infer<typeof GroupTabsInputSchema>;
+
+export const OpenWindowInputSchema = z.object({
+  urls: z
+    .array(z.string())
+    .min(1)
+    .describe("http(s) URLs to open; the first becomes the active tab."),
+  browser: BrowserIdSchema.optional().describe("Browser to open in. Default: first enabled."),
+  bounds: WindowBoundsSchema.optional().describe(
+    "Explicit global-coordinate frame {x,y,w,h}. Takes precedence over display; forces state normal.",
+  ),
+  display: z
+    .number()
+    .int()
+    .min(0)
+    .optional()
+    .describe(
+      "0-based display index to place the window on (fills that display). " +
+        "Ignored when bounds is given; needs the native module.",
+    ),
+  state: WindowStateSchema.optional().describe(
+    "Initial window state. Mutually exclusive with bounds/display.",
+  ),
+  incognito: z.boolean().default(false).describe("Open a private/incognito window."),
+  focused: z.boolean().default(true).describe("Bring the new window to the foreground."),
+});
+export type OpenWindowInput = z.infer<typeof OpenWindowInputSchema>;
+
+export const SetWindowInputSchema = z.object({
+  windowId: z.string().describe("Opaque window handle from list_tabs."),
+  bounds: WindowBoundsSchema.optional().describe("New global-coordinate frame {x,y,w,h}."),
+  display: z
+    .number()
+    .int()
+    .min(0)
+    .optional()
+    .describe(
+      "0-based display index to move the window to (fills it). Ignored when bounds is given.",
+    ),
+  state: WindowStateSchema.optional().describe(
+    "New window state. Mutually exclusive with bounds/display.",
+  ),
+  focused: z.boolean().optional().describe("Raise/foreground the window."),
+});
+export type SetWindowInput = z.infer<typeof SetWindowInputSchema>;
+
+export const CloseWindowInputSchema = z.object({
+  windowId: z.string().describe("Opaque window handle from list_tabs."),
+});
+export type CloseWindowInput = z.infer<typeof CloseWindowInputSchema>;
 
 export const DaemonStatusInputSchema = z.object({});
 export type DaemonStatusInput = z.infer<typeof DaemonStatusInputSchema>;
@@ -401,7 +549,12 @@ export const CommandResultSchema = z.object({
   browser: BrowserIdSchema,
   tabId: z.string().optional().describe("Tab affected (may be reissued after a move)."),
   windowId: z.string().optional().describe("Window the tab ended up in."),
+  groupId: z.string().optional().describe("Tab group affected (group_tabs)."),
   index: z.number().int().optional().describe("0-based final position of the tab."),
+  payload: z
+    .unknown()
+    .optional()
+    .describe("Command-specific extra data (e.g. the action performed, window bounds)."),
 });
 export type CommandResult = z.infer<typeof CommandResultSchema>;
 
@@ -477,7 +630,17 @@ export type ExtSnapshot = z.infer<typeof ExtSnapshotSchema>;
 export const ExtCommandSchema = z.object({
   type: z.literal("command"),
   requestId: z.number().int(),
-  kind: z.enum(["focus_tab", "close_tab", "move_tab", "open_tab"]),
+  kind: z.enum([
+    "focus_tab",
+    "close_tab",
+    "move_tab",
+    "open_tab",
+    "tab_action",
+    "group_tabs",
+    "open_window",
+    "set_window",
+    "close_window",
+  ]),
   args: z.record(z.unknown()),
 });
 export type ExtCommand = z.infer<typeof ExtCommandSchema>;
@@ -625,5 +788,10 @@ export const MIRRORED_SCHEMAS = [
     tsName: "CgWindowInfoSchema",
     rustName: "CgWindowInfo",
     fields: ["windowId", "ownerPid", "x", "y", "w", "h", "layer"],
+  },
+  {
+    tsName: "DisplayInfoSchema",
+    rustName: "DisplayInfo",
+    fields: ["displayId", "x", "y", "w", "h", "isMain"],
   },
 ] as const;

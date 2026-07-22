@@ -89,6 +89,76 @@ cmd "move" help="Move a tab to another window (true moves need daemon + extensio
     flag "--allow-reload" help="Safari: accept the reload-based AppleScript move"
 }
 
+cmd "act" help="Run an action on a tab (mute|unmute|pin|unpin|discard|reload|navigate|back|forward|duplicate)" {
+    arg "<tabId>"
+    arg "<action>"
+    flag "--url" help="Destination URL (required for navigate)" {
+        arg "<url>"
+    }
+}
+
+cmd "group" help="Manage Chrome tab groups (create|add|remove|update|move)" {
+    arg "<action>"
+    flag "--tabs" help="Comma-separated tab handles (create/add/remove)" {
+        arg "<ids>"
+    }
+    flag "--group" help="Group handle (add/remove/update/move)" {
+        arg "<id>"
+    }
+    flag "--browser" help="chrome|chromium|brave" {
+        arg "<name>"
+    }
+    flag "--title" help="Group title (create/update)" {
+        arg "<title>"
+    }
+    flag "--color" help="Group color (create/update)" {
+        arg "<color>"
+    }
+    flag "--collapsed" help="Collapse the group (update)"
+    flag "--target-window" help="Destination window (move)" {
+        arg "<id>"
+    }
+    flag "--index" help="0-based destination position (move)" {
+        arg "<n>"
+    }
+}
+
+cmd "window" help="Window operations: open | set | close" {
+    cmd "open" help="Open a new window with one or more URLs" {
+        arg "<url>" var=#true
+        flag "--browser" help="chrome|chromium|brave|safari" {
+            arg "<name>"
+        }
+        flag "--bounds" help="Global-coordinate frame x,y,w,h" {
+            arg "<bounds>"
+        }
+        flag "--display" help="0-based display index (fills that monitor)" {
+            arg "<n>"
+        }
+        flag "--state" help="normal|minimized|maximized|fullscreen" {
+            arg "<state>"
+        }
+        flag "--incognito" help="Open a private/incognito window"
+        flag "--no-focus" help="Open in the background"
+    }
+    cmd "set" help="Move/resize/minimize/foreground a window" {
+        arg "<windowId>"
+        flag "--bounds" help="Global-coordinate frame x,y,w,h" {
+            arg "<bounds>"
+        }
+        flag "--display" help="0-based display index (fills that monitor)" {
+            arg "<n>"
+        }
+        flag "--state" help="normal|minimized|maximized|fullscreen" {
+            arg "<state>"
+        }
+        flag "--focus" help="Raise/foreground the window"
+    }
+    cmd "close" help="Close an entire window and all its tabs" {
+        arg "<windowId>"
+    }
+}
+
 cmd "daemon" help="Manage the browser-tab daemon" {
     cmd "run" help="Run the daemon in the foreground (launchd invokes this)"
     cmd "install" help="Install + start the launchd LaunchAgent"

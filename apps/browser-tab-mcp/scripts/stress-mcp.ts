@@ -342,6 +342,46 @@ async function caseJournalFakeAdapter(): Promise<void> {
   }
 }
 
+async function caseWriteCommandsFakeAdapter(): Promise<void> {
+  const c = new McpClient({ BROWSER_TAB_FAKE_ADAPTER: "1", BROWSER_TAB_BROWSERS: "chrome" });
+  try {
+    await c.initialize();
+    const text = async (name: string, args: Record<string, unknown>): Promise<string> => {
+      const r = await c.request("tools/call", { name, arguments: args });
+      return r.result?.content?.[0]?.text ?? "";
+    };
+    // Happy paths the AppleScript fake adapter supports.
+    record(
+      "tab_action navigate returns ok",
+      (
+        await text("tab_action", { tabId: "t:chrome:9900", action: "navigate", url: "https://x/" })
+      ).includes('"ok": true'),
+    );
+    record(
+      "open_window returns ok",
+      (
+        await text("open_window", { urls: ["https://x/"], bounds: { x: 0, y: 0, w: 800, h: 600 } })
+      ).includes('"ok": true'),
+    );
+    record(
+      "close_window returns ok",
+      (await text("close_window", { windowId: "w:chrome:100" })).includes('"ok": true'),
+    );
+    // Extension-only surfaces must error cleanly (not crash) without a daemon.
+    record(
+      "group_tabs without extension errors cleanly",
+      /extension/i.test(await text("group_tabs", { action: "create", tabIds: ["t:chrome:9900"] })),
+    );
+    record(
+      "unsupported tab_action errors cleanly",
+      /extension/i.test(await text("tab_action", { tabId: "t:chrome:9900", action: "mute" })),
+    );
+  } finally {
+    c.kill();
+    await c.waitExit();
+  }
+}
+
 function ipcRequest(sock: string, method: string, timeoutMs = 5_000): Promise<unknown> {
   return new Promise((resolveReq, rejectReq) => {
     const conn = createConnection(sock);
@@ -444,6 +484,7 @@ async function main(): Promise<void> {
   await caseRssWatchdogKill();
   await caseListTabsFakeAdapter();
   await caseJournalFakeAdapter();
+  await caseWriteCommandsFakeAdapter();
   await caseDaemonLifecycle();
 
   const failed = results.filter((r) => !r.pass);

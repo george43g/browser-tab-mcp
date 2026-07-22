@@ -16,14 +16,24 @@ import {
   setLogFilePrefix,
   startHeapMonitor,
 } from "@george43g/robustness";
-import type { BrowserId, CommandResult, Snapshot } from "@george43g/shared-types";
+import type {
+  BrowserId,
+  CommandResult,
+  Snapshot,
+  TabAction,
+  WindowBounds,
+  WindowState,
+} from "@george43g/shared-types";
 import { correlationTier } from "../detect/correlate.js";
+import { listDisplays } from "../detect/displays.js";
 import { enabledBrowsers, makeAdapter } from "../detect/engine.js";
 import {
+  makeExtGroupId,
   makeExtTabId,
   makeExtWindowId,
   type ParsedTabId,
   type ParsedWindowId,
+  parseGroupId,
   parseTabId,
   parseWindowId,
 } from "../detect/ids.js";
@@ -63,15 +73,38 @@ function parseHandle(id: string | undefined): ParsedTabId | ParsedWindowId {
 
 /** Map a numeric extension command result into the opaque CommandResult shape. */
 function extResult(browser: BrowserId, command: string, raw: unknown): CommandResult {
-  const r = (raw ?? {}) as { tabId?: number; windowId?: number; index?: number };
+  const r = (raw ?? {}) as {
+    tabId?: number;
+    windowId?: number;
+    groupId?: number;
+    index?: number;
+    payload?: unknown;
+  };
   return {
     ok: true,
     command,
     browser,
     ...(r.tabId !== undefined ? { tabId: makeExtTabId(browser, r.tabId) } : {}),
     ...(r.windowId !== undefined ? { windowId: makeExtWindowId(browser, r.windowId) } : {}),
+    ...(r.groupId !== undefined ? { groupId: makeExtGroupId(browser, r.groupId) } : {}),
     ...(r.index !== undefined ? { index: r.index } : {}),
+    ...(r.payload !== undefined ? { payload: r.payload } : {}),
   };
+}
+
+/** The stock "this x-handle's extension session is gone" error, shared by the routers. */
+function notConnectedHint(handle: string, browser: BrowserId): string {
+  return (
+    `Handle "${handle}" belongs to the ${browser} extension session, which is not connected. ` +
+    `Re-run list_tabs for current handles.`
+  );
+}
+
+/** Group handles are always extension-generation (g:<browser>:x<id>). */
+function groupNum(handle: string, what: string): number {
+  const g = parseGroupId(handle);
+  if (!g) throw new Error(`${what} "${handle}" is not a tab-group handle from list_tabs.`);
+  return Number.parseInt(g.nativeId, 10);
 }
 
 /** Ext handles carry the extension's numeric ids; reject mixed generations. */
@@ -133,6 +166,9 @@ export async function executeCommand(
           args.targetWindowId = extNum(parseHandle(targetWindowId), "targetWindowId");
         }
         if (params.targetIndex !== undefined) args.targetIndex = params.targetIndex;
+        if (params.targetGroupId !== undefined) {
+          args.targetGroupId = groupNum(params.targetGroupId as string, "targetGroupId");
+        }
         const raw = await ext.sendCommand(parsed.browser, "move_tab", args);
         result = extResult(parsed.browser, "move_tab", raw);
       } else if (parsed.ext) {
@@ -163,8 +199,13 @@ export async function executeCommand(
         const args: Record<string, unknown> = {
           url: params.url,
           activate: (params.activate as boolean | undefined) ?? true,
+          pinned: (params.pinned as boolean | undefined) ?? false,
         };
         if (parsedWindow) args.windowId = extNum(parsedWindow, "windowId");
+        if (params.index !== undefined) args.index = params.index;
+        if (params.groupId !== undefined) {
+          args.groupId = groupNum(params.groupId as string, "groupId");
+        }
         const raw = await ext.sendCommand(browser, "open_tab", args);
         result = extResult(browser, "open_tab", raw);
       } else {
@@ -173,7 +214,132 @@ export async function executeCommand(
           browser,
           windowId,
           activate: (params.activate as boolean | undefined) ?? true,
+          pinned: (params.pinned as boolean | undefined) ?? false,
         });
+      }
+      break;
+    }
+    case "tab_action": {
+      const tabId = params.tabId as string;
+      const parsed = parseHandle(tabId);
+      const action = params.action as TabAction;
+      const url = params.url as string | undefined;
+      if (parsed.ext && ext?.isConnected(parsed.browser)) {
+        const raw = await ext.sendCommand(parsed.browser, "tab_action", {
+          tabId: extNum(parsed, "tabId"),
+          action,
+          ...(url !== undefined ? { url } : {}),
+        });
+        result = extResult(parsed.browser, "tab_action", raw);
+      } else if (parsed.ext) {
+        throw new Error(notConnectedHint(tabId, parsed.browser));
+      } else {
+        result = await makeAdapter(parsed.browser).tabAction({
+          tabId,
+          action,
+          ...(url !== undefined ? { url } : {}),
+        });
+      }
+      break;
+    }
+    case "group_tabs": {
+      // Extension-only (chrome.tabGroups). Infer the browser from any handle.
+      const tabIds = params.tabIds as string[] | undefined;
+      const groupId = params.groupId as string | undefined;
+      const targetWindowId = params.targetWindowId as string | undefined;
+      const anchor = tabIds?.[0] ?? groupId ?? targetWindowId;
+      let browser: BrowserId | undefined;
+      if (anchor === groupId && groupId) browser = parseGroupId(groupId)?.browser;
+      else if (anchor) browser = (parseTabId(anchor) ?? parseWindowId(anchor))?.browser;
+      browser ??= params.browser as BrowserId | undefined;
+      if (!browser)
+        throw new Error("Could not determine the browser — pass tabIds, groupId, or browser.");
+      if (!ext?.isConnected(browser)) {
+        throw new Error(
+          `Tab groups require the browser-tab extension (Chrome-family). The ${browser} extension ` +
+            `isn't connected — AppleScript can't manage tab groups.`,
+        );
+      }
+      const args: Record<string, unknown> = { action: params.action };
+      if (tabIds) args.tabIds = tabIds.map((h) => extNum(parseHandle(h), "tabId"));
+      if (groupId) args.groupId = groupNum(groupId, "groupId");
+      if (targetWindowId)
+        args.targetWindowId = extNum(parseHandle(targetWindowId), "targetWindowId");
+      for (const k of ["title", "color", "collapsed", "index"] as const) {
+        if (params[k] !== undefined) args[k] = params[k];
+      }
+      result = extResult(browser, "group_tabs", await ext.sendCommand(browser, "group_tabs", args));
+      break;
+    }
+    case "open_window": {
+      const browser = (params.browser as BrowserId | undefined) ?? enabledBrowsers()[0];
+      if (!browser) throw new Error("No browser enabled.");
+      const urls = params.urls as string[];
+      const bounds = params.bounds as WindowBounds | undefined; // resolved by the client
+      const state = params.state as WindowState | undefined;
+      const incognito = (params.incognito as boolean | undefined) ?? false;
+      const focused = (params.focused as boolean | undefined) ?? true;
+      if (ext?.isConnected(browser)) {
+        const args: Record<string, unknown> = { urls, incognito, focused };
+        if (bounds !== undefined) args.bounds = bounds;
+        if (state !== undefined) args.state = state;
+        result = extResult(
+          browser,
+          "open_window",
+          await ext.sendCommand(browser, "open_window", args),
+        );
+      } else {
+        result = await makeAdapter(browser).openWindow({
+          urls,
+          browser,
+          incognito,
+          focused,
+          ...(bounds !== undefined ? { bounds } : {}),
+          ...(state !== undefined ? { state } : {}),
+        });
+      }
+      break;
+    }
+    case "set_window": {
+      const windowId = params.windowId as string;
+      const parsed = parseHandle(windowId);
+      const bounds = params.bounds as WindowBounds | undefined;
+      const state = params.state as WindowState | undefined;
+      const focused = params.focused as boolean | undefined;
+      if (parsed.ext && ext?.isConnected(parsed.browser)) {
+        const args: Record<string, unknown> = { windowId: extNum(parsed, "windowId") };
+        if (bounds !== undefined) args.bounds = bounds;
+        if (state !== undefined) args.state = state;
+        if (focused !== undefined) args.focused = focused;
+        result = extResult(
+          parsed.browser,
+          "set_window",
+          await ext.sendCommand(parsed.browser, "set_window", args),
+        );
+      } else if (parsed.ext) {
+        throw new Error(notConnectedHint(windowId, parsed.browser));
+      } else {
+        result = await makeAdapter(parsed.browser).setWindow({
+          windowId,
+          ...(bounds !== undefined ? { bounds } : {}),
+          ...(state !== undefined ? { state } : {}),
+          ...(focused !== undefined ? { focused } : {}),
+        });
+      }
+      break;
+    }
+    case "close_window": {
+      const windowId = params.windowId as string;
+      const parsed = parseHandle(windowId);
+      if (parsed.ext && ext?.isConnected(parsed.browser)) {
+        const raw = await ext.sendCommand(parsed.browser, "close_window", {
+          windowId: extNum(parsed, "windowId"),
+        });
+        result = extResult(parsed.browser, "close_window", raw);
+      } else if (parsed.ext) {
+        throw new Error(notConnectedHint(windowId, parsed.browser));
+      } else {
+        result = await makeAdapter(parsed.browser).closeWindow({ windowId });
       }
       break;
     }
@@ -245,6 +411,7 @@ export async function startDaemon(): Promise<DaemonHandle> {
       wsPort: ext ? wsPort() : null,
       extensions: ext?.connectedBrowsers() ?? [],
       correlationTier: await correlationTier(),
+      displays: listDisplays(),
       focusedBrowser: store.getSnapshot().focusedBrowser ?? null,
       subscribers: ipc.subscriberCount(),
       browsers: store.getSnapshot().browsers.map((b) => ({

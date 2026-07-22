@@ -16,6 +16,20 @@ export interface CgWindowInfo {
   layer: number
 }
 
+/**
+ * One active display. x/y are the display's global-screen origin (points,
+ * top-left), so `display` targets in open_window/set_window translate into
+ * global bounds. No TCC permission required (CGDisplayBounds is public).
+ */
+export interface DisplayInfo {
+  displayId: number
+  x: number
+  y: number
+  w: number
+  h: number
+  isMain: boolean
+}
+
 /** Plain hello-world for integration tests. */
 export declare function hello(name: string): string
 
@@ -28,6 +42,15 @@ export declare function hello(name: string): string
  * Screen Recording TCC permission; ids/pids/bounds do not.
  */
 export declare function listCgWindows(): Array<CgWindowInfo>
+
+/**
+ * Enumerate active displays with their global-screen bounds. Feeds the
+ * `display` targeting in open_window/set_window (index into this array)
+ * so window placement can be expressed per-monitor. Empty when the native
+ * module is unavailable — the TS side then errors on display targeting
+ * and still honors explicit absolute bounds.
+ */
+export declare function listDisplays(): Array<DisplayInfo>
 
 /**
  * Demo Rust path for the `noop` MCP tool. Echoes the input string,

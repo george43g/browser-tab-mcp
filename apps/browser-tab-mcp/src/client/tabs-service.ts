@@ -12,14 +12,20 @@
 import { warn } from "@george43g/robustness";
 import type {
   BrowserId,
+  CloseWindowInput,
   CommandResult,
+  GroupTabsInput,
   JournalOutput,
   MoveTabInput,
   OpenTabInput,
+  OpenWindowInput,
+  SetWindowInput,
   Snapshot,
+  TabActionInput,
 } from "@george43g/shared-types";
 import { SnapshotSchema } from "@george43g/shared-types";
 import { fakeAdapterEnabled } from "../detect/adapters/fake.js";
+import { resolveWindowBounds } from "../detect/displays.js";
 import { enabledBrowsers, makeAdapter, readSnapshot } from "../detect/engine.js";
 import { parseTabId, parseWindowId } from "../detect/ids.js";
 import { DaemonClient, DaemonUnavailableError } from "./daemon-client.js";
@@ -110,6 +116,67 @@ export function openTab(input: OpenTabInput): Promise<CommandResult> {
     input.browser ?? (input.windowId ? browserOf(input.windowId) : enabledBrowsers()[0]);
   if (!browser) throw new Error("No browser enabled.");
   return command("open_tab", { ...input, browser }, () => makeAdapter(browser).openTab(input));
+}
+
+export function tabAction(input: TabActionInput): Promise<CommandResult> {
+  if (input.action === "navigate" && !input.url) {
+    return Promise.reject(new Error('tab_action "navigate" requires a url.'));
+  }
+  return command("tab_action", { ...input }, () =>
+    makeAdapter(browserOf(input.tabId)).tabAction(input),
+  );
+}
+
+export function groupTabs(input: GroupTabsInput): Promise<CommandResult> {
+  // Extension-only; the fallback (daemon down) has no way to manage groups.
+  return command("group_tabs", { ...input }, async () => {
+    throw new Error(
+      "Tab groups require the browser-tab extension (Chrome-family) and a running daemon — " +
+        "AppleScript can't manage tab groups.",
+    );
+  });
+}
+
+export function openWindow(input: OpenWindowInput): Promise<CommandResult> {
+  const bounds = resolveWindowBounds(input); // display → global bounds (may throw without native)
+  const browser = input.browser ?? enabledBrowsers()[0];
+  if (!browser) throw new Error("No browser enabled.");
+  // bounds win over state; never send both (chrome rejects the combination).
+  const geometry = bounds ? { bounds } : input.state ? { state: input.state } : {};
+  return command(
+    "open_window",
+    {
+      urls: input.urls,
+      browser,
+      incognito: input.incognito,
+      focused: input.focused,
+      ...geometry,
+    },
+    () =>
+      makeAdapter(browser).openWindow({
+        urls: input.urls,
+        browser,
+        incognito: input.incognito,
+        focused: input.focused,
+        ...geometry,
+      }),
+  );
+}
+
+export function setWindow(input: SetWindowInput): Promise<CommandResult> {
+  const bounds = resolveWindowBounds(input);
+  const browser = browserOf(input.windowId);
+  const geometry = bounds ? { bounds } : input.state ? { state: input.state } : {};
+  const focus = input.focused !== undefined ? { focused: input.focused } : {};
+  return command("set_window", { windowId: input.windowId, ...geometry, ...focus }, () =>
+    makeAdapter(browser).setWindow({ windowId: input.windowId, ...geometry, ...focus }),
+  );
+}
+
+export function closeWindow(input: CloseWindowInput): Promise<CommandResult> {
+  return command("close_window", { ...input }, () =>
+    makeAdapter(browserOf(input.windowId)).closeWindow(input),
+  );
 }
 
 export interface DaemonStatus {
