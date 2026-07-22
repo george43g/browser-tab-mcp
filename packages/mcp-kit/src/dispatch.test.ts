@@ -46,7 +46,29 @@ const throws: ToolDefinition = {
   },
 };
 
-const registry = makeRegistry([echo, slow, throws]);
+const withImage: ToolDefinition = {
+  name: "with_image",
+  description: "Emits an image block via toContent",
+  input: z.object({}),
+  output: z.object({ path: z.string() }),
+  annotations: { readOnlyHint: true },
+  handler: async () => ({ path: "/tmp/x.jpg" }),
+  toContent: () => [{ type: "image", data: "AAAA", mimeType: "image/jpeg" }],
+};
+
+const badToContent: ToolDefinition = {
+  name: "bad_to_content",
+  description: "toContent throws — must degrade to text",
+  input: z.object({}),
+  output: z.object({ ok: z.boolean() }),
+  annotations: { readOnlyHint: true },
+  handler: async () => ({ ok: true }),
+  toContent: () => {
+    throw new Error("boom");
+  },
+};
+
+const registry = makeRegistry([echo, slow, throws, withImage, badToContent]);
 
 describe("buildDispatcher", () => {
   it("returns structuredContent on success", async () => {
@@ -84,6 +106,24 @@ describe("buildDispatcher", () => {
     const r = await dispatch("throws", {});
     expect(r.isError).toBe(true);
     expect(r.content[0]?.text).toMatch(/kaboom/);
+  });
+
+  it("emits toContent blocks before the JSON text block", async () => {
+    const dispatch = buildDispatcher({ registry });
+    const r = await dispatch("with_image", {});
+    expect(r.isError).toBeUndefined();
+    expect(r.content).toHaveLength(2);
+    expect(r.content[0]).toEqual({ type: "image", data: "AAAA", mimeType: "image/jpeg" });
+    expect(r.content[1]?.type).toBe("text"); // structured JSON summary still present
+    expect(r.structuredContent).toEqual({ path: "/tmp/x.jpg" });
+  });
+
+  it("degrades to text when toContent throws", async () => {
+    const dispatch = buildDispatcher({ registry });
+    const r = await dispatch("bad_to_content", {});
+    expect(r.isError).toBeUndefined();
+    expect(r.content).toHaveLength(1);
+    expect(r.content[0]?.type).toBe("text");
   });
 
   it("uses caller-supplied engine label in _meta", async () => {

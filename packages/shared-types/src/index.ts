@@ -657,6 +657,63 @@ export const AnnotateOutputSchema = z.object({
 });
 export type AnnotateOutput = z.infer<typeof AnnotateOutputSchema>;
 
+// ── screenshots ───────────────────────────────────────────────────────
+//
+// Two tiers, one tool. Tier "tab": the extension's captureVisibleTab (the
+// active tab of a window, no TCC, jpeg q70, rate-limited). Tier "window":
+// the daemon's `screencapture -l <cgWindowId>` (any visible window, any
+// browser) behind BROWSER_TAB_WINDOW_CAPTURE + Screen Recording TCC. The
+// daemon writes the jpeg to its shots cache and returns the path + bytes;
+// the MCP tool reads that file back into an image content block.
+
+/** What the extension's `capture_tab` command returns (data URL of the jpeg). */
+export const CaptureResultSchema = z.object({
+  dataUrl: z.string().describe("data:image/jpeg;base64,… of the visible tab."),
+});
+export type CaptureResult = z.infer<typeof CaptureResultSchema>;
+
+export const ScreenshotInputSchema = z
+  .object({
+    tabId: z
+      .string()
+      .optional()
+      .describe("Tab handle from list_tabs (tier 'tab' — extension captureVisibleTab)."),
+    windowId: z
+      .string()
+      .optional()
+      .describe("Window handle from list_tabs (tier 'window' — daemon screencapture, opt-in)."),
+    force: z
+      .boolean()
+      .default(false)
+      .describe("Bypass the navEpoch-keyed shot cache and recapture."),
+    focus: z
+      .boolean()
+      .default(false)
+      .describe(
+        "Tier 'tab' only: if the tab isn't its window's active tab, activate it first (changes user state) then capture.",
+      ),
+  })
+  .refine((v) => (v.tabId === undefined) !== (v.windowId === undefined), {
+    message: "Pass exactly one of tabId (tier 'tab') or windowId (tier 'window').",
+  });
+export type ScreenshotInput = z.infer<typeof ScreenshotInputSchema>;
+
+export const ScreenshotOutputSchema = z.object({
+  tier: z.enum(["tab", "window"]).describe("Which capture path produced the image."),
+  path: z.string().describe("Absolute path to the jpeg in the daemon shot cache."),
+  bytes: z.number().int().describe("File size in bytes."),
+  format: z.literal("jpeg"),
+  cached: z
+    .boolean()
+    .describe("True when an existing shot at this navEpoch was reused (tier 'tab')."),
+  navEpoch: z
+    .number()
+    .int()
+    .optional()
+    .describe("Tab navigation epoch the shot was taken at (tier 'tab' only)."),
+});
+export type ScreenshotOutput = z.infer<typeof ScreenshotOutputSchema>;
+
 // ── extension ↔ daemon WebSocket protocol ─────────────────────────────
 //
 // One protocol for every browser's extension. NDJSON-over-WebSocket:
@@ -740,6 +797,7 @@ export const ExtCommandSchema = z.object({
     "set_window",
     "close_window",
     "extract_content",
+    "capture_tab",
   ]),
   args: z.record(z.unknown()),
 });

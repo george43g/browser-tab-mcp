@@ -104,6 +104,35 @@ to stash its own summaries. It's a cache substrate, not intelligence.
 Env: `BROWSER_TAB_BLUR_CAPTURE` (1), `BROWSER_TAB_EXTRACT_MAX_BYTES` (200KB),
 `BROWSER_TAB_WS_MAX_PAYLOAD` (16MB), `BROWSER_TAB_CONTENT_MAX` (200 cached pages).
 
+## Screenshots
+
+Two tiers, one `screenshot` tool — the image comes back as an MCP image content
+block (base64 jpeg) alongside a structured `{tier, path, bytes, cached, navEpoch}`.
+
+- **Tier "tab"** (`screenshot {tabId}`) — the extension's `captureVisibleTab`
+  (no TCC). It only sees a window's **active** tab, so the daemon preflights
+  that the tab is active — otherwise it errors with a hint, or pass `focus:true`
+  to activate the tab first (which changes what the user sees). Rate-limited
+  ~2/s per browser (fails fast with a "retry in Nms" hint, never queues) and
+  cached per `navEpoch`, so an unchanged page serves instantly (`force:true`
+  recaptures).
+- **Tier "window"** (`screenshot {windowId}`) — the daemon's
+  `screencapture -l <cgWindowId>` for **any** visible window of any browser.
+  Opt-in via `BROWSER_TAB_WINDOW_CAPTURE=1` and gated by Screen Recording
+  permission (`browser-tab doctor` probes it via the native
+  `CGPreflightScreenCaptureAccess`).
+
+```bash
+browser-tab screenshot <tabId>                 # tier 1 (active tab)
+browser-tab screenshot <tabId> --focus         # activate the tab, then capture
+browser-tab screenshot <windowId> --window     # tier 2 (needs the env flag)
+browser-tab screenshot <tabId> --out shot.jpg  # also copy the jpeg out
+```
+
+Shots land in `~/.cache/browser-tab/shots/` (file-count LRU). Env:
+`BROWSER_TAB_WINDOW_CAPTURE` (0), `BROWSER_TAB_SHOT_QUALITY` (70),
+`BROWSER_TAB_SHOT_MAX` (200), `BROWSER_TAB_SHOT_DIR`.
+
 ## Adding a tool
 
 1. Copy `src/tools/noop.ts` to `src/tools/<your-tool>.ts`.

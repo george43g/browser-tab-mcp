@@ -14,6 +14,16 @@ import type { Tool, ToolAnnotations } from "@modelcontextprotocol/sdk/types.js";
 import type { ZodTypeAny, z } from "zod";
 import { zodToJsonSchema } from "zod-to-json-schema";
 
+/**
+ * A single MCP content block a tool may emit. We support the two blocks this
+ * codebase produces: plain text (the default JSON summary) and base64 images
+ * (screenshots). Images carry raw base64 in `data` (no `data:` URL prefix)
+ * plus a `mimeType`, per the MCP spec.
+ */
+export type ContentBlock =
+  | { type: "text"; text: string }
+  | { type: "image"; data: string; mimeType: string };
+
 export interface ToolDefinition<
   TInput extends ZodTypeAny = ZodTypeAny,
   TOutput extends ZodTypeAny = ZodTypeAny,
@@ -37,6 +47,14 @@ export interface ToolDefinition<
   devOnly?: boolean;
   /** Handler: receives parsed input + AbortSignal, returns structured output. */
   handler: (input: z.infer<TInput>, signal?: AbortSignal) => Promise<z.infer<TOutput>>;
+  /**
+   * Optional: derive extra MCP content blocks (e.g. an image) from the result,
+   * emitted by the dispatcher alongside the default JSON text block. Runs
+   * synchronously at dispatch time and may read a file the handler wrote (e.g.
+   * a screenshot). Must not throw on the happy path; a throw degrades to the
+   * text block only.
+   */
+  toContent?: (result: z.infer<TOutput>) => ContentBlock[];
 }
 
 // AnyToolDefinition widens both Zod generic params so the registry can hold

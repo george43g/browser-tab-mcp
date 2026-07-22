@@ -127,7 +127,12 @@ Methods: `getSnapshot` · `subscribe` · `unsubscribe` · `status` (also returns
 content/state; extension-only, cached per `navEpoch`; returns `{mode, url, title?, text?, metadata?,
 state?, navEpoch, cached, ...}` — all text is untrusted web content) ·
 `annotate` (params: `{"url", "note"?}` → URL-keyed note cache; `note` present = set, absent = read;
-returns `{url, note?, updatedAt?, existed}`).
+returns `{url, note?, updatedAt?, existed}`) ·
+`screenshot` (params: `{"tabId"?, "windowId"?, "force"?, "focus"?}` — exactly one of tabId/windowId.
+tabId = tier "tab" (extension `captureVisibleTab`, active-tab preflight, 2/s rate-limit, cached per
+`navEpoch`); windowId = tier "window" (`screencapture -l <cgWindowId>`, opt-in via
+`BROWSER_TAB_WINDOW_CAPTURE`). Returns `{tier, path, bytes, format:"jpeg", cached, navEpoch?}`; the
+MCP tool additionally emits the jpeg as a base64 image content block).
 
 Command `kind`s and their tool-input fields:
 

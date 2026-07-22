@@ -51,6 +51,9 @@ Extract a tab's content or live state (needs daemon + extension)
 \fBannotate\fR
 Read or write a URL\-keyed note in the daemon annotation store
 .TP
+\fBscreenshot\fR
+Capture a tab or window as a jpeg (needs the daemon + extension for tabs)
+.TP
 \fBfocus\fR
 Focus a tab and raise its window
 .TP
@@ -171,6 +174,25 @@ Read or write a URL\-keyed note in the daemon annotation store
 .TP
 \fB\-\-note\fR \fI<text>\fR
 Note to store (omit to read the existing note)
+.SH "BROWSER-TAB SCREENSHOT"
+Capture a tab or window as a jpeg (needs the daemon + extension for tabs)
+.PP
+\fBUsage:\fR browser\-tab screenshot [OPTIONS] <id>
+.PP
+\fBOptions:\fR
+.PP
+.TP
+\fB\-\-window\fR
+Treat <id> as a window handle: tier 2 screencapture (opt\-in)
+.TP
+\fB\-\-focus\fR
+Tier 'tab': activate the tab first if it isn't active (changes user state)
+.TP
+\fB\-\-force\fR
+Bypass the navEpoch shot cache and recapture
+.TP
+\fB\-\-out\fR \fI<file>\fR
+Copy the captured jpeg to this path
 .SH "BROWSER-TAB OPEN"
 Open an http(s) URL in a new tab
 .PP

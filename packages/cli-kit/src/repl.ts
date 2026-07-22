@@ -18,7 +18,9 @@ import { createInterface, type Interface } from "node:readline";
 import { color } from "./color.js";
 
 export interface ToolCallResult {
-  content?: Array<{ type: string; text: string }>;
+  // Content blocks are MCP-shaped: text blocks carry `text`, media blocks
+  // (e.g. images) carry `data`/`mimeType` instead — so `text` is optional.
+  content?: Array<{ type: string; text?: string; data?: string; mimeType?: string }>;
   isError?: boolean;
 }
 
@@ -83,7 +85,9 @@ function parseConsoleInput(line: string): { cmd: string; args: string[] } {
 }
 
 async function printToolResult(out: NodeJS.WritableStream, result: ToolCallResult): Promise<void> {
-  const text = result.content?.[0]?.text ?? JSON.stringify(result, null, 2);
+  const text =
+    result.content?.find((b) => typeof b.text === "string")?.text ??
+    JSON.stringify(result, null, 2);
   if (result.isError) {
     out.write(`${color.red(text)}\n`);
     return;

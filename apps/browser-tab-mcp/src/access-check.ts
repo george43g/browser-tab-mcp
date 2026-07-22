@@ -10,11 +10,12 @@
 import { existsSync, statSync } from "node:fs";
 import { homedir } from "node:os";
 import { join } from "node:path";
+import { envBool } from "@george43g/robustness";
 import { correlationTier } from "./detect/correlate.js";
 import { enabledBrowsers, specFor } from "./detect/engine.js";
 import { OsaPermissionError, osaQuote, probeProcess, runOsa } from "./detect/osascript.js";
 import { APP_NAME } from "./meta.js";
-import { hasNativeModule } from "./native-bridge.js";
+import { hasNativeModule, tryLoadNative } from "./native-bridge.js";
 
 export type CheckStatus = "ok" | "warn" | "error" | "info";
 
@@ -174,6 +175,39 @@ async function checkCorrelation(): Promise<AccessCheckItem> {
   };
 }
 
+/**
+ * Screen Recording (TCC) for tier-2 window capture. Only shown when
+ * BROWSER_TAB_WINDOW_CAPTURE is on (tier 1 / captureVisibleTab needs no TCC).
+ * Uses the native non-prompting preflight; without the native module we can't
+ * probe, so we surface an info note instead of a false alarm.
+ */
+function checkScreenRecording(): AccessCheckItem {
+  const key = "screenRecording";
+  const label = "Screen Recording (tier-2 window capture)";
+  const native = tryLoadNative();
+  if (!native) {
+    return {
+      key,
+      label,
+      status: "info",
+      detail:
+        "native module not loaded — can't preflight the permission. The capture will error at " +
+        "call time if it isn't granted.",
+    };
+  }
+  if (native.preflightScreenCapture()) {
+    return { key, label, status: "ok", detail: "granted." };
+  }
+  return {
+    key,
+    label,
+    status: "warn",
+    detail:
+      "not granted — grant Screen Recording to your terminal / node binary in " +
+      "System Settings → Privacy & Security → Screen Recording, then restart the daemon.",
+  };
+}
+
 export async function checkLocalAccess(): Promise<AccessReport> {
   const browserItems =
     process.env.BROWSER_TAB_FAKE_ADAPTER === "1"
@@ -182,7 +216,16 @@ export async function checkLocalAccess(): Promise<AccessReport> {
           ...(await Promise.all(enabledBrowsers().map((b) => checkBrowser(b)))),
           await checkCorrelation(),
         ];
-  const items = [checkNode(), checkNative(), checkConfigDir(), ...browserItems];
+  const windowCaptureItems = envBool("BROWSER_TAB_WINDOW_CAPTURE", false)
+    ? [checkScreenRecording()]
+    : [];
+  const items = [
+    checkNode(),
+    checkNative(),
+    checkConfigDir(),
+    ...browserItems,
+    ...windowCaptureItems,
+  ];
   const ok = items.every((i) => i.status !== "error");
   return { ok, items };
 }

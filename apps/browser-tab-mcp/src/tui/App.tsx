@@ -49,7 +49,9 @@ export function App() {
   const runCommand = (tool: string, args: Record<string, unknown>, verb: string) => {
     void callMcpTool(tool, args).then((result) => {
       if (result.isError) {
-        setMessage(`${verb} failed: ${result.content[0]?.text?.slice(0, 120) ?? "?"}`);
+        const first = result.content.find((b) => b.type === "text");
+        const detail = first && first.type === "text" ? first.text : "?";
+        setMessage(`${verb} failed: ${detail.slice(0, 120)}`);
       } else {
         setMessage(`${verb} ✓`);
         refresh();

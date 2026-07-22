@@ -49,6 +49,11 @@ export function annotationsPath(): string {
   return process.env.BROWSER_TAB_ANNOTATIONS_PATH ?? join(cacheDir(), "annotations.ndjson");
 }
 
+/** Screenshot cache (one jpeg per navEpoch-keyed tab shot / per-window shot). */
+export function shotsDir(): string {
+  return process.env.BROWSER_TAB_SHOT_DIR ?? join(cacheDir(), "shots");
+}
+
 export function logDir(): string {
   return join(homedir(), "Library", "Logs", "browser-tab");
 }

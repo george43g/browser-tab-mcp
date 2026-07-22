@@ -23,6 +23,8 @@ import type {
   MoveTabInput,
   OpenTabInput,
   OpenWindowInput,
+  ScreenshotInput,
+  ScreenshotOutput,
   SetWindowInput,
   Snapshot,
   TabActionInput,
@@ -249,6 +251,28 @@ export async function annotate(input: AnnotateInput): Promise<AnnotateOutput> {
   } catch (err) {
     if (err instanceof DaemonUnavailableError) {
       throw new Error("Annotations require the daemon. Start it with `browser-tab daemon run`.");
+    }
+    throw err;
+  }
+}
+
+/**
+ * Capture a tab (tier 1) or window (tier 2) screenshot. Daemon-only — the
+ * capture path (extension captureVisibleTab / `screencapture`) and the shot
+ * cache both live in the daemon, so fixture mode and a down daemon both
+ * surface an actionable error rather than a silent empty.
+ */
+export async function screenshot(input: ScreenshotInput): Promise<ScreenshotOutput> {
+  if (fakeAdapterEnabled()) {
+    throw new Error(
+      "Screenshots require the daemon and (tier 'tab') the browser extension — not available in fixture mode.",
+    );
+  }
+  try {
+    return await viaDaemon((c) => c.request<ScreenshotOutput>("screenshot", { ...input }));
+  } catch (err) {
+    if (err instanceof DaemonUnavailableError) {
+      throw new Error("Screenshots require the daemon. Start it with `browser-tab daemon run`.");
     }
     throw err;
   }

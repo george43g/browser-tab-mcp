@@ -179,6 +179,31 @@ fn list_displays_impl() -> Vec<DisplayInfo> {
     Vec::new()
 }
 
+/// Whether this process already holds Screen Recording (TCC) permission,
+/// checked WITHOUT prompting. Feeds the `doctor` Screen Recording check for
+/// tier-2 window capture (`screencapture -l`). Returns false off macOS or when
+/// the permission is absent — the daemon's capture then produces the real
+/// actionable failure at call time.
+#[napi]
+pub fn preflight_screen_capture() -> bool {
+    preflight_screen_capture_impl()
+}
+
+#[cfg(target_os = "macos")]
+fn preflight_screen_capture_impl() -> bool {
+    // CG_EXTERN bool CGPreflightScreenCaptureAccess(void) — non-prompting.
+    #[link(name = "CoreGraphics", kind = "framework")]
+    extern "C" {
+        fn CGPreflightScreenCaptureAccess() -> bool;
+    }
+    unsafe { CGPreflightScreenCaptureAccess() }
+}
+
+#[cfg(not(target_os = "macos"))]
+fn preflight_screen_capture_impl() -> bool {
+    false
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

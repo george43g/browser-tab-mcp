@@ -21,6 +21,7 @@
 import {
   envNum,
   error as logError,
+  warn as logWarn,
   noteActivity,
   perf,
   ToolTimeoutError,
@@ -28,10 +29,10 @@ import {
 } from "@george43g/robustness";
 import type { ZodError } from "zod";
 import { wrapToolError } from "./prompt-injection.js";
-import type { ToolRegistry } from "./tool-registry.js";
+import type { ContentBlock, ToolRegistry } from "./tool-registry.js";
 
 export interface ToolResult {
-  content: Array<{ type: "text"; text: string }>;
+  content: ContentBlock[];
   structuredContent?: unknown;
   isError?: boolean;
   _meta?: Record<string, unknown>;
@@ -108,13 +109,22 @@ export function buildDispatcher(opts: BuildDispatcherOptions): Dispatch {
     try {
       const result = await withTimeout(name, () => def.handler(parsed.data, signal), timeoutMs);
       const dur = span.end({ engine: opts.engineLabel?.() ?? "ts" });
+      const textBlock: ContentBlock = {
+        type: "text",
+        text: typeof result === "string" ? result : JSON.stringify(result, null, 2),
+      };
+      // Tools may emit media blocks (e.g. a screenshot image) ahead of the
+      // JSON summary. A throw here (missing file, bad data) degrades to text.
+      let extra: ContentBlock[] = [];
+      if (def.toContent) {
+        try {
+          extra = def.toContent(result);
+        } catch (err) {
+          logWarn(`to_content_failed: ${name}`, { message: (err as Error)?.message });
+        }
+      }
       return {
-        content: [
-          {
-            type: "text",
-            text: typeof result === "string" ? result : JSON.stringify(result, null, 2),
-          },
-        ],
+        content: [...extra, textBlock],
         structuredContent: result,
         _meta: {
           engine: opts.engineLabel?.() ?? "ts",
