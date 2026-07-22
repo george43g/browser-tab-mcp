@@ -30,6 +30,8 @@ import {
 import { APP_VERSION } from "../meta.js";
 import { EngineLoop, pollMs } from "./engine-loop.js";
 import { IpcServer } from "./ipc-server.js";
+import { JournalStore } from "./journal.js";
+import { buildSeedRecords, ingestExtEvent, ingestStoreEvent } from "./journal-ingest.js";
 import { SourceMerger } from "./merge.js";
 import { socketPath } from "./paths.js";
 import { SnapshotWriter } from "./snapshot-writer.js";
@@ -41,6 +43,7 @@ export interface DaemonHandle {
   store: StateStore;
   loop: EngineLoop;
   merger: SourceMerger;
+  journal: JournalStore;
   ipc: IpcServer;
   ext: ExtensionServer | null;
   stop(): Promise<void>;
@@ -187,9 +190,19 @@ export async function startDaemon(): Promise<DaemonHandle> {
   const merger = new SourceMerger();
   const loop = new EngineLoop(store, merger);
   const writer = new SnapshotWriter(() => loop.lastScanDuration());
+  const journal = new JournalStore();
+  journal.warmFromDisk();
 
+  // One journal ingest source per browser: extension `event` frames when a
+  // browser is extension-authoritative, poll-derived StateStore diffs
+  // otherwise. Gating store-diff ingestion on !extensionConnected prevents
+  // double-counting an extension-fed browser's focus/nav.
   const unsubscribeWriter = store.onEvent((e) => {
-    if (e.event === "snapshot") writer.schedule(e.data as Snapshot);
+    if (e.event === "snapshot") {
+      writer.schedule(e.data as Snapshot);
+    } else if (e.browser && !merger.extensionConnected(e.browser as BrowserId)) {
+      ingestStoreEvent(journal, store, e);
+    }
   });
 
   // Extension WebSocket server — failure to bind degrades (osascript-only)
@@ -199,11 +212,15 @@ export async function startDaemon(): Promise<DaemonHandle> {
     token: ensureToken(),
     onSnapshot: (browser, state) => {
       merger.setExtensionState(browser, state);
+      // Seed tab-MRU once per session from the extension's lastAccessed data.
+      if (!journal.isSeeded(browser)) journal.seedTabMru(browser, buildSeedRecords(state));
       void loop.remerge();
     },
+    onEvent: (browser, frame) => ingestExtEvent(journal, store, browser, frame),
     onLiveness: (browser) => merger.touch(browser),
     onDisconnect: (browser) => {
       merger.clearExtension(browser);
+      journal.clearSeed(browser);
       void loop.remerge();
     },
   });
@@ -242,6 +259,7 @@ export async function startDaemon(): Promise<DaemonHandle> {
       })),
     }),
     onRefresh: () => loop.refresh(),
+    onJournal: async (params) => journal.query(params),
   });
 
   await ipc.start();
@@ -251,12 +269,13 @@ export async function startDaemon(): Promise<DaemonHandle> {
     loop.stop();
     unsubscribeWriter();
     writer.stop();
+    journal.stop();
     await ext?.stop();
     await ipc.stop();
   };
   registerCleanup(stop);
 
-  return { store, loop, merger, ipc, ext, stop };
+  return { store, loop, merger, journal, ipc, ext, stop };
 }
 
 /** Entry for `browser-tab daemon run` — never returns until shutdown. */

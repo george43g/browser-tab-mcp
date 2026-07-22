@@ -31,6 +31,7 @@ Disable colors
 - [`browser-tab repl`](/repl.md)
 - [`browser-tab health`](/health.md)
 - [`browser-tab list [FLAGS]`](/list.md)
+- [`browser-tab journal [FLAGS]`](/journal.md)
 - [`browser-tab focus <tabId>`](/focus.md)
 - [`browser-tab close <tabId>`](/close.md)
 - [`browser-tab open [FLAGS] <url>`](/open.md)

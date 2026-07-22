@@ -13,7 +13,7 @@
 import type { ExtServerMessage } from "@george43g/shared-types";
 import { probeCapabilities } from "./capabilities.js";
 import { type CommandArgs, executeCommand } from "./commands.js";
-import { debounce, wireEvents } from "./events.js";
+import { debounce, type ExtEventInput, wireEvents } from "./events.js";
 import { log, logError } from "./log.js";
 import { api, type BrowserName } from "./runtime.js";
 import { buildSnapshot } from "./snapshot.js";
@@ -65,7 +65,10 @@ export class DaemonSocket {
   start(): void {
     this.stopped = false;
     if (!this.eventsWired) {
-      wireEvents(() => this.sendSnapshotDebounced());
+      wireEvents(
+        () => this.sendSnapshotDebounced(),
+        (frame) => this.sendEvent(frame),
+      );
       this.eventsWired = true;
     }
     this.connect();
@@ -177,6 +180,13 @@ export class DaemonSocket {
         capabilities: probeCapabilities(sampleTab),
       }),
     );
+  }
+
+  /** Send an immediate (undebounced) focus/nav event frame. Best-effort:
+   *  drops silently if the socket isn't open — the next snapshot resyncs. */
+  private sendEvent(frame: ExtEventInput): void {
+    if (!this.ws || this.ws.readyState !== WebSocket.OPEN) return;
+    this.ws.send(JSON.stringify({ type: "event", ts: Date.now(), ...frame }));
   }
 
   private async runCommand(requestId: number, kind: string, args: CommandArgs): Promise<void> {

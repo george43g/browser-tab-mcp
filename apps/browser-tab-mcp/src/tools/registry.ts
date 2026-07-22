@@ -15,6 +15,7 @@ import { daemonStatusTool } from "./daemon-status.js";
 import { focusTabTool } from "./focus-tab.js";
 import { getLogsTool } from "./get-logs.js";
 import { healthCheckTool } from "./health-check.js";
+import { journalTool } from "./journal.js";
 import { listTabsTool } from "./list-tabs.js";
 import { moveTabTool } from "./move-tab.js";
 import { noopTool } from "./noop.js";
@@ -28,6 +29,7 @@ export function makeAppRegistry(): ToolRegistry {
     moveTabTool,
     openTabTool,
     closeTabTool,
+    journalTool,
     daemonStatusTool,
     noopTool,
     getLogsTool,

@@ -119,7 +119,10 @@ Request `{"id":1,"method":"getSnapshot"}` → `{"id":1,"ok":true,"result":{…sn
 
 Methods: `getSnapshot` · `subscribe` · `unsubscribe` · `status` · `refresh`
 (force an immediate rescan) · `command` (params:
-`{"kind":"focus_tab"|"close_tab"|"move_tab"|"open_tab", …tool-input fields}`).
+`{"kind":"focus_tab"|"close_tab"|"move_tab"|"open_tab", …tool-input fields}`) ·
+`journal` (params: `{"view":"windowMru"|"tabMru"|"journey"|"recent", browser?, windowId?, tabId?, limit?}`
+→ the daemon's recorded focus/navigation history; `focus[]` for windowMru/tabMru/recent,
+`nav[]` for journey. Handles in journal records are for correlation only — they may be stale).
 
 After `subscribe`, events stream on the same connection (a full `snapshot`
 event arrives immediately, then on every change):

@@ -61,6 +61,8 @@ const clientMessages: ExtClientMessage[] = [
   },
   { type: "commandResult", requestId: 7, ok: true, result: { windowId: 9 } },
   { type: "commandResult", requestId: 8, ok: false, error: "nope" },
+  { type: "event", ts: 111, kind: "focus", windowId: 3, tabId: 9 },
+  { type: "event", ts: 222, kind: "nav", tabId: 9, url: "https://x/", transition: "link" },
   { type: "pong", ts: 123 },
 ];
 

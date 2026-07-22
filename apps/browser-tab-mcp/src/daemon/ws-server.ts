@@ -18,6 +18,7 @@ import type {
   BrowserState,
   Capabilities,
   CommandResult,
+  ExtEvent,
   ExtServerMessage,
   ExtSnapshot,
   TabGroup,
@@ -53,6 +54,8 @@ export interface ExtensionServerOptions {
   token: string;
   onSnapshot: (browser: BrowserId, state: BrowserState) => void;
   onDisconnect: (browser: BrowserId) => void;
+  /** Called on each immediate focus/nav event frame (for the journals). */
+  onEvent?: (browser: BrowserId, frame: ExtEvent) => void;
   /** Called on any inbound frame from a live session (snapshot, commandResult,
    *  or pong) so the merger can keep an idle-but-connected feed authoritative. */
   onLiveness?: (browser: BrowserId) => void;
@@ -217,6 +220,8 @@ export class ExtensionServer {
       }
       if (m.type === "snapshot") {
         this.opts.onSnapshot(browser, extSnapshotToBrowserState(browser, m, session?.capabilities));
+      } else if (m.type === "event") {
+        this.opts.onEvent?.(browser, m);
       } else if (m.type === "commandResult") {
         const pending = this.pending.get(m.requestId);
         if (pending) {

@@ -42,6 +42,9 @@ Print server health snapshot (calls health_check in\-process)
 \fBlist\fR
 List open browser windows and tabs (Chrome/Brave/Chromium/Safari)
 .TP
+\fBjournal\fR
+Show recorded focus/navigation history
+.TP
 \fBfocus\fR
 Focus a tab and raise its window
 .TP
@@ -99,6 +102,28 @@ Filter tabs by URL substring
 .TP
 \fB\-\-fields\fR \fI<set>\fR
 Field set: core (trimmed) or full (default)
+.SH "BROWSER-TAB JOURNAL"
+Show recorded focus/navigation history
+.PP
+\fBUsage:\fR browser\-tab journal [OPTIONS]
+.PP
+\fBOptions:\fR
+.PP
+.TP
+\fB\-\-view\fR \fI<view>\fR
+windowMru | tabMru | journey | recent
+.TP
+\fB\-\-browser\fR \fI<name>\fR
+Restrict to one browser
+.TP
+\fB\-\-window\fR \fI<id>\fR
+Window handle (required for tabMru)
+.TP
+\fB\-\-tab\fR \fI<id>\fR
+Tab handle (required for journey)
+.TP
+\fB\-\-limit\fR \fI<n>\fR
+Max records
 .SH "BROWSER-TAB OPEN"
 Open an http(s) URL in a new tab
 .PP

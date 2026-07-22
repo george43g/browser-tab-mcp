@@ -146,6 +146,28 @@ describe("list_tabs (fake adapter)", () => {
   });
 });
 
+describe("journal (fake adapter → daemon-only, empty)", () => {
+  beforeEach(() => {
+    process.env.BROWSER_TAB_FAKE_ADAPTER = "1";
+  });
+
+  it("returns a schema-valid empty result when there's no daemon", async () => {
+    const { JournalOutputSchema } = await import("@george43g/shared-types");
+    const r = await callMcpTool("journal", { view: "recent" });
+    expect(r.isError).toBeUndefined();
+    const out = JournalOutputSchema.parse(r.structuredContent);
+    expect(out.view).toBe("recent");
+    expect(out.focus).toEqual([]);
+    expect(out.nav).toEqual([]);
+  });
+
+  it("rejects an invalid view via schema", async () => {
+    const r = await callMcpTool("journal", { view: "bogus" });
+    expect(r.isError).toBe(true);
+    expect(r.content[0]?.text).toMatch(/Invalid arguments/);
+  });
+});
+
 describe("error paths", () => {
   it("rejects unknown tool with isError", async () => {
     const r = await callMcpTool("ghost_tool", {});

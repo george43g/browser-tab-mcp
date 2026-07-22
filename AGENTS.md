@@ -13,13 +13,15 @@ A Turborepo monorepo shipping a **single bin** (`browser-tab`):
 | Subcommand | Surface |
 |---|---|
 | `browser-tab daemon run\|install\|status\|token\|…` | launchd daemon: AppleScript polling + extension WebSocket (127.0.0.1, token-auth) + unix-socket IPC + snapshot cache file |
-| `browser-tab list\|focus\|move\|open\|close` | Direct tool invocation — one CLI subcommand per `ToolDefinition` |
+| `browser-tab list\|journal\|focus\|move\|open\|close` | Direct tool invocation — one CLI subcommand per `ToolDefinition` |
 | `browser-tab mcp` | MCP server (stdio) |
 | `browser-tab tui` | Ink/React live tab manager |
 | `browser-tab doctor` | Preflight checks (Node, native module, Automation TCC per browser, correlation tier) |
 | `browser-tab repl` (alias `console`) | Interactive REPL driving the in-process dispatcher |
 
 Architecture: MCP/CLI/TUI are daemon *clients* (unix socket); reads degrade to direct osascript when the daemon is down. Extensions (`apps/chrome-extension` + `apps/safari-extension` wrapper + shared `packages/extension-core`) push live tab events and execute `move_tab` via `chrome.tabs.move`. Opaque handle scheme: AppleScript-generation ids (`t:chrome:123`), extension-generation ids (`t:chrome:x123`), Safari synthetic ids (`t:safari:w1:i3`), tab-group ids (`g:chrome:x77`) — see `src/detect/ids.ts`.
+
+**Focus/nav journals (`src/daemon/journal.ts`).** The daemon's event-sourced memory of where the user has been. The extension emits tiny immediate `event` frames (window/tab focus via `onFocusChanged`/`onActivated`, committed nav via `webNavigation.onCommitted` frameId 0); AppleScript-mode browsers get coarse events derived from `StateStore` diffs. **One ingest source per browser, switched by the merge authority** (`ingestStoreEvent` only fires for `!extensionConnected` browsers) so a browser's focus isn't double-counted; a 2s head-only dedupe covers the switchover. Records denormalize url/title (handles aren't stable) and persist as rotated ndjson under `journalDir()`. `navEpoch` (per tab-handle, bumped on committed nav) lives here — it's the cache-busting key later phases' content/screenshot caches use. Query via the `journal` tool / IPC method (`windowMru`/`tabMru`/`journey`/`recent`).
 
 **Contract v2 (see `docs/WM_STACK_CONTRACT.md`).** The Snapshot is `version: 2` — a strict superset of v1: tabs carry audio/mute/sleep/frozen/group/lastAccessed enrichments, windows carry `state`/`activeTabId`, `BrowserState` carries a per-browser `capabilities` map + `tabGroups`, and the snapshot carries `focusedBrowser`. Two invariants that keep this from rotting: **(1)** the pass-through tab fields are declared ONCE in `TabEnrichmentSchema` (shared-types) and both mappers (`mapTab` in extension-core, `extSnapshotToBrowserState` in the daemon) copy them via `pickEnrichment`; field-parity contract tests go red if a mapper drops one. **(2)** availability is **runtime-probed, never hardcoded** — the extension reports `capabilities` in its `hello`, the AppleScript path gets a static map (`src/detect/capabilities.ts`); gate on the map, don't branch on browser name. New fields are additive-optional (don't bump `version` for them); `list_tabs` defaults to a trimmed `fields:"core"` projection while the CLI/snapshot-file always emit full.
 
@@ -80,7 +82,7 @@ packages/
 | `pnpm typecheck` | Turbo: `tsc --noEmit` per package |
 | `pnpm lint` | Biome check |
 | `pnpm lint:fix` | Biome write |
-| `pnpm stress` | Run 10-case stress harness against the built MCP |
+| `pnpm stress` | Run 11-case stress harness against the built MCP |
 | `pnpm verify` | lint + typecheck + test + build (CI shape) |
 
 Per-app:
@@ -169,7 +171,7 @@ Also in-memory ring buffer (last 500 lines). In dev mode (`MCP_DEV=1`), a `get_l
 
 ## Stress harness
 
-`pnpm stress` covers 10 cases (in `apps/browser-tab-mcp/scripts/stress-mcp.ts`):
+`pnpm stress` covers 11 cases (in `apps/browser-tab-mcp/scripts/stress-mcp.ts`):
 
 1. handshake + tools/list returns the full catalog
 2. `health_check` returns `Status: healthy`
@@ -180,7 +182,8 @@ Also in-memory ring buffer (last 500 lines). In dev mode (`MCP_DEV=1`), a `get_l
 7. SIGTERM produces exit code 0 (handler intercepted)
 8. `MCP_MAX_RSS_MB=50` triggers a watchdog kill
 9. `list_tabs` with `BROWSER_TAB_FAKE_ADAPTER=1` returns a valid snapshot
-10. daemon lifecycle: socket serves 20 parallel getSnapshot; SIGTERM exits 0 and unlinks the socket
+10. `journal` with `BROWSER_TAB_FAKE_ADAPTER=1` returns a valid empty result
+11. daemon lifecycle: socket serves 20 parallel getSnapshot; SIGTERM exits 0 and unlinks the socket
 
 Add a case whenever you ship something touching lifecycle, dispatch, error handling, or transport.
 

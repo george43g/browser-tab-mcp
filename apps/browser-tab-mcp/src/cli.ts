@@ -101,6 +101,34 @@ export async function main(argv: readonly string[] = process.argv): Promise<void
     });
 
   program
+    .command("journal")
+    .description("Show recorded focus/navigation history (windowMru|tabMru|journey|recent)")
+    .option("--view <view>", "windowMru | tabMru | journey | recent", "recent")
+    .option("--browser <name>", "Restrict to one browser")
+    .option("--window <id>", "Window handle (required for tabMru)")
+    .option("--tab <id>", "Tab handle (required for journey)")
+    .option("--limit <n>", "Max records", "20")
+    .action(
+      async (opts: {
+        view?: string;
+        browser?: string;
+        window?: string;
+        tab?: string;
+        limit?: string;
+      }) => {
+        const json = program.opts<{ json?: boolean }>().json ?? false;
+        const result = await callMcpTool("journal", {
+          view: opts.view ?? "recent",
+          ...(opts.browser ? { browser: opts.browser } : {}),
+          ...(opts.window ? { windowId: opts.window } : {}),
+          ...(opts.tab ? { tabId: opts.tab } : {}),
+          limit: Number.parseInt(opts.limit ?? "20", 10),
+        });
+        await printResult(result, json);
+      },
+    );
+
+  program
     .command("focus")
     .description("Focus a tab and raise its window")
     .argument("<tabId>", "Opaque tabId from `browser-tab list`")
