@@ -382,6 +382,30 @@ async function caseWriteCommandsFakeAdapter(): Promise<void> {
   }
 }
 
+async function caseContentFakeAdapter(): Promise<void> {
+  const c = new McpClient({ BROWSER_TAB_FAKE_ADAPTER: "1" });
+  try {
+    await c.initialize();
+    const text = async (name: string, args: Record<string, unknown>): Promise<string> => {
+      const r = await c.request("tools/call", { name, arguments: args });
+      return r.result?.content?.[0]?.text ?? "";
+    };
+    // Content extraction + annotations are daemon/extension-only: without a
+    // daemon they must error cleanly (not crash).
+    record(
+      "get_page without daemon/extension errors cleanly",
+      /extension|daemon/i.test(await text("get_page", { tabId: "t:chrome:9900", mode: "text" })),
+    );
+    record(
+      "annotate without daemon errors cleanly",
+      /daemon/i.test(await text("annotate", { url: "https://x/", note: "hi" })),
+    );
+  } finally {
+    c.kill();
+    await c.waitExit();
+  }
+}
+
 function ipcRequest(sock: string, method: string, timeoutMs = 5_000): Promise<unknown> {
   return new Promise((resolveReq, rejectReq) => {
     const conn = createConnection(sock);
@@ -485,6 +509,7 @@ async function main(): Promise<void> {
   await caseListTabsFakeAdapter();
   await caseJournalFakeAdapter();
   await caseWriteCommandsFakeAdapter();
+  await caseContentFakeAdapter();
   await caseDaemonLifecycle();
 
   const failed = results.filter((r) => !r.pass);

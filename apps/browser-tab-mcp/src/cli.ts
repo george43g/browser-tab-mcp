@@ -140,6 +140,36 @@ export async function main(argv: readonly string[] = process.argv): Promise<void
     );
 
   program
+    .command("page")
+    .description("Extract a tab's content or live state (needs daemon + extension)")
+    .argument("<tabId>", "Extension-generation tab handle from `browser-tab list`")
+    .option("--mode <mode>", "text | metadata | state", "text")
+    .option("--force", "Bypass the navEpoch cache and re-extract", false)
+    .action(async (tabId: string, opts: { mode?: string; force?: boolean }) => {
+      const json = program.opts<{ json?: boolean }>().json ?? false;
+      const result = await callMcpTool("get_page", {
+        tabId,
+        mode: opts.mode ?? "text",
+        force: opts.force ?? false,
+      });
+      await printResult(result, json);
+    });
+
+  program
+    .command("annotate")
+    .description("Read or write a URL-keyed note in the daemon annotation store")
+    .argument("<url>", "The page URL to annotate")
+    .option("--note <text>", "Note to store (omit to read the existing note)")
+    .action(async (url: string, opts: { note?: string }) => {
+      const json = program.opts<{ json?: boolean }>().json ?? false;
+      const result = await callMcpTool("annotate", {
+        url,
+        ...(opts.note !== undefined ? { note: opts.note } : {}),
+      });
+      await printResult(result, json);
+    });
+
+  program
     .command("focus")
     .description("Focus a tab and raise its window")
     .argument("<tabId>", "Opaque tabId from `browser-tab list`")

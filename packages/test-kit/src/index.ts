@@ -35,3 +35,4 @@ export {
   randomWsPort,
   withDaemonEnv,
 } from "./fakes/daemon-env.js";
+export { ARTICLE_HTML, DIRTY_FORM_HTML, MEDIA_HTML, SPA_HTML } from "./fixtures/html.js";

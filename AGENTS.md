@@ -14,6 +14,7 @@ A Turborepo monorepo shipping a **single bin** (`browser-tab`):
 |---|---|
 | `browser-tab daemon run\|install\|status\|token\|…` | launchd daemon: AppleScript polling + extension WebSocket (127.0.0.1, token-auth) + unix-socket IPC + snapshot cache file |
 | `browser-tab list\|journal\|focus\|move\|open\|close` | Direct read/tab-command invocation — one CLI subcommand per `ToolDefinition` |
+| `browser-tab page\|annotate` | Page perception: on-demand content/state extraction (`get_page`) + URL-keyed annotation cache (`annotate`) |
 | `browser-tab act\|group\|window open\|set\|close` | Write-side control: tab actions (mute/pin/discard/reload/navigate/back/forward/duplicate), tab-group ops, window create/move/resize/close |
 | `browser-tab mcp` | MCP server (stdio) |
 | `browser-tab tui` | Ink/React live tab manager |
@@ -25,6 +26,8 @@ Architecture: MCP/CLI/TUI are daemon *clients* (unix socket); reads degrade to d
 **Write-side control (`tab_action`/`group_tabs`/`open_window`/`set_window`/`close_window`).** The actuator half of the API. Command kinds flow shared-types `ExtCommand.kind` → extension-core `commands.ts` (chrome.tabs/windows/tabGroups) or the AppleScript adapters, routed in `daemon/index.ts:executeCommand` by handle generation (x-ids over the socket, else adapters). Capability truth stays runtime-probed: the extension covers everything; the AppleScript path only navigate/reload (+ back/forward on Chromium) and window bounds/normal/minimized — `applescriptCaps` (`src/detect/capabilities.ts`) is now flipped on for exactly those keys, everything else stays false and the adapters throw an actionable "needs the extension" error. `group_tabs` is extension-only (no AppleScript equivalent). Rich results ride the existing `ExtCommandResult.result` record — `CommandResult` gained `groupId?`/`payload?` with **no wire change**. `display` targeting resolves to global bounds in the client via rust-accel `list_displays()` (`src/detect/displays.ts`); absent native module → display targeting errors, explicit `bounds` still work. `DisplayInfo` is mirrored in `types.rs` + `MIRRORED_SCHEMAS` (drift-checked).
 
 **Focus/nav journals (`src/daemon/journal.ts`).** The daemon's event-sourced memory of where the user has been. The extension emits tiny immediate `event` frames (window/tab focus via `onFocusChanged`/`onActivated`, committed nav via `webNavigation.onCommitted` frameId 0); AppleScript-mode browsers get coarse events derived from `StateStore` diffs. **One ingest source per browser, switched by the merge authority** (`ingestStoreEvent` only fires for `!extensionConnected` browsers) so a browser's focus isn't double-counted; a 2s head-only dedupe covers the switchover. Records denormalize url/title (handles aren't stable) and persist as rotated ndjson under `journalDir()`. `navEpoch` (per tab-handle, bumped on committed nav) lives here — it's the cache-busting key later phases' content/screenshot caches use. Query via the `journal` tool / IPC method (`windowMru`/`tabMru`/`journey`/`recent`).
+
+**Page content & state (`get_page`/`annotate`).** The perception half — extension-only (no AppleScript path to read a page). `extract.js` (built as the 4th IIFE entry, Readability inlined) defines an idempotent `window.__btExtract(mode, maxBytes)`; extension-core `inject.ts` runs the two-step `scripting.executeScript` (define file → call func) for both the `extract_content` command and **capture-on-blur** (`capture.ts` `BlurCapturer` — settle/cooldown/skip-guarded, gated by `helloAck.config.blurCapture`, daemon env `BROWSER_TAB_BLUR_CAPTURE`). Three modes: `metadata` / `text` (reader-mode) / `state` (dirty forms, media, scroll, selection, word count). The daemon (`getPage` in `daemon/index.ts`) caches per **navEpoch** (`content-cache.ts`, key sha1 of browser/handle/url/navEpoch/sessionId/mode) and sanitizes with `sanitizeContent` (control-strip, NO aggressive truncation — the text is wrapped `wrapUntrusted()` at the tool boundary). Blur `stateCapture` frames backfill the tab's most recent focus record (`journal.backfillCapture`, in-memory/session-scoped like navEpoch). `annotate` is a tiny URL-keyed note cache (`annotations.ts`, ndjson, LRU 500 × 16KB) — the tool is a cache *substrate*, never intelligence. New env: `BROWSER_TAB_BLUR_CAPTURE` (1), `BROWSER_TAB_EXTRACT_MAX_BYTES` (200KB), `BROWSER_TAB_WS_MAX_PAYLOAD` (16MB), `BROWSER_TAB_CONTENT_MAX` (200).
 
 **Contract v2 (see `docs/WM_STACK_CONTRACT.md`).** The Snapshot is `version: 2` — a strict superset of v1: tabs carry audio/mute/sleep/frozen/group/lastAccessed enrichments, windows carry `state`/`activeTabId`, `BrowserState` carries a per-browser `capabilities` map + `tabGroups`, and the snapshot carries `focusedBrowser`. Two invariants that keep this from rotting: **(1)** the pass-through tab fields are declared ONCE in `TabEnrichmentSchema` (shared-types) and both mappers (`mapTab` in extension-core, `extSnapshotToBrowserState` in the daemon) copy them via `pickEnrichment`; field-parity contract tests go red if a mapper drops one. **(2)** availability is **runtime-probed, never hardcoded** — the extension reports `capabilities` in its `hello`, the AppleScript path gets a static map (`src/detect/capabilities.ts`); gate on the map, don't branch on browser name. New fields are additive-optional (don't bump `version` for them); `list_tabs` defaults to a trimmed `fields:"core"` projection while the CLI/snapshot-file always emit full.
 
@@ -85,7 +88,7 @@ packages/
 | `pnpm typecheck` | Turbo: `tsc --noEmit` per package |
 | `pnpm lint` | Biome check |
 | `pnpm lint:fix` | Biome write |
-| `pnpm stress` | Run 12-case stress harness against the built MCP |
+| `pnpm stress` | Run 13-case stress harness against the built MCP |
 | `pnpm verify` | lint + typecheck + test + build (CI shape) |
 
 Per-app:
@@ -174,7 +177,7 @@ Also in-memory ring buffer (last 500 lines). In dev mode (`MCP_DEV=1`), a `get_l
 
 ## Stress harness
 
-`pnpm stress` covers 12 cases (in `apps/browser-tab-mcp/scripts/stress-mcp.ts`):
+`pnpm stress` covers 13 cases (in `apps/browser-tab-mcp/scripts/stress-mcp.ts`):
 
 1. handshake + tools/list returns the full catalog
 2. `health_check` returns `Status: healthy`
@@ -187,7 +190,8 @@ Also in-memory ring buffer (last 500 lines). In dev mode (`MCP_DEV=1`), a `get_l
 9. `list_tabs` with `BROWSER_TAB_FAKE_ADAPTER=1` returns a valid snapshot
 10. `journal` with `BROWSER_TAB_FAKE_ADAPTER=1` returns a valid empty result
 11. write-side tools under `BROWSER_TAB_FAKE_ADAPTER=1`: `tab_action navigate` / `open_window` / `close_window` return ok; `group_tabs` + an extension-only `tab_action` error cleanly
-12. daemon lifecycle: socket serves 20 parallel getSnapshot; SIGTERM exits 0 and unlinks the socket
+12. content tools under `BROWSER_TAB_FAKE_ADAPTER=1`: `get_page` / `annotate` error cleanly (both are daemon/extension-only)
+13. daemon lifecycle: socket serves 20 parallel getSnapshot; SIGTERM exits 0 and unlinks the socket
 
 Add a case whenever you ship something touching lifecycle, dispatch, error handling, or transport.
 
@@ -245,7 +249,7 @@ Still deferred: Safari runtime + packaging scripts can't be automated (no headle
 
 ## CI / Release
 
-- `.github/workflows/ci.yml` — matrix `ubuntu-latest + macos-latest`, runs lint + typecheck + test + test:no-native + build + `pnpm check:usage` (completions/manpage/docs freshness gate) + `npm pack --dry-run` + stress (all 12 cases).
+- `.github/workflows/ci.yml` — matrix `ubuntu-latest + macos-latest`, runs lint + typecheck + test + test:no-native + build + `pnpm check:usage` (completions/manpage/docs freshness gate) + `npm pack --dry-run` + stress (all 13 cases).
 - `.github/workflows/release.yml` — semantic-release with `@semantic-release/{commit-analyzer,release-notes-generator,changelog,npm,github,git}`. **Disabled by default** — `on:` trigger is commented. To enable: uncomment + add `NPM_TOKEN` secret. See `docs/RELEASE.md`.
 - `.github/workflows/readme-check.yml` — fails CI if `src/**` changed without a `README.md` update. Bypass with `[skip-readme]` in commit/PR title.
 

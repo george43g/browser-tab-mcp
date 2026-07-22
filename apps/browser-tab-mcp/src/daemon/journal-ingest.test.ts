@@ -166,3 +166,38 @@ describe("buildSeedRecords", () => {
     });
   });
 });
+
+describe("ingestExtEvent — stateCapture (blur capture)", () => {
+  const captured = {
+    dirtyForms: 2,
+    focusedEditable: true,
+    media: [],
+    scrollY: 0,
+    scrollPct: 0,
+    selectionLength: 0,
+    wordCount: 42,
+  };
+
+  it("backfills the tab's most recent focus record with the captured state", () => {
+    // First a focus establishes the record; then the blur capture enriches it.
+    ingestExtEvent(journal, store, "chrome", event({ kind: "focus", windowId: 812, tabId: 4001 }));
+    ingestExtEvent(
+      journal,
+      store,
+      "chrome",
+      event({ kind: "stateCapture", ts: 6000, tabId: 4001, state: captured }),
+    );
+    const rec = journal.recent(10).find((r) => r.tabId === "t:chrome:x4001");
+    expect(rec?.capture).toEqual(captured);
+  });
+
+  it("is a no-op when there is no prior focus record for the tab", () => {
+    ingestExtEvent(
+      journal,
+      store,
+      "chrome",
+      event({ kind: "stateCapture", ts: 6000, tabId: 9999, state: captured }),
+    );
+    expect(journal.recent(10)).toHaveLength(0);
+  });
+});

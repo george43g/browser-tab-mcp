@@ -38,6 +38,13 @@ export interface FakeChromeConfig {
   storage?: Record<string, unknown>;
   /** Include `chrome.alarms`. Default true; set false to simulate Safari. */
   withAlarms?: boolean;
+  /**
+   * What `scripting.executeScript({func, args})` resolves its `result` to —
+   * the extracted payload the injected `__btExtract` would return. The
+   * `files`-only define step always resolves `{result: undefined}`. A function
+   * receives the injection args so a test can vary by mode.
+   */
+  scriptResult?: unknown | ((mode?: string) => unknown);
 }
 
 export interface FakeChrome {
@@ -216,7 +223,16 @@ export function installFakeChrome(config: FakeChromeConfig = {}): FakeChrome {
     scripting: {
       executeScript: (injection?: unknown) => {
         record("scripting.executeScript", [injection]);
-        return Promise.resolve([{ result: undefined }]);
+        const inj = injection as { func?: unknown; args?: unknown[] } | undefined;
+        // The define step (files only) resolves empty; the call step (func +
+        // args) resolves the configured extraction payload.
+        if (!inj?.func) return Promise.resolve([{ result: undefined }]);
+        const mode = (inj.args?.[0] as string | undefined) ?? undefined;
+        const value =
+          typeof config.scriptResult === "function"
+            ? (config.scriptResult as (m?: string) => unknown)(mode)
+            : config.scriptResult;
+        return Promise.resolve([{ result: value }]);
       },
     },
     webNavigation: {

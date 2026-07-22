@@ -32,6 +32,12 @@ export function ingestExtEvent(
   frame: ExtEvent,
 ): void {
   const ts = frame.ts;
+  if (frame.kind === "stateCapture") {
+    // Blur capture — backfill the tab's most recent focus record.
+    if (frame.tabId === undefined || frame.state === undefined) return;
+    journal.backfillCapture(browser, makeExtTabId(browser, frame.tabId), frame.state);
+    return;
+  }
   if (frame.kind === "nav") {
     if (frame.tabId === undefined || frame.url === undefined) return;
     const tabId = makeExtTabId(browser, frame.tabId);

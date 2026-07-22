@@ -58,6 +58,21 @@ cmd "journal" help="Show recorded focus/navigation history" {
     }
 }
 
+cmd "page" help="Extract a tab's content or live state (needs daemon + extension)" {
+    arg "<tabId>"
+    flag "--mode" help="text | metadata | state" {
+        arg "<mode>"
+    }
+    flag "--force" help="Bypass the navEpoch cache and re-extract"
+}
+
+cmd "annotate" help="Read or write a URL-keyed note in the daemon annotation store" {
+    arg "<url>"
+    flag "--note" help="Note to store (omit to read the existing note)" {
+        arg "<text>"
+    }
+}
+
 cmd "focus" help="Focus a tab and raise its window" {
     arg "<tabId>"
 }

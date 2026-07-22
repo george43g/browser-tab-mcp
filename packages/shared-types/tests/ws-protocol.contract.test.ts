@@ -63,13 +63,30 @@ const clientMessages: ExtClientMessage[] = [
   { type: "commandResult", requestId: 8, ok: false, error: "nope" },
   { type: "event", ts: 111, kind: "focus", windowId: 3, tabId: 9 },
   { type: "event", ts: 222, kind: "nav", tabId: 9, url: "https://x/", transition: "link" },
+  {
+    type: "event",
+    ts: 333,
+    kind: "stateCapture",
+    tabId: 9,
+    state: {
+      dirtyForms: 1,
+      focusedEditable: false,
+      media: [],
+      scrollY: 0,
+      scrollPct: 0,
+      selectionLength: 0,
+      wordCount: 42,
+    },
+  },
   { type: "pong", ts: 123 },
 ];
 
 const serverMessages: ExtServerMessage[] = [
   { type: "helloAck" },
   { type: "helloAck", protocolVersion: 2 },
+  { type: "helloAck", protocolVersion: 2, config: { blurCapture: true } },
   { type: "command", requestId: 1, kind: "move_tab", args: { tabId: 4 } },
+  { type: "command", requestId: 2, kind: "extract_content", args: { tabId: 4, mode: "text" } },
   { type: "ping", ts: 456 },
 ];
 

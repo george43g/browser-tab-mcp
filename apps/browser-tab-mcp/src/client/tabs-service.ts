@@ -11,9 +11,13 @@
 
 import { warn } from "@george43g/robustness";
 import type {
+  AnnotateInput,
+  AnnotateOutput,
   BrowserId,
   CloseWindowInput,
   CommandResult,
+  GetPageInput,
+  GetPageOutput,
   GroupTabsInput,
   JournalOutput,
   MoveTabInput,
@@ -209,6 +213,44 @@ export async function journal(params: Record<string, unknown>): Promise<JournalO
     if (!(err instanceof DaemonUnavailableError)) throw err;
     warn("daemon_unreachable_falling_back", { op: "journal" });
     return empty;
+  }
+}
+
+/**
+ * Extract page content/state. Extension-only + daemon-only — there's no
+ * AppleScript path and the cache lives in the daemon, so fixture mode and a
+ * down daemon both surface an actionable error (not a silent empty).
+ */
+export async function getPage(input: GetPageInput): Promise<GetPageOutput> {
+  if (fakeAdapterEnabled()) {
+    throw new Error(
+      "Page content extraction requires the daemon and the browser extension — not available in fixture mode.",
+    );
+  }
+  try {
+    return await viaDaemon((c) => c.request<GetPageOutput>("getPage", { ...input }));
+  } catch (err) {
+    if (err instanceof DaemonUnavailableError) {
+      throw new Error(
+        "Page content extraction requires the daemon. Start it with `browser-tab daemon run`.",
+      );
+    }
+    throw err;
+  }
+}
+
+/** Read/write a URL-keyed annotation. Daemon-only (the store lives there). */
+export async function annotate(input: AnnotateInput): Promise<AnnotateOutput> {
+  if (fakeAdapterEnabled()) {
+    throw new Error("Annotations require the daemon — not available in fixture mode.");
+  }
+  try {
+    return await viaDaemon((c) => c.request<AnnotateOutput>("annotate", { ...input }));
+  } catch (err) {
+    if (err instanceof DaemonUnavailableError) {
+      throw new Error("Annotations require the daemon. Start it with `browser-tab daemon run`.");
+    }
+    throw err;
   }
 }
 

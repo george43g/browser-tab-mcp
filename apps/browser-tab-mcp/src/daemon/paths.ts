@@ -39,6 +39,16 @@ export function journalDir(): string {
   return process.env.BROWSER_TAB_JOURNAL_DIR ?? join(cacheDir(), "journal");
 }
 
+/** Extracted page-content cache (one JSON file per navEpoch-keyed entry). */
+export function contentDir(): string {
+  return process.env.BROWSER_TAB_CONTENT_DIR ?? join(cacheDir(), "content");
+}
+
+/** URL-keyed annotation store (single ndjson file). */
+export function annotationsPath(): string {
+  return process.env.BROWSER_TAB_ANNOTATIONS_PATH ?? join(cacheDir(), "annotations.ndjson");
+}
+
 export function logDir(): string {
   return join(homedir(), "Library", "Logs", "browser-tab");
 }

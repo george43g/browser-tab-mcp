@@ -10,11 +10,13 @@
 
 import { makeRegistry, type ToolRegistry } from "@george43g/mcp-kit";
 import { envBool } from "@george43g/robustness";
+import { annotateTool } from "./annotate.js";
 import { closeTabTool } from "./close-tab.js";
 import { closeWindowTool } from "./close-window.js";
 import { daemonStatusTool } from "./daemon-status.js";
 import { focusTabTool } from "./focus-tab.js";
 import { getLogsTool } from "./get-logs.js";
+import { getPageTool } from "./get-page.js";
 import { groupTabsTool } from "./group-tabs.js";
 import { healthCheckTool } from "./health-check.js";
 import { journalTool } from "./journal.js";
@@ -39,6 +41,8 @@ export function makeAppRegistry(): ToolRegistry {
     openWindowTool,
     setWindowTool,
     closeWindowTool,
+    getPageTool,
+    annotateTool,
     journalTool,
     daemonStatusTool,
     noopTool,

@@ -45,6 +45,12 @@ List open browser windows and tabs (Chrome/Brave/Chromium/Safari)
 \fBjournal\fR
 Show recorded focus/navigation history
 .TP
+\fBpage\fR
+Extract a tab's content or live state (needs daemon + extension)
+.TP
+\fBannotate\fR
+Read or write a URL\-keyed note in the daemon annotation store
+.TP
 \fBfocus\fR
 Focus a tab and raise its window
 .TP
@@ -142,6 +148,29 @@ Tab handle (required for journey)
 .TP
 \fB\-\-limit\fR \fI<n>\fR
 Max records
+.SH "BROWSER-TAB PAGE"
+Extract a tab's content or live state (needs daemon + extension)
+.PP
+\fBUsage:\fR browser\-tab page [OPTIONS] <tabId>
+.PP
+\fBOptions:\fR
+.PP
+.TP
+\fB\-\-mode\fR \fI<mode>\fR
+text | metadata | state
+.TP
+\fB\-\-force\fR
+Bypass the navEpoch cache and re\-extract
+.SH "BROWSER-TAB ANNOTATE"
+Read or write a URL\-keyed note in the daemon annotation store
+.PP
+\fBUsage:\fR browser\-tab annotate [OPTIONS] <url>
+.PP
+\fBOptions:\fR
+.PP
+.TP
+\fB\-\-note\fR \fI<text>\fR
+Note to store (omit to read the existing note)
 .SH "BROWSER-TAB OPEN"
 Open an http(s) URL in a new tab
 .PP

@@ -7,10 +7,13 @@
  * Native ids in, native ids out — the daemon converts to/from opaque handles.
  */
 
+import { injectExtract } from "./inject.js";
 import { api } from "./runtime.js";
 
 export interface CommandArgs {
   tabId?: number;
+  mode?: string;
+  maxBytes?: number;
   tabIds?: number[];
   windowId?: number;
   targetWindowId?: number;
@@ -288,6 +291,11 @@ export async function executeCommand(kind: string, args: CommandArgs): Promise<C
       const windowId = requireWindow(args);
       await windows.remove(windowId);
       return { windowId, payload: {} };
+    }
+    case "extract_content": {
+      const tabId = requireTab(args);
+      const result = await injectExtract(tabId, args.mode ?? "text", args.maxBytes ?? 0);
+      return { tabId, payload: result };
     }
     default:
       throw new Error(`unknown command kind "${kind}"`);
