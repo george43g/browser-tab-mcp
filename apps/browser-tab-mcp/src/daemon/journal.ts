@@ -25,6 +25,7 @@ import type {
   JournalInput,
   JournalOutput,
   NavRecord,
+  PageState,
 } from "@george43g/shared-types";
 import { JournalInputSchema } from "@george43g/shared-types";
 import { journalDir } from "./paths.js";
@@ -92,6 +93,20 @@ export class JournalStore {
       prev.windowId === rec.windowId &&
       prev.tabId === rec.tabId
     );
+  }
+
+  /** Backfill blur-capture state onto a tab's most recent focus record —
+   *  "left this tab mid-edit". In-memory only (session-scoped, like navEpoch);
+   *  returns whether a matching record was found. */
+  backfillCapture(browser: BrowserId, tabId: string, state: PageState): boolean {
+    for (let i = this.focusLog.length - 1; i >= 0; i--) {
+      const rec = this.focusLog[i];
+      if (rec && rec.kind === "tab-focus" && rec.browser === browser && rec.tabId === tabId) {
+        rec.capture = state;
+        return true;
+      }
+    }
+    return false;
   }
 
   // ── navEpoch ────────────────────────────────────────────────────────

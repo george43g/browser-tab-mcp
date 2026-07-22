@@ -18,7 +18,11 @@ export interface ExtEventInput {
   transition?: string;
 }
 
-export function wireEvents(onChange: () => void, onEvent?: (frame: ExtEventInput) => void): void {
+export function wireEvents(
+  onChange: () => void,
+  onEvent?: (frame: ExtEventInput) => void,
+  onActivated?: (info: { tabId: number; windowId: number }) => void,
+): void {
   // A zero-arg handler is assignable to every chrome event callback shape.
   const handler = () => onChange();
   api.tabs.onCreated.addListener(handler);
@@ -40,7 +44,7 @@ export function wireEvents(onChange: () => void, onEvent?: (frame: ExtEventInput
       tabGroups[ev]?.addListener?.(handler);
     }
   }
-  if (onEvent) wireEventFrames(onEvent);
+  if (onEvent || onActivated) wireEventFrames(onEvent, onActivated);
 }
 
 interface WebNavDetails {
@@ -51,15 +55,20 @@ interface WebNavDetails {
 }
 
 /** Attach the immediate focus/nav frame emitters (in addition to the
- *  debounced snapshot handler above). */
-function wireEventFrames(onEvent: (frame: ExtEventInput) => void): void {
+ *  debounced snapshot handler above). `onActivated` also feeds the blur
+ *  capturer, which tracks prev-active tabs on every switch. */
+function wireEventFrames(
+  onEvent?: (frame: ExtEventInput) => void,
+  onActivated?: (info: { tabId: number; windowId: number }) => void,
+): void {
   api.windows.onFocusChanged.addListener((windowId: number) => {
     // -1 (WINDOW_ID_NONE) = focus left all browser windows; skip.
-    if (typeof windowId === "number" && windowId >= 0) onEvent({ kind: "focus", windowId });
+    if (typeof windowId === "number" && windowId >= 0) onEvent?.({ kind: "focus", windowId });
   });
   api.tabs.onActivated.addListener((info: { tabId: number; windowId: number }) => {
     if (info && typeof info.tabId === "number") {
-      onEvent({ kind: "focus", tabId: info.tabId, windowId: info.windowId });
+      onActivated?.(info);
+      onEvent?.({ kind: "focus", tabId: info.tabId, windowId: info.windowId });
     }
   });
   const webNav = (
@@ -69,7 +78,7 @@ function wireEventFrames(onEvent: (frame: ExtEventInput) => void): void {
   ).webNavigation;
   webNav?.onCommitted?.addListener?.((details: WebNavDetails) => {
     if (details.frameId !== 0) return; // top frame only
-    onEvent({
+    onEvent?.({
       kind: "nav",
       tabId: details.tabId,
       url: details.url,

@@ -12,6 +12,7 @@
 
 import type { ExtServerMessage } from "@george43g/shared-types";
 import { probeCapabilities } from "./capabilities.js";
+import { BlurCapturer, type StateCaptureFrame } from "./capture.js";
 import { type CommandArgs, executeCommand } from "./commands.js";
 import { debounce, type ExtEventInput, wireEvents } from "./events.js";
 import { log, logError } from "./log.js";
@@ -41,6 +42,7 @@ export class DaemonSocket {
   private readonly sendSnapshotDebounced = debounce(() => {
     void this.sendSnapshot();
   }, SNAPSHOT_DEBOUNCE_MS);
+  private readonly capturer = new BlurCapturer((frame) => this.sendCaptureFrame(frame));
 
   constructor(private readonly config: DaemonSocketConfig) {}
 
@@ -68,6 +70,7 @@ export class DaemonSocket {
       wireEvents(
         () => this.sendSnapshotDebounced(),
         (frame) => this.sendEvent(frame),
+        (info) => this.capturer.onActivated(info),
       );
       this.eventsWired = true;
     }
@@ -111,6 +114,9 @@ export class DaemonSocket {
         this.lastError = null;
         this.reconnectAttempts = 0;
         this.reconnectDelay = RECONNECT_MIN_MS;
+        // Daemon policy: enable capture-on-blur only when it asks (default off
+        // so an old daemon that sends no config never triggers injections).
+        this.capturer.setEnabled(msg.config?.blurCapture ?? false);
         log(`connected to daemon 127.0.0.1:${this.config.port} as ${this.config.browser}`);
         void this.sendSnapshot();
         return;
@@ -185,6 +191,12 @@ export class DaemonSocket {
   /** Send an immediate (undebounced) focus/nav event frame. Best-effort:
    *  drops silently if the socket isn't open — the next snapshot resyncs. */
   private sendEvent(frame: ExtEventInput): void {
+    if (!this.ws || this.ws.readyState !== WebSocket.OPEN) return;
+    this.ws.send(JSON.stringify({ type: "event", ts: Date.now(), ...frame }));
+  }
+
+  /** Send a blur state-capture frame (prev-tab state as the user left it). */
+  private sendCaptureFrame(frame: StateCaptureFrame): void {
     if (!this.ws || this.ws.readyState !== WebSocket.OPEN) return;
     this.ws.send(JSON.stringify({ type: "event", ts: Date.now(), ...frame }));
   }

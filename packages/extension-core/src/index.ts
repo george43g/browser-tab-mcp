@@ -1,6 +1,8 @@
 export { probeCapabilities } from "./capabilities.js";
+export { type ActivatedInfo, BlurCapturer, type StateCaptureFrame } from "./capture.js";
 export { type CommandArgs, type CommandOutcome, executeCommand } from "./commands.js";
 export { debounce, type ExtEventInput, wireEvents } from "./events.js";
+export { EXTRACT_FILE, injectExtract } from "./inject.js";
 export { log, logError, logWarn } from "./log.js";
 export { type ConnectorOptions, loadOptions, saveOptions } from "./options.js";
 export { api, type BrowserName, detectBrowserName } from "./runtime.js";

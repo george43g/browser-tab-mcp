@@ -20,7 +20,7 @@ export type {
   ResourceTemplate,
 } from "./resources.js";
 export { buildResourcesHandler } from "./resources.js";
-export { sanitize } from "./sanitize.js";
+export { sanitize, sanitizeContent } from "./sanitize.js";
 export type { AnyToolDefinition, ToolDefinition, ToolRegistry } from "./tool-registry.js";
 export { makeRegistry } from "./tool-registry.js";
 export type { StartStdioOptions } from "./transports/stdio.js";

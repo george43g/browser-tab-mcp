@@ -219,6 +219,30 @@ describe("write-side commands (fake adapter → AppleScript fallback)", () => {
   });
 });
 
+describe("page content & annotations (fake adapter → daemon-required)", () => {
+  beforeEach(() => {
+    process.env.BROWSER_TAB_FAKE_ADAPTER = "1";
+  });
+
+  it("get_page errors cleanly without the daemon/extension", async () => {
+    const r = await callMcpTool("get_page", { tabId: "t:chrome:9900", mode: "text" });
+    expect(r.isError).toBe(true);
+    expect(r.content[0]?.text).toMatch(/extension|daemon/i);
+  });
+
+  it("annotate errors cleanly without the daemon", async () => {
+    const r = await callMcpTool("annotate", { url: "https://x/", note: "hi" });
+    expect(r.isError).toBe(true);
+    expect(r.content[0]?.text).toMatch(/daemon/i);
+  });
+
+  it("rejects an invalid get_page mode via schema", async () => {
+    const r = await callMcpTool("get_page", { tabId: "t:chrome:9900", mode: "bogus" });
+    expect(r.isError).toBe(true);
+    expect(r.content[0]?.text).toMatch(/Invalid arguments/);
+  });
+});
+
 describe("error paths", () => {
   it("rejects unknown tool with isError", async () => {
     const r = await callMcpTool("ghost_tool", {});

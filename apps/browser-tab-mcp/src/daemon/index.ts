@@ -7,7 +7,9 @@
  * prefix, watchdog, heap monitor, shutdown registry.
  */
 
+import { sanitize, sanitizeContent } from "@george43g/mcp-kit";
 import {
+  envNum,
   info,
   installShutdownHandlers,
   installWatchdog,
@@ -17,13 +19,17 @@ import {
   startHeapMonitor,
 } from "@george43g/robustness";
 import type {
+  AnnotateOutput,
   BrowserId,
   CommandResult,
+  ExtractResult,
+  GetPageOutput,
   Snapshot,
   TabAction,
   WindowBounds,
   WindowState,
 } from "@george43g/shared-types";
+import { ExtractResultSchema } from "@george43g/shared-types";
 import { correlationTier } from "../detect/correlate.js";
 import { listDisplays } from "../detect/displays.js";
 import { enabledBrowsers, makeAdapter } from "../detect/engine.js";
@@ -38,6 +44,8 @@ import {
   parseWindowId,
 } from "../detect/ids.js";
 import { APP_VERSION } from "../meta.js";
+import { AnnotationStore } from "./annotations.js";
+import { ContentCache } from "./content-cache.js";
 import { EngineLoop, pollMs } from "./engine-loop.js";
 import { IpcServer } from "./ipc-server.js";
 import { JournalStore } from "./journal.js";
@@ -351,6 +359,100 @@ export async function executeCommand(
   return result;
 }
 
+/** Current URL for a tab handle from the merged snapshot (for the cache key). */
+function lookupTabUrl(store: StateStore, tabId: string): string {
+  for (const b of store.getSnapshot().browsers) {
+    for (const w of b.windows) {
+      for (const t of w.tabs) {
+        if (t.tabId === tabId) return t.url;
+      }
+    }
+  }
+  return "";
+}
+
+function extractMaxBytes(): number {
+  return envNum("BROWSER_TAB_EXTRACT_MAX_BYTES", 200 * 1024);
+}
+
+/** Sanitize the extension's raw extraction, then validate into ExtractResult. */
+function finalizeExtract(payload: unknown): ExtractResult {
+  const raw = (payload ?? {}) as Record<string, unknown>;
+  if (typeof raw.error === "string" && raw.error) {
+    throw new Error(`Page extraction failed: ${raw.error}`);
+  }
+  const cleaned: Record<string, unknown> = { ...raw };
+  if (typeof raw.text === "string") cleaned.text = sanitizeContent(raw.text);
+  for (const k of ["title", "byline", "excerpt", "url"] as const) {
+    if (typeof raw[k] === "string") cleaned[k] = sanitize(raw[k] as string, 8192) ?? "";
+  }
+  if (raw.metadata && typeof raw.metadata === "object") {
+    const md = raw.metadata as Record<string, unknown>;
+    const cleanMd: Record<string, unknown> = {};
+    for (const [k, v] of Object.entries(md)) {
+      cleanMd[k] = typeof v === "string" ? (sanitize(v, 4096) ?? "") : v;
+    }
+    cleaned.metadata = cleanMd;
+  }
+  return ExtractResultSchema.parse(cleaned);
+}
+
+export interface GetPageDeps {
+  ext: ExtensionServer | null;
+  store: StateStore;
+  journal: JournalStore;
+  cache: ContentCache;
+  sessionId: string;
+}
+
+/**
+ * Extract page content/state for a tab. Extension-only (there is no
+ * AppleScript way to read a page); results are cached per navEpoch so an
+ * unchanged page serves instantly. `force` re-extracts.
+ */
+export async function getPage(
+  params: DaemonCommandParams,
+  deps: GetPageDeps,
+): Promise<GetPageOutput> {
+  const tabId = params.tabId as string;
+  const parsed = parseHandle(tabId);
+  const mode = (params.mode as string | undefined) ?? "text";
+  if (!parsed.ext) {
+    throw new Error(
+      `Content extraction needs the browser extension — "${tabId}" is an AppleScript-generation ` +
+        `handle. Connect the extension and re-run list_tabs for x-handles.`,
+    );
+  }
+  const browser = parsed.browser;
+  if (!deps.ext?.isConnected(browser)) throw new Error(notConnectedHint(tabId, browser));
+
+  const url = lookupTabUrl(deps.store, tabId);
+  const navEpoch = deps.journal.navEpoch(tabId);
+  const keyParts = { browser, handle: tabId, url, navEpoch, sessionId: deps.sessionId, mode };
+
+  if (!(params.force as boolean | undefined)) {
+    const hit = deps.cache.get(keyParts) as ExtractResult | undefined;
+    if (hit) return { ...hit, navEpoch, cached: true };
+  }
+
+  const raw = await deps.ext.sendCommand(browser, "extract_content", {
+    tabId: extNum(parsed, "tabId"),
+    mode,
+    maxBytes: extractMaxBytes(),
+  });
+  const extract = finalizeExtract((raw as { payload?: unknown }).payload);
+  deps.cache.set(keyParts, extract);
+  return { ...extract, navEpoch, cached: false };
+}
+
+/** Read or write a URL-keyed annotation (consumer's own summary cache). */
+export function annotate(params: DaemonCommandParams, store: AnnotationStore): AnnotateOutput {
+  const url = params.url as string | undefined;
+  if (!url) throw new Error("annotate requires a url.");
+  const note = params.note as string | undefined;
+  return note !== undefined ? store.set(url, note) : store.get(url);
+}
+
 export async function startDaemon(): Promise<DaemonHandle> {
   const store = new StateStore();
   const merger = new SourceMerger();
@@ -358,6 +460,11 @@ export async function startDaemon(): Promise<DaemonHandle> {
   const writer = new SnapshotWriter(() => loop.lastScanDuration());
   const journal = new JournalStore();
   journal.warmFromDisk();
+  const contentCache = new ContentCache();
+  const annotations = new AnnotationStore();
+  // Per-boot session id — content cache keys include it so a restarted daemon
+  // never serves content keyed to a now-dead handle generation.
+  const sessionId = Date.now().toString(36);
 
   // One journal ingest source per browser: extension `event` frames when a
   // browser is extension-authoritative, poll-derived StateStore diffs
@@ -427,6 +534,8 @@ export async function startDaemon(): Promise<DaemonHandle> {
     }),
     onRefresh: () => loop.refresh(),
     onJournal: async (params) => journal.query(params),
+    onGetPage: (params) => getPage(params, { ext, store, journal, cache: contentCache, sessionId }),
+    onAnnotate: async (params) => annotate(params, annotations),
   });
 
   await ipc.start();

@@ -105,6 +105,15 @@ describe("built entry JS is a classic IIFE (not ES modules)", () => {
   }
 });
 
+describe("extract.js is the real extractor with Readability bundled", () => {
+  it("defines __btExtract and inlines Readability (not the PR1 stub)", () => {
+    const src = read("extract.js");
+    expect(src.includes("__btExtract"), "extract.js must define __btExtract").toBe(true);
+    expect(src.includes("Readability"), "Readability must be bundled into extract.js").toBe(true);
+    expect(src.includes("{ stub: true }"), "extract.js is still the PR1 stub").toBe(false);
+  });
+});
+
 describe("built HTML loads classic scripts (no type=module)", () => {
   for (const file of ["options.html", "popup.html"]) {
     it(`${file}: no <script type="module">`, () => {

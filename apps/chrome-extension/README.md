@@ -57,7 +57,8 @@ everywhere.
 | `src/popup.ts` · `public/popup.html` | toolbar popup |
 | `src/options.ts` · `public/options.html` | settings page (token/port/browser + live status) |
 | `public/ui.css` | wm-stack instrument-panel theme (design-system tokens inlined; no remote font — extension CSP) |
-| `vite.config.ts` | builds each entry as a **self-contained IIFE** (no ES modules / shared chunks) so the same bundle runs as a Chrome service worker AND a Safari background page |
+| `src/extract.ts` | the injected page extractor — bundles `@mozilla/readability`, defines the idempotent global `window.__btExtract(mode, maxBytes)` (metadata / reader-mode text / live state). Injected on demand via `scripting.executeScript` (never a persistent content script); also drives capture-on-blur (`extension-core/capture.ts`) |
+| `vite.config.ts` | builds each entry (`background`/`options`/`popup`/`extract`) as a **self-contained IIFE** (no ES modules / shared chunks) so the same bundle runs as a Chrome service worker AND a Safari background page |
 
 Shared, browser-agnostic logic (socket, snapshot mappers, status presenter,
 options storage) lives in `packages/extension-core`.

@@ -122,7 +122,12 @@ Methods: `getSnapshot` · `subscribe` · `unsubscribe` · `status` (also returns
 (force an immediate rescan) · `command` (params: `{"kind": …, …tool-input fields}`) ·
 `journal` (params: `{"view":"windowMru"|"tabMru"|"journey"|"recent", browser?, windowId?, tabId?, limit?}`
 → the daemon's recorded focus/navigation history; `focus[]` for windowMru/tabMru/recent,
-`nav[]` for journey. Handles in journal records are for correlation only — they may be stale).
+`nav[]` for journey. Handles in journal records are for correlation only — they may be stale) ·
+`getPage` (params: `{"tabId", "mode":"metadata"|"text"|"state", "force"?}` → extracted page
+content/state; extension-only, cached per `navEpoch`; returns `{mode, url, title?, text?, metadata?,
+state?, navEpoch, cached, ...}` — all text is untrusted web content) ·
+`annotate` (params: `{"url", "note"?}` → URL-keyed note cache; `note` present = set, absent = read;
+returns `{url, note?, updatedAt?, existed}`).
 
 Command `kind`s and their tool-input fields:
 

@@ -67,6 +67,43 @@ or a `--display <n>` index that fills that monitor. Display targeting reads the
 active-display list from the native module; without it, use `--bounds`. List the
 available displays via `browser-tab daemon status --json` (the `displays` field).
 
+## Page content & state
+
+On-demand page perception — the tool returns reader-mode text, metadata, or
+live state signals; the consumer AI interprets (no AI in-tool). **Extension-only**
+(there is no AppleScript way to read a page) and daemon-only (the cache lives
+there).
+
+```bash
+browser-tab page <tabId>                 # reader-mode article text (default)
+browser-tab page <tabId> --mode metadata # title/description/og/canonical/lang
+browser-tab page <tabId> --mode state    # dirty forms, media, scroll, selection, word count
+browser-tab page <tabId> --force         # bypass the navEpoch cache and re-extract
+```
+
+Extraction is injected on demand via `chrome.scripting.executeScript` (never a
+persistent content script) using a bundled `@mozilla/readability`. Results are
+cached in the daemon keyed on the tab's `navEpoch`, so an unchanged page serves
+instantly; `--force` re-extracts. All returned text is untrusted web content and
+is wrapped accordingly.
+
+**Capture-on-blur**: when the daemon enables it (`BROWSER_TAB_BLUR_CAPTURE`, on
+by default), the extension snapshots the state of the tab you just *left* on a
+tab switch (settle-delayed, cooldown-throttled, skips discarded/incognito/non-http),
+and the daemon backfills that onto the tab's most recent focus journal record —
+so "left this tab mid-edit" shows up in `journal`.
+
+```bash
+browser-tab annotate <url> --note "my cached summary"   # write
+browser-tab annotate <url>                              # read
+```
+
+`annotate` is a tiny URL-keyed note cache in the daemon — a place for a consumer
+to stash its own summaries. It's a cache substrate, not intelligence.
+
+Env: `BROWSER_TAB_BLUR_CAPTURE` (1), `BROWSER_TAB_EXTRACT_MAX_BYTES` (200KB),
+`BROWSER_TAB_WS_MAX_PAYLOAD` (16MB), `BROWSER_TAB_CONTENT_MAX` (200 cached pages).
+
 ## Adding a tool
 
 1. Copy `src/tools/noop.ts` to `src/tools/<your-tool>.ts`.

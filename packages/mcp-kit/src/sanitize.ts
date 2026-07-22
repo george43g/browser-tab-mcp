@@ -35,3 +35,19 @@ export function sanitize(text: string | null | undefined, maxLength = 4096): str
   }
   return sanitized;
 }
+
+/**
+ * Like {@link sanitize} but for large content payloads (extracted article
+ * text, page state): strips the same terminal-hostile escapes and C0 control
+ * characters, but does NOT truncate to a small default — content is capped at
+ * its byte budget upstream (BROWSER_TAB_EXTRACT_MAX_BYTES) and shouldn't be
+ * clipped again here. Always returns a string (never null) so callers can feed
+ * it straight into a content block.
+ */
+export function sanitizeContent(text: string | null | undefined, maxLength = 1_000_000): string {
+  if (text == null) return "";
+  let out = text.replace(ANSI_REGEX, "");
+  out = out.replace(CONTROL_CHAR_REGEX, "�");
+  if (out.length > maxLength) out = `${out.slice(0, maxLength)}\n…[truncated]`;
+  return out;
+}

@@ -558,6 +558,105 @@ export const CommandResultSchema = z.object({
 });
 export type CommandResult = z.infer<typeof CommandResultSchema>;
 
+// ── page content & state ──────────────────────────────────────────────
+//
+// On-demand extraction injected into a tab (never a persistent content
+// script). The tool provides reader-mode text / metadata / live state
+// signals; the consumer AI interprets. All text fields are untrusted web
+// content — wrap before showing to an LLM.
+
+export const ExtractModeSchema = z
+  .enum(["metadata", "text", "state"])
+  .describe(
+    "metadata = title/description/og/canonical; text = reader-mode article; state = live page signals.",
+  );
+export type ExtractMode = z.infer<typeof ExtractModeSchema>;
+
+export const PageMetadataSchema = z.object({
+  title: z.string().optional(),
+  description: z.string().optional(),
+  ogTitle: z.string().optional(),
+  ogDescription: z.string().optional(),
+  ogImage: z.string().optional(),
+  canonical: z.string().optional(),
+  lang: z.string().optional(),
+  siteName: z.string().optional(),
+});
+export type PageMetadata = z.infer<typeof PageMetadataSchema>;
+
+export const PageMediaSchema = z.object({
+  kind: z.enum(["audio", "video"]),
+  paused: z.boolean(),
+  currentTime: z.number(),
+  duration: z.number(),
+});
+export type PageMedia = z.infer<typeof PageMediaSchema>;
+
+/** Live "where did the user leave this page" signals — the blur capture. */
+export const PageStateSchema = z.object({
+  dirtyForms: z.number().int().describe("Count of forms with fields changed from their defaults."),
+  focusedEditable: z.boolean().describe("An input/textarea/contenteditable has focus."),
+  media: z.array(PageMediaSchema).default([]).describe("Playing/paused audio & video elements."),
+  scrollY: z.number().describe("Vertical scroll offset in px."),
+  scrollPct: z.number().describe("Scroll depth 0–100 (0 when the page doesn't scroll)."),
+  selectionLength: z.number().int().describe("Length of the current text selection."),
+  wordCount: z.number().int().describe("Approximate visible word count."),
+});
+export type PageState = z.infer<typeof PageStateSchema>;
+
+/** What `__btExtract(mode)` returns from the injected script (mode-tagged). */
+export const ExtractResultSchema = z.object({
+  mode: ExtractModeSchema,
+  url: z.string(),
+  title: z.string().optional(),
+  text: z.string().optional().describe("Reader-mode article text (text mode)."),
+  byline: z.string().optional(),
+  excerpt: z.string().optional(),
+  metadata: PageMetadataSchema.optional(),
+  state: PageStateSchema.optional(),
+  truncated: z.boolean().optional().describe("True when text was capped at the byte budget."),
+});
+export type ExtractResult = z.infer<typeof ExtractResultSchema>;
+
+export const GetPageInputSchema = z.object({
+  tabId: z
+    .string()
+    .describe(
+      "Tab handle from list_tabs (extension-generation only — content needs the extension).",
+    ),
+  mode: ExtractModeSchema.default("text"),
+  force: z.boolean().default(false).describe("Bypass the navEpoch-keyed cache and re-extract."),
+});
+export type GetPageInput = z.infer<typeof GetPageInputSchema>;
+
+export const GetPageOutputSchema = ExtractResultSchema.extend({
+  navEpoch: z
+    .number()
+    .int()
+    .describe("The tab's navigation epoch this content was captured at (ETag)."),
+  cached: z.boolean().describe("True when served from the daemon content cache."),
+});
+export type GetPageOutput = z.infer<typeof GetPageOutputSchema>;
+
+export const AnnotateInputSchema = z.object({
+  url: z.string().describe("The URL to annotate (normalized for keying)."),
+  note: z
+    .string()
+    .optional()
+    .describe(
+      "The note to store (e.g. a consumer's cached AI summary). Omit to read the existing note.",
+    ),
+});
+export type AnnotateInput = z.infer<typeof AnnotateInputSchema>;
+
+export const AnnotateOutputSchema = z.object({
+  url: z.string(),
+  note: z.string().optional(),
+  updatedAt: z.number().int().optional().describe("Epoch ms the note was last set."),
+  existed: z.boolean().describe("Whether a note existed before this call."),
+});
+export type AnnotateOutput = z.infer<typeof AnnotateOutputSchema>;
+
 // ── extension ↔ daemon WebSocket protocol ─────────────────────────────
 //
 // One protocol for every browser's extension. NDJSON-over-WebSocket:
@@ -640,6 +739,7 @@ export const ExtCommandSchema = z.object({
     "open_window",
     "set_window",
     "close_window",
+    "extract_content",
   ]),
   args: z.record(z.unknown()),
 });
@@ -664,17 +764,19 @@ export type ExtPong = z.infer<typeof ExtPongSchema>;
  * signal the daemon journals). Carries native chrome ids; the daemon
  * converts to opaque handles and denormalizes url/title. `kind:"focus"` with
  * a tabId is a tab focus, without it a window focus; `kind:"nav"` is a
- * committed top-frame navigation. (Future kinds — e.g. blur state capture —
- * extend this without touching the outer discriminated union.)
+ * committed top-frame navigation; `kind:"stateCapture"` is the one-shot state
+ * snapshot of a tab as the user left it (blur capture) — the daemon backfills
+ * it onto that tab's most recent focus record.
  */
 export const ExtEventSchema = z.object({
   type: z.literal("event"),
   ts: z.number().int().describe("Epoch ms the event occurred (extension clock)."),
-  kind: z.enum(["focus", "nav"]),
+  kind: z.enum(["focus", "nav", "stateCapture"]),
   windowId: z.number().int().optional().describe("Native chrome.windows id."),
   tabId: z.number().int().optional().describe("Native chrome.tabs id."),
   url: z.string().optional().describe("Committed URL (nav only)."),
   transition: z.string().optional().describe("webNavigation transitionType (nav only)."),
+  state: PageStateSchema.optional().describe("Page state as the tab was left (stateCapture only)."),
 });
 export type ExtEvent = z.infer<typeof ExtEventSchema>;
 
@@ -695,6 +797,12 @@ export const ExtHelloAckSchema = z.object({
     .int()
     .optional()
     .describe("Wire protocol version the daemon speaks. Old extensions ignore it."),
+  config: z
+    .object({
+      blurCapture: z.boolean().describe("Capture prev-tab state on tab switch (capture-on-blur)."),
+    })
+    .optional()
+    .describe("Daemon policy pushed to the extension. Absent = extension defaults."),
 });
 export type ExtHelloAck = z.infer<typeof ExtHelloAckSchema>;
 
@@ -724,6 +832,9 @@ export const FocusRecordSchema = z.object({
   source: z
     .enum(["ext", "applescript", "seed"])
     .describe("ext = live event frame; applescript = poll-derived; seed = lastAccessed backfill."),
+  capture: PageStateSchema.optional().describe(
+    "Page state as the user left this tab (blur capture, backfilled onto the focus record).",
+  ),
 });
 export type FocusRecord = z.infer<typeof FocusRecordSchema>;
 
