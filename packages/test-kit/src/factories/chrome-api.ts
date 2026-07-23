@@ -31,6 +31,7 @@ export interface ChromeTabLike {
   lastAccessed?: number;
   status?: string;
   groupId?: number;
+  favIconUrl?: string;
 }
 
 export interface ChromeWindowLike {
