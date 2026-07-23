@@ -162,6 +162,28 @@ omitting it merges whatever's reachable (empty when nothing is, like `journal`).
 URLs/titles are untrusted web content. Env: `BROWSER_TAB_SAFARI_HISTORY` (0),
 `BROWSER_TAB_SQLITE_BIN` (`/usr/bin/sqlite3`), `BROWSER_TAB_SAFARI_HISTORY_DB`.
 
+## TUI (`browser-tab tui`)
+
+A live Ink tab manager (browser › window › tab), fed by the daemon event stream
+(falls back to 5s polling when the daemon is down). Keys: `j/k` move · `⏎` focus
+· `x` close · `m` move tab · `space` fold window · `r` refresh · `q` quit.
+
+Each tab row ends with compact status badges drawn from the contract-v2
+enrichment already in the snapshot (no extra fetch) — full coverage of the
+badge-worthy tab state:
+
+| Badge | State |
+|---|---|
+| 📌 | pinned |
+| ⏳ | loading |
+| 🔇 / 🔊 | muted / audible (mute wins) |
+| 🧊 | frozen (Chrome 132+ CPU freeze) |
+| 💤 | discarded (unloaded from memory) |
+| ⊞*Name* | tab-group membership (shows group title) |
+
+The leading `●`/`·` marks the window's active tab; `lastAccessed` drives sort/MRU
+(see `journal`) rather than a per-row glyph.
+
 ## Adding a tool
 
 1. Copy `src/tools/noop.ts` to `src/tools/<your-tool>.ts`.
