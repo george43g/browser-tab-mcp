@@ -97,6 +97,18 @@ DOM-touching tests opt into a DOM with `// @vitest-environment happy-dom` at
 the top of the file (the default env is node). Shared fixtures + the
 `installFakeChrome` fake come from `@george43g/test-kit`. The end-to-end
 `DaemonSocket`↔`ExtensionServer` path is covered by
-`apps/browser-tab-mcp/tests/ext-socket.integration.test.ts`. Remaining
-follow-ups (Playwright E2E stub, coverage gating) are tracked in
-**`docs/FOLLOWUPS.md § 1`**.
+`apps/browser-tab-mcp/tests/ext-socket.integration.test.ts`. Coverage gating is
+tracked in **`docs/FOLLOWUPS.md § 1`**.
+
+### E2E (`pnpm --filter @george43g/chrome-extension test:e2e`)
+
+Playwright (`e2e/*.e2e.test.ts`, its own runner — excluded from the vitest unit
+run) loads the **built `dist/`** into a real (new-headless) Chromium — the full
+chromium build supports MV3 extensions, the headless shell does not — and drives
+the full round-trip against a throwaway, `BROWSER_TAB_STATE_DIR`/`_CACHE_DIR`-
+isolated daemon (fake AppleScript adapter, so the only real browser in the loop
+is Playwright's): load → seed the options config → the background connects over
+loopback (`dataSource:"extension"`, `x`-handles) → a daemon-driven cross-window
+`move` preserves the page's scroll (the `chrome.tabs.move` win vs close+reopen).
+Requires `pnpm build` first (the harness spawns `dist/cli.js`). Runs as its own
+CI job (`e2e-chromium`); Safari stays manual-smoke only.
