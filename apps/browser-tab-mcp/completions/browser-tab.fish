@@ -53,6 +53,23 @@ cmd journal help="Show recorded focus/navigation history" {
         arg <n>
     }
 }
+cmd history help="Query the browser\'s global URL history (Chrome-family; Safari opt-in)" {
+    flag --browser help="Limit to one browser (omit to merge all reachable sources)" {
+        arg <name>
+    }
+    flag --query help="Case-insensitive substring filter on URL/title" {
+        arg <text>
+    }
+    flag --start help="Only visits at/after this epoch ms" {
+        arg <ms>
+    }
+    flag --end help="Only visits at/before this epoch ms" {
+        arg <ms>
+    }
+    flag --limit help="Max rows" {
+        arg <n>
+    }
+}
 cmd page help="Extract a tab\'s content or live state (needs daemon + extension)" {
     flag --mode help="text | metadata | state" {
         arg <mode>

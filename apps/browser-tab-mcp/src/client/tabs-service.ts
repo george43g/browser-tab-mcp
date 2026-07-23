@@ -19,6 +19,7 @@ import type {
   GetPageInput,
   GetPageOutput,
   GroupTabsInput,
+  HistoryOutput,
   JournalOutput,
   MoveTabInput,
   OpenTabInput,
@@ -214,6 +215,23 @@ export async function journal(params: Record<string, unknown>): Promise<JournalO
   } catch (err) {
     if (!(err instanceof DaemonUnavailableError)) throw err;
     warn("daemon_unreachable_falling_back", { op: "journal" });
+    return empty;
+  }
+}
+
+/**
+ * Query global browsing history. Daemon-only (the extension/sqlite sources
+ * live there); fixture mode and a down daemon both yield an empty result
+ * rather than an error, like `journal`.
+ */
+export async function history(params: Record<string, unknown>): Promise<HistoryOutput> {
+  const empty: HistoryOutput = { rows: [], truncated: false };
+  if (fakeAdapterEnabled()) return empty;
+  try {
+    return await viaDaemon((c) => c.request<HistoryOutput>("history", params));
+  } catch (err) {
+    if (!(err instanceof DaemonUnavailableError)) throw err;
+    warn("daemon_unreachable_falling_back", { op: "history" });
     return empty;
   }
 }

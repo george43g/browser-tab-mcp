@@ -19,6 +19,7 @@ import { getLogsTool } from "./get-logs.js";
 import { getPageTool } from "./get-page.js";
 import { groupTabsTool } from "./group-tabs.js";
 import { healthCheckTool } from "./health-check.js";
+import { historyTool } from "./history.js";
 import { journalTool } from "./journal.js";
 import { listTabsTool } from "./list-tabs.js";
 import { moveTabTool } from "./move-tab.js";
@@ -46,6 +47,7 @@ export function makeAppRegistry(): ToolRegistry {
     annotateTool,
     screenshotTool,
     journalTool,
+    historyTool,
     daemonStatusTool,
     noopTool,
     getLogsTool,

@@ -47,6 +47,7 @@ import { APP_VERSION } from "../meta.js";
 import { AnnotationStore } from "./annotations.js";
 import { ContentCache } from "./content-cache.js";
 import { EngineLoop, pollMs } from "./engine-loop.js";
+import { history } from "./history.js";
 import { IpcServer } from "./ipc-server.js";
 import { JournalStore } from "./journal.js";
 import { buildSeedRecords, ingestExtEvent, ingestStoreEvent } from "./journal-ingest.js";
@@ -542,6 +543,7 @@ export async function startDaemon(): Promise<DaemonHandle> {
     onAnnotate: async (params) => annotate(params, annotations),
     onScreenshot: (params) =>
       screenshot(params, { ext, store, journal, shots, limiter: shotLimiter }),
+    onHistory: (params) => history(params, { ext }),
   });
 
   await ipc.start();

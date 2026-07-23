@@ -174,6 +174,27 @@ describe("journal (fake adapter → daemon-only, empty)", () => {
   });
 });
 
+describe("history (fake adapter → daemon-only, empty)", () => {
+  beforeEach(() => {
+    process.env.BROWSER_TAB_FAKE_ADAPTER = "1";
+  });
+
+  it("returns a schema-valid empty result when there's no daemon", async () => {
+    const { HistoryOutputSchema } = await import("@george43g/shared-types");
+    const r = await callMcpTool("history", { maxResults: 20 });
+    expect(r.isError).toBeUndefined();
+    const out = HistoryOutputSchema.parse(r.structuredContent);
+    expect(out.rows).toEqual([]);
+    expect(out.truncated).toBe(false);
+  });
+
+  it("rejects an out-of-range maxResults via schema", async () => {
+    const r = await callMcpTool("history", { maxResults: 9999 });
+    expect(r.isError).toBe(true);
+    expect(textOf(r.content)).toMatch(/Invalid arguments/);
+  });
+});
+
 describe("write-side commands (fake adapter → AppleScript fallback)", () => {
   beforeEach(() => {
     process.env.BROWSER_TAB_FAKE_ADAPTER = "1";

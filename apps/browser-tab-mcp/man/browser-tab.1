@@ -45,6 +45,9 @@ List open browser windows and tabs (Chrome/Brave/Chromium/Safari)
 \fBjournal\fR
 Show recorded focus/navigation history
 .TP
+\fBhistory\fR
+Query the browser's global URL history (Chrome\-family; Safari opt\-in)
+.TP
 \fBpage\fR
 Extract a tab's content or live state (needs daemon + extension)
 .TP
@@ -151,6 +154,28 @@ Tab handle (required for journey)
 .TP
 \fB\-\-limit\fR \fI<n>\fR
 Max records
+.SH "BROWSER-TAB HISTORY"
+Query the browser's global URL history (Chrome\-family; Safari opt\-in)
+.PP
+\fBUsage:\fR browser\-tab history [OPTIONS]
+.PP
+\fBOptions:\fR
+.PP
+.TP
+\fB\-\-browser\fR \fI<name>\fR
+Limit to one browser (omit to merge all reachable sources)
+.TP
+\fB\-\-query\fR \fI<text>\fR
+Case\-insensitive substring filter on URL/title
+.TP
+\fB\-\-start\fR \fI<ms>\fR
+Only visits at/after this epoch ms
+.TP
+\fB\-\-end\fR \fI<ms>\fR
+Only visits at/before this epoch ms
+.TP
+\fB\-\-limit\fR \fI<n>\fR
+Max rows
 .SH "BROWSER-TAB PAGE"
 Extract a tab's content or live state (needs daemon + extension)
 .PP
