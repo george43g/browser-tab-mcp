@@ -16,7 +16,7 @@ import { useMemo, useState } from "react";
 import { callMcpTool } from "../dispatcher.js";
 import { APP_NAME, APP_VERSION } from "../meta.js";
 import { engineLabel } from "../native-bridge.js";
-import { buildRows, type Row } from "./rows.js";
+import { buildRows, type Row, tabBadges } from "./rows.js";
 import { useSnapshot } from "./useSnapshot.js";
 
 const VIEWPORT = 24;
@@ -157,7 +157,9 @@ export function App() {
       text = `  ${fold} ${row.window.title.slice(0, 60) || "(untitled)"} — ${row.window.tabCount} tabs${cg}${isTarget}`;
     } else {
       const marker = row.tab.active ? "●" : "·";
-      text = `      ${marker} ${row.tab.title.slice(0, 50) || "(untitled)"}  ${row.tab.url.slice(0, 60)}`;
+      const badges = tabBadges(row.tab, row.browser.tabGroups);
+      const suffix = badges ? `  ${badges}` : "";
+      text = `      ${marker} ${row.tab.title.slice(0, 50) || "(untitled)"}  ${row.tab.url.slice(0, 60)}${suffix}`;
     }
     const highlightTarget =
       mode.kind === "move" && row.kind === "window" && moveTargets[targetIdx]?.key === row.key;
