@@ -134,6 +134,13 @@ tabId = tier "tab" (extension `captureVisibleTab`, active-tab preflight, 2/s rat
 `BROWSER_TAB_WINDOW_CAPTURE`). Returns `{tier, path, bytes, format:"jpeg", cached, navEpoch?}`; the
 MCP tool additionally emits the jpeg as a base64 image content block).
 
+`history` (params: `{"browser"?, "query"?, "startTime"?, "endTime"?, "maxResults"?}` — the browser's
+persisted URL history, distinct from `journal`. Chrome-family reads it via the extension
+(`chrome.history`); Safari via a daemon-side sqlite copy of `History.db` (opt-in via
+`BROWSER_TAB_SAFARI_HISTORY`, needs Full Disk Access). Omit `browser` to merge every reachable
+source; an explicit-but-unavailable source errors. Returns `{rows: [{url, title?, visitTime, visitCount,
+browser}], truncated}`, newest first. URLs/titles are untrusted).
+
 Command `kind`s and their tool-input fields:
 
 | kind | fields | notes |

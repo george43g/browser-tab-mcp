@@ -7,10 +7,11 @@
  * readability.
  */
 
-import { existsSync, statSync } from "node:fs";
+import { accessSync, existsSync, constants as fsConstants, statSync } from "node:fs";
 import { homedir } from "node:os";
 import { join } from "node:path";
 import { envBool } from "@george43g/robustness";
+import { safariHistoryDbPath } from "./daemon/safari-history.js";
 import { correlationTier } from "./detect/correlate.js";
 import { enabledBrowsers, specFor } from "./detect/engine.js";
 import { OsaPermissionError, osaQuote, probeProcess, runOsa } from "./detect/osascript.js";
@@ -208,6 +209,47 @@ function checkScreenRecording(): AccessCheckItem {
   };
 }
 
+/**
+ * Full Disk Access for Safari history (tier: reading History.db). Only shown
+ * when BROWSER_TAB_SAFARI_HISTORY is on. FDA is granted per-binary, so a
+ * readable check from your terminal does NOT guarantee the launchd daemon (a
+ * different binary/context) can read it — we probe from here and flag the split.
+ */
+function checkSafariHistory(): AccessCheckItem {
+  const key = "safariHistory";
+  const label = "Full Disk Access (Safari history)";
+  const db = safariHistoryDbPath();
+  if (!existsSync(db)) {
+    return {
+      key,
+      label,
+      status: "warn",
+      detail: `Safari History.db not found at ${db}. Set BROWSER_TAB_SAFARI_HISTORY_DB if it lives elsewhere.`,
+    };
+  }
+  try {
+    accessSync(db, fsConstants.R_OK);
+    return {
+      key,
+      label,
+      status: "ok",
+      detail:
+        "readable from this context. Note: FDA is per-binary — the launchd daemon runs a different " +
+        "binary and may still be denied; if `history` errors, grant FDA to your node/daemon binary too.",
+    };
+  } catch {
+    return {
+      key,
+      label,
+      status: "warn",
+      detail:
+        "History.db isn't readable — grant Full Disk Access to the binary running browser-tab " +
+        "(your terminal / node, and the launchd daemon) in System Settings → Privacy & Security → " +
+        "Full Disk Access, then retry.",
+    };
+  }
+}
+
 export async function checkLocalAccess(): Promise<AccessReport> {
   const browserItems =
     process.env.BROWSER_TAB_FAKE_ADAPTER === "1"
@@ -219,12 +261,16 @@ export async function checkLocalAccess(): Promise<AccessReport> {
   const windowCaptureItems = envBool("BROWSER_TAB_WINDOW_CAPTURE", false)
     ? [checkScreenRecording()]
     : [];
+  const safariHistoryItems = envBool("BROWSER_TAB_SAFARI_HISTORY", false)
+    ? [checkSafariHistory()]
+    : [];
   const items = [
     checkNode(),
     checkNative(),
     checkConfigDir(),
     ...browserItems,
     ...windowCaptureItems,
+    ...safariHistoryItems,
   ];
   const ok = items.every((i) => i.status !== "error");
   return { ok, items };

@@ -133,6 +133,35 @@ Shots land in `~/.cache/browser-tab/shots/` (file-count LRU). Env:
 `BROWSER_TAB_WINDOW_CAPTURE` (0), `BROWSER_TAB_SHOT_QUALITY` (70),
 `BROWSER_TAB_SHOT_MAX` (200), `BROWSER_TAB_SHOT_DIR`.
 
+## Global history
+
+The browser's own persisted URL history — distinct from `journal` (the daemon's
+in-session focus/nav memory). One `history` tool, two sources, merged
+newest-first and tagged per browser:
+
+- **Chrome-family** — the connected extension's `chrome.history` (granted since
+  the contract-v2 permission batch). No daemon-side file access.
+- **Safari** — a daemon-side sqlite read of `~/Library/Safari/History.db`, since
+  Safari has no `chrome.history`. **Opt-in** behind `BROWSER_TAB_SAFARI_HISTORY=1`
+  and gated by **Full Disk Access** (FDA is per-binary, so the launchd daemon may
+  be denied even when your terminal isn't — `doctor` flags the split). The daemon
+  copies History.db + its WAL sidecars to a private tmpdir and queries the copy
+  with `/usr/bin/sqlite3 -json`; Cocoa `visit_time` is converted to epoch ms.
+  Injection-free by construction — only numeric time bounds reach the SQL, and
+  the text filter runs on the returned rows in TypeScript.
+
+```sh
+browser-tab history                              # merge every reachable source
+browser-tab history --browser chrome --query gh  # one browser, substring filter
+browser-tab history --start <ms> --end <ms>      # time-bounded (epoch ms)
+browser-tab history --limit 100                  # cap the rows
+```
+
+Passing an explicit `--browser` whose source is unavailable errors with a hint;
+omitting it merges whatever's reachable (empty when nothing is, like `journal`).
+URLs/titles are untrusted web content. Env: `BROWSER_TAB_SAFARI_HISTORY` (0),
+`BROWSER_TAB_SQLITE_BIN` (`/usr/bin/sqlite3`), `BROWSER_TAB_SAFARI_HISTORY_DB`.
+
 ## Adding a tool
 
 1. Copy `src/tools/noop.ts` to `src/tools/<your-tool>.ts`.

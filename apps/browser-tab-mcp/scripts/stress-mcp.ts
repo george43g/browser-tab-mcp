@@ -408,6 +408,25 @@ async function caseContentFakeAdapter(): Promise<void> {
       "screenshot with neither/both ids is rejected by schema",
       /Invalid arguments|exactly one/i.test(await text("screenshot", {})),
     );
+    // history is a read-query: like journal it degrades to a valid empty result
+    // without a daemon (not an error), and enforces its maxResults bound.
+    let histOk = false;
+    let histDetail = "no parseable history";
+    try {
+      const out = JSON.parse(await text("history", { maxResults: 20 })) as {
+        rows?: unknown[];
+        truncated?: unknown;
+      };
+      histOk = Array.isArray(out.rows) && out.rows.length === 0 && out.truncated === false;
+      histDetail = `rows=${out.rows?.length} truncated=${String(out.truncated)}`;
+    } catch (err) {
+      histDetail = `unparseable: ${(err as Error).message}`;
+    }
+    record("history (fake adapter) returns valid empty result", histOk, histDetail);
+    record(
+      "history with out-of-range maxResults is rejected by schema",
+      /Invalid arguments/i.test(await text("history", { maxResults: 9999 })),
+    );
   } finally {
     c.kill();
     await c.waitExit();

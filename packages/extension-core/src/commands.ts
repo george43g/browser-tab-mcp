@@ -28,6 +28,10 @@ export interface CommandArgs {
   pinned?: boolean;
   action?: string;
   quality?: number;
+  text?: string;
+  startTime?: number;
+  endTime?: number;
+  maxResults?: number;
   title?: string;
   color?: string;
   collapsed?: boolean;
@@ -307,6 +311,27 @@ export async function executeCommand(kind: string, args: CommandArgs): Promise<C
       const quality = typeof args.quality === "number" ? args.quality : 70;
       const dataUrl = await tabs.captureVisibleTab(windowId, { format: "jpeg", quality });
       return { tabId, windowId, payload: { dataUrl } };
+    }
+    case "history_search": {
+      const history = api.history as typeof chrome.history | undefined;
+      if (typeof history?.search !== "function") {
+        throw new Error("history API unavailable in this browser");
+      }
+      const items = await history.search({
+        text: args.text ?? "",
+        ...(typeof args.startTime === "number" ? { startTime: args.startTime } : {}),
+        ...(typeof args.endTime === "number" ? { endTime: args.endTime } : {}),
+        maxResults: typeof args.maxResults === "number" ? args.maxResults : 100,
+      });
+      // Map chrome HistoryItem → the daemon's raw row shape (it tags browser).
+      // lastVisitTime is already epoch ms; the daemon leaves it as-is.
+      const rows = items.map((it) => ({
+        url: it.url ?? "",
+        ...(it.title !== undefined ? { title: it.title } : {}),
+        visitTime: Math.round(it.lastVisitTime ?? 0),
+        visitCount: it.visitCount ?? 0,
+      }));
+      return { payload: { rows } };
     }
     default:
       throw new Error(`unknown command kind "${kind}"`);

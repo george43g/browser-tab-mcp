@@ -34,7 +34,7 @@ const HELLO_TIMEOUT_MS = 3_000;
 const COMMAND_TIMEOUT_MS = 5_000;
 /** Kinds that inject/scrape a page and may legitimately take a while. */
 const LONG_COMMAND_TIMEOUT_MS = 10_000;
-const LONG_KINDS = new Set(["extract_content", "capture_tab"]);
+const LONG_KINDS = new Set(["extract_content", "capture_tab", "history_search"]);
 const DEFAULT_MAX_PAYLOAD = 16 * 1024 * 1024;
 /** Wire protocol version the daemon speaks (v2: capabilities + enrichments). */
 const PROTOCOL_VERSION = 2;

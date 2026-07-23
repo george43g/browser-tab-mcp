@@ -93,6 +93,12 @@ const serverMessages: ExtServerMessage[] = [
     kind: "capture_tab",
     args: { tabId: 4, windowId: 7, quality: 70 },
   },
+  {
+    type: "command",
+    requestId: 4,
+    kind: "history_search",
+    args: { text: "news", startTime: 1000, maxResults: 50 },
+  },
   { type: "ping", ts: 456 },
 ];
 

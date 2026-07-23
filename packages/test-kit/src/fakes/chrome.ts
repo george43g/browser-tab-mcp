@@ -47,6 +47,13 @@ export interface FakeChromeConfig {
   scriptResult?: unknown | ((mode?: string) => unknown);
   /** data URL `tabs.captureVisibleTab` resolves to. Default a 3-byte jpeg. */
   captureDataUrl?: string;
+  /** HistoryItems `history.search` returns (chrome profile only). Default []. */
+  historyItems?: Array<{
+    url: string;
+    title?: string;
+    lastVisitTime?: number;
+    visitCount?: number;
+  }>;
 }
 
 export interface FakeChrome {
@@ -309,7 +316,7 @@ export function installFakeChrome(config: FakeChromeConfig = {}): FakeChrome {
     fake.history = {
       search: (query?: unknown) => {
         record("history.search", [query]);
-        return Promise.resolve([]);
+        return Promise.resolve(config.historyItems ?? []);
       },
       getVisits: (details?: unknown) => {
         record("history.getVisits", [details]);

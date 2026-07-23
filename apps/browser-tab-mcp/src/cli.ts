@@ -145,6 +145,34 @@ export async function main(argv: readonly string[] = process.argv): Promise<void
     );
 
   program
+    .command("history")
+    .description("Query the browser's global URL history (Chrome-family; Safari opt-in)")
+    .option("--browser <name>", "Limit to one browser (omit to merge all reachable sources)")
+    .option("--query <text>", "Case-insensitive substring filter on URL/title")
+    .option("--start <ms>", "Only visits at/after this epoch ms")
+    .option("--end <ms>", "Only visits at/before this epoch ms")
+    .option("--limit <n>", "Max rows", "50")
+    .action(
+      async (opts: {
+        browser?: string;
+        query?: string;
+        start?: string;
+        end?: string;
+        limit?: string;
+      }) => {
+        const json = program.opts<{ json?: boolean }>().json ?? false;
+        const result = await callMcpTool("history", {
+          ...(opts.browser ? { browser: opts.browser } : {}),
+          ...(opts.query ? { query: opts.query } : {}),
+          ...(opts.start ? { startTime: Number.parseInt(opts.start, 10) } : {}),
+          ...(opts.end ? { endTime: Number.parseInt(opts.end, 10) } : {}),
+          maxResults: Number.parseInt(opts.limit ?? "50", 10),
+        });
+        await printResult(result, json);
+      },
+    );
+
+  program
     .command("page")
     .description("Extract a tab's content or live state (needs daemon + extension)")
     .argument("<tabId>", "Extension-generation tab handle from `browser-tab list`")
