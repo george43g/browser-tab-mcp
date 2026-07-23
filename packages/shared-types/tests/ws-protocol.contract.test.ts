@@ -87,6 +87,12 @@ const serverMessages: ExtServerMessage[] = [
   { type: "helloAck", protocolVersion: 2, config: { blurCapture: true } },
   { type: "command", requestId: 1, kind: "move_tab", args: { tabId: 4 } },
   { type: "command", requestId: 2, kind: "extract_content", args: { tabId: 4, mode: "text" } },
+  {
+    type: "command",
+    requestId: 3,
+    kind: "capture_tab",
+    args: { tabId: 4, windowId: 7, quality: 70 },
+  },
   { type: "ping", ts: 456 },
 ];
 

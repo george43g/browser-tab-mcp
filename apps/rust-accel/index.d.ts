@@ -70,3 +70,12 @@ export interface NoopOutput {
   engine: string
   durationMicros: number
 }
+
+/**
+ * Whether this process already holds Screen Recording (TCC) permission,
+ * checked WITHOUT prompting. Feeds the `doctor` Screen Recording check for
+ * tier-2 window capture (`screencapture -l`). Returns false off macOS or when
+ * the permission is absent — the daemon's capture then produces the real
+ * actionable failure at call time.
+ */
+export declare function preflightScreenCapture(): boolean

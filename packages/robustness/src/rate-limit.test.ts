@@ -56,4 +56,44 @@ describe("TokenBucket", () => {
     expect(() => new TokenBucket(-1, 1)).toThrow();
     expect(() => new TokenBucket(1, -1)).toThrow();
   });
+
+  describe("tryAcquire (non-blocking)", () => {
+    it("deducts when tokens are available", () => {
+      const b = new TokenBucket(2, 2);
+      expect(b.tryAcquire(1)).toEqual({ ok: true, retryMs: 0 });
+      expect(b.available()).toBeCloseTo(1, 0);
+    });
+
+    it("fails fast with a retry estimate when starved (never waits)", () => {
+      const now = 0;
+      const b = new TokenBucket(2, 2, () => now);
+      expect(b.tryAcquire(1).ok).toBe(true);
+      expect(b.tryAcquire(1).ok).toBe(true); // drained (2/2)
+      const denied = b.tryAcquire(1);
+      expect(denied.ok).toBe(false);
+      // need 1 token at 2/s → ~500ms
+      expect(denied.retryMs).toBeGreaterThanOrEqual(1);
+      expect(denied.retryMs).toBeLessThanOrEqual(500);
+    });
+
+    it("recovers after enough time elapses", () => {
+      let now = 0;
+      const b = new TokenBucket(2, 2, () => now);
+      b.tryAcquire(1);
+      b.tryAcquire(1);
+      expect(b.tryAcquire(1).ok).toBe(false);
+      now += 1000; // +2 tokens
+      expect(b.tryAcquire(1).ok).toBe(true);
+    });
+
+    it("tryAcquire(0) always succeeds", () => {
+      const b = new TokenBucket(0, 0);
+      expect(b.tryAcquire(0)).toEqual({ ok: true, retryMs: 0 });
+    });
+
+    it("rps=0 with no tokens reports retryMs 0 (limiter effectively off)", () => {
+      const b = new TokenBucket(0, 0);
+      expect(b.tryAcquire(1)).toEqual({ ok: false, retryMs: 0 });
+    });
+  });
 });

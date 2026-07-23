@@ -400,6 +400,14 @@ async function caseContentFakeAdapter(): Promise<void> {
       "annotate without daemon errors cleanly",
       /daemon/i.test(await text("annotate", { url: "https://x/", note: "hi" })),
     );
+    record(
+      "screenshot without daemon/extension errors cleanly",
+      /daemon|extension|fixture/i.test(await text("screenshot", { tabId: "t:chrome:x9900" })),
+    );
+    record(
+      "screenshot with neither/both ids is rejected by schema",
+      /Invalid arguments|exactly one/i.test(await text("screenshot", {})),
+    );
   } finally {
     c.kill();
     await c.waitExit();

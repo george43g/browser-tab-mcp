@@ -9,12 +9,18 @@
  *   - native module fallback when MCP_DISABLE_NATIVE=1
  */
 
-import { buildResourcesHandler } from "@george43g/mcp-kit";
+import { buildResourcesHandler, type ContentBlock } from "@george43g/mcp-kit";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { _resetCounters } from "../src/counters.js";
 import { callMcpTool } from "../src/dispatcher.js";
 import { makeResourcesProvider } from "../src/resources/registry.js";
 import { makeAppRegistry } from "../src/tools/registry.js";
+
+/** First text block's text (content may now also carry image blocks). */
+function textOf(content: ContentBlock[]): string {
+  const block = content.find((b) => b.type === "text");
+  return block && block.type === "text" ? block.text : "";
+}
 
 beforeEach(() => {
   _resetCounters();
@@ -142,7 +148,7 @@ describe("list_tabs (fake adapter)", () => {
   it("rejects an invalid browser value via schema", async () => {
     const r = await callMcpTool("list_tabs", { browser: "netscape" });
     expect(r.isError).toBe(true);
-    expect(r.content[0]?.text).toMatch(/Invalid arguments/);
+    expect(textOf(r.content)).toMatch(/Invalid arguments/);
   });
 });
 
@@ -164,7 +170,7 @@ describe("journal (fake adapter → daemon-only, empty)", () => {
   it("rejects an invalid view via schema", async () => {
     const r = await callMcpTool("journal", { view: "bogus" });
     expect(r.isError).toBe(true);
-    expect(r.content[0]?.text).toMatch(/Invalid arguments/);
+    expect(textOf(r.content)).toMatch(/Invalid arguments/);
   });
 });
 
@@ -203,19 +209,19 @@ describe("write-side commands (fake adapter → AppleScript fallback)", () => {
   it("group_tabs errors cleanly without an extension", async () => {
     const r = await callMcpTool("group_tabs", { action: "create", tabIds: ["t:chrome:9900"] });
     expect(r.isError).toBe(true);
-    expect(r.content[0]?.text).toMatch(/extension/i);
+    expect(textOf(r.content)).toMatch(/extension/i);
   });
 
   it("an AppleScript-unsupported tab_action (mute) errors with a hint", async () => {
     const r = await callMcpTool("tab_action", { tabId: "t:chrome:9900", action: "mute" });
     expect(r.isError).toBe(true);
-    expect(r.content[0]?.text).toMatch(/extension/i);
+    expect(textOf(r.content)).toMatch(/extension/i);
   });
 
   it("navigate without a url is rejected", async () => {
     const r = await callMcpTool("tab_action", { tabId: "t:chrome:9900", action: "navigate" });
     expect(r.isError).toBe(true);
-    expect(r.content[0]?.text).toMatch(/url/i);
+    expect(textOf(r.content)).toMatch(/url/i);
   });
 });
 
@@ -227,19 +233,37 @@ describe("page content & annotations (fake adapter → daemon-required)", () => 
   it("get_page errors cleanly without the daemon/extension", async () => {
     const r = await callMcpTool("get_page", { tabId: "t:chrome:9900", mode: "text" });
     expect(r.isError).toBe(true);
-    expect(r.content[0]?.text).toMatch(/extension|daemon/i);
+    expect(textOf(r.content)).toMatch(/extension|daemon/i);
   });
 
   it("annotate errors cleanly without the daemon", async () => {
     const r = await callMcpTool("annotate", { url: "https://x/", note: "hi" });
     expect(r.isError).toBe(true);
-    expect(r.content[0]?.text).toMatch(/daemon/i);
+    expect(textOf(r.content)).toMatch(/daemon/i);
   });
 
   it("rejects an invalid get_page mode via schema", async () => {
     const r = await callMcpTool("get_page", { tabId: "t:chrome:9900", mode: "bogus" });
     expect(r.isError).toBe(true);
-    expect(r.content[0]?.text).toMatch(/Invalid arguments/);
+    expect(textOf(r.content)).toMatch(/Invalid arguments/);
+  });
+
+  it("screenshot errors cleanly without the daemon/extension", async () => {
+    const r = await callMcpTool("screenshot", { tabId: "t:chrome:x9900" });
+    expect(r.isError).toBe(true);
+    expect(textOf(r.content)).toMatch(/daemon|extension|fixture/i);
+  });
+
+  it("rejects a screenshot with neither tabId nor windowId via schema", async () => {
+    const r = await callMcpTool("screenshot", {});
+    expect(r.isError).toBe(true);
+    expect(textOf(r.content)).toMatch(/Invalid arguments|exactly one/i);
+  });
+
+  it("rejects a screenshot with both tabId and windowId via schema", async () => {
+    const r = await callMcpTool("screenshot", { tabId: "t:chrome:x1", windowId: "w:chrome:x1" });
+    expect(r.isError).toBe(true);
+    expect(textOf(r.content)).toMatch(/Invalid arguments|exactly one/i);
   });
 });
 
@@ -247,13 +271,13 @@ describe("error paths", () => {
   it("rejects unknown tool with isError", async () => {
     const r = await callMcpTool("ghost_tool", {});
     expect(r.isError).toBe(true);
-    expect(r.content[0]?.text).toMatch(/Unknown tool/);
+    expect(textOf(r.content)).toMatch(/Unknown tool/);
   });
 
   it("rejects malformed args with usable error", async () => {
     const r = await callMcpTool("noop", { input: 42 });
     expect(r.isError).toBe(true);
-    expect(r.content[0]?.text).toMatch(/Invalid arguments/);
+    expect(textOf(r.content)).toMatch(/Invalid arguments/);
   });
 });
 

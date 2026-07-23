@@ -54,6 +54,26 @@ export class TokenBucket {
   }
 
   /**
+   * Non-blocking acquire: deduct `n` tokens if available, else report how long
+   * until they would be. Unlike `acquire()` this never waits — callers that
+   * prefer to fail fast ("retry in <ms>") use this instead of queuing. With
+   * rps=0 the bucket never refills, so an empty bucket reports retryMs=0
+   * (limiter effectively off / permanently exhausted — caller decides).
+   */
+  tryAcquire(n = 1): { ok: boolean; retryMs: number } {
+    if (n <= 0) return { ok: true, retryMs: 0 };
+    const now = this.clock();
+    this.refill(now);
+    if (this.tokens >= n) {
+      this.tokens -= n;
+      return { ok: true, retryMs: 0 };
+    }
+    if (this.rps <= 0) return { ok: false, retryMs: 0 };
+    const needed = n - this.tokens;
+    return { ok: false, retryMs: Math.max(1, Math.ceil((needed / this.rps) * 1000)) };
+  }
+
+  /**
    * Block until `n` tokens are available, then deduct them. With rps=0
    * tokens never refill, so once exhausted further calls hang — call sites
    * should treat rps=0 as "limiter off" and skip calling acquire. The

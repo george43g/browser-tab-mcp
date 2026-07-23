@@ -45,6 +45,8 @@ export interface FakeChromeConfig {
    * receives the injection args so a test can vary by mode.
    */
   scriptResult?: unknown | ((mode?: string) => unknown);
+  /** data URL `tabs.captureVisibleTab` resolves to. Default a 3-byte jpeg. */
+  captureDataUrl?: string;
 }
 
 export interface FakeChrome {
@@ -171,7 +173,7 @@ export function installFakeChrome(config: FakeChromeConfig = {}): FakeChrome {
     },
     captureVisibleTab: (windowId?: number, opts?: unknown) => {
       record("tabs.captureVisibleTab", [windowId, opts]);
-      return Promise.resolve("data:image/jpeg;base64,/9j/AA==");
+      return Promise.resolve(config.captureDataUrl ?? "data:image/jpeg;base64,/9j/AA==");
     },
     ...Object.fromEntries(tabsEvents.map((name) => [name, makeEvent(`tabs.${name}`)])),
   };

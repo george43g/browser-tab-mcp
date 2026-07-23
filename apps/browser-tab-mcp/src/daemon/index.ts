@@ -52,6 +52,8 @@ import { JournalStore } from "./journal.js";
 import { buildSeedRecords, ingestExtEvent, ingestStoreEvent } from "./journal-ingest.js";
 import { SourceMerger } from "./merge.js";
 import { socketPath } from "./paths.js";
+import { ShotRateLimiter, screenshot } from "./screenshot.js";
+import { ShotStore } from "./shots.js";
 import { SnapshotWriter } from "./snapshot-writer.js";
 import { StateStore } from "./state.js";
 import { ensureToken } from "./token.js";
@@ -462,6 +464,8 @@ export async function startDaemon(): Promise<DaemonHandle> {
   journal.warmFromDisk();
   const contentCache = new ContentCache();
   const annotations = new AnnotationStore();
+  const shots = new ShotStore();
+  const shotLimiter = new ShotRateLimiter();
   // Per-boot session id — content cache keys include it so a restarted daemon
   // never serves content keyed to a now-dead handle generation.
   const sessionId = Date.now().toString(36);
@@ -536,6 +540,8 @@ export async function startDaemon(): Promise<DaemonHandle> {
     onJournal: async (params) => journal.query(params),
     onGetPage: (params) => getPage(params, { ext, store, journal, cache: contentCache, sessionId }),
     onAnnotate: async (params) => annotate(params, annotations),
+    onScreenshot: (params) =>
+      screenshot(params, { ext, store, journal, shots, limiter: shotLimiter }),
   });
 
   await ipc.start();

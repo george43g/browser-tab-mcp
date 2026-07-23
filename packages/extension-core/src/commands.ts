@@ -27,6 +27,7 @@ export interface CommandArgs {
   activate?: boolean;
   pinned?: boolean;
   action?: string;
+  quality?: number;
   title?: string;
   color?: string;
   collapsed?: boolean;
@@ -296,6 +297,16 @@ export async function executeCommand(kind: string, args: CommandArgs): Promise<C
       const tabId = requireTab(args);
       const result = await injectExtract(tabId, args.mode ?? "text", args.maxBytes ?? 0);
       return { tabId, payload: result };
+    }
+    case "capture_tab": {
+      // captureVisibleTab grabs the *active* tab of a window — the daemon
+      // preflights that this tab is active, or (with focus) activates it first.
+      const tabId = requireTab(args);
+      const windowId = requireWindow(args);
+      if (args.activate) await tabs.update(tabId, { active: true });
+      const quality = typeof args.quality === "number" ? args.quality : 70;
+      const dataUrl = await tabs.captureVisibleTab(windowId, { format: "jpeg", quality });
+      return { tabId, windowId, payload: { dataUrl } };
     }
     default:
       throw new Error(`unknown command kind "${kind}"`);

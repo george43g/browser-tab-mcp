@@ -66,6 +66,15 @@ cmd annotate help="Read or write a URL-keyed note in the daemon annotation store
     }
     arg <url>
 }
+cmd screenshot help="Capture a tab or window as a jpeg (needs the daemon + extension for tabs)" {
+    flag --window help="Treat <id> as a window handle: tier 2 screencapture (opt-in)"
+    flag --focus help="Tier \'tab\': activate the tab first if it isn\'t active (changes user state)"
+    flag --force help="Bypass the navEpoch shot cache and recapture"
+    flag --out help="Copy the captured jpeg to this path" {
+        arg <file>
+    }
+    arg <id>
+}
 cmd focus help="Focus a tab and raise its window" {
     arg <tabId>
 }

@@ -12,6 +12,7 @@
  * To remove TUI support: delete the `tui` subcommand below + `src/tui/`.
  */
 
+import { copyFileSync } from "node:fs";
 import { color, isInteractive } from "@george43g/cli-kit";
 import { Command } from "commander";
 import { checkLocalAccess, formatAccessReport } from "./access-check.js";
@@ -37,7 +38,11 @@ async function printResult(result: Awaited<ReturnType<typeof callMcpTool>>, json
     return;
   }
   for (const item of result.content ?? []) {
-    process.stdout.write(`${item.text}\n`);
+    if (item.type === "text") {
+      process.stdout.write(`${item.text}\n`);
+    } else if (item.type === "image") {
+      process.stdout.write(`[image ${item.mimeType}, ${item.data.length} base64 chars]\n`);
+    }
   }
   if (result.isError) process.exit(1);
 }
@@ -168,6 +173,35 @@ export async function main(argv: readonly string[] = process.argv): Promise<void
       });
       await printResult(result, json);
     });
+
+  program
+    .command("screenshot")
+    .description("Capture a tab or window as a jpeg (needs the daemon + extension for tabs)")
+    .argument("<id>", "Tab handle (tier 'tab'), or a window handle with --window (tier 'window')")
+    .option("--window", "Treat <id> as a window handle: tier 2 screencapture (opt-in)", false)
+    .option(
+      "--focus",
+      "Tier 'tab': activate the tab first if it isn't active (changes user state)",
+      false,
+    )
+    .option("--force", "Bypass the navEpoch shot cache and recapture", false)
+    .option("--out <file>", "Copy the captured jpeg to this path")
+    .action(
+      async (
+        id: string,
+        opts: { window?: boolean; focus?: boolean; force?: boolean; out?: string },
+      ) => {
+        const json = program.opts<{ json?: boolean }>().json ?? false;
+        const result = await callMcpTool("screenshot", {
+          ...(opts.window ? { windowId: id } : { tabId: id }),
+          focus: opts.focus ?? false,
+          force: opts.force ?? false,
+        });
+        const sc = result.structuredContent as { path?: string } | undefined;
+        if (opts.out && sc?.path) copyFileSync(sc.path, opts.out);
+        await printResult(result, json);
+      },
+    );
 
   program
     .command("focus")

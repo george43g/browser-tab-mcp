@@ -591,3 +591,4 @@ module.exports.hello = nativeBinding.hello
 module.exports.listCgWindows = nativeBinding.listCgWindows
 module.exports.listDisplays = nativeBinding.listDisplays
 module.exports.noopAccel = nativeBinding.noopAccel
+module.exports.preflightScreenCapture = nativeBinding.preflightScreenCapture

@@ -34,6 +34,7 @@ Disable colors
 - [`browser-tab journal [FLAGS]`](/journal.md)
 - [`browser-tab page [--mode <mode>] [--force] <tabId>`](/page.md)
 - [`browser-tab annotate [--note <text>] <url>`](/annotate.md)
+- [`browser-tab screenshot [FLAGS] <id>`](/screenshot.md)
 - [`browser-tab focus <tabId>`](/focus.md)
 - [`browser-tab close <tabId>`](/close.md)
 - [`browser-tab open [FLAGS] <url>`](/open.md)

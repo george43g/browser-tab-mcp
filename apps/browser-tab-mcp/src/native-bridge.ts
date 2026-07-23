@@ -27,6 +27,8 @@ export interface NativeModule {
   listCgWindows(): CgWindowInfo[];
   /** Active displays with global-screen bounds (for `display` window targeting). */
   listDisplays(): DisplayInfo[];
+  /** Non-prompting check: does this process hold Screen Recording TCC? (doctor) */
+  preflightScreenCapture(): boolean;
 }
 
 let _native: NativeModule | null | undefined;
