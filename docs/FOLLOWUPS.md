@@ -25,8 +25,8 @@ Safari); these are hardening / productization items, not blockers.
 > three sabotages below each turn a test RED. The taxonomy + "where a new test
 > goes" decision tree now live in `AGENTS.md` (§ Testing posture & taxonomy).
 > The sections below are the original plan, kept as the implementation record.
-> Still open here: **P3 Playwright E2E** (stub only) and coverage **gating**
-> (flip `COVERAGE_GATE=1` in CI when the suite matures).
+> **P3 Playwright E2E is now DONE** (full round-trip — see below). Still open
+> here: coverage **gating** (flip `COVERAGE_GATE=1` in CI when the suite matures).
 
 **Why.** CI green is meaningful for the daemon / MCP / kits (24 test files,
 stress harness, both-OS build incl. Rust native) but **not** for the browser
@@ -136,13 +136,17 @@ SW, the ES-chunk imports, the `type="module"` script tags).
   can't be unit-tested (popup/options entry glue), or accept the P1 coverage.
 - Add a `shellcheck apps/safari-extension/scripts/*.sh` CI step.
 
-### P3 — Playwright headed-Chromium E2E (optional, heavier)
+### P3 — Playwright headed-Chromium E2E — **DONE**
 
-Launch a persistent context with `--disable-extensions-except=<dist>` +
-`--load-extension=<dist>` (needs headed or new-headless), point it at a
-throwaway daemon (fake adapter + real WS), assert `daemon_status` shows
-`extensions:["chrome"]` and a move preserves scroll. Separate CI job (adds a
-browser). Safari is NOT automatable — keep the README manual-smoke checklist.
+Shipped: `apps/chrome-extension/e2e/*.e2e.test.ts` (`@playwright/test`, its own
+runner, excluded from the vitest unit run). Launches a persistent context with
+`--disable-extensions-except=<dist>` + `--load-extension=<dist>` in **new-headless**
+(the full chromium build, which supports MV3 extensions — the headless shell does
+not), points it at a throwaway daemon isolated via `BROWSER_TAB_STATE_DIR`/
+`_CACHE_DIR` (fake adapter, real WS), seeds the options config, asserts the daemon
+goes **extension-authoritative** (`dataSource:"extension"`, x-handles) and that a
+daemon-driven **cross-window move preserves scroll**. Own CI job (`e2e-chromium`).
+Safari is NOT automatable — the README manual-smoke checklist stays.
 
 ### CI wiring (`.github/workflows/ci.yml`)
 

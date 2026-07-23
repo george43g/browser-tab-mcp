@@ -10,6 +10,7 @@
     "test": "vitest run",
     "test:no-native": "vitest run",
     "test:watch": "vitest",
+    "test:e2e": "playwright test",
     "clean": "rm -rf dist coverage"
   },
   "dependencies": {
@@ -20,6 +21,7 @@
     "@george43g/test-kit": "workspace:*",
     "@george43g/tsconfig": "workspace:*",
     "@george43g/vitest-config": "workspace:*",
+    "@playwright/test": "^1.61.1",
     "@types/chrome": "^0.0.280",
     "@types/node": "^24.13.3",
     "happy-dom": "^20.11.0",

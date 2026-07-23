@@ -101,15 +101,51 @@ jobs:
           path: apps/**/stress-*-report.json
           if-no-files-found: ignore
 
-  # Deferred: headed-Chromium E2E of the built extension against a throwaway
-  # daemon. Scaffolded but gated off so it never runs the hot matrix. Flip the
-  # `if:` to a label/dispatch trigger (and fill in the steps) when picked up.
-  # Safari is NOT automatable — keep the manual smoke checklist in
-  # apps/safari-extension/README.md. See docs/FOLLOWUPS.md § 1 (P3).
+  # Headed-Chromium (new-headless) E2E of the BUILT extension against a
+  # throwaway, HOME-isolated daemon: load dist/ → connect over loopback →
+  # daemon-driven cross-window move preserves scroll. Own job (adds a browser),
+  # off the hot matrix. Safari is NOT automatable — keep the manual smoke
+  # checklist in apps/safari-extension/README.md. See docs/FOLLOWUPS.md § 1 (P3).
   e2e-chromium:
-    name: e2e (chromium, deferred)
-    if: ${{ false }}
+    name: e2e (chromium)
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
-      - uses: actions/checkout@v6
-      - run: echo "Placeholder — build chrome-extension, playwright install chromium, run e2e/*.e2e.test.ts"
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v6
+        with:
+          version: 10.29.3
+
+      - name: Setup Node
+        uses: actions/setup-node@v6
+        with:
+          node-version: "24"
+          cache: pnpm
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build (extension bundle + daemon CLI)
+        run: pnpm build
+
+      - name: Install Playwright chromium (+ OS deps)
+        run: pnpm --filter @george43g/chrome-extension exec playwright install --with-deps chromium
+
+      - name: Run e2e (built extension ↔ throwaway daemon)
+        run: pnpm --filter @george43g/chrome-extension test:e2e
+
+      - name: Upload Playwright report on failure
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: playwright-report
+          path: |
+            apps/chrome-extension/playwright-report/
+            apps/chrome-extension/test-results/
+          if-no-files-found: ignore
