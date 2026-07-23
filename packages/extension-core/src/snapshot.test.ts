@@ -61,6 +61,16 @@ describe("mapTab", () => {
     expect(mapTab(tab({ groupId: -1 }))?.groupId).toBeUndefined();
   });
 
+  it("carries an http(s) favicon but drops an oversized inline data: URI at the source", () => {
+    expect(mapTab(tab({ favIconUrl: "https://example.com/favicon.ico" }))?.favicon).toBe(
+      "https://example.com/favicon.ico",
+    );
+    const big = `data:image/png;base64,${"A".repeat(9000)}`;
+    expect(mapTab(tab({ favIconUrl: big }))?.favicon).toBeUndefined();
+    // No favIconUrl at all → field simply absent.
+    expect(mapTab(tab())).not.toHaveProperty("favicon");
+  });
+
   it("falls back to pendingUrl and empty strings", () => {
     const t = mapTab(
       tab({ url: undefined, pendingUrl: "https://pending.test/", title: undefined }),

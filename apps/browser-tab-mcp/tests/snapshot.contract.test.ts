@@ -112,3 +112,34 @@ describe("extSnapshotToBrowserState — v2 enrichments", () => {
     expect(full.capabilities).toEqual(caps);
   });
 });
+
+describe("extSnapshotToBrowserState — favicon", () => {
+  const withFavicons = (favicon: string) =>
+    extSnapshotToBrowserState(
+      "chrome",
+      makeExtSnapshot({
+        windows: [makeExtWindow({ id: 812, tabs: [makeExtTab({ id: 4001, favicon })] })],
+      }),
+    ).windows[0]?.tabs[0];
+
+  it("passes a source-sanitized http favicon through to the contract tab", () => {
+    expect(withFavicons("https://ext.example/favicon.ico")?.favicon).toBe(
+      "https://ext.example/favicon.ico",
+    );
+  });
+
+  it("re-caps an oversized inline data: favicon daemon-side (defense in depth)", () => {
+    // A malformed/hostile extension could send a huge data: URI past its own
+    // cap; the daemon re-applies sanitizeFavicon and drops it.
+    const big = `data:image/png;base64,${"A".repeat(9000)}`;
+    expect(withFavicons(big)?.favicon).toBeUndefined();
+  });
+
+  it("omits favicon entirely when the extension sent none", () => {
+    const tab = extSnapshotToBrowserState(
+      "chrome",
+      makeExtSnapshot({ windows: [makeExtWindow({ id: 812, tabs: [makeExtTab({ id: 4001 })] })] }),
+    ).windows[0]?.tabs[0];
+    expect(tab).not.toHaveProperty("favicon");
+  });
+});

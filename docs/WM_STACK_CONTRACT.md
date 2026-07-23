@@ -64,7 +64,11 @@ The interface `~/dotfiles/wm-stack` rewires around, replacing
         "mutedReason": "user",            // v2; optional — Chrome only
         "frozen": false,                  // v2 (defaulted false) — Chrome 132+
         "lastAccessed": 1752899990000,    // v2; optional — Chrome 121+
-        "status": "complete"              // v2; optional — loading|complete|unloaded
+        "status": "complete",             // v2; optional — loading|complete|unloaded
+        "favicon": "https://…/favicon.ico"// v2; optional — http(s) URL, or a small
+                                          //   inline data: URI; large data: URIs are
+                                          //   dropped (BROWSER_TAB_FAVICON_MAX_BYTES,
+                                          //   4KiB). Absent under AppleScript.
       }]
     }]
   }]

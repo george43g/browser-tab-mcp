@@ -186,6 +186,30 @@ export function pickEnrichment(src: Record<string, unknown>): TabEnrichment {
   return TabEnrichmentSchema.parse(src);
 }
 
+/** Max bytes for an inline `data:` favicon before it's dropped from the snapshot. */
+export const FAVICON_MAX_BYTES = 4096;
+
+/**
+ * Bound a tab's favicon for the snapshot. An http(s) URL passes through; a
+ * `data:` URI is kept only when ≤ `maxBytes` (large inline icons would bloat
+ * every debounced push, so they're dropped); every other scheme (chrome:,
+ * file:, javascript:, …) and empty/non-string input yields `undefined`.
+ * Applied at the extension source so oversized icons never cross the WS; the
+ * daemon re-applies it with the env cap and can only tighten. Browser-safe
+ * (TextEncoder, no Node `Buffer`).
+ */
+export function sanitizeFavicon(
+  raw: unknown,
+  maxBytes: number = FAVICON_MAX_BYTES,
+): string | undefined {
+  if (typeof raw !== "string") return undefined;
+  const s = raw.trim();
+  if (s === "") return undefined;
+  if (/^https?:\/\//i.test(s)) return s;
+  if (/^data:/i.test(s)) return new TextEncoder().encode(s).length <= maxBytes ? s : undefined;
+  return undefined;
+}
+
 /** Canonical window states, shared by the enrichment field and the window-op inputs. */
 export const WindowStateSchema = z.enum(["normal", "minimized", "maximized", "fullscreen"]);
 export type WindowState = z.infer<typeof WindowStateSchema>;
@@ -217,6 +241,13 @@ export const TabSchema = z
       .string()
       .optional()
       .describe("Opaque tab-group handle (g:<browser>:x<id>) when the tab is grouped."),
+    favicon: z
+      .string()
+      .optional()
+      .describe(
+        "Favicon URL. http(s) URLs pass through; large inline data: URIs are dropped " +
+          "(BROWSER_TAB_FAVICON_MAX_BYTES). Absent under AppleScript.",
+      ),
   })
   .merge(TabEnrichmentSchema);
 export type Tab = z.infer<typeof TabSchema>;
@@ -733,6 +764,10 @@ export const ExtTabSchema = z
       .int()
       .optional()
       .describe("chrome.tabGroups id when grouped (>=0); -1/absent means ungrouped."),
+    favicon: z
+      .string()
+      .optional()
+      .describe("Sanitized favicon (http(s) or bounded data:), set by the extension mapper."),
   })
   .merge(TabEnrichmentSchema);
 export type ExtTab = z.infer<typeof ExtTabSchema>;

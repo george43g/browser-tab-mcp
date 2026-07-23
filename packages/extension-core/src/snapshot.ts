@@ -9,7 +9,7 @@
  */
 
 import type { ExtSnapshot, ExtTab, ExtTabGroup, ExtWindow } from "@george43g/shared-types";
-import { pickEnrichment } from "@george43g/shared-types";
+import { pickEnrichment, sanitizeFavicon } from "@george43g/shared-types";
 import { api } from "./runtime.js";
 
 export interface ChromeMutedInfoLike {
@@ -33,6 +33,7 @@ export interface ChromeTabLike {
   lastAccessed?: number | undefined;
   status?: string | undefined;
   groupId?: number | undefined;
+  favIconUrl?: string | undefined;
 }
 
 export interface ChromeWindowLike {
@@ -84,6 +85,7 @@ export function mapTab(tab: ChromeTabLike): ExtTab | null {
     ...(tab.lastAccessed !== undefined ? { lastAccessed: tab.lastAccessed } : {}),
     ...(status !== undefined ? { status } : {}),
   });
+  const favicon = sanitizeFavicon(tab.favIconUrl);
   return {
     id: tab.id,
     windowId: tab.windowId,
@@ -92,6 +94,7 @@ export function mapTab(tab: ChromeTabLike): ExtTab | null {
     title: tab.title ?? "",
     active: tab.active,
     ...(typeof tab.groupId === "number" && tab.groupId >= 0 ? { groupId: tab.groupId } : {}),
+    ...(favicon ? { favicon } : {}),
     ...enrichment,
   };
 }

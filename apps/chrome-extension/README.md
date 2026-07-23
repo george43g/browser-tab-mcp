@@ -9,7 +9,11 @@ can't do. One bundle serves Chrome, Brave, Chromium, and (packaged via
 ## What it does
 
 - **Push events** — `tabs.on*` / `windows.on*` → a debounced full snapshot to
-  the daemon, replacing 5s polling with instant updates.
+  the daemon, replacing 5s polling with instant updates. Each tab carries its
+  enrichments (audio/mute/pin/sleep/group/status) plus a **favicon** — an
+  http(s) URL passes through, a small inline `data:` URI is kept, and a large
+  `data:` icon is dropped at the source (`BROWSER_TAB_FAVICON_MAX_BYTES`, 4KiB)
+  so it never bloats the debounced push.
 - **Commands over the socket** — `move_tab` / `focus_tab` / `close_tab` /
   `open_tab` via `chrome.tabs.*`, so a cross-window move keeps scroll/form/JS
   state. These carry the `x`-prefixed handle generation (`t:chrome:x123`).

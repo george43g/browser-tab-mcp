@@ -23,7 +23,12 @@ import type {
   ExtSnapshot,
   TabGroup,
 } from "@george43g/shared-types";
-import { ExtClientMessageSchema, pickEnrichment } from "@george43g/shared-types";
+import {
+  ExtClientMessageSchema,
+  FAVICON_MAX_BYTES,
+  pickEnrichment,
+  sanitizeFavicon,
+} from "@george43g/shared-types";
 import { type WebSocket, WebSocketServer } from "ws";
 import { specFor } from "../detect/engine.js";
 import { makeExtGroupId, makeExtTabId, makeExtWindowId } from "../detect/ids.js";
@@ -46,6 +51,11 @@ export function wsPort(): number {
 /** Tighten ws's 100MB default — content payloads are capped far below this. */
 function wsMaxPayload(): number {
   return envNum("BROWSER_TAB_WS_MAX_PAYLOAD", DEFAULT_MAX_PAYLOAD);
+}
+
+/** Cap for inline data: favicons, re-applied daemon-side — can only tighten the source cap. */
+function faviconMaxBytes(): number {
+  return envNum("BROWSER_TAB_FAVICON_MAX_BYTES", FAVICON_MAX_BYTES);
 }
 
 /** Capture-on-blur policy pushed to extensions via helloAck.config. */
@@ -281,6 +291,7 @@ export function extSnapshotToBrowserState(
   capabilities?: Capabilities,
 ): BrowserState {
   const spec = specFor(browser);
+  const favMax = faviconMaxBytes();
   const tabGroups: TabGroup[] = snap.groups.map((g) => ({
     groupId: makeExtGroupId(browser, g.id),
     windowId: makeExtWindowId(browser, g.windowId),
@@ -314,17 +325,21 @@ export function extSnapshotToBrowserState(
         ...(activeTab ? { activeTabId: makeExtTabId(browser, activeTab.id) } : {}),
         ...(w.state ? { state: w.state } : {}),
         tabCount: w.tabs.length,
-        tabs: w.tabs.map((t) => ({
-          tabId: makeExtTabId(browser, t.id),
-          index: t.index,
-          url: sanitize(t.url) ?? "",
-          title: sanitize(t.title) ?? "",
-          active: t.active,
-          ...(t.groupId !== undefined && t.groupId >= 0
-            ? { groupId: makeExtGroupId(browser, t.groupId) }
-            : {}),
-          ...pickEnrichment(t),
-        })),
+        tabs: w.tabs.map((t) => {
+          const favicon = sanitizeFavicon(t.favicon, favMax);
+          return {
+            tabId: makeExtTabId(browser, t.id),
+            index: t.index,
+            url: sanitize(t.url) ?? "",
+            title: sanitize(t.title) ?? "",
+            active: t.active,
+            ...(t.groupId !== undefined && t.groupId >= 0
+              ? { groupId: makeExtGroupId(browser, t.groupId) }
+              : {}),
+            ...(favicon ? { favicon } : {}),
+            ...pickEnrichment(t),
+          };
+        }),
       };
     }),
   };
