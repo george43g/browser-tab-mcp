@@ -1,6 +1,7 @@
 # browser-tab-mcp
 
-MCP server + CLI + TUI, cloned from `mcp-cli-starter-template`.
+macOS browser-tab detection & management for the yabai/Hammerspoon wm-stack —
+one bin (`browser-tab`) that runs the MCP server, CLI, TUI, and launchd daemon.
 
 ## Quick start
 
@@ -8,16 +9,46 @@ MCP server + CLI + TUI, cloned from `mcp-cli-starter-template`.
 pnpm install
 pnpm build           # compile TS + (optional) Rust accelerator
 pnpm test            # run unit + integration tests
-pnpm stress          # 8-case robustness harness
+pnpm stress          # 25-case robustness harness
 ```
 
-## Bins
+## Global install
 
-| Bin | Purpose | Default transport |
-|-----|---------|-------------------|
-| `browser-tab-mcp` | MCP server | stdio |
-| `browser-tab-cli` | Commander CLI: `mcp`, `tui`, `doctor`, `health`, `noop`, `cli` (REPL) | n/a (in-process dispatch) |
-| `browser-tab-tui` | Ink TUI | n/a |
+The build is self-contained: `@george43g/*` workspace packages bundle inline,
+so the bin installs and runs outside the workspace with only its real npm deps.
+
+```bash
+pnpm build                                   # dist/ must exist first (no prepare hook)
+pnpm --filter @george43g/browser-tab-mcp exec pnpm add -g .   # or: cd apps/browser-tab-mcp && pnpm add -g .
+browser-tab --version
+browser-tab doctor                           # engine: ts, correlation: yabai (see note)
+browser-tab list                             # list open windows/tabs
+```
+
+**Native accelerator on a global install:** the arch-specific rust-accel `.node`
+is not shipped in the package, so a global bin runs the TypeScript path.
+cgWindowId correlation then falls back from native `CGWindowList` to
+`yabai -m query --windows` (tier 2) — always present in the wm-stack, so the
+yabai join is preserved. Only `focusedBrowser` z-order, `display`-targeting for
+window placement (explicit `bounds` still work), and the doctor Screen-Recording
+preflight degrade, all gracefully. Run from the workspace build (`node
+dist/cli.js …`) to get the native tier.
+
+## Bin
+
+A **single** bin, `browser-tab`, with subcommands (run `browser-tab --help`):
+
+| Subcommand | Purpose |
+|-----|---------|
+| `mcp` | MCP server (stdio) |
+| `tui` | Ink live tab manager |
+| `doctor` / `health` | preflight checks / health snapshot |
+| `list` / `journal` / `history` | reads: topology · focus-nav memory · global URL history |
+| `focus` / `close` / `open` / `move` | tab commands (true moves need daemon + extension) |
+| `act` / `group` / `window` | write-side control: tab actions · tab groups · window ops |
+| `page` / `annotate` / `screenshot` | perception: content/state · URL notes · captures |
+| `daemon run\|install\|status\|token` | launchd daemon lifecycle |
+| `repl` (alias `console`) | interactive REPL over the in-process dispatcher |
 
 ## Focus & navigation journals
 

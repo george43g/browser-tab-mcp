@@ -32,21 +32,6 @@ importers:
 
   apps/browser-tab-mcp:
     dependencies:
-      '@george43g/cli-kit':
-        specifier: workspace:*
-        version: link:../../packages/cli-kit
-      '@george43g/mcp-kit':
-        specifier: workspace:*
-        version: link:../../packages/mcp-kit
-      '@george43g/robustness':
-        specifier: workspace:*
-        version: link:../../packages/robustness
-      '@george43g/shared-types':
-        specifier: workspace:*
-        version: link:../../packages/shared-types
-      '@george43g/tui-kit':
-        specifier: workspace:*
-        version: link:../../packages/tui-kit
       '@modelcontextprotocol/sdk':
         specifier: ^1.29.0
         version: 1.29.0(zod@3.25.76)
@@ -69,15 +54,30 @@ importers:
         specifier: ^3.23.0
         version: 3.25.76
     devDependencies:
+      '@george43g/cli-kit':
+        specifier: workspace:*
+        version: link:../../packages/cli-kit
       '@george43g/extension-core':
         specifier: workspace:*
         version: link:../../packages/extension-core
+      '@george43g/mcp-kit':
+        specifier: workspace:*
+        version: link:../../packages/mcp-kit
+      '@george43g/robustness':
+        specifier: workspace:*
+        version: link:../../packages/robustness
+      '@george43g/shared-types':
+        specifier: workspace:*
+        version: link:../../packages/shared-types
       '@george43g/test-kit':
         specifier: workspace:*
         version: link:../../packages/test-kit
       '@george43g/tsconfig':
         specifier: workspace:*
         version: link:../../packages/tsconfig
+      '@george43g/tui-kit':
+        specifier: workspace:*
+        version: link:../../packages/tui-kit
       '@george43g/vitest-config':
         specifier: workspace:*
         version: link:../../packages/vitest-config

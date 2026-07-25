@@ -17,9 +17,12 @@ import { defineConfig } from "vite";
  * The TUI is loaded by cli.ts via dynamic `await import("./tui/index.js")` —
  * vite will chunk it into dist/ automatically; it does NOT need to be a bin.
  *
- * Externals: every dependency stays an `import` in the built output —
- * Node will resolve them at runtime. We never bundle our own packages
- * (workspace:*) or the SDK; users get the source-level tree.
+ * Externals: real npm runtime deps (SDK/ink/react/ws/zod/commander/
+ * fullscreen-ink) stay an `import` in the built output — Node resolves them
+ * at runtime, and they're listed in `dependencies` so a global install
+ * (`pnpm add -g .`) fetches them. Our own workspace packages (`@george43g/*`,
+ * `private:true` and unpublished) are NOT external — they bundle inline so
+ * `dist/cli.js` is self-contained and installable outside the workspace.
  */
 export default defineConfig({
   build: {
@@ -39,7 +42,8 @@ export default defineConfig({
       external: [
         ...builtinModules,
         ...builtinModules.map((m) => `node:${m}`),
-        /^@george43g\//,
+        // NOTE: @george43g/* workspace packages are deliberately NOT external —
+        // they bundle inline so the built bin is self-contained (pnpm add -g .).
         /^@modelcontextprotocol\//,
         "commander",
         "fullscreen-ink",
