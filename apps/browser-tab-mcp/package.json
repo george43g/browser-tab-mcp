@@ -1,7 +1,7 @@
 {
   "name": "@george43g/browser-tab-mcp",
   "version": "0.0.0",
-  "description": "browser-tab — MCP server + CLI + TUI. Cloned from mcp-cli-starter-template; ready to extend with your own tools.",
+  "description": "browser-tab — macOS browser-tab detection & management for the yabai/Hammerspoon wm-stack. MCP server + CLI + TUI over a launchd daemon, with a Chrome/Safari connector extension for live tab events and state-preserving cross-window moves.",
   "type": "module",
   "license": "MIT",
   "main": "./dist/index.js",
@@ -50,11 +50,6 @@
     "clean": "rm -rf dist coverage *.mcpb"
   },
   "dependencies": {
-    "@george43g/cli-kit": "workspace:*",
-    "@george43g/mcp-kit": "workspace:*",
-    "@george43g/robustness": "workspace:*",
-    "@george43g/shared-types": "workspace:*",
-    "@george43g/tui-kit": "workspace:*",
     "@modelcontextprotocol/sdk": "^1.29.0",
     "commander": "^14.0.0",
     "fullscreen-ink": "^0.1.0",
@@ -64,9 +59,14 @@
     "zod": "^3.23.0"
   },
   "devDependencies": {
+    "@george43g/cli-kit": "workspace:*",
     "@george43g/extension-core": "workspace:*",
+    "@george43g/mcp-kit": "workspace:*",
+    "@george43g/robustness": "workspace:*",
+    "@george43g/shared-types": "workspace:*",
     "@george43g/test-kit": "workspace:*",
     "@george43g/tsconfig": "workspace:*",
+    "@george43g/tui-kit": "workspace:*",
     "@george43g/vitest-config": "workspace:*",
     "@types/node": "^24.13.3",
     "@types/react": "^19.2.17",
