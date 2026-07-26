@@ -57,7 +57,7 @@ export interface ParsedGroupId {
 /** Strict parser for tab-group handles — null on anything malformed. */
 export function parseGroupId(id: string): ParsedGroupId | null {
   const m = /^g:([a-z]+):x(\d+)$/.exec(id);
-  if (!m || !m[1] || !m[2] || !BROWSERS.includes(m[1])) return null;
+  if (!m?.[1] || !m[2] || !BROWSERS.includes(m[1])) return null;
   return { browser: m[1] as BrowserId, nativeId: m[2] };
 }
 
@@ -81,7 +81,7 @@ export interface ParsedTabId {
 /** Strict parser — returns null on anything malformed (ids get embedded in AppleScript). */
 export function parseWindowId(id: string): ParsedWindowId | null {
   const m = /^w:([a-z]+):(x?)(\d+)$/.exec(id);
-  if (!m || !m[1] || !m[3] || !BROWSERS.includes(m[1])) return null;
+  if (!m?.[1] || !m[3] || !BROWSERS.includes(m[1])) return null;
   return { browser: m[1] as BrowserId, nativeId: m[3], ext: m[2] === "x" };
 }
 

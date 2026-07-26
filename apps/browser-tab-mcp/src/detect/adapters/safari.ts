@@ -103,7 +103,7 @@ interface SafariRef {
 
 function requireSafariTab(tabId: string): SafariRef {
   const parsed = parseTabId(tabId);
-  if (!parsed || parsed.browser !== "safari" || !parsed.safari) {
+  if (parsed?.browser !== "safari" || !parsed.safari) {
     throw new Error(`tabId "${tabId}" is not a safari tab handle from list_tabs.`);
   }
   if (!/^\d+$/.test(parsed.safari.nativeWindowId) || !Number.isInteger(parsed.safari.index1)) {
@@ -242,12 +242,7 @@ end tell`;
     let winClause: string;
     if (input.windowId) {
       const wparsed = parseWindowId(input.windowId);
-      if (
-        !wparsed ||
-        wparsed.browser !== "safari" ||
-        wparsed.ext ||
-        !/^\d+$/.test(wparsed.nativeId)
-      ) {
+      if (wparsed?.browser !== "safari" || wparsed.ext || !/^\d+$/.test(wparsed.nativeId)) {
         throw new Error(`windowId "${input.windowId}" is not a safari window handle.`);
       }
       winClause = findWindowClause(wparsed.nativeId);
@@ -302,12 +297,7 @@ end tell`;
   set dest to front window`;
     } else if (input.targetWindowId) {
       const wparsed = parseWindowId(input.targetWindowId);
-      if (
-        !wparsed ||
-        wparsed.browser !== "safari" ||
-        wparsed.ext ||
-        !/^\d+$/.test(wparsed.nativeId)
-      ) {
+      if (wparsed?.browser !== "safari" || wparsed.ext || !/^\d+$/.test(wparsed.nativeId)) {
         throw new Error(`targetWindowId "${input.targetWindowId}" is not a safari window handle.`);
       }
       destNativeId = wparsed.nativeId;
@@ -448,12 +438,7 @@ end tell`;
 
   function requireSafariWindow(windowId: string): string {
     const wparsed = parseWindowId(windowId);
-    if (
-      !wparsed ||
-      wparsed.browser !== "safari" ||
-      wparsed.ext ||
-      !/^\d+$/.test(wparsed.nativeId)
-    ) {
+    if (wparsed?.browser !== "safari" || wparsed.ext || !/^\d+$/.test(wparsed.nativeId)) {
       throw new Error(`windowId "${windowId}" is not a safari window handle from list_tabs.`);
     }
     return wparsed.nativeId;
