@@ -18,10 +18,9 @@ import { SourceMerger } from "../src/daemon/merge.js";
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
-// The daemon-side AppleScript defaults ARE the makeBrowserState defaults
-// (chrome, applescript source, pid 4242, tab t:chrome:101).
-const appleChrome = () => makeBrowserState();
-
+// The extension feed for chrome: x-handles, pid null (poll supplies the real
+// pid), dataSource "extension". The AppleScript baseline is makeBrowserState's
+// defaults (chrome, applescript, pid 4242, tab t:chrome:101).
 const extChrome = () =>
   makeBrowserState({
     pid: null,

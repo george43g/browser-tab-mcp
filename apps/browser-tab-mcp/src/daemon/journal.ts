@@ -167,7 +167,7 @@ export class JournalStore {
     const out: FocusRecord[] = [];
     for (let i = this.focusLog.length - 1; i >= 0 && out.length < limit; i--) {
       const rec = this.focusLog[i];
-      if (!rec || rec.kind !== "tab-focus" || rec.windowId !== windowId || !rec.tabId) continue;
+      if (rec?.kind !== "tab-focus" || rec.windowId !== windowId || !rec.tabId) continue;
       if (seen.has(rec.tabId)) continue;
       seen.add(rec.tabId);
       out.push(rec);
