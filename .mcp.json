@@ -2,7 +2,10 @@
   "mcpServers": {
     "browser-tab-mcp-dev": {
       "command": "pnpm",
-      "args": ["tsx", "apps/browser-tab-mcp/scripts/mcp-dev-proxy.ts"],
+      "args": [
+        "tsx",
+        "apps/browser-tab-mcp/scripts/mcp-dev-proxy.ts"
+      ],
       "env": {
         "MCP_DEV": "1",
         "MCP_DEV_CMD": "pnpm tsx apps/browser-tab-mcp/src/index.ts",
@@ -12,6 +15,10 @@
     "mise": {
       "command": "mise",
       "args": ["mcp"]
+    },
+    "tmux-rust": {
+      "command": "/opt/homebrew/bin/tmux-mcp-rs",
+      "args": ["--shell-type", "zsh"]
     }
   }
 }
