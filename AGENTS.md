@@ -2,6 +2,11 @@
 
 > `CLAUDE.md` and `.cursorrules` are symlinks to this file. Edit `AGENTS.md`; the others follow.
 
+> **⚡ ACTIVE HANDOFF:** work is mid-flight. Current status, the next task (PR-D
+> deploy), backlog, decisions, and operational gotchas live in
+> **`docs/agent-handoff/README.md`** — read it BEFORE starting any work, and
+> append to `docs/agent-handoff/PROGRESS-LOG.md` every working session.
+
 This repo was generated from `mcp-cli-starter-template` via `mcp-scaffold init`.
 
 ## What This Repo Is
@@ -271,3 +276,11 @@ Still deferred: Safari runtime + packaging scripts can't be automated (no headle
 - **Native module fails to load**: run `pnpm --filter rust-accel build` manually. If it fails with "rustc not found", install Rust or set `MCP_DISABLE_NATIVE=1`.
 - **MCP host doesn't see tool changes**: the dev proxy auto-reloads on `src/**` but the host caches the session. Restart your MCP host (Cursor/Claude/Warp).
 - **Orphaned MCP processes**: `ps aux | grep browser-tab` and kill stragglers. The shutdown registry should catch this, but if it doesn't, file a bug.
+
+## MCP servers (project scope)
+
+Canonical set: `.mcp.json` (standard MCP schema, `${VAR}` placeholders only —
+never literal secrets). `.cursor/mcp.json` and `.warp/.mcp.json` are symlinks
+to it. `opencode.json`'s `mcp` key is GENERATED — after editing `.mcp.json`,
+run: `node ~/dotfiles/mcp/render.js --manifest .mcp.json --opencode opencode.json`.
+Global servers and scope decisions: `~/dotfiles/docs/mcp-registry.md`.
