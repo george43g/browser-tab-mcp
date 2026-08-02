@@ -9,8 +9,15 @@ genuine decisions into DECISIONS.md.
    pass; results + three findings recorded in `PRD-DEPLOY-RUNBOOK.md`. No code
    change was needed to deploy.
 
-1. **`cgWindowId` tiebreaker for tiled windows — NEXT, and the highest-value
-   item in this repo.** Found during PR-D smoke: `correlateSnapshot`
+1. ~~**`cgWindowId` tiebreaker for tiled windows**~~ — **DONE 2026-08-03,
+   PR #18 (awaiting merge word).** Shipped exactly as sketched below: yabai
+   titles break ties on the ambiguous subset only, tiered matching
+   (exact → prefix/suffix → containment), null on tie/no-titles, duplicate
+   claims dropped, native tier borrows yabai titles lazily behind
+   `hasAmbiguousBoundsMatch`, `correlateSnapshot` stayed pure. Live-verified:
+   all three tiled Chrome windows resolve. One caveat below was WRONG —
+   yabai did list Safari this session (see GOTCHAS). Original item:
+   Found during PR-D smoke: `correlateSnapshot`
    (`src/detect/correlate.ts`) matches CG windows on `(ownerPid, bounds±2px)`
    and returns `null` on ambiguity. Under yabai every same-space Chrome window
    shares one frame, so **all three Chrome windows resolved to `null`** — the

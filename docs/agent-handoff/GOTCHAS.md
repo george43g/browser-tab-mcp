@@ -9,9 +9,13 @@ time and will bite again. Append new ones as you hit them.
 
 - **`gh` is shell-aliased to `op plugin run -- gh`** (1Password wrapper) and it
   prompts + times out on EVERY call, even unattended. **Bypass it: call
-  `/opt/homebrew/bin/gh` directly** — a real `ghp_…` token is already in the
-  env as `GH_TOKEN` (repo scope), so it needs zero prompts. Use the absolute
-  path for ALL gh ops (pr create/merge/checks/run rerun).
+  `/opt/homebrew/bin/gh` directly.** Use the absolute path for ALL gh ops
+  (pr create/merge/checks/run rerun).
+  **2026-08-03 update: the `GH_TOKEN` in the env has gone STALE/invalid** and
+  it shadows the valid keyring login — `git push` (https + gh credential
+  helper) and gh calls fail with auth errors while `gh auth status` shows a
+  good keyring token. Fix: prefix with `env -u GH_TOKEN` —
+  `env -u GH_TOKEN git push …` / `env -u GH_TOKEN /opt/homebrew/bin/gh …`.
 - **1Password also gates commit signing.** Locked → commit fails with
   `1Password: failed to fill whole buffer`. Ask the user to unlock, then
   `git commit --amend --no-edit -S && git push --force-with-lease`.
@@ -124,7 +128,11 @@ time and will bite again. Append new ones as you hit them.
 - **yabai doesn't necessarily list every browser window** — during PR-D
   `yabai -m query --windows` returned the 3 Chrome windows but **not** the
   Safari one, so anything that depends on the tier-2 source must degrade
-  gracefully when a window has no yabai row.
+  gracefully when a window has no yabai row. **2026-08-03 correction:** during
+  the tiebreaker session yabai DID list the Safari window (id 248, identical
+  in yabai and CGWindowList — confirming yabai ids ARE CGWindowIDs). The PR-D
+  absence was transient (likely a minimized/other-space state), not a rule —
+  keep the graceful degradation anyway.
 - **Journal focus-dedupe is HEAD-ONLY** — only the immediately preceding
   record is compared; scanning back would wrongly collapse a genuine
   w1→w2→w1 re-focus.
