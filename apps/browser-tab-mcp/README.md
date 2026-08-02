@@ -34,6 +34,32 @@ window placement (explicit `bounds` still work), and the doctor Screen-Recording
 preflight degrade, all gracefully. Run from the workspace build (`node
 dist/cli.js …`) to get the native tier.
 
+## cgWindowId correlation (the wm-stack join key)
+
+Each browser window is stamped with its CGWindowID — the id yabai uses — so
+consumers join on an id instead of matching titles. `src/detect/correlate.ts`
+groups CG windows by the browser's pid and matches window bounds within ±2px.
+
+**Bounds alone are not enough under a tiling WM.** yabai gives every same-space
+window of an app the identical frame, so every window of a multi-window browser
+bounds-matches every candidate. Rather than guess, correlation falls through to
+a **title tiebreaker**: yabai reports a distinct title per window, and the
+snapshot's window title is a substring of it (Chrome appends
+`" - Google Chrome - <profile>"`, Safari prepends `"<profile> — "`). Matching is
+case/whitespace-insensitive and tiered — exact, then prefix/suffix, then bare
+containment — and takes a candidate only when exactly one matches at some tier.
+
+The tiebreaker is deliberately conservative; `cgWindowId` stays `null` when
+
+- no title map is reachable (no yabai on PATH),
+- the window or its candidate has no title,
+- two candidates' titles match equally well, or
+- two windows would end up claiming the same CG window.
+
+The native tier carries no titles of its own (`kCGWindowName` needs Screen
+Recording consent), so it borrows yabai's — but only after bounds have actually
+proved ambiguous, so an unambiguous poll never pays for the extra subprocess.
+
 ## Bin
 
 A **single** bin, `browser-tab`, with subcommands (run `browser-tab --help`):
