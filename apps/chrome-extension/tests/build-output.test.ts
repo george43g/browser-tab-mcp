@@ -13,12 +13,14 @@ import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 
-const DIST = resolve(dirname(fileURLToPath(import.meta.url)), "..", "dist");
+const APP = resolve(dirname(fileURLToPath(import.meta.url)), "..");
+const DIST = join(APP, "dist");
 
 const read = (file: string): string => readFileSync(join(DIST, file), "utf8");
 
 interface Manifest {
   manifest_version: number;
+  version: string;
   permissions?: string[];
   host_permissions?: string[];
   background?: { service_worker?: string; scripts?: string[]; type?: string };
@@ -39,6 +41,16 @@ describe("built manifest.json", () => {
 
   it("is MV3", () => {
     expect(manifest().manifest_version).toBe(3);
+  });
+
+  it("version is semver and in lockstep with package.json (the bump-version invariant)", () => {
+    const pkg = JSON.parse(readFileSync(join(APP, "package.json"), "utf8")) as { version: string };
+    const manifestVersion = manifest().version;
+    expect(manifestVersion, "manifest.version must be X.Y.Z").toMatch(/^\d+\.\d+\.\d+$/);
+    expect(
+      manifestVersion,
+      "manifest.json and package.json versions drifted — bump both via `run bump`",
+    ).toBe(pkg.version);
   });
 
   it("ships BOTH background keys (Chrome service_worker + Safari background page)", () => {

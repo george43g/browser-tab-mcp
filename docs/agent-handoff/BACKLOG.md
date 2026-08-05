@@ -39,8 +39,18 @@ genuine decisions into DECISIONS.md.
      ambiguous-bounds + unique titles (resolves), ambiguous + tied titles
      (stays null), no-yabai (stays null). Sabotage-check each.
 
-2. **Extension staleness is undetectable — add a version/protocol check to
-   `hello`.** PR-D burned real time on this: both browsers ran a connector
+2. ~~**Extension staleness is undetectable — add a version/protocol check to
+   `hello`.**~~ — **DONE 2026-08-06, PR #20 (merged, `main@78ea436`).** The
+   `hello` now carries `protocolVersion`, single-sourced as
+   `WIRE_PROTOCOL_VERSION` in shared-types; the daemon computes `extIsStale`,
+   logs a loud `ext_stale` warning, surfaces `⚠ <browser> extension is stale …`
+   in `doctor`, and reports `stale` + `extensionInfo` via `daemon_status`. A
+   connected-but-legacy extension that reports no `capabilities` is defaulted to
+   a conservative all-false map (`conservativeCaps`) so consumers gracefully
+   refuse v2 ops (with a hint) instead of hitting a raw "unknown command kind"
+   error. Live-verified: both browsers reloaded → `protocolVersion 2, stale:
+   false`. Original item:
+   PR-D burned real time on this: both browsers ran a connector
    build from before the v2 commands while reporting `extensionConnected:
    true`. Newer command kinds failed with a raw pass-through error (`unknown
    command kind "extract_content"`), `capabilities` came back `undefined`, and

@@ -84,6 +84,30 @@ kind" error — and journaling/enrichments degrade visibly rather than silently.
 or `sideload` + toggle in Settings (Safari). Until you do, the daemon keeps
 seeing the old baked-in `protocolVersion` and flags it stale.
 
+## Versioning
+
+`public/manifest.json` `version` is the **only user-facing version** of this
+extension — Chrome/Safari show it in the extensions list. The app is `private`
+and never published to npm, so there is no package-registry version to track;
+`package.json` `version` is kept as a mirror purely so tooling has a consistent
+number. Bump both in lockstep with one command (manual — there is no auto-bump
+on merge):
+
+```bash
+pnpm --filter @george43g/chrome-extension run bump          # patch (default)
+pnpm --filter @george43g/chrome-extension run bump minor    # or major, or an explicit X.Y.Z
+```
+
+`tests/build-output.test.ts` fails CI if the two files ever drift. After a bump,
+**rebuild + reload** (a bumped file is not a reloaded extension — see above).
+
+This is deliberately separate from two other versions: the wire
+`protocolVersion` (single-sourced as `WIRE_PROTOCOL_VERSION` in
+`@george43g/shared-types` — bump it when the daemon↔extension contract gains
+capabilities/commands, which is what the staleness check keys on), and the
+`browser-tab` bin's npm version (release automation is scaffolded but
+**deliberately off** — see `docs/agent-handoff/BACKLOG.md` item 6).
+
 ## Gotchas
 
 - **Self-contained IIFE build, not ES modules.** Safari doesn't support
