@@ -28,8 +28,10 @@ import {
   FAVICON_MAX_BYTES,
   pickEnrichment,
   sanitizeFavicon,
+  WIRE_PROTOCOL_VERSION,
 } from "@george43g/shared-types";
 import { type WebSocket, WebSocketServer } from "ws";
+import { conservativeCaps } from "../detect/capabilities.js";
 import { specFor } from "../detect/engine.js";
 import { makeExtGroupId, makeExtTabId, makeExtWindowId } from "../detect/ids.js";
 import { tokenMatches } from "./token.js";
@@ -41,8 +43,26 @@ const COMMAND_TIMEOUT_MS = 5_000;
 const LONG_COMMAND_TIMEOUT_MS = 10_000;
 const LONG_KINDS = new Set(["extract_content", "capture_tab", "history_search"]);
 const DEFAULT_MAX_PAYLOAD = 16 * 1024 * 1024;
-/** Wire protocol version the daemon speaks (v2: capabilities + enrichments). */
-const PROTOCOL_VERSION = 2;
+
+/**
+ * An extension is stale when it speaks an older wire revision than the daemon.
+ * Absent `protocolVersion` = a pre-v2 (legacy) extension, treated as v1. Pure +
+ * exported so the staleness rule is unit-testable in isolation.
+ */
+export function extIsStale(
+  extProtocolVersion: number | undefined,
+  daemonProtocolVersion: number,
+): boolean {
+  return (extProtocolVersion ?? 1) < daemonProtocolVersion;
+}
+
+/** Per-browser extension build info surfaced by daemon_status / doctor. */
+export interface ExtensionInfo {
+  browser: BrowserId;
+  extVersion?: string;
+  protocolVersion: number;
+  stale: boolean;
+}
 
 export function wsPort(): number {
   return envNum("BROWSER_TAB_WS_PORT", 8790);
@@ -69,8 +89,16 @@ interface Session {
   /** Set on every inbound frame; the heartbeat clears it before each ping and
    *  terminates a session that produced nothing since the previous ping. */
   alive: boolean;
-  /** Runtime capability map reported in the extension's hello (v2+). */
-  capabilities?: Capabilities;
+  /** Capability map: the extension's runtime-probed one, or a conservative
+   *  all-false default when a legacy/stale build reported none (never undefined
+   *  for a connected extension, so consumers always have a map to gate on). */
+  capabilities: Capabilities;
+  /** Build version string the extension reported in `hello` (human-readable). */
+  extVersion?: string;
+  /** Wire revision the extension speaks (1 = legacy/absent). */
+  protocolVersion: number;
+  /** True when `protocolVersion` is older than the daemon's — the build is stale. */
+  stale: boolean;
 }
 
 export interface ExtensionServerOptions {
@@ -136,6 +164,16 @@ export class ExtensionServer {
 
   connectedBrowsers(): BrowserId[] {
     return [...this.sessions.keys()];
+  }
+
+  /** Per-browser build/protocol info for connected extensions (daemon_status / doctor). */
+  extensionInfo(): ExtensionInfo[] {
+    return [...this.sessions.values()].map((s) => ({
+      browser: s.browser,
+      ...(s.extVersion ? { extVersion: s.extVersion } : {}),
+      protocolVersion: s.protocolVersion,
+      stale: s.stale,
+    }));
   }
 
   /** Send a command to a browser's extension and await its result. Content
@@ -226,23 +264,40 @@ export class ExtensionServer {
         browser = m.browser;
         const existing = this.sessions.get(browser);
         if (existing) existing.socket.terminate(); // newest wins
+        const protocolVersion = m.protocolVersion ?? 1;
+        const stale = extIsStale(m.protocolVersion, WIRE_PROTOCOL_VERSION);
         this.sessions.set(browser, {
           browser,
           socket,
           alive: true,
-          ...(m.capabilities ? { capabilities: m.capabilities } : {}),
+          // A stale build often reports no capabilities; never leave it
+          // undefined — consumers gate on the map (see conservativeCaps).
+          capabilities: m.capabilities ?? conservativeCaps(),
+          ...(m.extVersion ? { extVersion: m.extVersion } : {}),
+          protocolVersion,
+          stale,
         });
         socket.send(
           JSON.stringify({
             type: "helloAck",
-            protocolVersion: PROTOCOL_VERSION,
+            protocolVersion: WIRE_PROTOCOL_VERSION,
             config: { blurCapture: blurCaptureEnabled() },
           }),
         );
+        if (stale) {
+          warn("ext_stale", {
+            browser,
+            extVersion: m.extVersion,
+            extProtocolVersion: protocolVersion,
+            daemonProtocolVersion: WIRE_PROTOCOL_VERSION,
+            hint: `The ${browser} extension speaks protocol v${protocolVersion} but the daemon speaks v${WIRE_PROTOCOL_VERSION} — reload it (chrome://extensions) or sideload+toggle (Safari) to restore v2 commands, journaling, and capabilities.`,
+          });
+        }
         info("ws_extension_connected", {
           browser,
           extVersion: m.extVersion,
-          protocolVersion: m.protocolVersion ?? 1,
+          protocolVersion,
+          stale,
         });
         return;
       }

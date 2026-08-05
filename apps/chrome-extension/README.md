@@ -67,6 +67,23 @@ everywhere.
 Shared, browser-agnostic logic (socket, snapshot mappers, status presenter,
 options storage) lives in `packages/extension-core`.
 
+## Protocol version & staleness
+
+The connector's `hello` carries `extVersion` (build string) and
+`protocolVersion` — the wire revision it speaks, single-sourced as
+`WIRE_PROTOCOL_VERSION` in `@george43g/shared-types`. The daemon compares that
+against its own: when the extension is **older**, it logs a loud `ext_stale`
+warning, `browser-tab doctor` prints a `⚠ <browser> extension is stale …` line,
+and `daemon_status` reports `stale: true` for that browser. A stale build that
+reports no `capabilities` is given a **conservative all-false map** so consumers
+gracefully refuse v2 ops (with a hint) instead of hitting a raw "unknown command
+kind" error — and journaling/enrichments degrade visibly rather than silently.
+
+**A rebuilt extension is not a reloaded one:** after `pnpm --filter
+@george43g/chrome-extension build`, reload it in `chrome://extensions` (Chrome)
+or `sideload` + toggle in Settings (Safari). Until you do, the daemon keeps
+seeing the old baked-in `protocolVersion` and flags it stale.
+
 ## Gotchas
 
 - **Self-contained IIFE build, not ES modules.** Safari doesn't support

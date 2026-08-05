@@ -522,6 +522,7 @@ export async function startDaemon(): Promise<DaemonHandle> {
       pollMs: pollMs(),
       wsPort: ext ? wsPort() : null,
       extensions: ext?.connectedBrowsers() ?? [],
+      extensionInfo: ext?.extensionInfo() ?? [],
       correlationTier: await correlationTier(),
       displays: listDisplays(),
       focusedBrowser: store.getSnapshot().focusedBrowser ?? null,

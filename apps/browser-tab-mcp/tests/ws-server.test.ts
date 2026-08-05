@@ -6,7 +6,7 @@
  */
 
 import { rmSync } from "node:fs";
-import type { Snapshot } from "@george43g/shared-types";
+import { type Snapshot, WIRE_PROTOCOL_VERSION } from "@george43g/shared-types";
 import {
   makeExtSnapshot,
   makeExtTab,
@@ -20,6 +20,11 @@ import WebSocket from "ws";
 import { DaemonClient } from "../src/client/daemon-client.js";
 import { type DaemonHandle, startDaemon } from "../src/daemon/index.js";
 import { ensureToken } from "../src/daemon/token.js";
+import { extIsStale } from "../src/daemon/ws-server.js";
+
+interface ExtStatus {
+  extensionInfo: Array<{ browser: string; protocolVersion: number; stale: boolean }>;
+}
 
 let tmp: string;
 let daemon: DaemonHandle | null = null;
@@ -50,7 +55,10 @@ interface FakeExtension {
   close(): void;
 }
 
-function connectFakeExtension(authToken: string): Promise<FakeExtension> {
+function connectFakeExtension(
+  authToken: string,
+  helloExtra: Record<string, unknown> = {},
+): Promise<FakeExtension> {
   return new Promise((resolve, reject) => {
     const ws = new WebSocket(`ws://127.0.0.1:${WS_PORT}/`);
     const queue: Record<string, unknown>[] = [];
@@ -71,7 +79,13 @@ function connectFakeExtension(authToken: string): Promise<FakeExtension> {
     ws.on("error", reject);
     ws.on("open", () => {
       ws.send(
-        JSON.stringify({ type: "hello", browser: "chrome", extVersion: "test", token: authToken }),
+        JSON.stringify({
+          type: "hello",
+          browser: "chrome",
+          extVersion: "test",
+          token: authToken,
+          ...helloExtra,
+        }),
       );
       resolve({
         ws,
@@ -101,6 +115,21 @@ function connectFakeExtension(authToken: string): Promise<FakeExtension> {
 
 const EXT_SNAPSHOT = makeExtSnapshot({
   windows: [makeExtWindow({ id: 812, tabs: [makeExtTab({ id: 4001, pinned: true })] })],
+});
+
+describe("extIsStale", () => {
+  it("treats an absent protocolVersion as legacy v1 (stale vs a v2 daemon)", () => {
+    expect(extIsStale(undefined, 2)).toBe(true);
+  });
+  it("flags an older protocol as stale", () => {
+    expect(extIsStale(1, 2)).toBe(true);
+  });
+  it("is not stale at parity", () => {
+    expect(extIsStale(2, 2)).toBe(false);
+  });
+  it("is not stale when the extension is newer than the daemon", () => {
+    expect(extIsStale(3, 2)).toBe(false);
+  });
 });
 
 describe("extension WebSocket server", () => {
@@ -204,6 +233,63 @@ describe("extension WebSocket server", () => {
       ).rejects.toThrow(/not\s+connected/i);
     } finally {
       client.close();
+    }
+  });
+
+  it("flags a legacy extension (no protocolVersion) stale + defaults capabilities all-false", async () => {
+    // connectFakeExtension sends a hello with no protocolVersion/capabilities —
+    // exactly a pre-v2 build. The daemon must mark it stale and never leave the
+    // capability map undefined (consumers gate on it).
+    const ext = await connectFakeExtension(token);
+    try {
+      await ext.next((m) => m.type === "helloAck");
+      ext.send(EXT_SNAPSHOT);
+      await new Promise((r) => setTimeout(r, 150));
+      const client = new DaemonClient();
+      try {
+        const status = await client.request<ExtStatus>("status");
+        const info = status.extensionInfo.find((e) => e.browser === "chrome");
+        expect(info?.stale).toBe(true);
+        expect(info?.protocolVersion).toBe(1);
+
+        const snapshot = await client.request<Snapshot>("getSnapshot");
+        const chrome = snapshot.browsers.find((b) => b.browser === "chrome");
+        expect(chrome?.capabilities).toBeDefined();
+        expect(Object.values(chrome?.capabilities ?? {}).some((v) => v === true)).toBe(false);
+      } finally {
+        client.close();
+      }
+    } finally {
+      ext.close();
+    }
+  });
+
+  it("does not flag a current-protocol extension + preserves its reported capabilities", async () => {
+    const ext = await connectFakeExtension(token, {
+      protocolVersion: WIRE_PROTOCOL_VERSION,
+      capabilities: { navigate: true, tabGroups: true, contentExtraction: true },
+    });
+    try {
+      await ext.next((m) => m.type === "helloAck");
+      ext.send(EXT_SNAPSHOT);
+      await new Promise((r) => setTimeout(r, 150));
+      const client = new DaemonClient();
+      try {
+        const status = await client.request<ExtStatus>("status");
+        const info = status.extensionInfo.find((e) => e.browser === "chrome");
+        expect(info?.stale).toBe(false);
+        expect(info?.protocolVersion).toBe(WIRE_PROTOCOL_VERSION);
+
+        const snapshot = await client.request<Snapshot>("getSnapshot");
+        const chrome = snapshot.browsers.find((b) => b.browser === "chrome");
+        // The reported map is preserved, not overwritten by the conservative default.
+        expect(chrome?.capabilities?.tabGroups).toBe(true);
+        expect(chrome?.capabilities?.navigate).toBe(true);
+      } finally {
+        client.close();
+      }
+    } finally {
+      ext.close();
     }
   });
 });
