@@ -17,7 +17,11 @@
       "!apps/rust-accel/index.js",
       "!apps/rust-accel/index.d.ts",
       "!apps/safari-extension/xcode",
-      "!**/*.tsbuildinfo"
+      "!**/*.tsbuildinfo",
+      "!.mcp.json",
+      "!.cursor/mcp.json",
+      "!.warp/.mcp.json",
+      "!opencode.json"
     ]
   },
   "formatter": {
