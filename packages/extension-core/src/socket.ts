@@ -10,7 +10,7 @@
  * background script restarts the socket after a SW respawn.
  */
 
-import type { ExtServerMessage } from "@george43g/shared-types";
+import { type ExtServerMessage, WIRE_PROTOCOL_VERSION } from "@george43g/shared-types";
 import { probeCapabilities } from "./capabilities.js";
 import { BlurCapturer, type StateCaptureFrame } from "./capture.js";
 import { type CommandArgs, executeCommand } from "./commands.js";
@@ -27,8 +27,9 @@ export interface DaemonSocketConfig {
   extVersion: string;
 }
 
-/** Wire protocol version this extension speaks (v2: capabilities + enrichments). */
-export const PROTOCOL_VERSION = 2;
+/** Wire protocol version this extension speaks — single-sourced from shared-types
+ *  so the daemon and extension can never disagree on the current revision. */
+export const PROTOCOL_VERSION = WIRE_PROTOCOL_VERSION;
 
 const RECONNECT_MIN_MS = 1_000;
 const RECONNECT_MAX_MS = 30_000;

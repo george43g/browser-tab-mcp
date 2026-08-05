@@ -14,8 +14,10 @@
 
 import { copyFileSync } from "node:fs";
 import { color, isInteractive } from "@george43g/cli-kit";
+import { WIRE_PROTOCOL_VERSION } from "@george43g/shared-types";
 import { Command } from "commander";
 import { checkLocalAccess, formatAccessReport } from "./access-check.js";
+import { daemonStatus } from "./client/tabs-service.js";
 import { registerDaemonCommand } from "./commands/daemon.js";
 import { callMcpTool } from "./dispatcher.js";
 import { runMcpServer } from "./index.js";
@@ -86,6 +88,20 @@ export async function main(argv: readonly string[] = process.argv): Promise<void
     .action(async () => {
       const report = await checkLocalAccess();
       process.stdout.write(`${formatAccessReport(report)}\n`);
+      // Extension staleness — best-effort; only meaningful when the daemon is up
+      // (a down daemon yields no extensionInfo, so this simply prints nothing).
+      const status = await daemonStatus();
+      const extInfo = (status.extensionInfo ?? []) as Array<{
+        browser: string;
+        protocolVersion: number;
+        stale: boolean;
+      }>;
+      for (const e of extInfo) {
+        if (!e.stale) continue;
+        process.stdout.write(
+          `⚠ ${e.browser} extension is stale (protocol v${e.protocolVersion} < daemon v${WIRE_PROTOCOL_VERSION}) — reload it (chrome://extensions) or sideload+toggle (Safari) to restore v2 commands, journaling, and capabilities.\n`,
+        );
+      }
       if (!report.ok) process.exit(1);
     });
 

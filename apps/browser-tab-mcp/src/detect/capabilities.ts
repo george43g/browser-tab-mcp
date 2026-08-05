@@ -28,3 +28,15 @@ export function applescriptCaps(browser: BrowserId): Capabilities {
   caps.backForward = browser !== "safari";
   return caps as Capabilities;
 }
+
+/**
+ * The safe capability map for an extension that connected but reported no
+ * `capabilities` — a legacy/stale build from before the v2 handshake. Every
+ * key is false: consumers gate the v2 write-side + perception ops on this map,
+ * so all-false makes them *gracefully refuse* (with an actionable hint) instead
+ * of the raw "unknown command kind" pass-through error a stale extension throws.
+ * Baseline focus/close/move aren't in the map, so they're unaffected.
+ */
+export function conservativeCaps(): Capabilities {
+  return Object.fromEntries(CAPABILITY_KEYS.map((key) => [key, false])) as Capabilities;
+}

@@ -11,6 +11,16 @@ import { BrowserIdSchema, CapabilitiesSchema, WindowBoundsSchema } from "./base.
 import { TabEnrichmentSchema, WindowEnrichmentSchema } from "./enrichment.js";
 import { PageStateSchema } from "./page.js";
 
+/**
+ * The wire protocol revision both peers speak — the single source of truth for
+ * the extension's `PROTOCOL_VERSION` and the daemon's staleness check. Bump it
+ * when the extension↔daemon contract gains capabilities/commands a peer must
+ * understand. A *deployed* extension bundle bakes in whatever value it was built
+ * with, so a daemon newer than an un-reloaded extension detects the mismatch
+ * (see the daemon's ws-server hello handler). v2 = capabilities + enrichments.
+ */
+export const WIRE_PROTOCOL_VERSION = 2;
+
 export const ExtTabSchema = z
   .object({
     id: z.number().int().describe("Extension-native tab id (chrome.tabs id)."),
