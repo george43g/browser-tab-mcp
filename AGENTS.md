@@ -283,6 +283,14 @@ Still deferred: Safari runtime + packaging scripts can't be automated (no headle
 
 Canonical set: `.mcp.json` (standard MCP schema, `${VAR}` placeholders only —
 never literal secrets). `.cursor/mcp.json` and `.warp/.mcp.json` are symlinks
-to it. `opencode.json`'s `mcp` key is GENERATED — after editing `.mcp.json`,
-run: `node ~/dotfiles/mcp/render.js --manifest .mcp.json --opencode opencode.json`.
-Global servers and scope decisions: `~/dotfiles/docs/mcp-registry.md`.
+to it; `opencode.json`'s `mcp` key is GENERATED. All four are owned by the
+global **`mcpsync`** CLI (it retired the old `~/dotfiles/mcp/render.js` on
+2026-08-03) — regenerate the whole set from the repo root with:
+`mcpsync sync --scope project`. Global servers and scope decisions:
+`~/dotfiles/docs/mcp-registry.md`.
+
+These four files are **Biome-excluded** (`biome.json` `files.includes`): mcpsync
+owns their format and emits expanded JSON that Biome's formatter would rewrite,
+so — like the napi-generated `apps/rust-accel/index.{js,d.ts}` — they're
+tool-owned and out of Biome's jurisdiction. Don't hand-format them or re-add
+them to the lint set; edit `.mcp.json` then re-run `mcpsync sync --scope project`.
