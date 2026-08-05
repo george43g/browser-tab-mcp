@@ -89,3 +89,39 @@ Newest entry LAST. Every working session appends one entry:
 - NEXT: both PRs await the **user's merge word** (#17 green, #18 CI running
   at time of writing). Then: BACKLOG item 2 (extension `hello` version
   check) or the wm-stack rewire, user's pick.
+
+---
+
+## 2026-08-06 · Claude · #17–#20 merged; staleness check done; ext version-bump
+
+- **All four PRs merged to `main` (`78ea436`).** In order: **#17** handoff docs
+  (`ffdf872`); **#18** `cgWindowId` title tiebreaker (`308c5d9`); **#19**
+  canonical project MCP set + Biome-exclude the tool-owned mcp configs
+  (`9b0e0e6`) — this resolved the lingering "local-`main` MCP-config commit
+  fails lint" follow-up: `mcpsync` now owns `.mcp.json`/`.cursor`/`.warp`/
+  `opencode.json` and emits expanded JSON, so they're excluded from Biome
+  (`biome.json` `files.includes` negations) rather than hand-formatted (see
+  `AGENTS.md` § "MCP servers"); **#20** the extension staleness check
+  (BACKLOG item 2, now struck).
+- **BACKLOG item 2 shipped (#20).** `hello` carries `protocolVersion`
+  (single-sourced `WIRE_PROTOCOL_VERSION`); daemon `extIsStale` → loud
+  `ext_stale` warn + `doctor` line + `daemon_status` `stale`/`extensionInfo`;
+  legacy no-caps extension defaults to `conservativeCaps()` (all-false).
+- **Deployed + verified live.** Rebuilt the extension; user reloaded Chrome +
+  Safari. `daemon_status` shows both `protocolVersion 2, stale: false` (session
+  order flipped, confirming a real teardown+reconnect). Daemon runs the
+  canonical `main` build.
+- **This PR (`chore/ext-version-bump`):** a manual extension version-bump
+  command — `pnpm --filter @george43g/chrome-extension run bump
+  [patch|minor|major|X.Y.Z]` — bumps `public/manifest.json` + `package.json`
+  in lockstep (surgical string replace, formatting preserved). `package.json`
+  set `0.0.0 → 0.2.0` for parity; a build-output test locks the two versions
+  together. Deliberately manual (no auto-bump on merge); separate from the wire
+  `protocolVersion` and from npm release (still off, item 6).
+- **Versioning status (answered a user question):** semantic-release is
+  scaffolded (`.releaserc.json` + `release.yml`) but **disabled** — trigger is
+  `workflow_dispatch` only, `push` commented out. It would version the npm
+  `package.json`s, NOT the extension manifest (hence this PR). Enabling npm
+  publish stays BACKLOG item 6.
+- NEXT: this tool is feature-complete for handoff — the **wm-stack rewire**
+  (separate repo, a different agent's job) is the remaining high-payoff work.

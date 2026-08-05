@@ -1,11 +1,12 @@
 {
   "name": "@george43g/chrome-extension",
-  "version": "0.0.0",
+  "version": "0.2.0",
   "private": true,
   "description": "browser-tab connector — Chrome MV3 extension. Streams tab/window state to the browser-tab daemon over a localhost WebSocket and executes true state-preserving tab moves (chrome.tabs.move). Load dist/ unpacked via chrome://extensions.",
   "type": "module",
   "scripts": {
     "build": "EXT_ENTRY=background vite build && EXT_ENTRY=options vite build && EXT_ENTRY=popup vite build && EXT_ENTRY=extract vite build",
+    "bump": "node scripts/bump-version.mjs",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "vitest run",
     "test:no-native": "vitest run",
