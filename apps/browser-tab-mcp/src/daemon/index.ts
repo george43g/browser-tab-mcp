@@ -43,7 +43,7 @@ import {
   parseTabId,
   parseWindowId,
 } from "../detect/ids.js";
-import { APP_VERSION } from "../meta.js";
+import { APP_VERSION, buildStamp } from "../meta.js";
 import { AnnotationStore } from "./annotations.js";
 import { ContentCache } from "./content-cache.js";
 import { EngineLoop, pollMs } from "./engine-loop.js";
@@ -517,6 +517,9 @@ export async function startDaemon(): Promise<DaemonHandle> {
     onStatus: async () => ({
       pid: process.pid,
       version: APP_VERSION,
+      // Build identity, so a consumer can tell WHICH build of this version is
+      // serving it — semver alone cannot (see scripts/build-stamp.mjs).
+      build: buildStamp(),
       contractVersion: store.getSnapshot().version,
       uptimeS: Math.floor((Date.now() - startedAt) / 1000),
       pollMs: pollMs(),

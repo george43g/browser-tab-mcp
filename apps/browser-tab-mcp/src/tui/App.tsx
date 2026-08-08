@@ -14,7 +14,7 @@ import { DevStatsPanel, HelpBar, StatusBar, useTheme, useVimKeys } from "@george
 import { Box, Text, useApp, useInput } from "ink";
 import { useMemo, useState } from "react";
 import { callMcpTool } from "../dispatcher.js";
-import { APP_NAME, APP_VERSION } from "../meta.js";
+import { APP_NAME, buildStamp } from "../meta.js";
 import { engineLabel } from "../native-bridge.js";
 import { buildRows, type Row, tabBadges } from "./rows.js";
 import { useSnapshot } from "./useSnapshot.js";
@@ -196,7 +196,7 @@ export function App() {
         </Text>
         <Text color={theme.palette.fgDim}>
           {" "}
-          v{APP_VERSION} · {live ? "daemon stream" : "osascript polling"}
+          v{buildStamp()} · {live ? "daemon stream" : "osascript polling"}
         </Text>
       </Box>
 

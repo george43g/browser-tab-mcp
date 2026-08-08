@@ -37,7 +37,17 @@ let lastConfig: { browser: BrowserName; port: number; hasToken: boolean } = {
   hasToken: false,
 };
 
+/**
+ * Build identity, frozen in at build time (scripts/build-stamp.mjs). The
+ * manifest's own `version` must stay bare semver for Chrome, so it cannot
+ * distinguish two builds of the same release — which is precisely how a stale
+ * bundle keeps reporting a plausible version after a rebuild that was never
+ * reloaded. Reporting the stamp lets the daemon compare against its own.
+ */
+declare const __BUILD_STAMP__: string | undefined;
+
 function safeManifestVersion(): string {
+  if (typeof __BUILD_STAMP__ === "string") return __BUILD_STAMP__;
   try {
     return api.runtime.getManifest().version;
   } catch {

@@ -34,6 +34,45 @@ window placement (explicit `bounds` still work), and the doctor Screen-Recording
 preflight degrade, all gracefully. Run from the workspace build (`node
 dist/cli.js …`) to get the native tier.
 
+## Build identity
+
+Every artifact carries a build stamp — `<semver>+<count>.<sha>[.dirty.<ts>]`:
+
+```bash
+$ browser-tab --version
+0.9.0+412.a1b2c3d (built 2026-08-09T06:12:00Z)
+```
+
+Semver only moves on release, so it cannot distinguish two builds *between*
+releases — which is exactly how a rebuilt-but-never-reloaded extension keeps
+reporting a plausible version. The stamp changes on every build:
+
+- **`count`** — `git rev-list --count HEAD`, so you can tell at a glance which
+  of two builds is newer. Derived from history rather than a committed counter,
+  so it survives clean checkouts and agrees between a laptop and CI.
+- **`sha`** — ties the build back to source.
+- **`.dirty.<ts>`** — uncommitted changes, plus a minute-resolution timestamp so
+  successive dev builds off the same commit stay distinguishable.
+
+It is injected at build time (`scripts/build-stamp.mjs` → Vite `define`) into
+both the bin and the extension bundle; `tsx` dev runs compute it lazily from git.
+The extension's `manifest.json` `version` must stay bare semver for Chrome, so
+the stamp rides in the JS and is reported over the socket instead.
+
+`doctor` and `daemon_status` compare the daemon's stamp against each connected
+extension's and warn on a mismatch — catching the case protocol-version
+staleness cannot see, where a stale bundle speaks the *same* wire version while
+running different code:
+
+```
+  ℹ  daemon build 0.9.0+412.a1b2c3d
+⚠ chrome extension build 0.2.0+411.9f21ab4 ≠ daemon build 0.9.0+412.a1b2c3d —
+  a rebuilt extension is not a reloaded one. Reload it (chrome://extensions).
+```
+
+A dirty build of the *same* commit counts as a match — flagging it would cry
+wolf on every dev iteration; what matters is the source revision.
+
 ## cgWindowId correlation (the wm-stack join key)
 
 Each browser window is stamped with its CGWindowID — the id yabai uses — so

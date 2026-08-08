@@ -1,7 +1,11 @@
-import { builtinModules } from "node:module";
+import { builtinModules, createRequire } from "node:module";
 import { resolve } from "node:path";
 import banner from "rollup-plugin-banner2";
 import { defineConfig } from "vite";
+import { buildDefines } from "../../scripts/build-stamp.mjs";
+
+const pkgVersion = (createRequire(import.meta.url)("./package.json") as { version: string })
+  .version;
 
 /**
  * Vite library-mode build with two entry points.
@@ -25,6 +29,9 @@ import { defineConfig } from "vite";
  * `dist/cli.js` is self-contained and installable outside the workspace.
  */
 export default defineConfig({
+  // Freeze build identity into the bundle so the running artifact can prove
+  // which source it came from (see scripts/build-stamp.mjs).
+  define: buildDefines(pkgVersion),
   build: {
     target: "node22",
     outDir: "dist",
