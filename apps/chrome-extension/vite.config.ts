@@ -11,8 +11,13 @@
  * Safari. Run once per entry via EXT_ENTRY (see package.json build script).
  */
 
+import { createRequire } from "node:module";
 import { resolve } from "node:path";
 import { defineConfig } from "vite";
+import { buildDefines } from "../../scripts/build-stamp.mjs";
+
+const pkgVersion = (createRequire(import.meta.url)("./package.json") as { version: string })
+  .version;
 
 const ENTRIES = {
   background: "src/background.ts",
@@ -31,6 +36,10 @@ if (!(entry in ENTRIES)) throw new Error(`unknown EXT_ENTRY "${entry}"`);
 const isFirst = entry === "background"; // first pass clears dist + copies public/
 
 export default defineConfig({
+  // The manifest `version` must stay bare semver (Chrome rejects anything
+  // else), so build identity rides in the JS instead — this is what lets the
+  // daemon tell a reloaded bundle from a stale one.
+  define: buildDefines(pkgVersion),
   // Copy public/ (manifest, html, css, icons) once, on the first pass only.
   publicDir: isFirst ? "public" : false,
   build: {

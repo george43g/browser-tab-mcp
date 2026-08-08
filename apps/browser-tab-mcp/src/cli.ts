@@ -17,11 +17,12 @@ import { color, isInteractive } from "@george43g/cli-kit";
 import { WIRE_PROTOCOL_VERSION } from "@george43g/shared-types";
 import { Command } from "commander";
 import { checkLocalAccess, formatAccessReport } from "./access-check.js";
+import { compareBuilds } from "./build-compare.js";
 import { daemonStatus } from "./client/tabs-service.js";
 import { registerDaemonCommand } from "./commands/daemon.js";
 import { callMcpTool } from "./dispatcher.js";
 import { runMcpServer } from "./index.js";
-import { APP_NAME, APP_VERSION } from "./meta.js";
+import { APP_NAME, APP_VERSION, buildStamp, builtAt } from "./meta.js";
 
 /** Parse a `--bounds x,y,w,h` string into a WindowBounds, or undefined when absent. */
 function parseBounds(s?: string): { x: number; y: number; w: number; h: number } | undefined {
@@ -55,7 +56,9 @@ export async function main(argv: readonly string[] = process.argv): Promise<void
   program
     .name(APP_NAME.replace(/^@[^/]+\//, "").replace(/-mcp$/, ""))
     .description("browser-tab — single bin; subcommands run the MCP server, TUI, doctor, etc.")
-    .version(APP_VERSION, "-V, --version")
+    // Report the BUILD, not just the semver — semver only moves on release, so
+    // it cannot tell you which of two builds is actually running.
+    .version(builtAt() ? `${buildStamp()} (built ${builtAt()})` : buildStamp(), "-V, --version")
     .option("--json", "Emit machine-readable JSON")
     .option("-q, --quiet", "Suppress non-error output")
     .option("-v, --verbose", "Log debug-level info to stderr")
@@ -95,12 +98,36 @@ export async function main(argv: readonly string[] = process.argv): Promise<void
         browser: string;
         protocolVersion: number;
         stale: boolean;
+        extVersion?: string;
       }>;
       for (const e of extInfo) {
         if (!e.stale) continue;
         process.stdout.write(
           `⚠ ${e.browser} extension is stale (protocol v${e.protocolVersion} < daemon v${WIRE_PROTOCOL_VERSION}) — reload it (chrome://extensions) or sideload+toggle (Safari) to restore v2 commands, journaling, and capabilities.\n`,
         );
+      }
+
+      // Protocol staleness only catches a bundle old enough to speak an older
+      // wire version. A rebuild that was never reloaded speaks the SAME
+      // protocol while running different code — invisible until something
+      // misbehaves. Build stamps make it obvious.
+      const daemonBuild = typeof status.build === "string" ? status.build : null;
+      if (daemonBuild) {
+        process.stdout.write(`  ℹ  daemon build ${daemonBuild}\n`);
+        const reload = "Reload it (chrome://extensions) or sideload+toggle (Safari).";
+        for (const e of extInfo) {
+          if (!e.extVersion) continue;
+          const cmp = compareBuilds(daemonBuild, e.extVersion);
+          if (cmp.kind === "unstamped") {
+            process.stdout.write(
+              `⚠ ${e.browser} extension reports "${e.extVersion}" with no build stamp — it predates build stamping. Rebuild and reload it.\n`,
+            );
+          } else if (cmp.kind === "mismatch") {
+            process.stdout.write(
+              `⚠ ${e.browser} extension build ${e.extVersion} ≠ daemon build ${daemonBuild} — a rebuilt extension is not a reloaded one. ${reload}\n`,
+            );
+          }
+        }
       }
       if (!report.ok) process.exit(1);
     });
