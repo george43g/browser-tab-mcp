@@ -111,13 +111,6 @@ function notConnectedHint(handle: string, browser: BrowserId): string {
   );
 }
 
-/** Group handles are always extension-generation (g:<browser>:x<id>). */
-function groupNum(handle: string, what: string): number {
-  const g = parseGroupId(handle);
-  if (!g) throw new Error(`${what} "${handle}" is not a tab-group handle from list_tabs.`);
-  return Number.parseInt(g.nativeId, 10);
-}
-
 /** Ext handles carry the extension's numeric ids; reject mixed generations. */
 function extNum(parsed: ParsedTabId | ParsedWindowId, what: string): number {
   if (!parsed.ext || !("nativeId" in parsed) || parsed.nativeId === undefined) {
@@ -127,6 +120,48 @@ function extNum(parsed: ParsedTabId | ParsedWindowId, what: string): number {
     );
   }
   return Number.parseInt(parsed.nativeId, 10);
+}
+
+/**
+ * Handles are opaque and browser-scoped, but the numeric id inside them is NOT
+ * globally unique — every browser numbers its own tabs/windows from its own
+ * sequence. So a handle from browser B, unpacked into a command aimed at
+ * browser A, hands A a number that means something completely different there.
+ *
+ * Left unchecked that is not merely an error: `group_tabs` infers its target
+ * browser from `tabIds[0]` alone, so a stray handle from another browser used
+ * to contribute its raw number and could group an unrelated tab that happened
+ * to share it. `move_tab` leaked the same way, surfacing the foreign numeric id
+ * verbatim ("No window with id: 38").
+ *
+ * Every site that accepts a second handle must therefore anchor it against the
+ * browser the command is actually routed to.
+ */
+function crossBrowserError(what: string, handle: string, actual: BrowserId, anchor: BrowserId) {
+  return new Error(
+    `${what} "${handle}" is a ${actual} handle but this command targets ${anchor}. ` +
+      `Tabs, windows and groups can only be combined within a single browser — ` +
+      `re-run list_tabs and use handles from ${anchor}.`,
+  );
+}
+
+/** Parse a secondary tab/window handle, asserting it belongs to `anchor`. */
+function extNumOf(anchor: BrowserId, handle: string, what: string): number {
+  const parsed = parseHandle(handle);
+  if (parsed.browser !== anchor) {
+    throw crossBrowserError(what, handle, parsed.browser, anchor);
+  }
+  return extNum(parsed, what);
+}
+
+/** Parse a group handle, asserting it belongs to `anchor`. */
+function groupNumOf(anchor: BrowserId, handle: string, what: string): number {
+  const g = parseGroupId(handle);
+  if (!g) throw new Error(`${what} "${handle}" is not a tab-group handle from list_tabs.`);
+  if (g.browser !== anchor) {
+    throw crossBrowserError(what, handle, g.browser, anchor);
+  }
+  return Number.parseInt(g.nativeId, 10);
 }
 
 /**
@@ -174,11 +209,15 @@ export async function executeCommand(
           newWindow: (params.newWindow as boolean | undefined) ?? false,
         };
         if (targetWindowId !== undefined) {
-          args.targetWindowId = extNum(parseHandle(targetWindowId), "targetWindowId");
+          args.targetWindowId = extNumOf(parsed.browser, targetWindowId, "targetWindowId");
         }
         if (params.targetIndex !== undefined) args.targetIndex = params.targetIndex;
         if (params.targetGroupId !== undefined) {
-          args.targetGroupId = groupNum(params.targetGroupId as string, "targetGroupId");
+          args.targetGroupId = groupNumOf(
+            parsed.browser,
+            params.targetGroupId as string,
+            "targetGroupId",
+          );
         }
         const raw = await ext.sendCommand(parsed.browser, "move_tab", args);
         result = extResult(parsed.browser, "move_tab", raw);
@@ -201,8 +240,13 @@ export async function executeCommand(
     case "open_tab": {
       const windowId = params.windowId as string | undefined;
       const parsedWindow = windowId ? parseHandle(windowId) : null;
-      const browser =
-        parsedWindow?.browser ?? (params.browser as BrowserId | undefined) ?? enabledBrowsers()[0];
+      const askedBrowser = params.browser as BrowserId | undefined;
+      // An explicit `browser` that disagrees with the windowId's is a caller
+      // mistake, not a preference — the window handle used to win silently.
+      if (parsedWindow && askedBrowser && parsedWindow.browser !== askedBrowser) {
+        throw crossBrowserError("windowId", windowId as string, parsedWindow.browser, askedBrowser);
+      }
+      const browser = parsedWindow?.browser ?? askedBrowser ?? enabledBrowsers()[0];
       if (!browser) throw new Error("No browser enabled.");
       const useExt =
         ext?.isConnected(browser) === true && (parsedWindow === null || parsedWindow.ext);
@@ -215,7 +259,7 @@ export async function executeCommand(
         if (parsedWindow) args.windowId = extNum(parsedWindow, "windowId");
         if (params.index !== undefined) args.index = params.index;
         if (params.groupId !== undefined) {
-          args.groupId = groupNum(params.groupId as string, "groupId");
+          args.groupId = groupNumOf(browser, params.groupId as string, "groupId");
         }
         const raw = await ext.sendCommand(browser, "open_tab", args);
         result = extResult(browser, "open_tab", raw);
@@ -272,10 +316,12 @@ export async function executeCommand(
         );
       }
       const args: Record<string, unknown> = { action: params.action };
-      if (tabIds) args.tabIds = tabIds.map((h) => extNum(parseHandle(h), "tabId"));
-      if (groupId) args.groupId = groupNum(groupId, "groupId");
-      if (targetWindowId)
-        args.targetWindowId = extNum(parseHandle(targetWindowId), "targetWindowId");
+      // EVERY tabId is anchored, not just tabIds[0] which picked the browser —
+      // an unvalidated tail element could otherwise group a same-numbered tab
+      // belonging to a different browser.
+      if (tabIds) args.tabIds = tabIds.map((h) => extNumOf(browser, h, "tabId"));
+      if (groupId) args.groupId = groupNumOf(browser, groupId, "groupId");
+      if (targetWindowId) args.targetWindowId = extNumOf(browser, targetWindowId, "targetWindowId");
       for (const k of ["title", "color", "collapsed", "index"] as const) {
         if (params[k] !== undefined) args[k] = params[k];
       }

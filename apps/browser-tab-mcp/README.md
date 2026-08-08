@@ -124,6 +124,18 @@ or a `--display <n>` index that fills that monitor. Display targeting reads the
 active-display list from the native module; without it, use `--bounds`. List the
 available displays via `browser-tab daemon status --json` (the `displays` field).
 
+`--bounds` and `--state` compose: `window set <id> --bounds … --state normal`
+restores the window *and* places it (state is applied first, then the geometry,
+so your explicit bounds win). Chrome's API rejects the two in one call, so the
+daemon issues them as two updates rather than dropping either.
+
+**Handles never cross browsers.** Every handle is scoped to one browser, and the
+numeric id inside it is only unique within that browser — so a `w:safari:…`
+target for a `t:chrome:…` tab is rejected with an actionable error rather than
+being unpacked into Chrome's id space. This applies to every command that takes
+a second handle (`move --target-window`, `open --window`, and all of `group`,
+including *each* id in `--tabs`). Re-run `list` and use handles from one browser.
+
 ## Page content & state
 
 On-demand page perception — the tool returns reader-mode text, metadata, or

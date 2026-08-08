@@ -14,7 +14,7 @@
 
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
-import { envNum } from "@george43g/robustness";
+import { envNum, withRetry } from "@george43g/robustness";
 
 const execFileAsync = promisify(execFile);
 
@@ -92,6 +92,43 @@ export async function runOsa(
     }
     throw new Error(`osascript failed for "${opts.appName}": ${stderr.trim() || e.message}`);
   }
+}
+
+/**
+ * Retry-wrapped `runOsa` for READ-ONLY scripts.
+ *
+ * This exists as a separate export rather than a `retry` flag because the
+ * read/write distinction is the entire safety argument: `runOsa` also carries
+ * focus/close/move, and replaying one of those after a partial failure would
+ * close or move a second tab. Only reads are idempotent, so only reads may be
+ * retried — never call this with a script that mutates.
+ *
+ * Retries the generic "osascript failed" case only, which is what a browser
+ * mid-launch or mid-quit produces (AppleEvent -600 / -10000) and which today
+ * surfaces as a hard error on an otherwise fine snapshot. Deliberately NOT
+ * retried:
+ *   - OsaPermissionError — permanent until the user grants TCC; retrying only
+ *     delays an actionable message.
+ *   - OsaTimeoutError — it already burned the full timeout (and the first-
+ *     contact case can be 60s); stacking those would wedge the poll loop.
+ * Delays stay short for the same reason: the engine loop is itself a retry
+ * cadence, so this is only here to paper over a sub-second blip.
+ */
+export function shouldRetryOsaRead(err: unknown): boolean {
+  return !(err instanceof OsaPermissionError || err instanceof OsaTimeoutError);
+}
+
+export function runOsaRead(
+  script: string,
+  opts: { appName: string; timeoutMs?: number; signal?: AbortSignal } = { appName: "unknown" },
+): Promise<string> {
+  return withRetry(() => runOsa(script, opts), {
+    label: `osa_read:${opts.appName}`,
+    maxAttempts: 2,
+    baseMs: 150,
+    capMs: 500,
+    shouldRetry: shouldRetryOsaRead,
+  });
 }
 
 /** Escape a string for embedding inside an AppleScript double-quoted literal. */

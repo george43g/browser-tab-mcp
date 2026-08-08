@@ -125,3 +125,60 @@ Newest entry LAST. Every working session appends one entry:
   publish stays BACKLOG item 6.
 - NEXT: this tool is feature-complete for handoff — the **wm-stack rewire**
   (separate repo, a different agent's job) is the remaining high-payoff work.
+
+---
+
+## 2026-08-07 · Claude · bug sweep + live test-drive (CLI / REPL / TUI)
+
+- **Research/exploration session only — no code changed.** Output is
+  **`BUGSWEEP-2026-08-07.md`** (this directory), written as the input brief for
+  `/plan`. Read that, not this entry, for detail.
+- **Method:** tmux lab (`bt-lab`, pinned 200×50, user attached read-only via a
+  grouped session so their focus/keystrokes stayed out of the drive) against the
+  **real deployed stack** — global bin, launchd daemon, live Chrome (2 win / 5
+  tabs) + Safari (1 / 24), `correlationTier: native`, both extensions
+  protocol v2. Baseline confirmed green first: lint 0 · typecheck 0 ·
+  test 18/18 · build.
+- **14 findings, most reproduced live** on the shipped binary. Headlines:
+  - **P0 cross-browser handles are never validated** — moved a Chrome tab into a
+    Safari window from the TUI; got `No window with id: 38` (a Safari *internal*
+    id passed into `chrome.tabs.move`). Worst case is `group_tabs`, which infers
+    the browser from `tabIds[0]` only and can **silently group the wrong tab**.
+  - **P0 `set_window` silently drops `state` when `bounds` is present** —
+    `--bounds … --state normal` applied the bounds, left the window `minimized`,
+    returned `ok:true`.
+  - **P0/P1 TUI `VIEWPORT = 24` is a hardcoded constant** — wastes 22 rows at
+    50-high, collapses to 13 rows at the list end, and **corrupts the render**
+    (overprinted rows, destroyed status bar) below ~28 rows.
+  - **P1 REPL `raw` is 100% broken** (the arg parser eats every quote char, so
+    all JSON fails) and 15 of the 18 tools its own `help` advertises are
+    uncallable. `cli-kit` has no `repl.test.ts` — hence both shipped.
+  - **P1 the daemon subscription never reconnects** — restart the daemon under a
+    live TUI and it freezes on stale data while still showing "daemon stream".
+  - **P2 the CLI has no human output at all** (`list` prints raw JSON with or
+    without `--json`); 19 of 22 `cli-kit` exports are dead, including the
+    env↔flag binder that `AGENTS.md:149` declares a **rule**.
+- **Doc drift found:** `AGENTS.md:254/:260` call the Playwright e2e a
+  "deferred/stub" / "gated-off stub job" — it is neither; `e2e-chromium` runs
+  **unconditionally** in CI with 3 real tests against a real Chromium loading the
+  built `dist/`. That harness is already the recommended approach for MV3 e2e —
+  the plan should **extend** it, not build a new one.
+- **User decisions taken:** wire human-readable CLI tables (keep `--json`); fix
+  `raw` + add generic `<tool> <json>` REPL dispatch; **`focus_tab` is not
+  responsible for visibility/space/monitor** — that's the window manager's job,
+  browser-tab just activates the tab and must **return enough state**
+  (`cgWindowId`, window state) for the caller to act. Evidence: the scratch
+  window's `cgWindowId: 140001` resolved in yabai to `display:1, space:4`.
+- **Deferred by the user:** bin version / release automation. They want tags +
+  releases + changelogs done properly but **not npm-locked**, and asked to
+  explore modern alternatives — options researched and written up in the brief
+  (note: the existing `.releaserc.json` already does all of it; only the
+  `@semantic-release/npm` plugin couples it to npm, and semantic-release isn't
+  even a dependency).
+- **Left uncommitted on `main`:** `BUGSWEEP-2026-08-07.md` + this entry. No
+  source touched. One scratch Chrome window was created and closed; a
+  `screenshot --focus` activated a Chrome tab (documented behaviour).
+- NEXT: `/plan` from the brief. Suggested order is PR-1 (cross-browser handle
+  validation) → PR-2 (set_window) → PR-3 (TUI viewport) → …; `focus_tab` (PR-7)
+  is blocked on one open question, since making window-raising opt-in is a
+  **contract change**.
