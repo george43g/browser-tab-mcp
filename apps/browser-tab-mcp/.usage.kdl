@@ -13,6 +13,34 @@ flag "-q --quiet" help="Suppress non-error output"
 flag "-v --verbose" help="Log debug-level info to stderr"
 flag "--no-color" help="Disable colors"
 
+// The curated env-var ↔ flag contract (src/env-flags.ts). A flag always beats
+// the corresponding env var. Every OTHER recognized env var is env-only and
+// documented in .env.example — this list is deliberately short.
+flag "--log-dir" help="Directory for NDJSON logs (MCP_LOG_DIR)" {
+    arg "<dir>"
+}
+flag "--disable-native" help="Force the TS path, skipping the native module (MCP_DISABLE_NATIVE)"
+flag "--socket-path" help="Daemon unix socket path (BROWSER_TAB_SOCKET_PATH)" {
+    arg "<path>"
+}
+flag "--ws-port" help="Extension WebSocket port on 127.0.0.1 (BROWSER_TAB_WS_PORT)" {
+    arg "<port>"
+}
+flag "--state-dir" help="Daemon state dir: token, journals (BROWSER_TAB_STATE_DIR)" {
+    arg "<dir>"
+}
+flag "--cache-dir" help="Snapshot/content/screenshot cache dir (BROWSER_TAB_CACHE_DIR)" {
+    arg "<dir>"
+}
+flag "--browsers" help="Comma-separated browsers to poll (BROWSER_TAB_BROWSERS)" {
+    arg "<list>"
+}
+flag "--poll-ms" help="AppleScript poll interval in ms (BROWSER_TAB_POLL_MS)" {
+    arg "<ms>"
+}
+flag "--fake-adapter" help="Use the fake adapter, no real browsers (BROWSER_TAB_FAKE_ADAPTER)"
+flag "--dev" help="Enable dev-only tools such as get_logs (MCP_DEV)"
+
 cmd "mcp" help="Run the MCP server (stdio)"
 
 cmd "tui" help="Launch the Ink TUI"

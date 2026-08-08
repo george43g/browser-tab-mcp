@@ -13,7 +13,14 @@
  */
 
 import { copyFileSync } from "node:fs";
-import { color, isInteractive } from "@george43g/cli-kit";
+import {
+  applyEnvFromFlags,
+  bindEnvFlags,
+  color,
+  isInteractive,
+  printJson,
+  resolveOutputMode,
+} from "@george43g/cli-kit";
 import { WIRE_PROTOCOL_VERSION } from "@george43g/shared-types";
 import { Command } from "commander";
 import { checkLocalAccess, formatAccessReport } from "./access-check.js";
@@ -21,8 +28,10 @@ import { compareBuilds } from "./build-compare.js";
 import { daemonStatus } from "./client/tabs-service.js";
 import { registerDaemonCommand } from "./commands/daemon.js";
 import { callMcpTool } from "./dispatcher.js";
+import { ENV_FLAG_OPTS, ENV_FLAGS } from "./env-flags.js";
 import { runMcpServer } from "./index.js";
 import { APP_NAME, APP_VERSION, buildStamp, builtAt } from "./meta.js";
+import { layoutWidth, renderForTool } from "./render.js";
 
 /** Parse a `--bounds x,y,w,h` string into a WindowBounds, or undefined when absent. */
 function parseBounds(s?: string): { x: number; y: number; w: number; h: number } | undefined {
@@ -35,9 +44,32 @@ function parseBounds(s?: string): { x: number; y: number; w: number; h: number }
   return { x: x as number, y: y as number, w: w as number, h: h as number };
 }
 
-async function printResult(result: Awaited<ReturnType<typeof callMcpTool>>, json: boolean) {
-  if (json) {
-    process.stdout.write(`${JSON.stringify(result.structuredContent ?? result, null, 2)}\n`);
+/**
+ * Print a tool result.
+ *
+ * Mode comes from cli-kit's `resolveOutputMode`: explicit `--json` wins, then a
+ * non-TTY stdout (being piped), then `CI=true`, else human. So every existing
+ * script keeps byte-identical JSON and only an interactive terminal gets prose.
+ *
+ * `tool` is optional: pass it to opt a command into a human renderer. Without
+ * one — or for a tool `renderForTool` doesn't know — output falls back to the
+ * dispatcher's JSON text block, so nothing silently loses information.
+ */
+async function printResult(
+  result: Awaited<ReturnType<typeof callMcpTool>>,
+  json: boolean,
+  tool?: string,
+) {
+  if (resolveOutputMode({ json }) === "json") {
+    printJson(result.structuredContent ?? result);
+    return;
+  }
+  const human =
+    tool && !result.isError
+      ? renderForTool(tool, result.structuredContent, layoutWidth())
+      : undefined;
+  if (human !== undefined) {
+    process.stdout.write(`${human}\n`);
     return;
   }
   for (const item of result.content ?? []) {
@@ -63,6 +95,15 @@ export async function main(argv: readonly string[] = process.argv): Promise<void
     .option("-q, --quiet", "Suppress non-error output")
     .option("-v, --verbose", "Log debug-level info to stderr")
     .option("--no-color", "Disable colors");
+
+  // The curated env↔flag contract (see env-flags.ts). Registered on the ROOT
+  // command so `browser-tab --socket-path … daemon status` works for every
+  // subcommand, and applied via a preAction hook so the values are in
+  // process.env before any action reads them.
+  bindEnvFlags(program, ENV_FLAGS, ENV_FLAG_OPTS);
+  program.hook("preAction", () => {
+    applyEnvFromFlags(program, ENV_FLAGS, ENV_FLAG_OPTS);
+  });
 
   program
     .command("mcp")
@@ -156,7 +197,7 @@ export async function main(argv: readonly string[] = process.argv): Promise<void
         ...(opts.url ? { urlFilter: opts.url } : {}),
         fields: opts.fields === "core" ? "core" : "full",
       });
-      await printResult(result, json);
+      await printResult(result, json, "list_tabs");
     });
 
   program
@@ -183,7 +224,7 @@ export async function main(argv: readonly string[] = process.argv): Promise<void
           ...(opts.tab ? { tabId: opts.tab } : {}),
           limit: Number.parseInt(opts.limit ?? "20", 10),
         });
-        await printResult(result, json);
+        await printResult(result, json, "journal");
       },
     );
 
@@ -211,7 +252,7 @@ export async function main(argv: readonly string[] = process.argv): Promise<void
           ...(opts.end ? { endTime: Number.parseInt(opts.end, 10) } : {}),
           maxResults: Number.parseInt(opts.limit ?? "50", 10),
         });
-        await printResult(result, json);
+        await printResult(result, json, "history");
       },
     );
 

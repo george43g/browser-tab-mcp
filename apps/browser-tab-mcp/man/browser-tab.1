@@ -19,6 +19,36 @@ Log debug\-level info to stderr
 .TP
 \fB\-\-no\-color\fR
 Disable colors
+.TP
+\fB\-\-log\-dir\fR \fI<dir>\fR
+Directory for NDJSON logs (MCP_LOG_DIR)
+.TP
+\fB\-\-disable\-native\fR
+Force the TS path, skipping the native module (MCP_DISABLE_NATIVE)
+.TP
+\fB\-\-socket\-path\fR \fI<path>\fR
+Daemon unix socket path (BROWSER_TAB_SOCKET_PATH)
+.TP
+\fB\-\-ws\-port\fR \fI<port>\fR
+Extension WebSocket port on 127.0.0.1 (BROWSER_TAB_WS_PORT)
+.TP
+\fB\-\-state\-dir\fR \fI<dir>\fR
+Daemon state dir: token, journals (BROWSER_TAB_STATE_DIR)
+.TP
+\fB\-\-cache\-dir\fR \fI<dir>\fR
+Snapshot/content/screenshot cache dir (BROWSER_TAB_CACHE_DIR)
+.TP
+\fB\-\-browsers\fR \fI<list>\fR
+Comma\-separated browsers to poll (BROWSER_TAB_BROWSERS)
+.TP
+\fB\-\-poll\-ms\fR \fI<ms>\fR
+AppleScript poll interval in ms (BROWSER_TAB_POLL_MS)
+.TP
+\fB\-\-fake\-adapter\fR
+Use the fake adapter, no real browsers (BROWSER_TAB_FAKE_ADAPTER)
+.TP
+\fB\-\-dev\fR
+Enable dev\-only tools such as get_logs (MCP_DEV)
 .SH COMMANDS
 .TP
 \fBmcp\fR

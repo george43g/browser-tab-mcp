@@ -96,6 +96,52 @@ Every MCP tool is also a CLI subcommand and a REPL command (one in-process dispa
 | `noop` | Echo demo (Rust acceleration path). | read-only, idempotent |
 | `get_logs` | **Dev-mode only** (`MCP_DEV=1`). Last N in-memory log lines. | read-only |
 
+### Output: human at a terminal, JSON everywhere else
+
+Read commands (`list`, `journal`, `history`, `daemon status`) print a readable
+view when stdout is a terminal, and **JSON** when it isn't — so pipes, scripts
+and CI keep the exact machine-readable output they always had. Precedence:
+`--json` wins, then a non-TTY stdout, then `CI=true`, else human.
+
+```console
+$ browser-tab list --browser chrome
+chrome  extension · 2 windows · 4 tabs ← focused
+  w:chrome:x523241490  normal  1860×1020  cg:279
+      t:chrome:x523241740  Posts matching '' - Stack Overflow   stackoverflow.com  asleep
+    ▸ t:chrome:x523241788  Extensions - browser-tab connector   extensions
+  w:chrome:x523241807  normal  1860×1020  cg:71129
+    ▸ t:chrome:x523241808  Example Domain                       example.com
+
+$ browser-tab list --json | jq '.browsers[0].windows | length'
+2
+```
+
+`▸` marks the active tab; a window with no `cgWindowId` shows `cg:none`, since
+that field is the yabai/wm-stack join key and a silent `null` there is easy to
+miss.
+
+### Global flags for the knobs you flip per-invocation
+
+A curated set of environment variables is also accepted as CLI flags, and the
+flag always wins:
+
+| Flag | Env var |
+|---|---|
+| `--log-dir <dir>` | `MCP_LOG_DIR` |
+| `--disable-native` | `MCP_DISABLE_NATIVE` |
+| `--socket-path <path>` | `BROWSER_TAB_SOCKET_PATH` |
+| `--ws-port <port>` | `BROWSER_TAB_WS_PORT` |
+| `--state-dir <dir>` | `BROWSER_TAB_STATE_DIR` |
+| `--cache-dir <dir>` | `BROWSER_TAB_CACHE_DIR` |
+| `--browsers <list>` | `BROWSER_TAB_BROWSERS` |
+| `--poll-ms <ms>` | `BROWSER_TAB_POLL_MS` |
+| `--fake-adapter` | `BROWSER_TAB_FAKE_ADAPTER` |
+| `--dev` | `MCP_DEV` |
+
+Together these are enough to drive a fully isolated daemon by hand — which is
+exactly what the e2e harness does. Every *other* recognized variable is
+env-only and documented in `.env.example`.
+
 The connector extension lives in `apps/chrome-extension` (load `dist/` unpacked, paste `browser-tab daemon token` in its options page) with Safari packaging in `apps/safari-extension` (`pnpm --filter @george43g/safari-extension sideload`; needs Xcode — see its README). Its toolbar **popup** and **settings page** show live connection status, window/tab counts, and the real error if it can't connect. Without an extension, everything except true Chromium moves still works via AppleScript.
 
 ## Install the companion skill
