@@ -13,7 +13,9 @@ export const shared = defineConfig({
   test: {
     globals: true,
     environment: "node",
-    include: ["src/**/*.test.ts", "tests/**/*.test.ts"],
+    // .tsx too — the Ink TUI's render tests are JSX, and a .ts-only pattern
+    // silently discovers nothing rather than failing loudly.
+    include: ["src/**/*.test.ts", "src/**/*.test.tsx", "tests/**/*.test.ts"],
     exclude: ["**/node_modules/**", "**/dist/**", "**/.turbo/**"],
     reporters: process.env.CI ? ["default", "junit"] : ["default"],
     outputFile: {

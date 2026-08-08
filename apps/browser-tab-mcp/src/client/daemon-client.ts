@@ -36,8 +36,24 @@ export class DaemonClient {
   private nextId = 1;
   private pending = new Map<number, (r: IpcResponse) => void>();
   private eventHandlers = new Set<(e: DaemonEvent) => void>();
+  private closeHandlers = new Set<() => void>();
+  /** Set by close() so an intentional teardown doesn't look like a drop. */
+  private closing = false;
 
   constructor(private readonly path: string = socketPath()) {}
+
+  /**
+   * Notified when the socket drops on its own (daemon restart, crash, kill).
+   * The client deliberately does NOT auto-reconnect — a subscriber is a
+   * long-lived UI that needs to decide how to degrade (the TUI falls back to
+   * polling and retries), whereas one-shot callers just want the error.
+   */
+  onClose(cb: () => void): () => void {
+    this.closeHandlers.add(cb);
+    return () => {
+      this.closeHandlers.delete(cb);
+    };
+  }
 
   async connect(): Promise<void> {
     if (this.socket) return;
@@ -64,10 +80,14 @@ export class DaemonClient {
       }
       this.pending.clear();
       this.socket = null;
+      if (!this.closing) {
+        for (const cb of [...this.closeHandlers]) cb();
+      }
     });
   }
 
   close(): void {
+    this.closing = true;
     this.socket?.destroy();
     this.socket = null;
   }
