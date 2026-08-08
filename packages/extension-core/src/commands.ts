@@ -207,47 +207,61 @@ async function openWindowOutcome(args: CommandArgs): Promise<CommandOutcome> {
 async function setWindowOutcome(args: CommandArgs): Promise<CommandOutcome> {
   const windowId = requireWindow(args);
   const windows = api.windows as Windows;
+  const state = args.state as chrome.windows.windowStateEnum | undefined;
+  const bounds = args.bounds;
+  const focused = args.focused;
+
+  if (!state && !bounds) {
+    if (focused === undefined) {
+      throw new Error("set_window needs at least one of bounds, display, state, focused");
+    }
+    const only = await windows.update(windowId, { focused });
+    return { windowId: only?.id ?? windowId, payload: {} };
+  }
 
   // chrome.windows.update rejects a state alongside explicit geometry, so a
   // request carrying BOTH has to become two sequential updates. It previously
-  // took `bounds` and silently discarded `state` while still returning ok —
-  // `--bounds … --state normal` left a minimized window minimized.
+  // took `bounds` and silently discarded `state` while still returning ok.
   //
-  // Order is state-then-bounds: "restore it, then put it here" means the
-  // caller's explicit geometry must land last and win.
-  const steps: chrome.windows.UpdateInfo[] = [];
-
-  if (args.state) {
-    const state = args.state as chrome.windows.windowStateEnum;
+  // GEOMETRY ALWAYS GOES FIRST, STATE ALWAYS LAST. Not a style choice:
+  //
+  //  - A state change is animated by the platform. `windows.update` resolves
+  //    when Chrome ACCEPTS it, not when macOS finishes it, so a geometry update
+  //    issued straight after lands mid-transition and CANCELS it. Measured
+  //    against real Chrome: 0ms gap loses the state 3/3, ~200ms keeps it 3/3.
+  //  - There is no completion signal to wait on instead: `windows.get().state`
+  //    reports the requested state OPTIMISTICALLY, the moment the update is
+  //    accepted. (An earlier fix polled it and was a silent no-op — the live
+  //    window still came back minimised.)
+  //
+  // So the ordering has to make waiting unnecessary: nothing is issued after
+  // the state change, and geometry set beforehand becomes the frame the window
+  // restores INTO — which is what a caller passing both actually wants.
+  //
+  // Known limitation: going maximised/fullscreen → normal WITH bounds, Chrome
+  // may ignore geometry set while still maximised and restore to its previous
+  // normal frame. Losing the placement is strictly better than losing the state.
+  const stateStep = (): chrome.windows.UpdateInfo => {
     const step: chrome.windows.UpdateInfo = { state };
     // focused is invalid alongside a minimized state; safe otherwise.
-    if (args.focused !== undefined && state !== "minimized") step.focused = args.focused;
-    steps.push(step);
-  }
-
-  if (args.bounds) {
+    if (focused !== undefined && state !== "minimized") step.focused = focused;
+    return step;
+  };
+  const boundsStep = (): chrome.windows.UpdateInfo => {
     const step: chrome.windows.UpdateInfo = {
-      left: args.bounds.x,
-      top: args.bounds.y,
-      width: args.bounds.w,
-      height: args.bounds.h,
+      left: bounds?.x,
+      top: bounds?.y,
+      width: bounds?.w,
+      height: bounds?.h,
     };
-    // Only carry focus here when there was no state step to carry it.
-    if (args.focused !== undefined && !args.state) step.focused = args.focused;
-    steps.push(step);
-  }
-
-  if (steps.length === 0) {
-    if (args.focused === undefined) {
-      throw new Error("set_window needs at least one of bounds, display, state, focused");
-    }
-    steps.push({ focused: args.focused });
-  }
+    // Only carry focus here when there is no state step to carry it.
+    if (focused !== undefined && !state) step.focused = focused;
+    return step;
+  };
 
   let win: chrome.windows.Window | undefined;
-  for (const step of steps) {
-    win = await windows.update(windowId, step);
-  }
+  if (bounds) win = await windows.update(windowId, boundsStep());
+  if (state) win = await windows.update(windowId, stateStep());
   return { windowId: win?.id ?? windowId, payload: {} };
 }
 
