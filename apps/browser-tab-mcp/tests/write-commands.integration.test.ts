@@ -76,7 +76,14 @@ function connect(): DaemonSocket {
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
-async function waitConnected(client: DaemonClient, ms = 2000): Promise<void> {
+/**
+ * The budget covers a real WebSocket handshake plus the daemon's next merge
+ * pass, so it is wall-clock sensitive. 2s was enough locally but flaked on
+ * cold, shared macOS CI runners ("extension never became authoritative") —
+ * this is a scheduling limit, not a correctness one, so the generous budget
+ * costs nothing on the happy path (the loop returns as soon as it connects).
+ */
+async function waitConnected(client: DaemonClient, ms = 15_000): Promise<void> {
   const start = Date.now();
   for (;;) {
     const snap = await client.request<Snapshot>("getSnapshot");
