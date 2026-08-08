@@ -202,18 +202,36 @@ describe("window commands", () => {
     expect(fc.calls["windows.remove"]?.[0]).toEqual([3]);
   });
 
-  it("set_window applies BOTH state and bounds, state first", async () => {
-    // Regression: this used to take `bounds` and silently discard `state`,
-    // returning ok — so `--bounds … --state normal` left a minimized window
-    // minimized. Order matters: restore first, then place.
+  // Regression, found live twice. First `bounds` silently discarded `state`.
+  // Then a state-first ordering LOOKED right but still came back minimized: the
+  // geometry update landed mid-restore and cancelled it, because
+  // chrome.windows.update resolves on ACCEPT, not on completion. Polling
+  // windows.get cannot fix that — Chrome reports the requested state
+  // optimistically, so the poll returned instantly and changed nothing.
+  //
+  // Hence the invariant these two tests pin: geometry FIRST, state LAST, so
+  // nothing is ever issued after a state change that could cancel it.
+  it("set_window puts bounds BEFORE state so the state cannot be cancelled", async () => {
     await executeCommand("set_window", {
       windowId: 3,
       state: "normal",
       bounds: { x: 10, y: 20, w: 30, h: 40 },
     });
     expect(fc.calls["windows.update"]).toEqual([
-      [3, { state: "normal" }],
       [3, { left: 10, top: 20, width: 30, height: 40 }],
+      [3, { state: "normal" }],
+    ]);
+  });
+
+  it("set_window orders bounds before EVERY state, not just normal", async () => {
+    await executeCommand("set_window", {
+      windowId: 3,
+      state: "minimized",
+      bounds: { x: 10, y: 20, w: 30, h: 40 },
+    });
+    expect(fc.calls["windows.update"]).toEqual([
+      [3, { left: 10, top: 20, width: 30, height: 40 }],
+      [3, { state: "minimized" }],
     ]);
   });
 
