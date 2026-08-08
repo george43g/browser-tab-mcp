@@ -46,7 +46,31 @@ here.** Nothing about this work may live only in an agent's private memory.
 6. **No AI inside the tool.** browser-tab serves data/actuation; the consumer
    AI interprets. (`annotate` is a cache substrate, never intelligence.)
 
-## Status (2026-07-29)
+## Status (2026-08-09) — bug-sweep remediation, 3 of 6 PRs merged
+
+`main` = **`ed99f7a`**, clean, CI green. A live test-drive on 2026-08-07 found
+**14 defects** (evidence: `BUGSWEEP-2026-08-07.md`); the remediation plan lives
+at `~/.claude/plans/gleaming-tumbling-koala.md` and **that plan file is the
+execution source of truth**.
+
+Merged: **#22** cross-browser handle validation + `set_window` bounds/state ·
+**#23** terminal-derived TUI viewport + subscription supervision · **#24**
+build-identity stamp. Remaining: **PR-C** (human CLI output + env flags),
+**PR-D** (`focus_tab` contract + doc fixes — *this branch*), **PR-F**
+(release-please). Full detail per PR in `BACKLOG.md` § ACTIVE.
+
+⚠ **One user-gated step is outstanding:** reload the Chrome connector
+(`chrome://extensions`). Until then `doctor` correctly reports
+`chrome extension reports "0.2.0" with no build stamp`. That single reload
+verifies both the build-stamp check going clean AND `window set --bounds …
+--state normal` applying the state (its fix is extension-side).
+
+**A trap this session hit twice:** rebuilding on the wrong branch meant a
+browser reload verified nothing. That is exactly what #24's build stamp now
+makes impossible to miss — always check `doctor`'s build line before trusting a
+live verification.
+
+## Historical status (2026-07-29)
 
 **PR-D is DONE — the tool is deployed and smoke-tested against real Chrome +
 Safari.** `move`, `get_page`, `act`, `screenshot`, `journal`, and daemon

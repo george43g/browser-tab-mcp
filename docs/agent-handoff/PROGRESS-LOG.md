@@ -185,6 +185,62 @@ Newest entry LAST. Every working session appends one entry:
 
 ---
 
+## 2026-08-09 · Claude · bug-sweep remediation: #22, #23, #24 merged
+
+- **Context:** executes the plan built from `BUGSWEEP-2026-08-07.md` (14 defects
+  found by a live test-drive). Plan lives at
+  `~/.claude/plans/gleaming-tumbling-koala.md`; **that file is the execution
+  source of truth** and was updated to reflect PR-E/PR-F being added mid-flight.
+- **Merged to `main` (`ed99f7a`), all green, in order:**
+  - **#22 `fix(daemon)`** (`5af7f15`) — cross-browser handle validation at every
+    multi-handle site (`move_tab`, `open_tab`, `group_tabs` incl. **every**
+    element of `tabIds`, plus an explicit `browser` that contradicts
+    `windowId`); `set_window`/`open_window` apply state+bounds as two sequential
+    updates instead of silently dropping state; `runOsaRead` retry for read-only
+    AppleScript.
+  - **#23 `fix(tui)`** (`d340acf`) — viewport derived from `stdout.rows` and
+    re-derived on resize; scroll window clamped at both ends; move targets
+    filtered to same-browser excluding the source window; `DaemonClient.onClose`
+    + `useSnapshot` degrade-and-retry. First TUI render tests.
+  - **#24 `feat(build)`** (`ed99f7a`) — build identity
+    `<semver>+<count>.<sha>[.dirty.<ts>]` across bin, daemon and extension;
+    `doctor`/`daemon_status` compare stamps and warn on mismatch.
+- **Verified how:** each PR met the full bar and was **sabotage-checked**
+  (disabling the 3 cross-browser guards fails exactly the 6 rejection tests;
+  restoring `VIEWPORT = 24` fails 5; removing the close notification fails 2 of
+  3 while the intentional-close test correctly stays green; forcing every build
+  comparison to "match" fails exactly the mismatch test). After merging, the
+  **combination** was re-verified locally — each PR's CI only tested it against
+  the *old* main, and #23/#24 both touch `App.tsx`. Result: lint 0 · typecheck ·
+  test 18/18 · no-native · build · stress 25/25 · e2e 3/3.
+- **Live-verified against the real stack** (tmux lab, real Chrome + Safari,
+  native tier): the cross-browser move now errors actionably instead of leaking
+  `No window with id: 38`; the TUI fills 42/42 rows at 200×50, stays full at `G`,
+  and does not corrupt at 200×20; a daemon restart **under a running TUI** no
+  longer freezes it (42 → 43 rows with a new tab appearing).
+- **Two honest caveats recorded in the code itself:**
+  1. `withRetry` was deliberately NOT applied to `DaemonClient.connect` — its
+     300ms timeout is documented as tight so the degrade path stays fast.
+  2. The TUI "chrome bars intact on a short terminal" test is a **smoke check,
+     not the corruption guard** — sabotage proved `ink-testing-library` cannot
+     reproduce a terminal-level overprint. The real guard is "never renders more
+     lines than the terminal has".
+- **One pre-existing flake fixed:** `waitConnected` in
+  `write-commands.integration.test.ts` allowed 2s for a WS handshake and flaked
+  on cold macOS CI. Confirmed pre-existing (the same test passed on a sibling
+  branch without #22's changes), widened to 15s.
+- **BLOCKED / user-gated:** the user must **reload the Chrome connector**
+  (`chrome://extensions`). Until then `doctor` correctly reports
+  `chrome extension reports "0.2.0" with no build stamp`. That reload verifies
+  two things at once: the build-stamp check going clean, and `window set
+  --bounds … --state normal` actually applying the state (its fix is
+  extension-side). Note the trap this session hit **twice**: a rebuild on the
+  wrong branch meant a reload verified nothing — which is precisely what #24
+  now makes impossible to miss.
+- NEXT: **PR-C**, **PR-D**, **PR-F** — see BACKLOG and the plan file.
+
+---
+
 ## 2026-08-09 · Claude · PR-F — release automation via release-please
 
 - **Shipped:** release-please in **manifest mode** + the `node-workspace`
