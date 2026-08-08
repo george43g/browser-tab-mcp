@@ -15,6 +15,10 @@ the **published** tarballs (`@george43g/cli-kit@0.1.0`, `tui-kit@0.1.1`,
 `robustness@0.2.1`), not just the workspace copies — items 1 and 2 are present
 verbatim in `cli-kit@0.1.0/dist/repl.js`.
 
+**Priority for a `cli-kit@0.2.0`:** items 1 and 2 are blocking (the REPL cannot
+function at all). Items 3 and 5 are quality-of-life. Item 4 requests no change
+but flags which API is now load-bearing for browser-tab.
+
 ---
 
 ## 1. `cli-kit` — `parseConsoleInput` destroys any JSON argument (blocking)
@@ -96,6 +100,30 @@ awkward to test until `render()` accepts stdout overrides.
 `resolveOutputMode`) and `env-flag-binder.ts` are **correct and useful**. They
 were simply never called by browser-tab, which is a browser-tab bug, not a kit
 bug — it is wiring them up now. No API change wanted.
+
+**Update (PR #26, 2026-08-09):** that wiring has landed, so these are no longer
+hypothetical adoption — `resolveOutputMode`, `printJson`, `bindEnvFlags` and
+`applyEnvFromFlags` are now on browser-tab's hot path for every read command.
+Treat them as **load-bearing** when versioning `cli-kit`: a behaviour change to
+output-mode precedence or to flag-name derivation (`strip prefix → lowercase →
+`_`→`-`) is a breaking change for us, not a patch.
+
+## 5. `resolveOutputMode` has no way to force human output
+
+`resolveOutputMode` returns `"json"` for `--json`, a non-TTY stdout, **or**
+`CI=true`, and `"human"` otherwise. There is no inverse of `--json`, so a
+human-rendered view is unreachable the moment stdout is not a terminal.
+
+That is right for the default, but it makes the human path awkward to test and
+impossible to capture: browser-tab had to run its CLI under a pty (`script -q
+/dev/null …`) just to see its own tree renderer, and a user cannot do the
+obvious `browser-tab list | less`.
+
+**Asked for:** an explicit opt-in that outranks the implicit signals — either a
+`human?: boolean` field on `OutputFlags` (so consumers can bind `--no-json` /
+`--human`), or honouring `FORCE_COLOR`-style precedence with a documented
+`FORCE_HUMAN`/`--human`. Low priority next to items 1–2, and browser-tab is
+**not** working around it locally.
 
 ---
 
