@@ -23,6 +23,46 @@ Log debug-level info to stderr
 
 Disable colors
 
+### `--log-dir <dir>`
+
+Directory for NDJSON logs (MCP_LOG_DIR)
+
+### `--disable-native`
+
+Force the TS path, skipping the native module (MCP_DISABLE_NATIVE)
+
+### `--socket-path <path>`
+
+Daemon unix socket path (BROWSER_TAB_SOCKET_PATH)
+
+### `--ws-port <port>`
+
+Extension WebSocket port on 127.0.0.1 (BROWSER_TAB_WS_PORT)
+
+### `--state-dir <dir>`
+
+Daemon state dir: token, journals (BROWSER_TAB_STATE_DIR)
+
+### `--cache-dir <dir>`
+
+Snapshot/content/screenshot cache dir (BROWSER_TAB_CACHE_DIR)
+
+### `--browsers <list>`
+
+Comma-separated browsers to poll (BROWSER_TAB_BROWSERS)
+
+### `--poll-ms <ms>`
+
+AppleScript poll interval in ms (BROWSER_TAB_POLL_MS)
+
+### `--fake-adapter`
+
+Use the fake adapter, no real browsers (BROWSER_TAB_FAKE_ADAPTER)
+
+### `--dev`
+
+Enable dev-only tools such as get_logs (MCP_DEV)
+
 ## Subcommands
 
 - [`browser-tab mcp`](/mcp.md)

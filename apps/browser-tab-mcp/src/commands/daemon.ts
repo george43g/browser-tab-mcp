@@ -10,6 +10,7 @@
  * restart   launchctl kickstart -k
  */
 
+import { printJson, resolveOutputMode } from "@george43g/cli-kit";
 import type { Command } from "commander";
 import { daemonStatus } from "../client/tabs-service.js";
 import { runDaemon } from "../daemon/index.js";
@@ -21,6 +22,7 @@ import {
 } from "../daemon/launchd.js";
 import { LAUNCHD_LABEL, socketPath } from "../daemon/paths.js";
 import { ensureToken } from "../daemon/token.js";
+import { renderDaemonStatus } from "../render.js";
 
 export function registerDaemonCommand(program: Command): void {
   const daemon = program
@@ -54,13 +56,20 @@ export function registerDaemonCommand(program: Command): void {
     .action(async () => {
       const agent = await launchAgentStatus();
       const live = await daemonStatus();
-      process.stdout.write(
-        `${JSON.stringify(
-          { launchAgent: `${LAUNCHD_LABEL}: ${agent.detail}`, socket: socketPath(), ...live },
-          null,
-          2,
-        )}\n`,
-      );
+      const payload = {
+        launchAgent: `${LAUNCHD_LABEL}: ${agent.detail}`,
+        socket: socketPath(),
+        ...live,
+      };
+      // Same precedence as every other read command: --json / piped / CI keep
+      // the exact JSON, an interactive terminal gets the summary.
+      if (
+        resolveOutputMode({ json: program.opts<{ json?: boolean }>().json ?? false }) === "json"
+      ) {
+        printJson(payload);
+      } else {
+        process.stdout.write(`${renderDaemonStatus(payload)}\n`);
+      }
       if (!live.reachable) process.exitCode = 1;
     });
 
