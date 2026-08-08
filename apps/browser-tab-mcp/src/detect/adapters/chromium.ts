@@ -26,7 +26,7 @@ import type {
   WindowBounds,
 } from "@george43g/shared-types";
 import { makeChromiumTabId, makeWindowId, parseTabId, parseWindowId } from "../ids.js";
-import { osaQuote, probeProcess, runOsa } from "../osascript.js";
+import { osaQuote, probeProcess, runOsa, runOsaRead } from "../osascript.js";
 import { parseRecordOutput } from "../parse.js";
 import type { AdapterSpec, BrowserAdapter } from "./types.js";
 
@@ -113,7 +113,7 @@ export function makeChromiumAdapter(spec: AdapterSpec): BrowserAdapter {
 
     let raw: string;
     try {
-      raw = await runOsa(readScript(spec.appName), {
+      raw = await runOsaRead(readScript(spec.appName), {
         appName: spec.appName,
         ...(signal ? { signal } : {}),
       });

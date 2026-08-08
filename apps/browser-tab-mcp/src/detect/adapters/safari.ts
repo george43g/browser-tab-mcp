@@ -27,7 +27,7 @@ import type {
   WindowBounds,
 } from "@george43g/shared-types";
 import { makeSafariTabId, makeWindowId, parseTabId, parseWindowId } from "../ids.js";
-import { osaQuote, probeProcess, runOsa } from "../osascript.js";
+import { osaQuote, probeProcess, runOsa, runOsaRead } from "../osascript.js";
 import { parseRecordOutput } from "../parse.js";
 import type { AdapterSpec, BrowserAdapter } from "./types.js";
 
@@ -145,7 +145,7 @@ export function makeSafariAdapter(): BrowserAdapter {
 
     let raw: string;
     try {
-      raw = await runOsa(READ_SCRIPT, { appName: spec.appName, ...(signal ? { signal } : {}) });
+      raw = await runOsaRead(READ_SCRIPT, { appName: spec.appName, ...(signal ? { signal } : {}) });
     } catch (err) {
       return emptyState(pid, true, (err as Error).message);
     }

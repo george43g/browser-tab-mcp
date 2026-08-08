@@ -168,7 +168,10 @@ describe("window commands", () => {
     expect(created?.url).toEqual(["https://a/", "https://b/"]);
   });
 
-  it("open_window with bounds sets left/top/width/height, forcing normal state", async () => {
+  it("open_window with bounds creates with geometry, then defers the state", async () => {
+    // chrome.windows.create forbids maximized/minimized/fullscreen alongside
+    // left/top/width/height — so the state must follow as its own update
+    // rather than being silently dropped.
     await executeCommand("open_window", {
       urls: ["https://a/"],
       bounds: { x: 5, y: 6, w: 700, h: 500 },
@@ -177,6 +180,16 @@ describe("window commands", () => {
     const data = fc.calls["windows.create"]?.[0]?.[0] as Record<string, unknown>;
     expect(data).toMatchObject({ left: 5, top: 6, width: 700, height: 500 });
     expect(data.state).toBeUndefined();
+    expect(fc.calls["windows.update"]?.[0]).toEqual([900, { state: "maximized" }]);
+  });
+
+  it("open_window with bounds + state normal needs no follow-up update", async () => {
+    await executeCommand("open_window", {
+      urls: ["https://a/"],
+      bounds: { x: 5, y: 6, w: 700, h: 500 },
+      state: "normal",
+    });
+    expect(fc.calls["windows.update"]).toBeUndefined();
   });
 
   it("set_window applies bounds; close_window removes it", async () => {
@@ -187,6 +200,31 @@ describe("window commands", () => {
       payload: {},
     });
     expect(fc.calls["windows.remove"]?.[0]).toEqual([3]);
+  });
+
+  it("set_window applies BOTH state and bounds, state first", async () => {
+    // Regression: this used to take `bounds` and silently discard `state`,
+    // returning ok — so `--bounds … --state normal` left a minimized window
+    // minimized. Order matters: restore first, then place.
+    await executeCommand("set_window", {
+      windowId: 3,
+      state: "normal",
+      bounds: { x: 10, y: 20, w: 30, h: 40 },
+    });
+    expect(fc.calls["windows.update"]).toEqual([
+      [3, { state: "normal" }],
+      [3, { left: 10, top: 20, width: 30, height: 40 }],
+    ]);
+  });
+
+  it("set_window never pairs focused with a minimized state", async () => {
+    await executeCommand("set_window", { windowId: 3, state: "minimized", focused: true });
+    expect(fc.calls["windows.update"]).toEqual([[3, { state: "minimized" }]]);
+  });
+
+  it("set_window with only focused still updates", async () => {
+    await executeCommand("set_window", { windowId: 3, focused: true });
+    expect(fc.calls["windows.update"]).toEqual([[3, { focused: true }]]);
   });
 
   it("set_window with nothing to change throws", async () => {

@@ -172,8 +172,16 @@ async function openWindowOutcome(args: CommandArgs): Promise<CommandOutcome> {
     url: urls,
     incognito: args.incognito ?? false,
   };
+  // chrome.windows.create forbids minimized/maximized/fullscreen alongside
+  // explicit geometry. Rather than dropping one, create WITH the geometry and
+  // apply the state as a follow-up update. ("normal" needs no follow-up — it is
+  // what an explicitly-placed window already is.)
+  const deferredState =
+    args.bounds && args.state && args.state !== "normal"
+      ? (args.state as chrome.windows.windowStateEnum)
+      : undefined;
+
   if (args.bounds) {
-    // Explicit geometry forces state normal; chrome forbids bounds + state.
     createData.left = args.bounds.x;
     createData.top = args.bounds.y;
     createData.width = args.bounds.w;
@@ -187,6 +195,9 @@ async function openWindowOutcome(args: CommandArgs): Promise<CommandOutcome> {
     createData.focused = args.focused ?? true;
   }
   const win = await windows.create(createData);
+  if (deferredState !== undefined && win?.id !== undefined) {
+    await windows.update(win.id, { state: deferredState });
+  }
   return {
     ...(win?.id !== undefined ? { windowId: win.id } : {}),
     payload: { tabCount: win?.tabs?.length ?? urls.length },
@@ -196,21 +207,47 @@ async function openWindowOutcome(args: CommandArgs): Promise<CommandOutcome> {
 async function setWindowOutcome(args: CommandArgs): Promise<CommandOutcome> {
   const windowId = requireWindow(args);
   const windows = api.windows as Windows;
-  const info: chrome.windows.UpdateInfo = {};
+
+  // chrome.windows.update rejects a state alongside explicit geometry, so a
+  // request carrying BOTH has to become two sequential updates. It previously
+  // took `bounds` and silently discarded `state` while still returning ok —
+  // `--bounds … --state normal` left a minimized window minimized.
+  //
+  // Order is state-then-bounds: "restore it, then put it here" means the
+  // caller's explicit geometry must land last and win.
+  const steps: chrome.windows.UpdateInfo[] = [];
+
+  if (args.state) {
+    const state = args.state as chrome.windows.windowStateEnum;
+    const step: chrome.windows.UpdateInfo = { state };
+    // focused is invalid alongside a minimized state; safe otherwise.
+    if (args.focused !== undefined && state !== "minimized") step.focused = args.focused;
+    steps.push(step);
+  }
+
   if (args.bounds) {
-    info.left = args.bounds.x;
-    info.top = args.bounds.y;
-    info.width = args.bounds.w;
-    info.height = args.bounds.h;
-  } else if (args.state) {
-    info.state = args.state as chrome.windows.windowStateEnum;
+    const step: chrome.windows.UpdateInfo = {
+      left: args.bounds.x,
+      top: args.bounds.y,
+      width: args.bounds.w,
+      height: args.bounds.h,
+    };
+    // Only carry focus here when there was no state step to carry it.
+    if (args.focused !== undefined && !args.state) step.focused = args.focused;
+    steps.push(step);
   }
-  // focused is invalid alongside a minimized state; safe otherwise.
-  if (args.focused !== undefined && info.state !== "minimized") info.focused = args.focused;
-  if (Object.keys(info).length === 0) {
-    throw new Error("set_window needs at least one of bounds, display, state, focused");
+
+  if (steps.length === 0) {
+    if (args.focused === undefined) {
+      throw new Error("set_window needs at least one of bounds, display, state, focused");
+    }
+    steps.push({ focused: args.focused });
   }
-  const win = await windows.update(windowId, info);
+
+  let win: chrome.windows.Window | undefined;
+  for (const step of steps) {
+    win = await windows.update(windowId, step);
+  }
   return { windowId: win?.id ?? windowId, payload: {} };
 }
 
