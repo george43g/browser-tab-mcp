@@ -253,6 +253,18 @@ badge-worthy tab state:
 The leading `●`/`·` marks the window's active tab; `lastAccessed` drives sort/MRU
 (see `journal`) rather than a per-row glyph.
 
+The list height follows the terminal: it is derived from `stdout.rows` minus the
+chrome (header + status bar + help bar) and re-derived on resize, so the list
+fills a tall window and shrinks rather than overflowing a short one. The scroll
+window is clamped at both ends, so it stays full at the bottom of the list
+instead of shrinking as you approach it. `m` (move) offers only windows of the
+*same* browser, excluding the tab's own — cross-browser moves are impossible and
+a self-move is a no-op.
+
+If the daemon goes away while the TUI is open (restart, crash), the header flips
+from `daemon stream` to `osascript polling` and the subscription is retried with
+backoff — it no longer freezes on stale data while claiming to be live.
+
 ## Adding a tool
 
 1. Copy `src/tools/noop.ts` to `src/tools/<your-tool>.ts`.

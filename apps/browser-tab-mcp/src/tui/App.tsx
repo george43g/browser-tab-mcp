@@ -18,8 +18,8 @@ import { APP_NAME, APP_VERSION } from "../meta.js";
 import { engineLabel } from "../native-bridge.js";
 import { buildRows, type Row, tabBadges } from "./rows.js";
 import { useSnapshot } from "./useSnapshot.js";
-
-const VIEWPORT = 24;
+import { useTerminalSize } from "./useTerminalSize.js";
+import { viewportRows, visibleWindow } from "./viewport.js";
 
 type Mode =
   | { kind: "browse" }
@@ -30,6 +30,8 @@ export function App() {
   const theme = useTheme();
   const { exit } = useApp();
   const { snapshot, live, refresh } = useSnapshot();
+  const { rows: termRows } = useTerminalSize();
+  const viewport = viewportRows(termRows);
   const [cursor, setCursor] = useState(0);
   const [folded, setFolded] = useState<ReadonlySet<string>>(new Set());
   const [mode, setMode] = useState<Mode>({ kind: "browse" });
@@ -40,10 +42,21 @@ export function App() {
   const clampedCursor = Math.min(cursor, Math.max(0, rows.length - 1));
   const current: Row | undefined = rows[clampedCursor];
 
-  const moveTargets = useMemo(
-    () => (mode.kind === "move" ? rows.filter((r) => r.kind === "window") : []),
-    [mode.kind, rows],
-  );
+  // Only windows of the SAME browser are legal move targets — a cross-browser
+  // move is impossible, and offering one produced a confusing failure. The
+  // tab's own window is excluded too: it was the default target, so pressing
+  // m,Enter performed a no-op self-move.
+  const moveTargets = useMemo(() => {
+    if (mode.kind !== "move") return [];
+    const source = rows.find((r) => r.kind === "tab" && r.tab.tabId === mode.tabId);
+    if (source?.kind !== "tab") return [];
+    return rows.filter(
+      (r) =>
+        r.kind === "window" &&
+        r.browser.browser === source.browser.browser &&
+        r.window.windowId !== source.window.windowId,
+    );
+  }, [mode, rows]);
   const [targetIdx, setTargetIdx] = useState(0);
 
   const runCommand = (tool: string, args: Record<string, unknown>, verb: string) => {
@@ -69,8 +82,10 @@ export function App() {
     },
     onTop: () => setCursor(0),
     onBottom: () => setCursor(Math.max(0, rows.length - 1)),
-    onHalfPageDown: () => setCursor((c) => Math.min(rows.length - 1, c + VIEWPORT / 2)),
-    onHalfPageUp: () => setCursor((c) => Math.max(0, c - VIEWPORT / 2)),
+    // floor(): an odd viewport would otherwise land the cursor on a .5 index,
+    // and rows[22.5] is undefined.
+    onHalfPageDown: () => setCursor((c) => Math.min(rows.length - 1, c + Math.floor(viewport / 2))),
+    onHalfPageUp: () => setCursor((c) => Math.max(0, c - Math.floor(viewport / 2))),
     onUnhandled: () => {},
   });
 
@@ -139,8 +154,12 @@ export function App() {
     }
   });
 
-  const visibleStart = Math.max(0, clampedCursor - Math.floor(VIEWPORT / 2));
-  const visible = rows.slice(visibleStart, visibleStart + VIEWPORT);
+  const { start: visibleStart, end: visibleEnd } = visibleWindow(
+    clampedCursor,
+    rows.length,
+    viewport,
+  );
+  const visible = rows.slice(visibleStart, visibleEnd);
 
   const renderRow = (row: Row, idx: number) => {
     const isCursor = idx === clampedCursor;
@@ -200,8 +219,8 @@ export function App() {
         </Text>
       </Box>
 
-      <Box flexDirection="row" flexGrow={1} paddingX={1}>
-        <Box flexDirection="column" flexGrow={1}>
+      <Box flexDirection="row" flexGrow={1} paddingX={1} overflow="hidden">
+        <Box flexDirection="column" flexGrow={1} overflow="hidden">
           {visible.length === 0 ? (
             <Text color={theme.palette.fgDim}>
               {snapshot ? "No browser windows detected." : "Scanning browsers…"}
