@@ -1,5 +1,14 @@
 # Changelog
 
+## [1.0.1](https://github.com/george43g/browser-tab-mcp/compare/v1.0.0...v1.0.1) (2026-08-09)
+
+
+### Bug Fixes
+
+* **deps:** consume the published kits — robustness 0.6.0, cli-kit 0.3.1, tui-kit 0.3.3 ([#38](https://github.com/george43g/browser-tab-mcp/issues/38)) ([31821ad](https://github.com/george43g/browser-tab-mcp/commit/31821ad38bb711ff35e893065d6a0f0a330dca21))
+* **release:** pin a parseable release-PR title so merges actually cut releases ([#33](https://github.com/george43g/browser-tab-mcp/issues/33)) ([46f6ac9](https://github.com/george43g/browser-tab-mcp/commit/46f6ac99b3996475232f09eb6759e69d64e116af))
+* **release:** restore the component release branch — remove the two options that broke cutting ([#36](https://github.com/george43g/browser-tab-mcp/issues/36)) ([4d00fa1](https://github.com/george43g/browser-tab-mcp/commit/4d00fa18285e92df627dfff3f5f1cb8accaf0741))
+
 ## 1.0.0 (2026-08-09)
 
 
