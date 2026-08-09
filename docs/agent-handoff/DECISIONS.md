@@ -74,3 +74,39 @@ if a decision is reversed, append the reversal.
 - **2026-07-27 · Handoff docs live in-repo** (`docs/agent-handoff/`), not in
   agent memory — multiple agents (Claude ↔ Codex) rotate on this work and
   cannot read each other's memory.
+
+- **2026-08-09 · release-please over semantic-release/changesets (PR-F).**
+  User wanted "git tags, releases, changelogs done properly" but explicitly
+  **not coupled to npm publishing**. release-please wins because publishing is
+  a job you simply **never add**, rather than a plugin you must keep disabled
+  — the deleted `.releaserc.json` had `@semantic-release/npm` wired in and was
+  only harmless because the whole workflow was switched off. Adding an npm
+  publish step is now an explicit, reviewable decision (flagged as a red flag
+  in the pr-review-sop skill), not a default.
+
+- **2026-08-09 · The release line is the repo ROOT (`"."`), app-only, not
+  per-package.** release-please filters commits by package path, so a line at
+  `apps/browser-tab-mcp` would ignore commits touching `packages/*` — which is
+  wrong here, because the bin **bundles those packages inline** (PR #14) and
+  they genuinely ship in the artifact. Root path gets all commits;
+  `extra-files` mirrors the version into `apps/browser-tab-mcp/package.json`
+  (what `--version` reads). Per-package release lines were rejected:
+  `cli-kit`/`tui-kit`/`robustness` are published from
+  `mcp-cli-starter-template` and frozen here, the rest are internal and
+  unpublished, and the **connector extension must stay manually bumped**
+  because its `package.json` is locked to `public/manifest.json` by a
+  build-output test.
+
+- **2026-08-09 · `node-workspace` plugin is configured but INERT today.** Its
+  scope is the set of release-please-managed packages (it reads the config's
+  `packages` map, NOT the pnpm workspace globs — verified by reading
+  release-please 17.11.1's `buildAllPackages`), and there is currently one. It
+  is kept as a guard so that the moment a second `release-type: node` line is
+  added, intra-workspace dependency ranges and dependent bumps are handled
+  instead of drifting. Do not "clean it up" as dead config.
+
+- **2026-08-09 · Release semver and the build stamp stay separate axes.**
+  `scripts/build-stamp.mjs` (PR #24) answers "which build is running"; semver
+  answers "which release". The stamp is derived FROM the semver, so
+  release-please moving the version flows through automatically. Neither
+  replaces the other — don't collapse them.

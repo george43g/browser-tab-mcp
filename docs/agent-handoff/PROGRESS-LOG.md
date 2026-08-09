@@ -182,3 +182,55 @@ Newest entry LAST. Every working session appends one entry:
   validation) → PR-2 (set_window) → PR-3 (TUI viewport) → …; `focus_tab` (PR-7)
   is blocked on one open question, since making window-raising opt-in is a
   **contract change**.
+
+---
+
+## 2026-08-09 · Claude · PR-F — release automation via release-please
+
+- **Shipped:** release-please in **manifest mode** + the `node-workspace`
+  plugin (`release-please-config.json`, `.release-please-manifest.json`,
+  rewritten `.github/workflows/release.yml`). Output is **tags + GitHub
+  Releases + `CHANGELOG.md` only** — there is deliberately **no npm publish
+  step**, and the workflow says so in a comment so nobody adds one by reflex.
+- **Retired** the orphaned semantic-release setup: `.releaserc.json` deleted
+  (semantic-release was never even a dependency) and every doc that described
+  it rewritten — `docs/RELEASE.md` (full rewrite), `AGENTS.md` § CI/Release,
+  `README.md`, `docs/FOLLOWUPS.md` §2, `BACKLOG.md` item 6.
+- **Key design call — the release line is the repo ROOT (`"."`), not
+  `apps/browser-tab-mcp`.** release-please filters commits by package path
+  (`CommitSplit`; `"."` is the documented special case that gets *all*
+  commits). Since the bin **bundles the workspace packages inline** (PR #14), a
+  fix in `packages/mcp-kit` ships inside the released artifact — scoping the
+  release line to the app dir would have silently swallowed those changes: no
+  bump, no changelog, for code that IS in the tarball. `extra-files` mirrors
+  the version into `apps/browser-tab-mcp/package.json`, which is what
+  `src/meta.ts` reads for `--version` and what the build stamp is derived from.
+- **Second-order win from that choice:** release-please-action namespaces
+  per-path outputs as `<path>--<key>` and special-cases `"."` to the bare key
+  — so `steps.release.outputs.release_created` / `tag_name` are only valid
+  because the path is root. Noted inline in the workflow; if the path ever
+  moves, that step silently renders blanks.
+- **Not released here (deliberate):** `cli-kit`/`tui-kit`/`robustness` ship
+  from `mcp-cli-starter-template` and are frozen; the connector extension's
+  version stays **manual** (`chrome-extension run bump`) because it must stay
+  in lockstep with `public/manifest.json` — a build-output test enforces that,
+  and letting release-please bump `package.json` alone would turn it red.
+- **Verification** (real exit codes, all 0): bare `pnpm lint` · `pnpm
+  typecheck` · `pnpm exec turbo test --force` · `pnpm test:no-native` ·
+  `pnpm build`. Plus static release-please validation: config checked against
+  the official JSON schema with ajv; release-please 17.11.1's **real updaters**
+  run over this repo's actual files (exactly one line changes per file,
+  trailing newlines preserved) and that output **passes `biome check`** — so a
+  release PR cannot turn lint red on main, and no `biome.json` exclusion is
+  needed (unlike the mcpsync-owned configs). Workflow linted with `actionlint`
+  1.7.7 + shellcheck 0.11.0, exit 0.
+- **NOT verified — stated plainly:** release-please itself was never executed
+  end-to-end. A true dry run reads the config from the *target branch on
+  GitHub*, which won't exist until this merges. First real run is the first
+  push to `main` after merge.
+- **Expect on merge:** first release PR proposing **`0.1.0`** (manifest
+  baseline `0.0.0`, no tag exists, `bump-minor-pre-major: true`), with a
+  changelog spanning the full history. To narrow it, set `bootstrap-sha`
+  before merging — see `docs/RELEASE.md` § "First release".
+- NEXT: PR-C / PR-D remain per BACKLOG; npm publish stays deferred and is now
+  cleanly separable (an additive job, not a rewire).

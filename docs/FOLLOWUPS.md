@@ -168,31 +168,30 @@ Chrome-only — each must turn CI **red**.
 
 ---
 
-## 2. Release enablement — publish to npm (when distributing)
+## 2. npm publishing (deliberately NOT wired)
 
-**Decision:** browser-tab will **eventually be published** (beyond this
-machine). Today it's local-only: all 14 packages `private:true`, `release.yml`
-disabled, wm-stack consumes the built `dist/cli.js` + the socket/JSON
-contract. This is a plan for **when** we distribute, not now.
+**Status update:** the *release* half of this item is **done** — release-please
+is live (`docs/RELEASE.md`): tags, GitHub Releases and `CHANGELOG.md` on merge
+of a rolling release PR. The orphaned semantic-release scaffold
+(`.releaserc.json`, never a dependency) was deleted with it.
 
-Groundwork is in place: `.releaserc.json` (semantic-release: commit-analyzer /
-release-notes / changelog / npm / github / git) is scaffolded, and commits
-follow Conventional Commits — so enabling is a config flip, not a migration.
+What remains open is only **distribution**, which was split off on purpose:
+versioning must not be coupled to a registry. wm-stack consumes the built
+`dist/cli.js` + the socket/JSON contract, so nothing needs npm today.
 
-**Steps:**
-- Publish surface = the bin package `@george43g/browser-tab-mcp` only; keep
-  internal `packages/*` private. Set `"private": false` +
-  `"publishConfig": { "access": "public" }` on what ships.
+**If/when that changes**, it is an additive job — not a re-architecture:
+- Publish surface = the bin package `@george43g/browser-tab-mcp` only (already
+  `private: false`); keep internal `packages/*` private. Add
+  `"publishConfig": { "access": "public" }`.
 - Pin `name`/`bin`/`files`/`exports` for a clean tarball (CI already runs
   `npm pack --dry-run`).
 - Add the `NPM_TOKEN` repo secret (publish scope).
-- Uncomment the `push: branches: [main]` trigger in `release.yml`.
-- Dry-run semantic-release on a branch (`--dry-run`) to confirm the bump +
-  changelog + release plan before the first publish.
-- First release: tag + CHANGELOG.md + GitHub release + npm publish.
+- Add a `publish` job to `release.yml` gated on
+  `needs.release-please.outputs.release_created == 'true'`. **Do not** bolt
+  publishing onto the release-please step itself.
 - Update install docs (`npx @george43g/browser-tab-mcp`).
 
-**Note:** semantic-release reads Conventional Commits on `main`. Squash-merging
+**Note:** release-please reads Conventional Commits on `main`. Squash-merging
 with a conventional PR title (this repo's pattern) lands one such title per PR
 — fine for version determination.
 

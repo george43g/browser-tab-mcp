@@ -166,7 +166,7 @@ ln -s "$(pwd)/skills/browser-tab/SKILL.md" ~/.claude/skills/browser-tab/SKILL.md
 | [`docs/RUST_ACCELERATION.md`](docs/RUST_ACCELERATION.md) | napi-rs build, `.node` binary handling, drift-check between Zod and serde |
 | [`docs/TUI_DESIGN.md`](docs/TUI_DESIGN.md) | Theme system, keybindings, dev stats, cache invariants |
 | [`docs/GUARDRAILS_MCP_RESPONSES.md`](docs/GUARDRAILS_MCP_RESPONSES.md) | UUID-gated instructions + prompt-injection defense |
-| [`docs/RELEASE.md`](docs/RELEASE.md) | Enabling semantic-release for npm publish |
+| [`docs/RELEASE.md`](docs/RELEASE.md) | release-please flow — tags, GitHub Releases, changelog (no npm publish) |
 
 ## What's inside (template author's eyes only)
 
@@ -194,7 +194,8 @@ packages/
   tsconfig, biome-config, vitest-config
 
 mise.toml                   toolchain pins (node, pnpm) + named tasks
-.github/workflows/          ci.yml, release.yml (disabled by default), readme-check.yml, screenshots.yml
+.github/workflows/          ci.yml, release.yml (release-please; tags+releases, no npm publish),
+                            readme-check.yml, screenshots.yml
 docs/                       Mintlify-ready (docs.json + MDX pages)
 skills/browser-tab/             Repo-installable companion skill (rewrite at scaffold time)
 ```

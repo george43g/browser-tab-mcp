@@ -262,7 +262,7 @@ Still deferred: Safari runtime + packaging scripts can't be automated (no headle
 ## CI / Release
 
 - `.github/workflows/ci.yml` — matrix `ubuntu-latest + macos-latest`, runs lint + typecheck + test + test:no-native + build + `pnpm check:usage` (completions/manpage/docs freshness gate) + `npm pack --dry-run` + stress (all 13 cases).
-- `.github/workflows/release.yml` — semantic-release with `@semantic-release/{commit-analyzer,release-notes-generator,changelog,npm,github,git}`. **Disabled by default** — `on:` trigger is commented. To enable: uncomment + add `NPM_TOKEN` secret. See `docs/RELEASE.md`.
+- `.github/workflows/release.yml` — **release-please** (manifest mode + `node-workspace` plugin), driven by `release-please-config.json` + `.release-please-manifest.json`. Runs on push to `main` only (never on a PR): it keeps one rolling release PR open, and merging that PR tags `vX.Y.Z`, creates the GitHub Release, and writes `CHANGELOG.md`. **There is no npm publish step and adding one is a deliberate decision, not a default** — versioning here is decoupled from distribution. One release line, rooted at `"."` so commits in `packages/*` (which bundle into the bin) count, with `extra-files` mirroring the version into `apps/browser-tab-mcp/package.json` (what `--version` reads). The connector extension's version stays **manual** (`chrome-extension run bump`, lockstep with `public/manifest.json`). Release semver ≠ the build stamp from `scripts/build-stamp.mjs` — see `docs/RELEASE.md`.
 - `.github/workflows/readme-check.yml` — fails CI if `src/**` changed without a `README.md` update. Bypass with `[skip-readme]` in commit/PR title.
 
 ## Cloud-agent (Cursor/Claude/Codex remote) specifics
