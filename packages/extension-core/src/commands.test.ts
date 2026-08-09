@@ -202,15 +202,16 @@ describe("window commands", () => {
     expect(fc.calls["windows.remove"]?.[0]).toEqual([3]);
   });
 
-  // Regression, found live twice. First `bounds` silently discarded `state`.
-  // Then a state-first ordering LOOKED right but still came back minimized: the
-  // geometry update landed mid-restore and cancelled it, because
-  // chrome.windows.update resolves on ACCEPT, not on completion. Polling
-  // windows.get cannot fix that — Chrome reports the requested state
-  // optimistically, so the poll returned instantly and changed nothing.
+  // Regression, found live THREE times, each fix wrong in an instructive way.
+  //   1. `bounds` silently discarded `state` outright.
+  //   2. state-then-bounds with a windows.get poll — still came back minimized.
+  //   3. bounds-then-state — ALSO still came back minimized.
   //
-  // Hence the invariant these two tests pin: geometry FIRST, state LAST, so
-  // nothing is ever issued after a state change that could cancel it.
+  // The actual behaviour: a geometry update on a minimised window is applied
+  // asynchronously and re-asserts `minimized` when it completes, so it clobbers
+  // a nearby state change in EITHER order. Ordering alone cannot fix it.
+  // `windows.get().state` is accurate (verified against AppleScript on a real
+  // window), so the fix verifies and re-applies instead of guessing a delay.
   it("set_window puts bounds BEFORE state so the state cannot be cancelled", async () => {
     await executeCommand("set_window", {
       windowId: 3,
@@ -221,6 +222,59 @@ describe("window commands", () => {
       [3, { left: 10, top: 20, width: 30, height: 40 }],
       [3, { state: "normal" }],
     ]);
+  });
+
+  it("set_window re-applies a state that the geometry update clobbered", async () => {
+    // The fake accepts the first state update then silently reverts it, exactly
+    // as Chrome does when the pending geometry op completes.
+    fc.restore();
+    fc = installFakeChrome({ initialWindowState: "minimized", stateClobbers: 1 });
+    await executeCommand("set_window", {
+      windowId: 3,
+      state: "normal",
+      bounds: { x: 10, y: 20, w: 30, h: 40 },
+    });
+    // It read the state back, saw it had reverted, and re-applied.
+    expect(fc.calls["windows.get"]?.length).toBeGreaterThanOrEqual(2);
+    expect(fc.calls["windows.update"]).toEqual([
+      [3, { left: 10, top: 20, width: 30, height: 40 }],
+      [3, { state: "normal" }],
+      [3, { state: "normal" }],
+    ]);
+  });
+
+  it("set_window stops re-applying once the state holds", async () => {
+    fc.restore();
+    fc = installFakeChrome({ initialWindowState: "minimized" });
+    await executeCommand("set_window", {
+      windowId: 3,
+      state: "normal",
+      bounds: { x: 10, y: 20, w: 30, h: 40 },
+    });
+    // One verify read, no redundant re-apply — the common path costs one get.
+    expect(fc.calls["windows.get"]).toHaveLength(1);
+    expect(fc.calls["windows.update"]).toHaveLength(2);
+  });
+
+  it("set_window gives up rather than looping forever on a stuck state", async () => {
+    fc.restore();
+    fc = installFakeChrome({ initialWindowState: "minimized", stateClobbers: 99 });
+    await expect(
+      executeCommand("set_window", {
+        windowId: 3,
+        state: "normal",
+        bounds: { x: 10, y: 20, w: 30, h: 40 },
+      }),
+    ).resolves.toMatchObject({ windowId: 3 });
+    // Bounded: 1 bounds + 1 initial state + at most 3 settle re-applies.
+    expect(fc.calls["windows.update"]?.length).toBeLessThanOrEqual(5);
+  });
+
+  it("set_window does not verify a lone state update — nothing can clobber it", async () => {
+    fc.restore();
+    fc = installFakeChrome({ initialWindowState: "minimized" });
+    await executeCommand("set_window", { windowId: 3, state: "normal" });
+    expect(fc.calls["windows.get"]).toBeUndefined();
   });
 
   it("set_window orders bounds before EVERY state, not just normal", async () => {

@@ -220,27 +220,22 @@ async function setWindowOutcome(args: CommandArgs): Promise<CommandOutcome> {
   }
 
   // chrome.windows.update rejects a state alongside explicit geometry, so a
-  // request carrying BOTH has to become two sequential updates. It previously
-  // took `bounds` and silently discarded `state` while still returning ok.
+  // request carrying BOTH has to become two sequential updates. Getting them to
+  // BOTH stick took three attempts; the measured behaviour is:
   //
-  // GEOMETRY ALWAYS GOES FIRST, STATE ALWAYS LAST. Not a style choice:
+  //  - A geometry update on a minimised window is applied ASYNCHRONOUSLY and,
+  //    when it completes, re-asserts `minimized`. So it clobbers a nearby state
+  //    change in EITHER order — state-then-bounds and bounds-then-state both
+  //    come back minimised with a 0ms gap, and both stick with a ~200ms gap.
+  //    Ordering alone cannot fix this; that was the bug in the first two fixes.
+  //  - `windows.get().state` IS accurate — it agrees with the platform (checked
+  //    against AppleScript's `minimized` on a real window). An earlier comment
+  //    here claimed it was optimistic; it is not. The first fix's poll read
+  //    "normal" correctly and the pending geometry op then clobbered it.
   //
-  //  - A state change is animated by the platform. `windows.update` resolves
-  //    when Chrome ACCEPTS it, not when macOS finishes it, so a geometry update
-  //    issued straight after lands mid-transition and CANCELS it. Measured
-  //    against real Chrome: 0ms gap loses the state 3/3, ~200ms keeps it 3/3.
-  //  - There is no completion signal to wait on instead: `windows.get().state`
-  //    reports the requested state OPTIMISTICALLY, the moment the update is
-  //    accepted. (An earlier fix polled it and was a silent no-op — the live
-  //    window still came back minimised.)
-  //
-  // So the ordering has to make waiting unnecessary: nothing is issued after
-  // the state change, and geometry set beforehand becomes the frame the window
-  // restores INTO — which is what a caller passing both actually wants.
-  //
-  // Known limitation: going maximised/fullscreen → normal WITH bounds, Chrome
-  // may ignore geometry set while still maximised and restore to its previous
-  // normal frame. Losing the placement is strictly better than losing the state.
+  // Since the state is observable, don't guess a delay — apply both, then VERIFY
+  // and re-apply until it holds. Self-correcting, and it costs nothing on the
+  // common path where the first attempt sticks.
   const stateStep = (): chrome.windows.UpdateInfo => {
     const step: chrome.windows.UpdateInfo = { state };
     // focused is invalid alongside a minimized state; safe otherwise.
@@ -261,8 +256,54 @@ async function setWindowOutcome(args: CommandArgs): Promise<CommandOutcome> {
 
   let win: chrome.windows.Window | undefined;
   if (bounds) win = await windows.update(windowId, boundsStep());
-  if (state) win = await windows.update(windowId, stateStep());
+  if (state) {
+    win = await windows.update(windowId, stateStep());
+    // Only the combination races; a lone state update has nothing to clobber it.
+    if (bounds) win = (await settleWindowState(windows, windowId, state, stateStep())) ?? win;
+  }
   return { windowId: win?.id ?? windowId, payload: {} };
+}
+
+/** Attempts to re-assert a state that a pending geometry update clobbered. */
+const STATE_SETTLE_ATTEMPTS = 3;
+const STATE_SETTLE_DELAY_MS = 150;
+
+const delay = (ms: number): Promise<void> => new Promise((r) => setTimeout(r, ms));
+
+/**
+ * Re-apply `want` until the window actually reports it, or the attempts run out.
+ *
+ * A geometry update on a minimised window lands asynchronously and re-asserts
+ * `minimized` on completion, so the state update paired with it can be undone
+ * AFTER it was accepted. `windows.get().state` reflects the real platform state,
+ * so this reads it back and re-applies rather than sleeping a guessed amount.
+ *
+ * Degrades to a no-op on a runtime without `windows.get` (Safari's shim), and
+ * never throws — a settle failure must not fail a command whose updates were
+ * both accepted.
+ */
+async function settleWindowState(
+  windows: Windows,
+  windowId: number,
+  want: string,
+  step: chrome.windows.UpdateInfo,
+): Promise<chrome.windows.Window | undefined> {
+  const get = windows.get as
+    | ((id: number) => Promise<chrome.windows.Window | undefined>)
+    | undefined;
+  if (typeof get !== "function") return undefined;
+  let win: chrome.windows.Window | undefined;
+  for (let i = 0; i < STATE_SETTLE_ATTEMPTS; i++) {
+    await delay(STATE_SETTLE_DELAY_MS);
+    try {
+      const seen = await get(windowId);
+      if (seen?.state === want) return seen;
+      win = await windows.update(windowId, step);
+    } catch {
+      return win; // window vanished mid-settle — nothing useful left to do
+    }
+  }
+  return win;
 }
 
 export async function executeCommand(kind: string, args: CommandArgs): Promise<CommandOutcome> {

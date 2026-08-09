@@ -13,6 +13,7 @@
       "!**/node_modules",
       "!**/coverage",
       "!**/.turbo",
+      "!.claude/worktrees",
       "!apps/rust-accel/target",
       "!apps/rust-accel/index.js",
       "!apps/rust-accel/index.d.ts",
