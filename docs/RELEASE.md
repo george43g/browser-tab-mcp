@@ -1,6 +1,6 @@
 # Release flow
 
-**Tool: [release-please](https://github.com/googleapis/release-please) (manifest mode, `node-workspace` plugin).**
+**Tool: [release-please](https://github.com/googleapis/release-please) (manifest mode, deliberately minimal config).**
 **Output: git tags + GitHub Releases + `CHANGELOG.md`. Nothing is published to npm.**
 
 That last sentence is the design, not an omission. Versioning and distribution
@@ -24,12 +24,13 @@ And one workflow, `.github/workflows/release.yml`:
 
 1. **Every push to `main`** → release-please reads the Conventional Commits
    since the last release and opens (or updates) a single rolling **release
-   PR** titled `chore: release browser-tab X.Y.Z`. That title shape is
-   load-bearing: `group-pull-request-title-pattern` is pinned in
-   `release-please-config.json` because the default (`chore: release main`)
-   carries no component/version, and release-please cannot parse a merged PR
-   it titled itself — the release is then silently skipped
-   ([release-please#2712](https://github.com/googleapis/release-please/issues/2712)).
+   PR** titled `chore(main): release X.Y.Z`, on the head branch
+   `release-please--branches--main--components--browser-tab`. That **branch
+   name is load-bearing**: at cut time (v17) release-please compares the head
+   branch's `--components--` suffix against the node package name and
+   silently skips the release on mismatch. A single-package config gets this
+   branch shape **by default** — see *Why the config stays minimal* below for
+   the two options that broke it once.
    Its diff is only:
    - `package.json` → new version
    - `apps/browser-tab-mcp/package.json` → new version (this is the one
@@ -91,12 +92,30 @@ runtime for `--version` and the TUI header. Tags stay plain `vX.Y.Z`
 | `@george43g/chrome-extension` | Its version is the **manifest** version — user-facing in the browser's extension list, and kept in lockstep with `public/manifest.json` by `pnpm --filter @george43g/chrome-extension run bump` (PR #21), with a build-output test that fails CI on drift. Letting release-please bump `package.json` alone would break that invariant. Bumping the connector stays a deliberate manual act. |
 | `@george43g/rust-accel`, `@george43g/safari-extension` | Build inputs, not distributed artifacts. |
 
-The `node-workspace` plugin is configured but **inert today** — its scope is the
-set of release-please-managed packages (it reads the config's `packages` map,
-not the pnpm workspace globs), and there is currently one. It is there so the
-moment a second `release-type: node` line is added, intra-workspace dependency
-ranges and dependent bumps are handled correctly instead of drifting. It is a
-guard, not decoration.
+## Why the config stays minimal (the v1.0.0 lesson)
+
+Two config options that *look* harmless each silently break release cutting
+for a single-package repo, and both were present at v1.0.0:
+
+- **`"separate-pull-requests": false`** — the default for a single package is
+  already effectively "one PR", but release-please computes it as
+  `separatePullRequests ?? (packages.length === 1)`, i.e. **`true`** for one
+  package. Setting it to `false` explicitly forces the group **Merge plugin**,
+  which rebuilds the release PR on the componentless branch
+  `release-please--branches--main` — and the cut-time component check then
+  fails (`PR component: undefined does not match configured component`).
+- **the `node-workspace` plugin** — previously configured as a guard for a
+  hypothetical second release line, it was *believed* inert with one package.
+  It is not: it also merges its candidates onto the group branch, breaking the
+  cut the same way even with `separate-pull-requests` unset (verified by
+  dry-run).
+
+Both are therefore **removed, verified by `release-please release-pr
+--dry-run`**: the proposed head branch carries `--components--browser-tab`
+only with neither present. The day a second `release-type: node` line is
+added, re-adding `node-workspace` (for intra-workspace dependency bumps) is
+part of that work — and whoever does it must re-verify that a merged release
+PR actually produces a tag.
 
 ## Release identity vs build identity
 
@@ -126,14 +145,20 @@ An earlier revision of this doc predicted `0.1.0`; that was wrong. The
 accepted. The changelog spans the full history back to the first commit —
 `bootstrap-sha` was not set, deliberately.
 
-The cut itself hit
-[release-please#2712](https://github.com/googleapis/release-please/issues/2712):
-PR #31 was titled with the unparseable default (`chore: release main`), so on
-merge the workflow logged `PR component: undefined does not match configured
-component` + `There are untagged, merged release PRs outstanding - aborting`
-and cut nothing — while the version bump and changelog *did* land on `main`.
-The release was completed manually (see the recovery note below) and the title
-pattern pinned so it cannot recur.
+The cut itself failed: on merge the workflow logged `PR component: undefined
+does not match configured component` + `There are untagged, merged release PRs
+outstanding - aborting` and cut nothing — while the version bump and changelog
+*did* land on `main`. The release was completed manually (see the recovery
+note below).
+
+Two fixes were shipped for this and **the first was wrong**: pinning
+`group-pull-request-title-pattern` (PR #33, following
+[release-please#2712](https://github.com/googleapis/release-please/issues/2712))
+changed only the PR *title*, but v17's cut-time check reads the **head branch
+name**, which the group Merge plugin had made componentless. The real fix
+removed what forced that plugin — the explicit `separate-pull-requests: false`
+and the `node-workspace` plugin (see *Why the config stays minimal* above) —
+after differential `--dry-run` verification of the proposed branch name.
 
 ## Operational notes
 
