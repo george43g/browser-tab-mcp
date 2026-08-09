@@ -50,6 +50,18 @@ below is not part of it.
   until a `tryAcquire` ships upstream (**flagged for the next upstream brief**,
   along with widening cli-kit's `ToolCallResult.content` to image blocks —
   the REPL adapter in `cli.ts` currently summarizes image blocks into text).
+  **Upstream ACCEPTED both asks same-day** (direct cross-session message,
+  2026-08-09, recorded in the template's DEFERRED.md): `tryAcquire` will be
+  implemented from our spec + the v1.0.0 `packages/robustness/src/rate-limit.ts`
+  docblock; `ToolCallResult` will be fixed *properly* — a breaking
+  discriminated union (text/image/audio/resource) shipped as a **minor** with
+  a migration note (a second consumer hit the same narrowness the same day).
+  **When those ship:** delete `ShotBucket` (screenshot.ts) and the REPL image
+  adapter (cli.ts). Also in 0.3.1 but unadopted here: `runRepl`'s
+  `formatResult` / `showMeta` (reads mcp-kit's `dur_ms` — works unmodified) /
+  `json` / `last-error` built-ins — `showMeta: true` is a one-line follow-up
+  nicety. Piped multi-command REPL input is a 0.3.1 fix, not something this
+  repo ever worked around — nothing to remove.
 
 - ~~**Small test debts, declared during review (2026-08-09):**~~ — **DONE
   2026-08-09** (same-day, the test-debts PR):
