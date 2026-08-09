@@ -263,3 +263,7 @@ Newest entry LAST. Every working session appends one entry:
   `pnpm test:no-native`, `pnpm build`, `pnpm stress`.
 - NEXT: unchanged — the PR-D/PR-F backlog in `README.md` still stands. Nothing
   in this PR touches product code.
+- **Rebased onto `f8e9261`** (PR #28, release-please) and re-verified there: the
+  stale-stamp proof reproduces on the new base, and `docs/RELEASE.md`'s "the
+  stamp moves every commit" claim now carries the cache-key caveat that makes it
+  true.
