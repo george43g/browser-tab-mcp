@@ -54,8 +54,11 @@
         "tsconfig.json",
         "package.json",
         "Cargo.toml",
-        "build.rs"
-      ]
+        "build.rs",
+        "$TURBO_ROOT$/scripts/build-stamp.mjs"
+      ],
+      "env": ["BUILD_STAMP"],
+      "passThroughEnv": ["TURBO_HASH"]
     },
     "typecheck": {
       "dependsOn": ["^build"],
@@ -69,12 +72,22 @@
     "test": {
       "dependsOn": ["^build"],
       "outputs": ["coverage/**"],
-      "inputs": ["src/**", "tests/**", "vitest.config.ts"]
+      "inputs": [
+        "src/**",
+        "tests/**",
+        "vitest.config.ts",
+        "$TURBO_ROOT$/packages/vitest-config/*.ts"
+      ]
     },
     "test:no-native": {
       "dependsOn": ["^build"],
       "outputs": [],
-      "inputs": ["src/**", "tests/**", "vitest.config.ts"],
+      "inputs": [
+        "src/**",
+        "tests/**",
+        "vitest.config.ts",
+        "$TURBO_ROOT$/packages/vitest-config/*.ts"
+      ],
       "env": ["MCP_DISABLE_NATIVE"]
     },
     "stress": {

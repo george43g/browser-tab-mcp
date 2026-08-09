@@ -234,3 +234,36 @@ Newest entry LAST. Every working session appends one entry:
   before merging — see `docs/RELEASE.md` § "First release".
 - NEXT: PR-C / PR-D remain per BACKLOG; npm publish stays deferred and is now
   cleanly separable (an additive job, not a rewire).
+
+---
+
+## 2026-08-09 · Claude · build-tooling fixes (turbo stale stamp + uncollected .tsx tests)
+
+- Scope: two verified build-tooling defects, one PR, no product-code changes.
+- **Defect 1 — turbo replays a stale build stamp.** `tasks.build.inputs` lists
+  only source/config globs, so a docs-only commit changes no input, turbo
+  replays `dist/`, and the bundle keeps claiming the *previous* commit. The
+  stamp added in #24 exists precisely to answer "is this artifact the code I
+  think it is" — cache replay silently defeats it. Second, independent hole:
+  `scripts/build-stamp.mjs` (the generator) lives outside every package and is
+  in no `inputs`/`globalDependencies` list, so editing it invalidates nothing.
+- **Defect 2 — a whole test layer is never collected.** The shared vitest
+  `include` covers `src/**/*.test.tsx` but only `tests/**/*.test.ts`, so an
+  Ink/React integration test placed where AGENTS.md's taxonomy prescribes
+  (`tests/`) is silently discovered-zero rather than failing loudly.
+- **Empirical proof (defect 1).** Baseline: build at `b1cb999` → bundles stamped
+  `0.2.0+28.b1cb999`; a docs-only commit (`f615eeb`, count 29) then `pnpm build`
+  → `FULL TURBO`, 11/11 cached, bundles STILL `+28.b1cb999`. After the fix the
+  same sequence re-runs the build and the stamp follows HEAD (see below).
+- **Empirical proof (defect 2).** `apps/browser-tab-mcp` suite: 39 files / 323
+  tests with the `include` fix; revert just that line → 38 files / 320 tests,
+  **all passing** — the `.tsx` integration file vanishes without a warning,
+  which is the whole failure mode.
+- Verified: `pnpm lint` (0 warnings), `pnpm typecheck`, `turbo test --force`,
+  `pnpm test:no-native`, `pnpm build`, `pnpm stress`.
+- NEXT: unchanged — the PR-D/PR-F backlog in `README.md` still stands. Nothing
+  in this PR touches product code.
+- **Rebased onto `f8e9261`** (PR #28, release-please) and re-verified there: the
+  stale-stamp proof reproduces on the new base, and `docs/RELEASE.md`'s "the
+  stamp moves every commit" claim now carries the cache-key caveat that makes it
+  true.

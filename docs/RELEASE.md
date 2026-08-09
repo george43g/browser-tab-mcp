@@ -105,6 +105,13 @@ Two different questions, two different strings — don't merge them:
 The stamp is built *from* the semver, so release-please moving the semver flows
 into the stamp automatically. Neither replaces the other.
 
+"Moves every commit" only holds because the git identity is part of turbo's
+cache key: `pnpm build` exports `BUILD_STAMP=$(node scripts/build-stamp.mjs
+--print)` and `turbo.json` lists it in `tasks.build.env`. Without that, a
+docs-only commit changes no build input, turbo replays `dist/`, and the stamp
+confidently reports the *previous* commit — which is exactly the stale-bundle
+failure it exists to catch. Build with `pnpm build`, not bare `turbo run build`.
+
 ## First release
 
 The manifest starts at `0.0.0` with no matching tag, so the first release PR's

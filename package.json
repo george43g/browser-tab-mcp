@@ -13,7 +13,7 @@
     "packages/*"
   ],
   "scripts": {
-    "build": "turbo run build",
+    "build": "BUILD_STAMP=$(node scripts/build-stamp.mjs --print) turbo run build",
     "dev": "turbo run dev",
     "test": "turbo run test",
     "test:no-native": "turbo run test:no-native",
@@ -21,7 +21,7 @@
     "lint:fix": "biome check --write .",
     "format": "biome format --write .",
     "typecheck": "turbo run typecheck",
-    "stress": "turbo run stress",
+    "stress": "BUILD_STAMP=$(node scripts/build-stamp.mjs --print) turbo run stress",
     "verify": "pnpm lint && pnpm typecheck && pnpm test && pnpm build",
     "clean": "turbo run clean && rm -rf node_modules .turbo coverage"
   },
