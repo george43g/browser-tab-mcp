@@ -251,3 +251,15 @@ Newest entry LAST. Every working session appends one entry:
   `include` covers `src/**/*.test.tsx` but only `tests/**/*.test.ts`, so an
   Ink/React integration test placed where AGENTS.md's taxonomy prescribes
   (`tests/`) is silently discovered-zero rather than failing loudly.
+- **Empirical proof (defect 1).** Baseline: build at `b1cb999` → bundles stamped
+  `0.2.0+28.b1cb999`; a docs-only commit (`f615eeb`, count 29) then `pnpm build`
+  → `FULL TURBO`, 11/11 cached, bundles STILL `+28.b1cb999`. After the fix the
+  same sequence re-runs the build and the stamp follows HEAD (see below).
+- **Empirical proof (defect 2).** `apps/browser-tab-mcp` suite: 39 files / 323
+  tests with the `include` fix; revert just that line → 38 files / 320 tests,
+  **all passing** — the `.tsx` integration file vanishes without a warning,
+  which is the whole failure mode.
+- Verified: `pnpm lint` (0 warnings), `pnpm typecheck`, `turbo test --force`,
+  `pnpm test:no-native`, `pnpm build`, `pnpm stress`.
+- NEXT: unchanged — the PR-D/PR-F backlog in `README.md` still stands. Nothing
+  in this PR touches product code.
