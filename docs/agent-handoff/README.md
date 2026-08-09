@@ -46,7 +46,39 @@ here.** Nothing about this work may live only in an agent's private memory.
 6. **No AI inside the tool.** browser-tab serves data/actuation; the consumer
    AI interprets. (`annotate` is a cache substrate, never intelligence.)
 
-## Status (2026-08-09, later session) — v1.0.0 RELEASED · kits migrated
+## Status (2026-08-10) — v1.0.1 RELEASED unattended · kits are npm deps
+
+**The release automation is PROVEN.** Merging release PR #37 minted tag
+`v1.0.1` + the GitHub Release + the `autorelease: tagged` relabel with **no
+manual recovery** — closing the #31→#33(wrong)→#36(right) saga. #38 (kit
+migration) merged just before it: `@george43g/{robustness,cli-kit,tui-kit}` are
+npm deps at `^0.6.0`/`^0.3.1`/`^0.3.3`, the four frozen workspace copies
+(incl. unused `secrets`) are deleted, and the REPL works again.
+
+**In flight right now:** branch `fix/safari-cgwindowid-correlation` — Safari
+windows reported `cgWindowId: null` on any non-primary monitor because Safari's
+WebExtension API reports `top` display-local while `left` stays global. Fixed in
+`detect/correlate.ts` (display-origin offset tier → title-only last resort, and
+the matched CG frame is adopted so `bounds` stop lying). Full detail + the
+disproved earlier theory: `BACKLOG.md` item 5.
+
+**Queued behind it** (user-sequenced, 2026-08-10):
+1. **Heartbeat file** for shell consumers — wm-stack's sketchybar tier needs a
+   liveness signal it can `stat`; `daemon status` costs a ~130ms node fork and a
+   stale socket file lies after a crash. Agreed design: a separate
+   `~/.cache/browser-tab/heartbeat.json` (NOT `snapshot.json`, whose mtime must
+   keep meaning "state changed"), written at the **end of a successful engine
+   tick** so a wedged osascript stops the beat instead of faking liveness.
+2. **Kit shim removal** — `robustness@^0.7.0` (delete `ShotBucket`) and
+   `cli-kit@^1.0.0` (collapse the REPL adapter in `cli.ts` to
+   `return callMcpTool(name, args)`). Both published; `tui-kit@0.4.0` is
+   additive. **Note the range: cli-kit went to 1.0.0, not 0.4.0.**
+
+**Cross-session note:** the wm-stack consumer is adopting the read path now —
+Chrome-only for M1, Safari deferred until the fix above lands, fixtures encoded
+from the snapshot **file** surface. They asked to be pinged with the commit.
+
+## Historical status (2026-08-09, later session) — v1.0.0 RELEASED · kits migrated
 
 **v1.0.0 is released** (tag + GitHub Release + CHANGELOG exist — the tag was
 cut *manually* after release-please's cut silently failed; the config is now

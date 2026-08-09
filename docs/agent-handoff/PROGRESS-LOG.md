@@ -581,3 +581,53 @@ Upstream published the kits (robustness **0.6.0**, cli-kit **0.3.1**, tui-kit
   restore silently didn't happen ("not overwritten") and a persisted shell cwd
   made a `git checkout <path>` clobber uncommitted work. Use `/bin/cp -f`,
   absolute paths, and scratchpad file-copies (never git) to restore sabotage.
+
+## 2026-08-10 — Safari `cgWindowId` defect found, root-caused, fixed
+
+**Trigger:** the wm-stack session asked for a fixture-grade spec of the read
+path (they're replacing `scripts/browser_tabs.sh`). Answering question 2 —
+"what's the join key, verified now?" — surfaced a live defect.
+
+- **Defect:** Safari windows reported `cgWindowId: null` through the daemon on
+  any non-primary monitor. Chrome was fine (279/36339/77074 all joined).
+- **Root cause (verified, two displays):** Safari's WebExtension `windows` API
+  reports `top` **display-local** while `left` stays global. On a display whose
+  origin is `y:249` it reported `y:50` for a window CoreGraphics, yabai *and*
+  AppleScript all place at `y:299`. Bounds then matched **zero** candidates, and
+  `pickCgWindowId` returned null at the `matches.length === 0` guard — *before*
+  the title tiebreaker, which only ran on the ≥2-match subset. The title would
+  have matched cleanly (tier 1, suffix, exactly one hit).
+- **Two independent proofs:** (1) the AppleScript path resolved the same window
+  to `392` while the extension path said `null`; (2) with the window moved to
+  the **main** display (origin `y:0`, where display-local == global) the
+  extension path resolved it correctly. `n=2` displays, delta always exactly
+  the display origin.
+- **Why the fix is daemon-side, not extension-side** (the user's first choice
+  was to normalize in the extension): the extension has no display API to
+  consult, and the inverse transform is **ambiguous** — displays 2 and 5 on this
+  machine share an x-range, so `(globalX, localY)` maps to two legal global
+  positions. The daemon already has `list_displays()`, so it retries each
+  display origin as a candidate offset and lets CG corroborate the answer.
+- **Shipped in `detect/correlate.ts`:** three tiers (exact bounds → bounds
+  shifted by each display origin → title alone), each tiebreaking by title when
+  it matches >1, everything still null unless unique. A window resolved by
+  either fallback **adopts the matched CG frame**, so `bounds` stop lying.
+  `hasAmbiguousBoundsMatch` → `needsTitleTiebreak` (now also opens the gate on
+  a *zero*-match, which is what makes the yabai title fetch happen at all).
+- **Bar:** lint 0 (bare, real exit) · typecheck · `turbo test --force` 541
+  tests across 6 packages · test:no-native · build · stress 27/27 · e2e 3/3 ·
+  2 sabotage checks (offset tier disabled → 2 red; bounds adoption disabled →
+  2 red; restored → 31/31).
+- **Live:** daemon restarted onto the build; all four windows correlate against
+  yabai, Safari included.
+
+**Experiment note for whoever tries this again:** you cannot place a window at
+chosen coordinates on this machine to test correlation — yabai re-tiles it
+within the poll interval, and `set_window` returns `ok:true` anyway. The
+main-display data point came from the user moving Safari by hand. That
+`ok:true`-without-effect behaviour is now documented in the contract.
+
+**Also today:** answered the wm-stack session's 7-part read-surface query and
+the kit owner's cli-kit/robustness release questions (see BACKLOG for the two
+queued follow-ups: heartbeat file, kit shim removal at `robustness@^0.7.0` /
+`cli-kit@^1.0.0` — note cli-kit went to **1.0.0**, not 0.4.0).

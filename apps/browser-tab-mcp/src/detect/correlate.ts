@@ -14,10 +14,18 @@
  * So ambiguity falls through to a **title tiebreaker** — yabai reports a
  * distinct title per window, and the snapshot's window title is a substring of
  * it (Chrome appends " - Google Chrome - <profile>", Safari prepends
- * "<profile> — "). The tiebreaker only ever runs on the already-ambiguous
- * subset, still returns null unless exactly one candidate matches, and drops
- * any id claimed by two windows. Titles come from yabai rather than
- * kCGWindowName because the latter needs Screen Recording consent.
+ * "<profile> — "). The tiebreaker still returns null unless exactly one
+ * candidate matches, and drops any id claimed by two windows. Titles come from
+ * yabai rather than kCGWindowName because the latter needs Screen Recording
+ * consent.
+ *
+ * The opposite failure also exists: bounds matching **zero** candidates,
+ * because a source reported `y` relative to the window's display while `x`
+ * stayed global (Safari's WebExtension API does exactly this — see
+ * `offsetCandidates`). So the tiers are: exact bounds → bounds shifted by each
+ * display origin → title alone. A window resolved by either fallback also
+ * has its `bounds` corrected from the matched CG frame, so a display-local
+ * source stops lying to consumers downstream.
  *
  * Source chain:
  *   1. rust-accel native listCgWindows()   (CGWindowListCopyWindowInfo)
@@ -34,6 +42,7 @@ import { promisify } from "node:util";
 import { warn } from "@george43g/robustness";
 import type { BrowserId, CgWindowInfo, Snapshot } from "@george43g/shared-types";
 import { tryLoadNative } from "../native-bridge.js";
+import { listDisplays } from "./displays.js";
 
 const execFileAsync = promisify(execFile);
 
@@ -166,6 +175,42 @@ const TITLE_TIERS: ((want: string, have: string) => boolean)[] = [
   (want, have) => have.includes(want) || want.includes(have),
 ];
 
+/**
+ * Distinct global y-origins of the active displays, used to undo a
+ * display-local `y`. Passed in (not read here) so the matching core stays pure.
+ */
+export type DisplayOrigins = readonly number[];
+
+/**
+ * Some sources report `y` relative to the window's display while `x` stays
+ * global, so bounds matching finds NOTHING rather than too much.
+ *
+ * Verified on this stack (2026-08-10): Safari's WebExtension `windows` API
+ * reported y=50 for a window CoreGraphics, yabai and AppleScript all place at
+ * y=299, on a display whose global origin is y=249 — and the same window on the
+ * main display (origin y=0) reported y=50 against a true y=50. Two displays,
+ * delta always exactly the display origin.
+ *
+ * So retry each display origin as a candidate offset. A hit is corroborated by
+ * CG rather than guessed, which also makes the matched frame the truth — see
+ * `correlateSnapshot`, which adopts it.
+ */
+function offsetCandidates(
+  bounds: { x: number; y: number; w: number; h: number },
+  candidates: CgWindowInfo[],
+  origins: DisplayOrigins,
+): CgWindowInfo[] {
+  const hits: CgWindowInfo[] = [];
+  for (const dy of origins) {
+    if (dy === 0) continue; // identical to the direct match already tried
+    const shifted = { ...bounds, y: bounds.y + dy };
+    for (const cg of candidates) {
+      if (boundsMatch(shifted, cg) && !hits.includes(cg)) hits.push(cg);
+    }
+  }
+  return hits;
+}
+
 /** Exactly one candidate whose title relates to the window's, else null. */
 function tiebreakByTitle(
   windowTitle: string,
@@ -186,34 +231,55 @@ function tiebreakByTitle(
   return null;
 }
 
-/** The CG window id for one browser window: bounds first, then title. */
-function pickCgWindowId(
+/** Resolve a tiebreaker's id back to the candidate it names. */
+function byId(windowId: number | null, pool: CgWindowInfo[]): CgWindowInfo | null {
+  if (windowId === null) return null;
+  return pool.find((cg) => cg.windowId === windowId) ?? null;
+}
+
+/**
+ * The CG window for one browser window. Three tiers, strictest first:
+ * exact bounds → the same bounds shifted by a display origin → title alone.
+ * Each tier tiebreaks by title when it matches more than one candidate, and
+ * anything still ambiguous ends as null — never a guess.
+ */
+function pickCgWindow(
   bounds: { x: number; y: number; w: number; h: number },
   windowTitle: string,
   candidates: CgWindowInfo[],
   titles: TitleMap | undefined,
-): number | null {
-  const matches = candidates.filter((cg) => boundsMatch(bounds, cg));
-  const first = matches[0];
-  if (matches.length === 1 && first !== undefined) return first.windowId;
-  if (matches.length === 0) return null;
-  return tiebreakByTitle(windowTitle, matches, titles);
+  origins: DisplayOrigins,
+): CgWindowInfo | null {
+  const exact = candidates.filter((cg) => boundsMatch(bounds, cg));
+  const only = exact[0];
+  if (exact.length === 1 && only !== undefined) return only;
+  if (exact.length > 1) return byId(tiebreakByTitle(windowTitle, exact, titles), exact);
+
+  const shifted = offsetCandidates(bounds, candidates, origins);
+  const onlyShifted = shifted[0];
+  if (shifted.length === 1 && onlyShifted !== undefined) return onlyShifted;
+  if (shifted.length > 1) return byId(tiebreakByTitle(windowTitle, shifted, titles), shifted);
+
+  // No geometry agreed at all — the title is the only evidence left. Still
+  // requires a unique match, so a nameless or duplicated title stays null.
+  return byId(tiebreakByTitle(windowTitle, candidates, titles), candidates);
 }
 
 /**
- * True when any browser window bounds-matches more than one CG window — the
- * signal that a title map would actually buy something. Cheap enough to run
- * before paying for one.
+ * True when bounds alone can't resolve every window — either two CG windows
+ * share a window's frame (tiled) or none matches it (display-local `y`). Both
+ * are cases a title map can rescue, so this is the gate for paying to fetch
+ * one. Cheap enough to run before that.
  */
-export function hasAmbiguousBoundsMatch(snapshot: Snapshot, cgWindows: CgWindowInfo[]): boolean {
+export function needsTitleTiebreak(snapshot: Snapshot, cgWindows: CgWindowInfo[]): boolean {
   for (const b of snapshot.browsers) {
     if (b.pid === null || b.windows.length === 0) continue;
     const candidates = cgWindows.filter((cg) => cg.ownerPid === b.pid && cg.layer === 0);
-    if (candidates.length < 2) continue;
+    if (candidates.length === 0) continue;
     for (const w of b.windows) {
       const bounds = w.bounds;
       if (!bounds) continue;
-      if (candidates.filter((cg) => boundsMatch(bounds, cg)).length > 1) return true;
+      if (candidates.filter((cg) => boundsMatch(bounds, cg)).length !== 1) return true;
     }
   }
   return false;
@@ -253,6 +319,7 @@ export function correlateSnapshot(
   cgWindows: CgWindowInfo[],
   zOrdered = false,
   titles?: TitleMap,
+  displayOrigins: DisplayOrigins = [],
 ): Snapshot {
   const correlated: Snapshot = {
     ...snapshot,
@@ -262,18 +329,25 @@ export function correlateSnapshot(
       if (candidates.length === 0) return b;
       // undefined = window has no bounds, leave its id untouched.
       const picked = b.windows.map((w) =>
-        w.bounds ? pickCgWindowId(w.bounds, w.title, candidates, titles) : undefined,
+        w.bounds ? pickCgWindow(w.bounds, w.title, candidates, titles, displayOrigins) : undefined,
       );
       const claims = new Map<number, number>();
-      for (const id of picked) {
-        if (id !== null && id !== undefined) claims.set(id, (claims.get(id) ?? 0) + 1);
+      for (const cg of picked) {
+        if (cg !== null && cg !== undefined)
+          claims.set(cg.windowId, (claims.get(cg.windowId) ?? 0) + 1);
       }
       return {
         ...b,
         windows: b.windows.map((w, i) => {
-          const id = picked[i];
-          if (id === undefined) return w;
-          return { ...w, cgWindowId: id !== null && claims.get(id) === 1 ? id : null };
+          const cg = picked[i];
+          if (cg === undefined) return w;
+          if (cg === null || claims.get(cg.windowId) !== 1) return { ...w, cgWindowId: null };
+          // CG corroborated this window, so its frame is the truth. Adopting it
+          // repairs a source that reported display-local coordinates; for a
+          // source that was already right this is a no-op within tolerance.
+          const bounds =
+            w.bounds && !boundsMatch(w.bounds, cg) ? { x: cg.x, y: cg.y, w: cg.w, h: cg.h } : null;
+          return { ...w, cgWindowId: cg.windowId, ...(bounds ? { bounds } : {}) };
         }),
       };
     }),
@@ -295,13 +369,14 @@ export async function enrichWithCgWindowIds(
     const cg = await readCgWindows(signal);
     if (!cg) return snapshot;
     // The native tier has no titles of its own. Borrow yabai's, but only once
-    // bounds have actually proved ambiguous — an unambiguous poll must not pay
-    // for a subprocess it cannot learn anything from.
+    // bounds have actually failed to resolve something — a clean poll must not
+    // pay for a subprocess it cannot learn anything from.
     let titles = cg.titles;
-    if (!titles && hasAmbiguousBoundsMatch(snapshot, cg.windows)) {
+    if (!titles && needsTitleTiebreak(snapshot, cg.windows)) {
       titles = (await readYabaiWindows(signal))?.titles;
     }
-    return correlateSnapshot(snapshot, cg.windows, cg.zOrdered, titles);
+    const origins = [...new Set(listDisplays().map((d) => d.y))];
+    return correlateSnapshot(snapshot, cg.windows, cg.zOrdered, titles, origins);
   } catch (err) {
     warn("cg_correlation_failed", { message: (err as Error).message });
     return snapshot;
