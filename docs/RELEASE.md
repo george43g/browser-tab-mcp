@@ -24,7 +24,13 @@ And one workflow, `.github/workflows/release.yml`:
 
 1. **Every push to `main`** → release-please reads the Conventional Commits
    since the last release and opens (or updates) a single rolling **release
-   PR** titled `chore(main): release X.Y.Z`. Its diff is only:
+   PR** titled `chore: release browser-tab X.Y.Z`. That title shape is
+   load-bearing: `group-pull-request-title-pattern` is pinned in
+   `release-please-config.json` because the default (`chore: release main`)
+   carries no component/version, and release-please cannot parse a merged PR
+   it titled itself — the release is then silently skipped
+   ([release-please#2712](https://github.com/googleapis/release-please/issues/2712)).
+   Its diff is only:
    - `package.json` → new version
    - `apps/browser-tab-mcp/package.json` → new version (this is the one
      `--version` prints; see *Why the root path* below)
@@ -112,16 +118,22 @@ docs-only commit changes no build input, turbo replays `dist/`, and the stamp
 confidently reports the *previous* commit — which is exactly the stale-bundle
 failure it exists to catch. Build with `pnpm build`, not bare `turbo run build`.
 
-## First release
+## First release (historical — shipped 2026-08-09 as v1.0.0)
 
-The manifest starts at `0.0.0` with no matching tag, so the first release PR's
-changelog spans the full history — a complete record of the build up to the
-first tag. With `feat:` commits present and `bump-minor-pre-major: true`, the
-first release will be **`0.1.0`**, not `1.0.0`.
+An earlier revision of this doc predicted `0.1.0`; that was wrong. The
+*initial* release defaults to **`1.0.0`** regardless of
+`bump-minor-pre-major` (that option only shapes later bumps), and 1.0.0 was
+accepted. The changelog spans the full history back to the first commit —
+`bootstrap-sha` was not set, deliberately.
 
-To narrow that first changelog instead, set `bootstrap-sha` in
-`release-please-config.json` to the commit you want history to start from — it
-is honoured for the initial release only, then removable.
+The cut itself hit
+[release-please#2712](https://github.com/googleapis/release-please/issues/2712):
+PR #31 was titled with the unparseable default (`chore: release main`), so on
+merge the workflow logged `PR component: undefined does not match configured
+component` + `There are untagged, merged release PRs outstanding - aborting`
+and cut nothing — while the version bump and changelog *did* land on `main`.
+The release was completed manually (see the recovery note below) and the title
+pattern pinned so it cannot recur.
 
 ## Operational notes
 
@@ -136,6 +148,12 @@ is honoured for the initial release only, then removable.
   re-drive it without a new push.
 - **Never hand-edit `.release-please-manifest.json`** except to correct a
   genuinely wrong baseline — release-please rewrites it on every release.
+- **If a merged release PR doesn't tag** (workflow green but
+  `release cut: false` / "untagged, merged release PRs outstanding"), recover
+  manually: `gh release create vX.Y.Z --target <merge-commit-sha>` with the
+  changelog section as notes, then swap the PR's label
+  `autorelease: pending` → `autorelease: tagged`. Re-run the workflow to
+  confirm the abort is gone. (This is exactly how v1.0.0 was cut.)
 
 ## If npm publishing is ever wanted
 
