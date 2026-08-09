@@ -293,6 +293,25 @@ describe("window commands", () => {
     ]);
   });
 
+  it("set_window survives a state clobber: the restore absorbs it and the target state still lands", async () => {
+    // `stateClobbers` models the measured Chrome failure: a state update is
+    // accepted and then silently reverted by an in-flight geometry op. The
+    // sequence tests above pin HOW the fix works; this pins THAT it works —
+    // the end state must be the caller's target even when one state update is
+    // eaten. The pre-#27 implementation (bounds then state, no restore) spends
+    // its only state update on the clobber and ends minimized.
+    fc.restore();
+    fc = installFakeChrome({ initialWindowState: "minimized", stateClobbers: 1 });
+    await executeCommand("set_window", {
+      windowId: 3,
+      state: "normal",
+      bounds: { x: 10, y: 20, w: 30, h: 40 },
+    });
+    const windows = (fc.chrome as typeof chrome).windows;
+    const win = (await windows.get(3)) as { state?: string };
+    expect(win.state).toBe("normal");
+  });
+
   it("set_window never probes when there is no geometry to protect", async () => {
     fc.restore();
     fc = installFakeChrome({ initialWindowState: "minimized" });
