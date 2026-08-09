@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.0.1](https://github.com/george43g/browser-tab-mcp/compare/v1.0.0...v1.0.1) (2026-08-09)
+
+
+### Bug Fixes
+
+* **release:** pin a parseable release-PR title so merges actually cut releases ([#33](https://github.com/george43g/browser-tab-mcp/issues/33)) ([46f6ac9](https://github.com/george43g/browser-tab-mcp/commit/46f6ac99b3996475232f09eb6759e69d64e116af))
+
 ## 1.0.0 (2026-08-09)
 
 
