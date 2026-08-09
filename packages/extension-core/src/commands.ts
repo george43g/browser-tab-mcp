@@ -220,22 +220,25 @@ async function setWindowOutcome(args: CommandArgs): Promise<CommandOutcome> {
   }
 
   // chrome.windows.update rejects a state alongside explicit geometry, so a
-  // request carrying BOTH has to become two sequential updates. Getting them to
-  // BOTH stick took three attempts; the measured behaviour is:
+  // request carrying BOTH has to become two sequential updates. Which order,
+  // and what to wait on, took four attempts to get right. What was measured:
   //
-  //  - A geometry update on a minimised window is applied ASYNCHRONOUSLY and,
-  //    when it completes, re-asserts `minimized`. So it clobbers a nearby state
-  //    change in EITHER order — state-then-bounds and bounds-then-state both
-  //    come back minimised with a 0ms gap, and both stick with a ~200ms gap.
-  //    Ordering alone cannot fix this; that was the bug in the first two fixes.
-  //  - `windows.get().state` IS accurate — it agrees with the platform (checked
-  //    against AppleScript's `minimized` on a real window). An earlier comment
-  //    here claimed it was optimistic; it is not. The first fix's poll read
-  //    "normal" correctly and the pending geometry op then clobbered it.
+  //  - Sending geometry to a MINIMISED window poisons it. The window visibly
+  //    restores, then re-minimises a second or two later, because the geometry
+  //    update is applied asynchronously and re-asserts the state it captured.
+  //    This happens in EITHER order, so ordering alone never fixed it, and it
+  //    happens even when the bounds are unchanged.
+  //  - Sending geometry to a NORMAL window is safe and sticks.
+  //  - `windows.get().state` cannot be used to detect the transition: it reports
+  //    the requested state as soon as the update is accepted, so a poll returns
+  //    "normal" while the window is still mid-restore. (At rest it IS accurate —
+  //    it agrees with AppleScript's `minimized` — which is what made this
+  //    confusing.)
   //
-  // Since the state is observable, don't guess a delay — apply both, then VERIFY
-  // and re-apply until it holds. Self-correcting, and it costs nothing on the
-  // common path where the first attempt sticks.
+  // So the rule is not about ordering, it is about WHAT STATE THE WINDOW IS IN
+  // when geometry arrives: never send geometry to a non-normal window. Restore
+  // first, let the restore actually finish, then place it, then apply the
+  // caller's target state.
   const stateStep = (): chrome.windows.UpdateInfo => {
     const step: chrome.windows.UpdateInfo = { state };
     // focused is invalid alongside a minimized state; safe otherwise.
@@ -255,55 +258,55 @@ async function setWindowOutcome(args: CommandArgs): Promise<CommandOutcome> {
   };
 
   let win: chrome.windows.Window | undefined;
-  if (bounds) win = await windows.update(windowId, boundsStep());
-  if (state) {
-    win = await windows.update(windowId, stateStep());
-    // Only the combination races; a lone state update has nothing to clobber it.
-    if (bounds) win = (await settleWindowState(windows, windowId, state, stateStep())) ?? win;
+  if (bounds) {
+    win = (await ensureRestored(windows, windowId)) ?? win;
+    win = await windows.update(windowId, boundsStep());
   }
+  if (state) win = await windows.update(windowId, stateStep());
   return { windowId: win?.id ?? windowId, payload: {} };
 }
 
-/** Attempts to re-assert a state that a pending geometry update clobbered. */
-const STATE_SETTLE_ATTEMPTS = 3;
-const STATE_SETTLE_DELAY_MS = 150;
+/**
+ * How long to let a restore actually complete before touching geometry.
+ *
+ * This is a real sleep rather than a poll on purpose: `windows.get().state`
+ * flips to the requested value as soon as the update is ACCEPTED, so polling it
+ * returns immediately while the window is still mid-restore — that was the bug
+ * in two earlier fixes. There is no accurate in-flight signal to wait on, so the
+ * wait is bounded by time and only paid when a restore was actually needed.
+ */
+const RESTORE_SETTLE_MS = 400;
 
 const delay = (ms: number): Promise<void> => new Promise((r) => setTimeout(r, ms));
 
 /**
- * Re-apply `want` until the window actually reports it, or the attempts run out.
+ * Bring `windowId` to `normal` if it isn't already, so geometry can be applied.
  *
- * A geometry update on a minimised window lands asynchronously and re-asserts
- * `minimized` on completion, so the state update paired with it can be undone
- * AFTER it was accepted. `windows.get().state` reflects the real platform state,
- * so this reads it back and re-applies rather than sleeping a guessed amount.
+ * Geometry sent to a minimised window is applied asynchronously and re-asserts
+ * the old state when it lands — the window visibly pops up and then drops back
+ * a second later. Restoring FIRST and letting it finish avoids that entirely.
  *
- * Degrades to a no-op on a runtime without `windows.get` (Safari's shim), and
- * never throws — a settle failure must not fail a command whose updates were
- * both accepted.
+ * A no-op when the window is already normal, so the common case costs one
+ * `windows.get` and no delay. Degrades to a no-op where `windows.get` is absent
+ * (Safari's shim) rather than blindly sleeping, and never throws.
  */
-async function settleWindowState(
+async function ensureRestored(
   windows: Windows,
   windowId: number,
-  want: string,
-  step: chrome.windows.UpdateInfo,
 ): Promise<chrome.windows.Window | undefined> {
   const get = windows.get as
     | ((id: number) => Promise<chrome.windows.Window | undefined>)
     | undefined;
   if (typeof get !== "function") return undefined;
-  let win: chrome.windows.Window | undefined;
-  for (let i = 0; i < STATE_SETTLE_ATTEMPTS; i++) {
-    await delay(STATE_SETTLE_DELAY_MS);
-    try {
-      const seen = await get(windowId);
-      if (seen?.state === want) return seen;
-      win = await windows.update(windowId, step);
-    } catch {
-      return win; // window vanished mid-settle — nothing useful left to do
-    }
+  try {
+    const seen = await get(windowId);
+    if (!seen || seen.state === "normal") return seen ?? undefined;
+    const restored = await windows.update(windowId, { state: "normal" });
+    await delay(RESTORE_SETTLE_MS);
+    return restored;
+  } catch {
+    return undefined; // window vanished — the next update will surface it
   }
-  return win;
 }
 
 export async function executeCommand(kind: string, args: CommandArgs): Promise<CommandOutcome> {

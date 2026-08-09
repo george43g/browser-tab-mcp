@@ -224,69 +224,59 @@ describe("window commands", () => {
     ]);
   });
 
-  it("set_window re-applies a state that the geometry update clobbered", async () => {
-    // The fake accepts the first state update then silently reverts it, exactly
-    // as Chrome does when the pending geometry op completes.
+  it("set_window RESTORES a minimized window before touching geometry", async () => {
+    // The poison: geometry sent to a minimized window is applied async and
+    // re-asserts the old state — the window pops up, then drops back a second
+    // later. Restoring first and letting it finish avoids it entirely.
     fc.restore();
-    fc = installFakeChrome({ initialWindowState: "minimized", stateClobbers: 1 });
+    fc = installFakeChrome({ initialWindowState: "minimized" });
     await executeCommand("set_window", {
       windowId: 3,
       state: "normal",
       bounds: { x: 10, y: 20, w: 30, h: 40 },
     });
-    // It read the state back, saw it had reverted, and re-applied.
-    expect(fc.calls["windows.get"]?.length).toBeGreaterThanOrEqual(2);
     expect(fc.calls["windows.update"]).toEqual([
-      [3, { left: 10, top: 20, width: 30, height: 40 }],
-      [3, { state: "normal" }],
-      [3, { state: "normal" }],
+      [3, { state: "normal" }], // restore FIRST
+      [3, { left: 10, top: 20, width: 30, height: 40 }], // then place
+      [3, { state: "normal" }], // then the caller's target state
     ]);
   });
 
-  it("set_window stops re-applying once the state holds", async () => {
+  it("set_window skips the restore when the window is already normal", async () => {
     fc.restore();
-    fc = installFakeChrome({ initialWindowState: "minimized" });
+    fc = installFakeChrome({ initialWindowState: "normal" });
     await executeCommand("set_window", {
       windowId: 3,
-      state: "normal",
       bounds: { x: 10, y: 20, w: 30, h: 40 },
     });
-    // One verify read, no redundant re-apply — the common path costs one get.
+    // One probe, no restore, no delay — the common path stays cheap.
     expect(fc.calls["windows.get"]).toHaveLength(1);
-    expect(fc.calls["windows.update"]).toHaveLength(2);
+    expect(fc.calls["windows.update"]).toEqual([[3, { left: 10, top: 20, width: 30, height: 40 }]]);
   });
 
-  it("set_window gives up rather than looping forever on a stuck state", async () => {
-    fc.restore();
-    fc = installFakeChrome({ initialWindowState: "minimized", stateClobbers: 99 });
-    await expect(
-      executeCommand("set_window", {
-        windowId: 3,
-        state: "normal",
-        bounds: { x: 10, y: 20, w: 30, h: 40 },
-      }),
-    ).resolves.toMatchObject({ windowId: 3 });
-    // Bounded: 1 bounds + 1 initial state + at most 3 settle re-applies.
-    expect(fc.calls["windows.update"]?.length).toBeLessThanOrEqual(5);
-  });
-
-  it("set_window does not verify a lone state update — nothing can clobber it", async () => {
+  it("set_window restores before geometry even when the TARGET is minimized", async () => {
+    // Still must not send geometry to a minimized window; the caller's
+    // minimize lands last.
     fc.restore();
     fc = installFakeChrome({ initialWindowState: "minimized" });
-    await executeCommand("set_window", { windowId: 3, state: "normal" });
-    expect(fc.calls["windows.get"]).toBeUndefined();
-  });
-
-  it("set_window orders bounds before EVERY state, not just normal", async () => {
     await executeCommand("set_window", {
       windowId: 3,
       state: "minimized",
       bounds: { x: 10, y: 20, w: 30, h: 40 },
     });
     expect(fc.calls["windows.update"]).toEqual([
+      [3, { state: "normal" }],
       [3, { left: 10, top: 20, width: 30, height: 40 }],
       [3, { state: "minimized" }],
     ]);
+  });
+
+  it("set_window never probes when there is no geometry to protect", async () => {
+    fc.restore();
+    fc = installFakeChrome({ initialWindowState: "minimized" });
+    await executeCommand("set_window", { windowId: 3, state: "normal" });
+    expect(fc.calls["windows.get"]).toBeUndefined();
+    expect(fc.calls["windows.update"]).toEqual([[3, { state: "normal" }]]);
   });
 
   it("set_window never pairs focused with a minimized state", async () => {
