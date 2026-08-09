@@ -87,8 +87,8 @@ runtime for `--version` and the TUI header. Tags stay plain `vX.Y.Z`
 
 | Package | Why not |
 |---|---|
-| `@george43g/cli-kit`, `@george43g/tui-kit`, `@george43g/robustness` | Published from `mcp-cli-starter-template`, frozen here pending a migration. Releasing them from this repo would fork their version lines. |
-| `@george43g/mcp-kit`, `shared-types`, `extension-core`, `test-kit`, `env-loader`, `secrets`, `tsconfig`, `biome-config`, `vitest-config` | Internal, unpublished, no external consumer to version for. They ship *inside* the bin, and the root release line already covers changes to them. |
+| `@george43g/cli-kit`, `@george43g/tui-kit`, `@george43g/robustness` | Not workspace code any more — consumed from npm (published from `mcp-cli-starter-template`; the frozen workspace copies were deleted 2026-08-09). Their versions move upstream. |
+| `@george43g/mcp-kit`, `shared-types`, `extension-core`, `test-kit`, `env-loader`, `tsconfig`, `biome-config`, `vitest-config` | Internal, unpublished, no external consumer to version for. They ship *inside* the bin, and the root release line already covers changes to them. |
 | `@george43g/chrome-extension` | Its version is the **manifest** version — user-facing in the browser's extension list, and kept in lockstep with `public/manifest.json` by `pnpm --filter @george43g/chrome-extension run bump` (PR #21), with a build-output test that fails CI on drift. Letting release-please bump `package.json` alone would break that invariant. Bumping the connector stays a deliberate manual act. |
 | `@george43g/rust-accel`, `@george43g/safari-extension` | Build inputs, not distributed artifacts. |
 

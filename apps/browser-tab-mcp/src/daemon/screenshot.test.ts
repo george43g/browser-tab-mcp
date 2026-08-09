@@ -124,6 +124,18 @@ describe("screenshot — tier 'tab'", () => {
     );
   });
 
+  it("refills tokens as the clock advances — a rejected caller can retry after the hint", async () => {
+    let now = 0;
+    const limiter = new ShotRateLimiter(2, 2, () => now); // 2 rps, burst 2
+    expect(limiter.check("chrome").ok).toBe(true);
+    expect(limiter.check("chrome").ok).toBe(true);
+    const denied = limiter.check("chrome");
+    expect(denied.ok).toBe(false);
+    expect(denied.retryMs).toBeGreaterThan(0);
+    now += denied.retryMs; // wait exactly as long as the hint said
+    expect(limiter.check("chrome").ok).toBe(true);
+  });
+
   it("rejects an AppleScript-generation handle with a hint", async () => {
     const { ext } = makeExt();
     await expect(

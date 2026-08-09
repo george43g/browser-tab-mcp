@@ -539,7 +539,25 @@ export async function main(argv: readonly string[] = process.argv): Promise<void
             }));
           },
           async callTool(name, args) {
-            return callMcpTool(name, args);
+            const result = await callMcpTool(name, args);
+            // cli-kit's ToolCallResult is text-only; a terminal REPL can't
+            // render an image block, so it becomes a summary line rather
+            // than a base64 dump.
+            return {
+              content: result.content.map((block) =>
+                block.type === "text"
+                  ? block
+                  : {
+                      type: block.type,
+                      text: `[${block.type} ${block.mimeType}, ${block.data.length} base64 chars]`,
+                    },
+              ),
+              ...(result.structuredContent === undefined
+                ? {}
+                : { structuredContent: result.structuredContent }),
+              ...(result.isError === undefined ? {} : { isError: result.isError }),
+              ...(result._meta === undefined ? {} : { _meta: result._meta }),
+            };
           },
         },
         shortcuts: [

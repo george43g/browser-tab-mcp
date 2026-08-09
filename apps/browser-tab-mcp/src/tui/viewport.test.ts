@@ -1,10 +1,14 @@
 /**
  * Viewport arithmetic — the two defects this replaced were both measured live
  * in a tmux pane, so the numbers below are the real observed ones.
+ *
+ * The helpers now come from @george43g/tui-kit (upstreamed from this app), so
+ * this file is the guard that the published versions still fit THIS app's
+ * layout: CHROME_ROWS must keep matching our header + StatusBar + HelpBar.
  */
 
+import { CHROME_ROWS, viewportRows, visibleWindow } from "@george43g/tui-kit";
 import { describe, expect, it } from "vitest";
-import { CHROME_ROWS, viewportRows, visibleWindow } from "./viewport.js";
 
 describe("viewportRows", () => {
   it("fills the terminal instead of a hardcoded 24", () => {
@@ -26,8 +30,10 @@ describe("viewportRows", () => {
     }
   });
 
-  it("survives a non-finite row count", () => {
-    expect(viewportRows(Number.NaN)).toBe(1);
+  it("treats a non-finite row count as an unknown-height terminal", () => {
+    // The kit falls back to a 24-row VT100 (what a non-TTY pipe reports)
+    // rather than collapsing to a single row.
+    expect(viewportRows(Number.NaN)).toBe(24 - CHROME_ROWS);
   });
 });
 

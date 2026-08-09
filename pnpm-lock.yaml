@@ -42,11 +42,11 @@ importers:
         specifier: ^0.1.0
         version: 0.1.0(@types/react@19.2.17)
       ink:
-        specifier: ^7.1.0
-        version: 7.1.0(@types/react@19.2.17)(react@19.2.7)
+        specifier: ^7.1.1
+        version: 7.1.1(@types/react@19.2.17)(react@19.2.8)
       react:
-        specifier: ^19.2.7
-        version: 19.2.7
+        specifier: ^19.2.8
+        version: 19.2.8
       ws:
         specifier: ^8.21.1
         version: 8.21.1
@@ -55,8 +55,8 @@ importers:
         version: 3.25.76
     devDependencies:
       '@george43g/cli-kit':
-        specifier: workspace:*
-        version: link:../../packages/cli-kit
+        specifier: ^0.3.1
+        version: 0.3.1(commander@14.0.3)
       '@george43g/extension-core':
         specifier: workspace:*
         version: link:../../packages/extension-core
@@ -64,8 +64,8 @@ importers:
         specifier: workspace:*
         version: link:../../packages/mcp-kit
       '@george43g/robustness':
-        specifier: workspace:*
-        version: link:../../packages/robustness
+        specifier: ^0.6.0
+        version: 0.6.0
       '@george43g/shared-types':
         specifier: workspace:*
         version: link:../../packages/shared-types
@@ -76,8 +76,8 @@ importers:
         specifier: workspace:*
         version: link:../../packages/tsconfig
       '@george43g/tui-kit':
-        specifier: workspace:*
-        version: link:../../packages/tui-kit
+        specifier: ^0.3.3
+        version: 0.3.3(@george43g/robustness@0.6.0)(@types/react@19.2.17)(ink@7.1.1(@types/react@19.2.17)(react@19.2.8))(react@19.2.8)
       '@george43g/vitest-config':
         specifier: workspace:*
         version: link:../../packages/vitest-config
@@ -159,34 +159,6 @@ importers:
 
   packages/biome-config: {}
 
-  packages/cli-kit:
-    dependencies:
-      cli-table3:
-        specifier: ^0.6.5
-        version: 0.6.5
-      commander:
-        specifier: ^14.0.0
-        version: 14.0.3
-      picocolors:
-        specifier: ^1.1.0
-        version: 1.1.1
-    devDependencies:
-      '@george43g/tsconfig':
-        specifier: workspace:*
-        version: link:../tsconfig
-      '@george43g/vitest-config':
-        specifier: workspace:*
-        version: link:../vitest-config
-      '@types/node':
-        specifier: ^24.13.3
-        version: 24.13.3
-      typescript:
-        specifier: ^5.7.0
-        version: 5.9.3
-      vitest:
-        specifier: ^3.2.7
-        version: 3.2.7(@types/node@24.13.3)(happy-dom@20.11.0)(tsx@4.23.1)
-
   packages/env-loader:
     devDependencies:
       '@george43g/tsconfig':
@@ -239,8 +211,8 @@ importers:
   packages/mcp-kit:
     dependencies:
       '@george43g/robustness':
-        specifier: workspace:*
-        version: link:../robustness
+        specifier: ^0.6.0
+        version: 0.6.0
       '@modelcontextprotocol/sdk':
         specifier: ^1.29.0
         version: 1.29.0(zod@3.25.76)
@@ -250,42 +222,6 @@ importers:
       zod-to-json-schema:
         specifier: ^3.25.0
         version: 3.25.2(zod@3.25.76)
-    devDependencies:
-      '@george43g/tsconfig':
-        specifier: workspace:*
-        version: link:../tsconfig
-      '@george43g/vitest-config':
-        specifier: workspace:*
-        version: link:../vitest-config
-      '@types/node':
-        specifier: ^24.13.3
-        version: 24.13.3
-      typescript:
-        specifier: ^5.7.0
-        version: 5.9.3
-      vitest:
-        specifier: ^3.2.7
-        version: 3.2.7(@types/node@24.13.3)(happy-dom@20.11.0)(tsx@4.23.1)
-
-  packages/robustness:
-    devDependencies:
-      '@george43g/tsconfig':
-        specifier: workspace:*
-        version: link:../tsconfig
-      '@george43g/vitest-config':
-        specifier: workspace:*
-        version: link:../vitest-config
-      '@types/node':
-        specifier: ^24.13.3
-        version: 24.13.3
-      typescript:
-        specifier: ^5.7.0
-        version: 5.9.3
-      vitest:
-        specifier: ^3.2.7
-        version: 3.2.7(@types/node@24.13.3)(happy-dom@20.11.0)(tsx@4.23.1)
-
-  packages/secrets:
     devDependencies:
       '@george43g/tsconfig':
         specifier: workspace:*
@@ -353,43 +289,6 @@ importers:
         version: 8.21.1
 
   packages/tsconfig: {}
-
-  packages/tui-kit:
-    dependencies:
-      '@george43g/robustness':
-        specifier: workspace:*
-        version: link:../robustness
-      fullscreen-ink:
-        specifier: ^0.1.0
-        version: 0.1.0(@types/react@19.2.17)
-      ink:
-        specifier: ^7.1.0
-        version: 7.1.0(@types/react@19.2.17)(react@19.2.7)
-      react:
-        specifier: ^19.2.7
-        version: 19.2.7
-    devDependencies:
-      '@george43g/tsconfig':
-        specifier: workspace:*
-        version: link:../tsconfig
-      '@george43g/vitest-config':
-        specifier: workspace:*
-        version: link:../vitest-config
-      '@types/node':
-        specifier: ^24.13.3
-        version: 24.13.3
-      '@types/react':
-        specifier: ^19.2.17
-        version: 19.2.17
-      ink-testing-library:
-        specifier: ^4.0.0
-        version: 4.0.0(@types/react@19.2.17)
-      typescript:
-        specifier: ^5.7.0
-        version: 5.9.3
-      vitest:
-        specifier: ^3.2.7
-        version: 3.2.7(@types/node@24.13.3)(happy-dom@20.11.0)(tsx@4.23.1)
 
   packages/vitest-config:
     dependencies:
@@ -809,6 +708,24 @@ packages:
     engines: {node: '>=18'}
     cpu: [x64]
     os: [win32]
+
+  '@george43g/cli-kit@0.3.1':
+    resolution: {integrity: sha512-L6z1w8r9ocFETr/HTKkNgdyx9zv9JMbmfbRY5N5SzqA7EFVdTj10WOtcFoe7mYj8X7jwDb44yTCZpU47M6u/AA==}
+    engines: {node: '>=24'}
+    peerDependencies:
+      commander: ^14.0.0
+
+  '@george43g/robustness@0.6.0':
+    resolution: {integrity: sha512-txRM8vueafx6bsCbs2wYbh1jncOpYU2iPgDSKk+IXnbZkgWLkZ0moRtJsr205fb7TT+p7t4OFQj/4UunU3A4fw==}
+    engines: {node: '>=24'}
+
+  '@george43g/tui-kit@0.3.3':
+    resolution: {integrity: sha512-aclnaBN2TWcy1jr53WN3mvpn3upJdzz+NQVF1nR9DjVLFPopjtYtGNzHwLEnAnrSqFaeQhqPZa1X63/Wd7FOmg==}
+    engines: {node: '>=24'}
+    peerDependencies:
+      '@george43g/robustness': ^0.1.1 || ^0.2.0 || ^0.3.0 || ^0.4.0 || ^0.5.0 || ^0.6.0
+      ink: ^7.1.1
+      react: ^19.2.8
 
   '@hono/node-server@1.19.14':
     resolution: {integrity: sha512-GwtvgtXxnWsucXvbQXkRgqksiH2Qed37H9xHZocE5sA3N8O8O8/8FA3uclQXxXVzc9XBZuEOMK7+r02FmSpHtw==}
@@ -2065,8 +1982,8 @@ packages:
       '@types/react':
         optional: true
 
-  ink@7.1.0:
-    resolution: {integrity: sha512-VWE6/yeLtFCJBNLflyI2OSylyXK1Rc24LuXup8Qt+icwkmmycFNdbn8IkSp6Frc0h1iA0NOvvi1ajW44U/w3Qg==}
+  ink@7.1.1:
+    resolution: {integrity: sha512-Y43xxa1ZSPvpmfLHcN5o+OdP8Rf8ykkNJEuKYOUNZKT8wXVNLFTtEm1nSDMQkfBH+YANF4Xuu0hhZ4ejqAtN2w==}
     engines: {node: '>=22'}
     peerDependencies:
       '@types/react': '>=19.2.0'
@@ -2316,8 +2233,8 @@ packages:
     peerDependencies:
       react: ^19.2.0
 
-  react@19.2.7:
-    resolution: {integrity: sha512-HNe9WslTbXmFK8o8cmwgAeJFSBvt1bPdHCVKtaaV+WlAN36mpT4hcRpwbf3fY56ar2oIXzsBpOAiIRHAdY0OlQ==}
+  react@19.2.8:
+    resolution: {integrity: sha512-PWaYA1L/q9u2u7xYQi+Y3L3Yfnie7XyLeaJICV1MGD6LprsBxcAqGjYyr0eY3p+QdsA+x/Irkt4Qif8D63+Sbw==}
     engines: {node: '>=0.10.0'}
 
   require-from-string@2.0.2:
@@ -2935,6 +2852,26 @@ snapshots:
 
   '@esbuild/win32-x64@0.28.1':
     optional: true
+
+  '@george43g/cli-kit@0.3.1(commander@14.0.3)':
+    dependencies:
+      cli-table3: 0.6.5
+      commander: 14.0.3
+      picocolors: 1.1.1
+
+  '@george43g/robustness@0.6.0': {}
+
+  '@george43g/tui-kit@0.3.3(@george43g/robustness@0.6.0)(@types/react@19.2.17)(ink@7.1.1(@types/react@19.2.17)(react@19.2.8))(react@19.2.8)':
+    dependencies:
+      '@george43g/robustness': 0.6.0
+      fullscreen-ink: 0.1.0(@types/react@19.2.17)
+      ink: 7.1.1(@types/react@19.2.17)(react@19.2.8)
+      react: 19.2.8
+    transitivePeerDependencies:
+      - '@types/react'
+      - bufferutil
+      - react-devtools-core
+      - utf-8-validate
 
   '@hono/node-server@1.19.14(hono@4.12.30)':
     dependencies:
@@ -4005,8 +3942,8 @@ snapshots:
 
   fullscreen-ink@0.1.0(@types/react@19.2.17):
     dependencies:
-      ink: 7.1.0(@types/react@19.2.17)(react@19.2.7)
-      react: 19.2.7
+      ink: 7.1.1(@types/react@19.2.17)(react@19.2.8)
+      react: 19.2.8
     transitivePeerDependencies:
       - '@types/react'
       - bufferutil
@@ -4091,7 +4028,7 @@ snapshots:
     optionalDependencies:
       '@types/react': 19.2.17
 
-  ink@7.1.0(@types/react@19.2.17)(react@19.2.7):
+  ink@7.1.1(@types/react@19.2.17)(react@19.2.8):
     dependencies:
       '@alcalzone/ansi-tokenize': 0.3.0
       ansi-escapes: 7.3.0
@@ -4106,8 +4043,8 @@ snapshots:
       indent-string: 5.0.0
       is-in-ci: 2.0.0
       patch-console: 2.0.0
-      react: 19.2.7
-      react-reconciler: 0.33.0(react@19.2.7)
+      react: 19.2.8
+      react-reconciler: 0.33.0(react@19.2.8)
       scheduler: 0.27.0
       signal-exit: 3.0.7
       slice-ansi: 9.0.0
@@ -4314,12 +4251,12 @@ snapshots:
       iconv-lite: 0.7.3
       unpipe: 1.0.0
 
-  react-reconciler@0.33.0(react@19.2.7):
+  react-reconciler@0.33.0(react@19.2.8):
     dependencies:
-      react: 19.2.7
+      react: 19.2.8
       scheduler: 0.27.0
 
-  react@19.2.7: {}
+  react@19.2.8: {}
 
   require-from-string@2.0.2: {}
 
