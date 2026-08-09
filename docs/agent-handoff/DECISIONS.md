@@ -155,3 +155,23 @@ if a decision is reversed, append the reversal.
   answers "which release". The stamp is derived FROM the semver, so
   release-please moving the version flows through automatically. Neither
   replaces the other — don't collapse them.
+
+## 2026-08-09 (session close)
+
+- **Repo setting changed: GitHub Actions may create PRs.**
+  `can_approve_pull_request_reviews: true` set via API (default token perms
+  left at `read`) — release-please cannot open its release PR without it; the
+  first run failed on exactly this. Reversible in Settings → Actions → General.
+- **Squash-title types are release surface now.** PR-D was authored as
+  `refactor(focus):` but adds API surface (a new input + four result fields);
+  merged as `feat(focus):` so release-please bumps and sections it correctly.
+  Rule going forward: pick the squash prefix for what the change IS to a
+  consumer, not what it felt like to write.
+- **`set_window` root cause (attempt 4, live-verified):** geometry sent to a
+  non-normal window is applied asynchronously and re-asserts the captured
+  state — so ordering can never fix it. The rule is `ensureRestored()` before
+  any geometry. Two retracted claims are corrected in-code: `windows.get` is
+  NOT optimistic at rest, and yabai was NOT the culprit (reproduced floating).
+- **First release version is an open user decision** — release-please proposes
+  `1.0.0` (initial-release default), not the predicted `0.1.0`. See BACKLOG
+  § Open questions.

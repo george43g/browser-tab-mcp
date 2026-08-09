@@ -46,35 +46,32 @@ here.** Nothing about this work may live only in an agent's private memory.
 6. **No AI inside the tool.** browser-tab serves data/actuation; the consumer
    AI interprets. (`annotate` is a cache substrate, never intelligence.)
 
-## Status (2026-08-09) — bug-sweep remediation, PR-D is the last one open
+## Status (2026-08-09, session close) — bug-sweep remediation COMPLETE
 
-`main` = **`f8e9261`**, clean, CI green. A live test-drive on 2026-08-07 found
-**14 defects** (evidence: `BUGSWEEP-2026-08-07.md`); the remediation plan lives
-at `~/.claude/plans/gleaming-tumbling-koala.md` and **that plan file is the
-execution source of truth** — with one correction: it claims `.env.example` is
-missing, and it is not (see the 2026-08-09 PR-D PROGRESS-LOG entry).
+`main` = **`6330b0c`**, clean, CI green. The 14-defect bug sweep
+(`BUGSWEEP-2026-08-07.md`) is fully remediated: **#22** handle validation ·
+**#23** TUI viewport · **#24** build stamp · **#25→#27** `set_window` state
+(three wrong fixes before the right one — see GOTCHAS, "geometry poisons a
+minimized window") · **#26** human CLI output + env flags · **#28**
+release-please · **#29** turbo cache key + `.tsx` test collection · **#30**
+`focus_tab` contract + `history.sources` + doc fixes. The plan file
+(`~/.claude/plans/gleaming-tumbling-koala.md`) is now historical.
 
-Merged: **#22** cross-browser handle validation + `set_window` bounds/state ·
-**#23** terminal-derived TUI viewport + subscription supervision · **#24**
-build-identity stamp · **#26** human CLI output + curated env flags · **#28**
-release-please. **PR-D** (`focus_tab` contract + `history.sources` + doc fixes)
-is **open on branch `refactor/focus-tab-contract`, fully verified, awaiting the
-merge word** — and it is the last item in the plan. Full detail per PR in
-`BACKLOG.md` § ACTIVE.
+**Open right now:**
 
-Note two other PRs (#27, #29) are open from parallel work and are not part of
-this plan.
+- **PR #31 `chore: release main`** — release-please's rolling release PR.
+  ⚠ It proposes **`1.0.0`** (release-please's *initial-release* default;
+  `bump-minor-pre-major` only affects later bumps). USER DECISION: accept
+  1.0.0, or add `"release-as": "0.1.0"` to `release-please-config.json` for
+  one cycle. Merging #31 mints the first tag + GitHub Release + CHANGELOG.
+- **User-gated reloads for build `+32.6330b0c`**: Chrome
+  (`chrome://extensions` ⟳) and Safari (Settings → Extensions → toggle
+  "Browser Tab Helper Extension" off/on — the sideload has already been run).
+  Until then `doctor` reports the stamp mismatch.
+- **Upstream handover**: paste `UPSTREAM-HANDOFF-MESSAGE.md` to the
+  `mcp-cli-starter-template` agent (reference doc: `UPSTREAM-KIT-BRIEF.md`).
 
-⚠ **One user-gated step is outstanding:** reload the Chrome connector
-(`chrome://extensions`). Until then `doctor` correctly reports
-`chrome extension reports "0.2.0" with no build stamp`. That single reload
-verifies both the build-stamp check going clean AND `window set --bounds …
---state normal` applying the state (its fix is extension-side).
-
-**A trap this session hit twice:** rebuilding on the wrong branch meant a
-browser reload verified nothing. That is exactly what #24's build stamp now
-makes impossible to miss — always check `doctor`'s build line before trusting a
-live verification.
+Everything else deferred/parked lives in `BACKLOG.md` — start there.
 
 ## Historical status (2026-07-29)
 
