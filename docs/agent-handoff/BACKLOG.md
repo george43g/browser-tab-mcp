@@ -169,8 +169,22 @@ below is not part of it.
    and Safari now runs the real extension (`extensionConnected: true`, full
    capabilities) rather than the AppleScript path. Remaining manual step after
    each sideload: Safari → Settings → Extensions → toggle OFF then ON.
-   Open sub-item: yabai does **not** list the Safari window in
-   `query --windows`, so Safari can't correlate under tier 2 (native only).
+   ~~Open sub-item: yabai does **not** list the Safari window in
+   `query --windows`, so Safari can't correlate under tier 2 (native only).~~
+   **WRONG, and fixed 2026-08-10.** yabai *does* list it (id `392`). The real
+   cause was that **Safari's WebExtension API reports `top` display-local while
+   `left` stays global**, so on any non-primary monitor bounds matched *zero*
+   CG candidates and `pickCgWindow` returned null before the title tiebreaker
+   (which only ran on the ≥2-match subset) could rescue it. Proven two ways:
+   the AppleScript path resolved the same window to `392` while the extension
+   path said `null`; and the same window moved to the **main** display (origin
+   `y:0`) correlated fine, because there display-local == global. Fixed in
+   `detect/correlate.ts` with a display-origin offset tier + a title-only last
+   resort, plus adopting the CG frame so `bounds` stop lying. The extension is
+   **not** patched — it has no display API to consult, and the inverse
+   transform is ambiguous when two displays share an x-range (this machine:
+   displays 2 and 5), so the repair belongs in the daemon where the display
+   list lives.
 
 6. **npm publish enablement** — deliberately OFF, and no longer coupled to
    versioning. ~~Release automation~~ **landed (PR-F)**: release-please

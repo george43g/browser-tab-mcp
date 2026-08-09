@@ -109,7 +109,7 @@ needs a second `list_tabs` to decide what to do next:
 
 | Field | Meaning |
 |---|---|
-| `cgWindowId` | CoreGraphics/yabai window id — the join key. `null` when correlation is ambiguous; absent when the daemon isn't running (correlation lives there). |
+| `cgWindowId` | CoreGraphics/yabai window id — the join key. `null` when correlation is ambiguous; absent when the daemon isn't running (correlation lives there). Correlation matches on bounds, then on bounds shifted by each display origin (Safari reports `top` display-local), then on the window title — and a matched window adopts the CoreGraphics frame, so its `bounds` are the true global ones. |
 | `windowState` | `normal` / `minimized` / `maximized` / `fullscreen` after the call. |
 | `wasMinimized` | Whether the window was minimized *before* — i.e. the tab was somewhere you couldn't see. |
 | `windowFocused` | Whether the window is now its browser's frontmost window. |

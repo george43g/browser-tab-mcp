@@ -43,7 +43,7 @@ The interface `~/dotfiles/wm-stack` rewires around, replacing
       "windowId": "w:chrome:x812",        // OPAQUE — never parse
       "cgWindowId": 236,                  // == yabai window id; null when correlation failed
       "title": "Inbox – Gmail",
-      "bounds": { "x": 40, "y": 50, "w": 1996, "h": 1269 },
+      "bounds": { "x": 40, "y": 50, "w": 1996, "h": 1269 },  // global coords; see note below
       "focused": true,
       "incognito": false,
       "activeTabIndex": 0,                // 0-based
@@ -90,6 +90,30 @@ metadata blob, same idea as the old `browser_tabs_last.json`).
    join `browsers[].windows[].cgWindowId` against `yabai -m query --windows`
    `.[].id` directly. **Stop title-matching.** Tolerate `null` (ambiguous
    bounds, correlation source unavailable).
+
+   Title-matching isn't merely fragile in theory — it is **already silently
+   broken** in wm-stack. Observed 2026-08-10: yabai's AX title carries suffixes
+   the snapshot title lacks, so `tabMap[title]` misses the window entirely and
+   its tab badge just vanishes. Two live examples —
+
+   | yabai `.title` | snapshot `windows[].title` |
+   |---|---|
+   | `os-fork control plane - Part of group ✅C` | `os-fork control plane` |
+   | `Example Domain - Google Chrome - George ` | `Example Domain` |
+
+   The tab-group suffix is the dangerous one: it appears and disappears as the
+   user regroups tabs, so a title join that works now stops working later with
+   no code change. Affected call sites at time of writing:
+   `modules/spaces_modal/hammerspoon/adapters.lua:130`,
+   `modal_modes.lua:215`, `lib/select-window.lua:378`.
+
+   **Join as a LEFT join.** A yabai window with no snapshot row is normal, not
+   an error: only *document* windows are enumerated. The extension asks for
+   `windowTypes: ["normal"]` and the mapper drops anything else, so devtools
+   windows, extension popups, and Safari's Settings/Extensions panel are
+   intentionally absent (the AppleScript path omits them too — the two sources
+   agree on window membership). Equally, a snapshot row with `cgWindowId: null`
+   is not an error. Log neither.
 2. **`tabId`/`windowId` are opaque.** They encode which pathway executes a
    command (AppleScript ids vs extension `x`-ids vs Safari's synthetic
    window+index form). Valid as long as the entity appears in a current
@@ -184,6 +208,23 @@ it reports these and leaves the decision to the WM.
 Handles come from `list_tabs`; a command may reissue a handle — re-list afterward.
 `display` targeting needs the native module (`list_displays()`); without it, use explicit
 `bounds` in global screen coordinates. Query available displays via the `status` method.
+
+**`ok: true` is not a promise the geometry stuck.** Under a tiling WM the command
+executes and yabai re-tiles the window milliseconds later — verified 2026-08-10:
+`window open --bounds 100,100,800,600` returned `ok:true` and the window landed at
+`2096,299,1860,1020`. Read the window back if you need its actual frame; better,
+let the WM own placement and don't send geometry at all.
+
+**Window `bounds` are global coordinates, repaired when a source lies.** Safari's
+WebExtension API reports `top` relative to the window's *display* while `left`
+stays global, so on any non-primary monitor its raw `y` is short by that display's
+origin (verified 2026-08-10: reported `y:50` for a window CoreGraphics, yabai and
+AppleScript all place at `y:299`, on a display whose origin is `y:249`). The daemon
+detects this during correlation — it retries each display origin as a candidate
+offset — and, when CoreGraphics corroborates a match, **adopts the CG frame** so
+the `bounds` you receive are the true global ones. Consequence for consumers:
+`bounds` is trustworthy, but a window with `cgWindowId: null` has not been through
+that repair, so treat its `bounds` as best-effort.
 
 After `subscribe`, events stream on the same connection (a full `snapshot`
 event arrives immediately, then on every change):

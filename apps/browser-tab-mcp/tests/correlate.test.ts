@@ -5,7 +5,7 @@
 import type { CgWindowInfo, Snapshot } from "@george43g/shared-types";
 import { makeBrowserState, makeContractWindow, makeSnapshot } from "@george43g/test-kit";
 import { describe, expect, it } from "vitest";
-import { correlateSnapshot, hasAmbiguousBoundsMatch } from "../src/detect/correlate.js";
+import { correlateSnapshot, needsTitleTiebreak } from "../src/detect/correlate.js";
 
 function snapshotWith(
   windows: {
@@ -271,38 +271,142 @@ describe("correlateSnapshot title tiebreaker (tiled windows)", () => {
   });
 });
 
-describe("hasAmbiguousBoundsMatch", () => {
+describe("needsTitleTiebreak", () => {
   it("is true when two CG windows share a browser window's bounds", () => {
     const snap = snapshotWith([
       { windowId: "w:chrome:x1", bounds: { x: 40, y: 50, w: 1996, h: 1269 } },
     ]);
     expect(
-      hasAmbiguousBoundsMatch(snap, [
-        cg(1, 878, 40, 50, 1996, 1269),
-        cg(2, 878, 40, 50, 1996, 1269),
-      ]),
+      needsTitleTiebreak(snap, [cg(1, 878, 40, 50, 1996, 1269), cg(2, 878, 40, 50, 1996, 1269)]),
     ).toBe(true);
   });
 
-  it("is false when every window matches at most one CG window", () => {
+  it("is true when NO CG window matches the bounds (the display-local case)", () => {
+    // Safari reports display-local y; nothing matches, and a title map is the
+    // only thing that can rescue it — so the gate must open here too.
+    const snap = snapshotWith([
+      { windowId: "w:safari:x1", bounds: { x: 2096, y: 50, w: 1860, h: 1020 } },
+    ]);
+    expect(needsTitleTiebreak(snap, [cg(392, 878, 2096, 299, 1860, 1020)])).toBe(true);
+  });
+
+  it("is false when every window matches exactly one CG window", () => {
     const snap = snapshotWith([
       { windowId: "w:chrome:x1", bounds: { x: 0, y: 0, w: 100, h: 100 } },
       { windowId: "w:chrome:x2", bounds: { x: 500, y: 0, w: 200, h: 200 } },
     ]);
     expect(
-      hasAmbiguousBoundsMatch(snap, [cg(1, 878, 0, 0, 100, 100), cg(2, 878, 500, 0, 200, 200)]),
+      needsTitleTiebreak(snap, [cg(1, 878, 0, 0, 100, 100), cg(2, 878, 500, 0, 200, 200)]),
     ).toBe(false);
   });
 
-  it("is false when the duplicate-bounds CG windows belong to another pid", () => {
+  it("is false when the browser owns no CG windows at all", () => {
     const snap = snapshotWith([
       { windowId: "w:chrome:x1", bounds: { x: 40, y: 50, w: 1996, h: 1269 } },
     ]);
-    expect(
-      hasAmbiguousBoundsMatch(snap, [
-        cg(1, 878, 40, 50, 1996, 1269),
-        cg(2, 4321, 40, 50, 1996, 1269),
-      ]),
-    ).toBe(false);
+    expect(needsTitleTiebreak(snap, [cg(2, 4321, 40, 50, 1996, 1269)])).toBe(false);
+  });
+});
+
+/**
+ * Regression fixtures for the Safari display-local `y` defect, using the real
+ * values captured on 2026-08-10: the daemon reported y=50 for a window that
+ * CoreGraphics, yabai and AppleScript all placed at y=299, on a display whose
+ * global origin is y=249. The same window on the main display (origin y=0)
+ * reported y=50 against a true y=50 — which is why this only ever showed up on
+ * a secondary monitor.
+ */
+describe("correlateSnapshot display-origin offset (Safari display-local y)", () => {
+  const ORIGINS = [0, -842, 238, 249];
+  const REPORTED = { x: 2096, y: 50, w: 1860, h: 1020 };
+  const TRUE_FRAME = { x: 2096, y: 299, w: 1860, h: 1020 };
+
+  it("resolves a window whose y is short by exactly one display origin", () => {
+    const snap = snapshotWith([{ windowId: "w:safari:x26568", bounds: REPORTED }]);
+    const out = correlateSnapshot(
+      snap,
+      [cg(392, 878, TRUE_FRAME.x, TRUE_FRAME.y, TRUE_FRAME.w, TRUE_FRAME.h)],
+      false,
+      undefined,
+      ORIGINS,
+    );
+    expect(out.browsers[0]?.windows[0]?.cgWindowId).toBe(392);
+  });
+
+  it("adopts the CG frame so the corrected bounds reach consumers", () => {
+    const snap = snapshotWith([{ windowId: "w:safari:x26568", bounds: REPORTED }]);
+    const out = correlateSnapshot(
+      snap,
+      [cg(392, 878, TRUE_FRAME.x, TRUE_FRAME.y, TRUE_FRAME.w, TRUE_FRAME.h)],
+      false,
+      undefined,
+      ORIGINS,
+    );
+    expect(out.browsers[0]?.windows[0]?.bounds).toEqual(TRUE_FRAME);
+  });
+
+  it("leaves an exact match's bounds untouched", () => {
+    // The main-display capture: reported == truth, so nothing is rewritten.
+    const exact = { x: 40, y: 50, w: 1996, h: 1269 };
+    const snap = snapshotWith([{ windowId: "w:safari:x26568", bounds: exact }]);
+    const out = correlateSnapshot(
+      snap,
+      [cg(392, 878, 40, 50, 1996, 1269)],
+      false,
+      undefined,
+      ORIGINS,
+    );
+    expect(out.browsers[0]?.windows[0]?.bounds).toEqual(exact);
+    expect(out.browsers[0]?.windows[0]?.cgWindowId).toBe(392);
+  });
+
+  it("stays null when two display origins both produce a match and titles can't split them", () => {
+    // Displays 2 and 5 share an x-range on this machine, so y=50 shifts onto a
+    // real window under BOTH origins. Ambiguous is ambiguous — never a guess.
+    const snap = snapshotWith([{ windowId: "w:safari:x1", bounds: REPORTED }]);
+    const out = correlateSnapshot(
+      snap,
+      [cg(392, 878, 2096, 299, 1860, 1020), cg(279, 878, 2096, -792, 1860, 1020)],
+      false,
+      undefined,
+      ORIGINS,
+    );
+    expect(out.browsers[0]?.windows[0]?.cgWindowId).toBeNull();
+  });
+
+  it("splits two display-origin matches by title when the manager named them", () => {
+    const snap = snapshotWith([
+      { windowId: "w:safari:x1", bounds: REPORTED, title: "browser-tab connector — settings" },
+    ]);
+    const titles = new Map([
+      [392, "Personal — browser-tab connector — settings"],
+      [279, "Personal — Hacker News"],
+    ]);
+    const out = correlateSnapshot(
+      snap,
+      [cg(392, 878, 2096, 299, 1860, 1020), cg(279, 878, 2096, -792, 1860, 1020)],
+      false,
+      titles,
+      ORIGINS,
+    );
+    expect(out.browsers[0]?.windows[0]?.cgWindowId).toBe(392);
+  });
+
+  it("does not offset-match without display origins (no native module)", () => {
+    const snap = snapshotWith([{ windowId: "w:safari:x1", bounds: REPORTED }]);
+    const out = correlateSnapshot(snap, [cg(392, 878, 2096, 299, 1860, 1020)]);
+    expect(out.browsers[0]?.windows[0]?.cgWindowId).toBeNull();
+  });
+
+  it("falls back to title alone when no display origin explains the gap", () => {
+    // Geometry disagrees for a reason offsets can't model; a unique title is
+    // still evidence, and the CG frame then corrects the bounds.
+    const snap = snapshotWith([
+      { windowId: "w:safari:x1", bounds: REPORTED, title: "Hacker News" },
+    ]);
+    const titles = new Map([[555, "Personal — Hacker News"]]);
+    const out = correlateSnapshot(snap, [cg(555, 878, 1, 2, 3, 4)], false, titles, ORIGINS);
+    expect(out.browsers[0]?.windows[0]?.cgWindowId).toBe(555);
+    expect(out.browsers[0]?.windows[0]?.bounds).toEqual({ x: 1, y: 2, w: 3, h: 4 });
   });
 });
