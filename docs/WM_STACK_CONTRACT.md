@@ -143,13 +143,19 @@ persisted URL history, distinct from `journal`. Chrome-family reads it via the e
 (`chrome.history`); Safari via a daemon-side sqlite copy of `History.db` (opt-in via
 `BROWSER_TAB_SAFARI_HISTORY`, needs Full Disk Access). Omit `browser` to merge every reachable
 source; an explicit-but-unavailable source errors. Returns `{rows: [{url, title?, visitTime, visitCount,
-browser}], truncated}`, newest first. URLs/titles are untrusted).
+browser}], truncated, sources}`, newest first. URLs/titles are untrusted.
+**`sources`** is one `{browser, source: "extension"|"safari-db", status: "ok"|"unavailable"|"error",
+rows, reason?}` per source the query considered — *including the ones it never asked* — so an empty
+or partial result says why rather than looking like "nothing matched". `rows` is that source's
+contribution before the merge trim. A merged query degrades per source (one failing source becomes
+`status:"error"`, the rest still return); an explicit `browser` still throws).
 
 Command `kind`s and their tool-input fields:
 
 | kind | fields | notes |
 |---|---|---|
-| `focus_tab` / `close_tab` | `tabId` | |
+| `focus_tab` | `tabId`, `raiseWindow?` | `raiseWindow` defaults **true** (un-minimize + raise, same in both pathways). `false` = activate the tab in place. Result adds the window post-state — see below |
+| `close_tab` | `tabId` | |
 | `move_tab` | `tabId`, `targetWindowId?`, `targetIndex?`, `newWindow?`, `targetGroupId?`, `allowReload?` | true move via extension; Safari AppleScript reloads (needs `allowReload`) |
 | `open_tab` | `url`, `browser?`, `windowId?`, `activate?`, `index?`, `pinned?`, `groupId?` | `index`/`pinned`/`groupId` are extension-only |
 | `tab_action` | `tabId`, `action`, `url?` | action ∈ mute\|unmute\|pin\|unpin\|discard\|reload\|navigate\|back\|forward\|duplicate; AppleScript covers navigate/reload (+ back/forward on Chromium), rest need the extension |
@@ -158,7 +164,23 @@ Command `kind`s and their tool-input fields:
 | `set_window` | `windowId`, `bounds?`, `display?`, `state?`, `focused?` | as above |
 | `close_window` | `windowId` | destructive — closes every tab in the window |
 
-`CommandResult` carries `{ok, command, browser, tabId?, windowId?, groupId?, index?, payload?}`.
+`CommandResult` carries `{ok, command, browser, tabId?, windowId?, groupId?, index?, payload?}`,
+plus — on `focus_tab` — `{cgWindowId?, windowState?, wasMinimized?, windowFocused?}`:
+
+- **`cgWindowId`** — the yabai join key for the affected window, so you can act on the
+  focused window without a second `list_tabs`. `null` when correlation is ambiguous;
+  **absent** when the command didn't go through the daemon (correlation lives there).
+- **`windowState`** — `normal|minimized|maximized|fullscreen` after the call. The
+  AppleScript pathway can only report `normal|minimized`.
+- **`wasMinimized`** — the state **before** the call. This is the field that tells you the
+  tab was somewhere the user could not see; nothing you read afterwards can recover it.
+- **`windowFocused`** — whether the window is its browser's frontmost window afterwards
+  (same meaning as `focused` on a snapshot window — it says nothing about app-level focus).
+
+All four are additive-optional: the Snapshot `version` does **not** move for them, and an
+older daemon simply omits them. browser-tab does not manage Spaces or window placement —
+it reports these and leaves the decision to the WM.
+
 Handles come from `list_tabs`; a command may reissue a handle — re-list afterward.
 `display` targeting needs the native module (`list_displays()`); without it, use explicit
 `bounds` in global screen coordinates. Query available displays via the `status` method.

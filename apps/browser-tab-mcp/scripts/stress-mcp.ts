@@ -367,6 +367,19 @@ async function caseWriteCommandsFakeAdapter(): Promise<void> {
       "close_window returns ok",
       (await text("close_window", { windowId: "w:chrome:100" })).includes('"ok": true'),
     );
+    // focus_tab's raiseWindow default is a Zod `.default(true)` — it has to
+    // survive the MCP boundary, not just a direct call, or an MCP host that
+    // omits the field silently gets the opt-out behaviour.
+    record(
+      "focus_tab omitting raiseWindow raises (schema default survives dispatch)",
+      (await text("focus_tab", { tabId: "t:chrome:9900" })).includes('"windowFocused": true'),
+    );
+    record(
+      "focus_tab raiseWindow:false does not raise",
+      (await text("focus_tab", { tabId: "t:chrome:9900", raiseWindow: false })).includes(
+        '"windowFocused": false',
+      ),
+    );
     // Extension-only surfaces must error cleanly (not crash) without a daemon.
     record(
       "group_tabs without extension errors cleanly",

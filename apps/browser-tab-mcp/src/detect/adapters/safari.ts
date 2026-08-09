@@ -29,7 +29,8 @@ import type {
 import { makeSafariTabId, makeWindowId, parseTabId, parseWindowId } from "../ids.js";
 import { osaQuote, probeProcess, runOsa, runOsaRead } from "../osascript.js";
 import { parseRecordOutput } from "../parse.js";
-import type { AdapterSpec, BrowserAdapter } from "./types.js";
+import { focusWindowState } from "./focus-state.js";
+import type { AdapterSpec, BrowserAdapter, FocusTabOptions } from "./types.js";
 
 /** WindowBounds {x,y,w,h} → the AppleScript {left, top, right, bottom} list. */
 function boundsRect(b: WindowBounds): string {
@@ -184,25 +185,39 @@ export function makeSafariAdapter(): BrowserAdapter {
     return { ...emptyState(pid, true), windows };
   }
 
-  async function focusTab(tabId: string, signal?: AbortSignal): Promise<CommandResult> {
+  async function focusTab(
+    tabId: string,
+    opts?: FocusTabOptions,
+    signal?: AbortSignal,
+  ): Promise<CommandResult> {
     const ref = requireSafariTab(tabId);
+    const raiseWindow = opts?.raiseWindow !== false;
+    // Un-miniaturize BEFORE reordering — raising a still-miniaturized window is
+    // a no-op, which is exactly how this pathway used to diverge from the
+    // extension's windows.update({focused:true}).
+    const raiseLines = raiseWindow
+      ? `  set miniaturized of target to false
+  set index of target to 1
+  activate`
+      : "";
     const script = `
 tell application "Safari"
   ${findWindowClause(ref.nativeWindowId)}
   if (count of tabs of target) < ${ref.index1} then return "not_found"
+  set wasMin to miniaturized of target
   set current tab of target to tab ${ref.index1} of target
-  set index of target to 1
-  activate
-  return "ok"
+${raiseLines}
+  return "ok" & ${RS_EXPR} & (wasMin as text) & ${RS_EXPR} & (miniaturized of target as text) & ${RS_EXPR} & (index of target as text)
 end tell`;
     const out = (
       await runOsa(script, { appName: spec.appName, ...(signal ? { signal } : {}) })
     ).trim();
-    if (out !== "ok") {
+    if (!out.startsWith("ok")) {
       throw new Error(
         `Tab not found — Safari handles are index-based and go stale when tabs reorder. Re-run list_tabs.`,
       );
     }
+    const [, wasMin, isMin, winIndex] = out.split("\x1e");
     return {
       ok: true,
       command: "focus_tab",
@@ -210,6 +225,7 @@ end tell`;
       tabId,
       windowId: makeWindowId(spec.browser, ref.nativeWindowId),
       index: ref.index1 - 1,
+      ...focusWindowState({ wasMin, isMin, winIndex }),
     };
   }
 

@@ -29,7 +29,7 @@ import type {
   WindowBounds,
   WindowState,
 } from "@george43g/shared-types";
-import { ExtractResultSchema } from "@george43g/shared-types";
+import { ExtractResultSchema, WindowStateSchema } from "@george43g/shared-types";
 import { correlationTier } from "../detect/correlate.js";
 import { listDisplays } from "../detect/displays.js";
 import { enabledBrowsers, makeAdapter } from "../detect/engine.js";
@@ -90,7 +90,13 @@ function extResult(browser: BrowserId, command: string, raw: unknown): CommandRe
     groupId?: number;
     index?: number;
     payload?: unknown;
+    windowState?: string;
+    wasMinimized?: boolean;
+    windowFocused?: boolean;
   };
+  // The extension reports window state as chrome's own enum; anything outside
+  // the contract's set is dropped rather than smuggled through as a string.
+  const windowState = WindowStateSchema.safeParse(r.windowState);
   return {
     ok: true,
     command,
@@ -100,6 +106,39 @@ function extResult(browser: BrowserId, command: string, raw: unknown): CommandRe
     ...(r.groupId !== undefined ? { groupId: makeExtGroupId(browser, r.groupId) } : {}),
     ...(r.index !== undefined ? { index: r.index } : {}),
     ...(r.payload !== undefined ? { payload: r.payload } : {}),
+    ...(windowState.success ? { windowState: windowState.data } : {}),
+    ...(r.wasMinimized !== undefined ? { wasMinimized: r.wasMinimized } : {}),
+    ...(r.windowFocused !== undefined ? { windowFocused: r.windowFocused } : {}),
+  };
+}
+
+/**
+ * Attach the window post-state a window manager needs to act on a focus_tab
+ * without a second `list_tabs`.
+ *
+ * Division of labour, deliberately: the acting pathway owns everything only it
+ * could observe (`wasMinimized` is a BEFORE-state — no later snapshot can
+ * recover it), and the freshly merged snapshot owns `cgWindowId`, because
+ * CoreGraphics correlation only exists in the daemon. Snapshot values never
+ * overwrite what the pathway already reported.
+ *
+ * What this deliberately does NOT do: move the window, change its Space, or
+ * shell out to yabai. Visibility is the window manager's job — browser-tab
+ * activates the tab and hands back enough state for the WM to decide.
+ */
+function enrichFocusResult(result: CommandResult, snapshot: Snapshot | undefined): CommandResult {
+  if (!snapshot || !result.windowId) return result;
+  const win = snapshot.browsers
+    .find((b) => b.browser === result.browser)
+    ?.windows.find((w) => w.windowId === result.windowId);
+  if (!win) return result;
+  return {
+    ...result,
+    cgWindowId: win.cgWindowId,
+    ...(result.windowState === undefined && win.state !== undefined
+      ? { windowState: win.state }
+      : {}),
+    ...(result.windowFocused === undefined ? { windowFocused: win.focused } : {}),
   };
 }
 
@@ -182,9 +221,13 @@ export async function executeCommand(
     case "close_tab": {
       const tabId = params.tabId as string;
       const parsed = parseHandle(tabId);
+      // Default TRUE in every pathway — focus_tab has always raised, and this
+      // flag exists to make that opt-OUTable, not to change the default.
+      const raiseWindow = (params.raiseWindow as boolean | undefined) !== false;
       if (parsed.ext && ext?.isConnected(parsed.browser)) {
         const raw = await ext.sendCommand(parsed.browser, kind, {
           tabId: extNum(parsed, "tabId"),
+          ...(kind === "focus_tab" ? { raiseWindow } : {}),
         });
         result = extResult(parsed.browser, kind, raw);
       } else if (parsed.ext) {
@@ -195,7 +238,9 @@ export async function executeCommand(
       } else {
         const adapter = makeAdapter(parsed.browser);
         result =
-          kind === "focus_tab" ? await adapter.focusTab(tabId) : await adapter.closeTab(tabId);
+          kind === "focus_tab"
+            ? await adapter.focusTab(tabId, { raiseWindow })
+            : await adapter.closeTab(tabId);
       }
       break;
     }
@@ -403,9 +448,10 @@ export async function executeCommand(
     default:
       throw new Error(`Unknown command kind "${String(kind)}".`);
   }
-  // Reconcile state immediately so the next getSnapshot reflects the change.
-  await deps.refresh().catch(() => {});
-  return result;
+  // Reconcile state immediately so the next getSnapshot reflects the change —
+  // and, for focus_tab, so the correlated window is available to enrich with.
+  const snapshot = await deps.refresh().catch(() => undefined);
+  return kind === "focus_tab" ? enrichFocusResult(result, snapshot) : result;
 }
 
 /** Current URL for a tab handle from the merged snapshot (for the cache key). */

@@ -23,6 +23,28 @@ describe("executeCommand", () => {
     expect(fc.calls["windows.update"]?.[0]).toEqual([7, { focused: true }]);
   });
 
+  // raiseWindow defaults TRUE — the flag exists to make the raise opt-OUTable,
+  // not to change what focus_tab has always done.
+  it("focus_tab raises by default and reports the window post-state", async () => {
+    fc.setWindows([{ id: 7, focused: false, incognito: false, state: "minimized" }]);
+    const out = await executeCommand("focus_tab", { tabId: 5 });
+    expect(fc.calls["windows.update"]?.[0]).toEqual([7, { focused: true }]);
+    // wasMinimized is a BEFORE-state; no later read can recover it.
+    expect(out.wasMinimized).toBe(true);
+    expect(out.windowFocused).toBe(true);
+  });
+
+  it("focus_tab with raiseWindow:false activates the tab and touches the window not at all", async () => {
+    fc.setWindows([{ id: 7, focused: false, incognito: false, state: "minimized" }]);
+    const out = await executeCommand("focus_tab", { tabId: 5, raiseWindow: false });
+    expect(fc.calls["tabs.update"]?.[0]).toEqual([5, { active: true }]);
+    expect(fc.calls["windows.update"]).toBeUndefined();
+    expect(out.wasMinimized).toBe(true);
+    // Still minimized, still unfocused — the caller opted out of changing that.
+    expect(out.windowState).toBe("minimized");
+    expect(out.windowFocused).toBe(false);
+  });
+
   it("close_tab removes the tab", async () => {
     expect(await executeCommand("close_tab", { tabId: 9 })).toEqual({ tabId: 9 });
     expect(fc.calls["tabs.remove"]?.[0]).toEqual([9]);

@@ -16,6 +16,7 @@ import type {
   BrowserId,
   CloseWindowInput,
   CommandResult,
+  FocusTabInput,
   GetPageInput,
   GetPageOutput,
   GroupTabsInput,
@@ -104,8 +105,14 @@ async function command(
   }
 }
 
-export function focusTab(tabId: string): Promise<CommandResult> {
-  return command("focus_tab", { tabId }, () => makeAdapter(browserOf(tabId)).focusTab(tabId));
+export function focusTab(input: FocusTabInput): Promise<CommandResult> {
+  const { tabId } = input;
+  // Zod defaults raiseWindow to true; a direct caller that omits it gets the
+  // same behaviour, which is what focus_tab has always done.
+  const raiseWindow = input.raiseWindow ?? true;
+  return command("focus_tab", { tabId, raiseWindow }, () =>
+    makeAdapter(browserOf(tabId)).focusTab(tabId, { raiseWindow }),
+  );
 }
 
 export function closeTab(tabId: string): Promise<CommandResult> {
@@ -225,7 +232,9 @@ export async function journal(params: Record<string, unknown>): Promise<JournalO
  * rather than an error, like `journal`.
  */
 export async function history(params: Record<string, unknown>): Promise<HistoryOutput> {
-  const empty: HistoryOutput = { rows: [], truncated: false };
+  // No daemon means no source was even consulted — an empty `sources` says
+  // exactly that, rather than implying every source was asked and had nothing.
+  const empty: HistoryOutput = { rows: [], truncated: false, sources: [] };
   if (fakeAdapterEnabled()) return empty;
   try {
     return await viaDaemon((c) => c.request<HistoryOutput>("history", params));

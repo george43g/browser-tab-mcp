@@ -181,6 +181,49 @@ describe("write-side commands over the real socket", () => {
     }
   });
 
+  // focus_tab's contract: raise by default, opt out explicitly, and hand back
+  // enough window state for a window manager to act without a second read.
+  it("focus_tab raises by default and returns the daemon-correlated cgWindowId", async () => {
+    connect();
+    const client = new DaemonClient();
+    try {
+      await waitConnected(client);
+      const r = await client.request<CommandResult>("command", {
+        kind: "focus_tab",
+        tabId: "t:chrome:x4001",
+      });
+      expect(r.ok).toBe(true);
+      expect(fc?.calls["windows.update"]?.[0]).toEqual([812, { focused: true }]);
+      // Correlation only exists in the daemon, so the KEY being present is the
+      // signal that the daemon enriched the result. Its value is null here
+      // because nothing correlates a fake window to a CoreGraphics id.
+      expect(Object.hasOwn(r, "cgWindowId")).toBe(true);
+      expect(r.cgWindowId).toBeNull();
+      expect(r.wasMinimized).toBe(false);
+      expect(r.windowState).toBe("normal");
+    } finally {
+      client.close();
+    }
+  });
+
+  it("focus_tab with raiseWindow:false never touches chrome.windows", async () => {
+    connect();
+    const client = new DaemonClient();
+    try {
+      await waitConnected(client);
+      const r = await client.request<CommandResult>("command", {
+        kind: "focus_tab",
+        tabId: "t:chrome:x4001",
+        raiseWindow: false,
+      });
+      expect(r.ok).toBe(true);
+      expect(fc?.calls["tabs.update"]?.[0]).toEqual([4001, { active: true }]);
+      expect(fc?.calls["windows.update"]).toBeUndefined();
+    } finally {
+      client.close();
+    }
+  });
+
   it("group_tabs on a browser without a connected extension errors cleanly", async () => {
     connect();
     const client = new DaemonClient();

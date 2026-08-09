@@ -22,7 +22,12 @@ Exactly two kinds of exports, nothing else:
    - `fakes/chrome.ts` — `installFakeChrome()`: a `chrome`-shaped fake with
      window/tab/runtime/storage/alarms registries, a call recorder (`.calls`),
      listener access (`.listener` / `.emit`), and `restore()`. Alarms are
-     omittable to simulate Safari.
+     omittable to simulate Safari. Two APIs are **modelled, not stubbed**,
+     because read-back is otherwise untestable: `windows.update` merges into a
+     per-window overlay that `windows.get` observes, and `tabs.update` resolves
+     the *seeded* tab so a caller reading `windowId` off the result lands on the
+     window the tab is actually in (it falls back to a constant only when the
+     test seeded no windows).
    - `fakes/daemon-env.ts` — `withDaemonEnv(tmp)`: sets/teardowns the 6-key
      `BROWSER_TAB_*` env block; plus `makeTmpDir()` and `randomWsPort()`.
    - `fakes/websocket.ts` (the `./node` subpath) — `installNodeWebSocket()`:

@@ -10,9 +10,16 @@
  *
  * Distinct from `journal`: that is the daemon's in-session focus/nav memory;
  * this is the browser's own persisted URL history.
+ *
+ * Every result carries `sources`: one entry per source this tool considered,
+ * queried or not. Without it a merged query returning Chrome-only rows was
+ * indistinguishable from "Safari had nothing" — which is the wrong answer when
+ * the real reason is that Safari history is switched off, its extension is
+ * absent, or its sqlite read failed.
  */
 
-import type { BrowserId, HistoryOutput, HistoryRow } from "@george43g/shared-types";
+import { sanitize } from "@george43g/mcp-kit";
+import type { BrowserId, HistoryOutput, HistoryRow, HistorySource } from "@george43g/shared-types";
 import { readSafariHistory, safariHistoryEnabled } from "./safari-history.js";
 import type { ExtensionServer } from "./ws-server.js";
 
@@ -34,6 +41,48 @@ export interface HistoryDeps {
 interface Target {
   browser: BrowserId;
   source: "ext" | "safari";
+}
+
+/** Wire name for a target's source, as reported in `sources`. */
+function sourceName(t: Target): HistorySource["source"] {
+  return t.source === "safari" ? "safari-db" : "extension";
+}
+
+const EXT_UNAVAILABLE =
+  "the browser-tab extension is not connected (chrome.history lives there) — install/enable it " +
+  "and paste the daemon token into its options page";
+const SAFARI_UNAVAILABLE =
+  "Safari history is disabled — set BROWSER_TAB_SAFARI_HISTORY=1 (needs Full Disk Access; see " +
+  "`browser-tab doctor`)";
+
+/**
+ * The candidate sources a merged query did NOT reach, each with its reason.
+ *
+ * Deliberately the full candidate set rather than only the reachable ones: the
+ * entire value of `sources` is naming the source that contributed nothing and
+ * saying why, which is impossible if sources that were never asked go unlisted.
+ */
+function unqueriedSources(targets: Target[]): HistorySource[] {
+  const queried = new Set(targets.map((t) => t.browser));
+  const out: HistorySource[] = CHROME_FAMILY.filter((b) => !queried.has(b)).map((browser) => ({
+    browser,
+    source: "extension" as const,
+    status: "unavailable" as const,
+    rows: 0,
+    reason: EXT_UNAVAILABLE,
+  }));
+  // Safari is only ever unqueried in a merged call because the flag is off —
+  // when it's on, resolveTargets always includes it.
+  if (!queried.has("safari")) {
+    out.push({
+      browser: "safari",
+      source: "safari-db",
+      status: "unavailable",
+      rows: 0,
+      reason: SAFARI_UNAVAILABLE,
+    });
+  }
+  return out;
 }
 
 function clampMax(raw: unknown): number {
@@ -100,30 +149,70 @@ export async function history(
   const readSafari = deps.readSafari ?? readSafariHistory;
 
   const targets = resolveTargets(explicit, deps);
-  if (targets.length === 0) return { rows: [], truncated: false };
+  if (targets.length === 0) {
+    return { rows: [], truncated: false, sources: unqueriedSources(targets) };
+  }
 
-  const perTarget = await Promise.all(
-    targets.map(async (t) => {
-      if (t.source === "safari") {
-        return readSafari({
-          ...(query !== undefined ? { query } : {}),
-          ...(startTime !== undefined ? { startTime } : {}),
-          ...(endTime !== undefined ? { endTime } : {}),
-          maxResults,
-        });
-      }
-      const raw = await deps.ext?.sendCommand(t.browser, "history_search", {
-        text: query ?? "",
+  const readOne = async (t: Target): Promise<HistoryRow[]> => {
+    if (t.source === "safari") {
+      return readSafari({
+        ...(query !== undefined ? { query } : {}),
         ...(startTime !== undefined ? { startTime } : {}),
         ...(endTime !== undefined ? { endTime } : {}),
         maxResults,
       });
-      return extRows((raw as { payload?: unknown } | undefined)?.payload, t.browser);
-    }),
-  );
+    }
+    const raw = await deps.ext?.sendCommand(t.browser, "history_search", {
+      text: query ?? "",
+      ...(startTime !== undefined ? { startTime } : {}),
+      ...(endTime !== undefined ? { endTime } : {}),
+      maxResults,
+    });
+    return extRows((raw as { payload?: unknown } | undefined)?.payload, t.browser);
+  };
 
-  const all = perTarget.flat();
-  all.sort((a, b) => b.visitTime - a.visitTime);
-  const truncated = all.length > maxResults;
-  return { rows: all.slice(0, maxResults), truncated };
+  // A merged query must not lose every other source because one blew up — that
+  // is the failure mode `sources` exists to make visible, so the error becomes
+  // a reported source rather than a rejected call. An EXPLICIT browser keeps
+  // throwing: there is no partial answer to degrade to, and the caller asked
+  // for that one source by name.
+  const settled = await Promise.allSettled(targets.map(readOne));
+  if (explicit) {
+    const only = settled[0];
+    if (only?.status === "rejected") throw only.reason;
+  }
+
+  const rows: HistoryRow[] = [];
+  const sources: HistorySource[] = [];
+  for (const [i, outcome] of settled.entries()) {
+    const t = targets[i] as Target;
+    if (outcome.status === "fulfilled") {
+      rows.push(...outcome.value);
+      sources.push({
+        browser: t.browser,
+        source: sourceName(t),
+        status: "ok",
+        rows: outcome.value.length,
+      });
+    } else {
+      // The message can carry a subprocess's stderr (sqlite3's, notably), so it
+      // goes through sanitize() like any other externally-sourced text —
+      // guardrail #7 — rather than straight onto the tool result.
+      const raw = (outcome.reason as Error | undefined)?.message ?? String(outcome.reason);
+      sources.push({
+        browser: t.browser,
+        source: sourceName(t),
+        status: "error",
+        rows: 0,
+        reason: sanitize(raw, 2048) ?? "",
+      });
+    }
+  }
+  // Only a merged query reports sources it never asked; an explicit one was
+  // scoped to a single source by the caller and says nothing about the rest.
+  if (!explicit) sources.push(...unqueriedSources(targets));
+
+  rows.sort((a, b) => b.visitTime - a.visitTime);
+  const truncated = rows.length > maxResults;
+  return { rows: rows.slice(0, maxResults), truncated, sources };
 }

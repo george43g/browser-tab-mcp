@@ -318,10 +318,13 @@ export async function main(argv: readonly string[] = process.argv): Promise<void
   program
     .command("focus")
     .description("Focus a tab and raise its window")
+    // commander maps `--no-raise` to `opts.raise === false`, defaulting true —
+    // so the raise stays the default and this is purely an opt-out.
+    .option("--no-raise", "Activate the tab without raising or un-minimizing its window")
     .argument("<tabId>", "Opaque tabId from `browser-tab list`")
-    .action(async (tabId: string) => {
+    .action(async (tabId: string, opts: { raise: boolean }) => {
       const json = program.opts<{ json?: boolean }>().json ?? false;
-      await printResult(await callMcpTool("focus_tab", { tabId }), json);
+      await printResult(await callMcpTool("focus_tab", { tabId, raiseWindow: opts.raise }), json);
     });
 
   program

@@ -97,8 +97,7 @@ export function installFakeChrome(config: FakeChromeConfig = {}): FakeChrome {
   let windows: ChromeWindowLike[] = config.windows ?? [];
   const groups: ChromeTabGroupLike[] = config.groups ?? [];
   let nextWindowId = 900;
-  /** What `windows.get` reports, and how many state updates get clobbered first. */
-  let observedWindowState = config.initialWindowState ?? "normal";
+  /** How many `windows.update({state})` calls are accepted and then reverted. */
   let stateClobbersLeft = config.stateClobbers ?? 0;
 
   const storage = new Map<string, unknown>(Object.entries(config.storage ?? {}));
@@ -148,6 +147,22 @@ export function installFakeChrome(config: FakeChromeConfig = {}): FakeChrome {
 
   const flatTabs = (): unknown[] => windows.flatMap((w) => w.tabs ?? []);
 
+  /** Accumulated `windows.update` payloads, so `windows.get` reads them back. */
+  const windowPatches = new Map<number, Record<string, unknown>>();
+
+  /**
+   * A window as `windows.get` sees it, lowest precedence first:
+   * defaults (with `initialWindowState`) < the seeded window < recorded updates.
+   */
+  const windowById = (windowId: number): Record<string, unknown> => ({
+    id: windowId,
+    focused: false,
+    incognito: false,
+    state: config.initialWindowState ?? "normal",
+    ...(windows.find((w) => w.id === windowId) ?? {}),
+    ...(windowPatches.get(windowId) ?? {}),
+  });
+
   const tabs: Record<string, unknown> = {
     query: (queryInfo?: unknown) => {
       record("tabs.query", [queryInfo]);
@@ -165,9 +180,18 @@ export function installFakeChrome(config: FakeChromeConfig = {}): FakeChrome {
       record("tabs.move", [tabId, moveProps]);
       return Promise.resolve({ id: tabId, windowId: moveProps.windowId, index: moveProps.index });
     },
+    // Resolves the SEEDED tab when there is one, so callers that read
+    // `windowId` off the result (focus_tab) land on the window the tab is
+    // actually in rather than a constant. Falls back to the constant when the
+    // test seeded no windows.
     update: (tabId: number, props?: unknown) => {
       record("tabs.update", [tabId, props]);
-      return Promise.resolve({ id: tabId, windowId: DEFAULT_WINDOW_ID });
+      const seeded = flatTabs().find((t) => (t as { id?: number }).id === tabId);
+      return Promise.resolve({
+        ...((seeded as object | undefined) ?? {}),
+        id: tabId,
+        windowId: (seeded as { windowId?: number } | undefined)?.windowId ?? DEFAULT_WINDOW_ID,
+      });
     },
     remove: (tabId: number) => {
       record("tabs.remove", [tabId]);
@@ -227,21 +251,31 @@ export function installFakeChrome(config: FakeChromeConfig = {}): FakeChrome {
         const tabs = urls.map((u, i) => ({ id: 8000 + i, url: u, index: i, active: i === 0 }));
         return Promise.resolve({ id: nextWindowId++, tabs });
       },
-      get: (windowId: number) => {
-        record("windows.get", [windowId]);
-        return Promise.resolve({ id: windowId, state: observedWindowState });
-      },
+      // Both `update` and `get` are modelled, not stubbed. `update` merges the
+      // requested change into a per-window overlay that `get` reads back, so a
+      // caller that reads its own write (focus_tab reporting the window's
+      // post-state) is testable at all — and the `stateClobbers` knob layers the
+      // real Chrome failure on top of that same overlay.
       update: (windowId: number, info?: unknown) => {
         record("windows.update", [windowId, info]);
+        const patch = {
+          ...(windowPatches.get(windowId) ?? {}),
+          ...((info ?? {}) as object),
+        } as Record<string, unknown>;
         const next = (info as { state?: string } | undefined)?.state;
-        if (next !== undefined) {
+        if (next !== undefined && stateClobbersLeft > 0) {
           // Model the real clobber: a geometry update lands asynchronously and
           // re-asserts the old state, so the first N state updates paired with
           // one appear to be accepted and then silently revert.
-          if (stateClobbersLeft > 0) stateClobbersLeft -= 1;
-          else observedWindowState = next;
+          stateClobbersLeft -= 1;
+          delete patch.state;
         }
-        return Promise.resolve({ id: windowId });
+        windowPatches.set(windowId, patch);
+        return Promise.resolve({ ...windowById(windowId), id: windowId });
+      },
+      get: (windowId: number, queryOptions?: unknown) => {
+        record("windows.get", [windowId, queryOptions]);
+        return Promise.resolve(windowById(windowId));
       },
       remove: (windowId: number) => {
         record("windows.remove", [windowId]);

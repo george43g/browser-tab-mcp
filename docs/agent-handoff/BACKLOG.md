@@ -3,6 +3,46 @@
 Ordered roughly by priority. Strike items (with a date) when they land; move
 genuine decisions into DECISIONS.md.
 
+## ACTIVE — bug-sweep remediation (2026-08-09)
+
+Source of truth for scope/evidence: **`BUGSWEEP-2026-08-07.md`** (14 findings).
+Execution plan: **`~/.claude/plans/gleaming-tumbling-koala.md`**.
+
+- ~~**PR-A** cross-browser handles + set_window bounds/state~~ — **DONE, #22 (`5af7f15`)**
+- ~~**PR-B** TUI viewport + subscription supervision~~ — **DONE, #23 (`d340acf`)**
+- ~~**PR-E** build identity stamp~~ — **DONE, #24 (`ed99f7a`)**
+- ~~**PR-C** human-readable CLI output + curated env flags~~ — **DONE, #26 (`b1cb999`)**
+- ~~**PR-D** `focus_tab` contract + `history.sources` + doc fixes~~ — **DONE
+  2026-08-09, branch `refactor/focus-tab-contract`** (PR open, awaiting the merge
+  word). `raiseWindow` defaults true; both pathways now un-minimize before
+  raising; `CommandResult` gained `cgWindowId`/`windowState`/`wasMinimized`/
+  `windowFocused` (additive-optional — `version` did NOT move, and no
+  `MIRRORED_SCHEMAS` type was touched, so no Rust mirror was needed).
+  `history` gained `sources`. Doc claims corrected in AGENTS.md.
+  **One plan premise was wrong:** `.env.example` was *not* missing — it exists at
+  `apps/browser-tab-mcp/.env.example` and already covered 58 of the recognized
+  vars. It was audited against a fresh grep instead of regenerated: 10 genuinely
+  missing knobs added (`MCP_DISABLE_RESOURCES`, `MCP_DEV_CMD`,
+  `MCP_DEV_WATCH_DIR`, `MCP_TEST_NOOP_DELAY_MS`, `COVERAGE`, `COVERAGE_GATE`,
+  `STRESS_*`, `WORKLOAD_DURATION_S`) plus an "ambient conventions" block for the
+  16 vars the tool honors but does not own (`CI`/`NO_COLOR`/`NODE_ENV`/…).
+
+- ~~**PR-F** release automation via release-please~~ — **DONE, #28 (`f8e9261`)**
+
+**With PR-D merged, the bug-sweep remediation plan is complete.** What is left
+below is not part of it.
+
+**Remaining:**
+
+- **Kit migration (blocked on upstream).** `@george43g/{cli-kit,tui-kit,
+  robustness}` are published from `mcp-cli-starter-template`; browser-tab still
+  uses its workspace copies. Defects found are written up in
+  **`UPSTREAM-KIT-BRIEF.md`** for that repo's agent. When `cli-kit@0.2.0` /
+  `tui-kit@0.2.0` ship: swap the deps, delete the three workspace packages.
+  **Until then the REPL stays broken by decision** — `raw` is unusable and
+  15/18 tools it advertises are uncallable (the published `0.1.0` has the same
+  defect, so migrating early would not help).
+
 ## Queue
 
 0. ~~**PR-D — deploy + real-world smoke.**~~ **DONE 2026-07-29** — all steps
@@ -108,11 +148,12 @@ genuine decisions into DECISIONS.md.
    - Chrome SW-kill reconnect check (`chrome://serviceworker-internals`) —
      should reconnect <30s via the alarms watchdog.
 
-8. **Doc fix:** `AGENTS.md` § "MCP best practices" item 2 says to declare
-   timeouts in `TOOL_TIMEOUTS_MS` in `src/tools/registry.ts` — PR-B recon
-   (2026-07-26) found **that constant does not exist** (tools ride the
-   `withTimeout` default). Fix the doc. Edit `AGENTS.md` (source);
-   `CLAUDE.md`/`.cursorrules` are symlinks to it.
+8. ~~**Doc fix:** `AGENTS.md` § "MCP best practices" item 2 cites a
+   `TOOL_TIMEOUTS_MS` constant that does not exist.~~ — **DONE 2026-08-09 in
+   PR-D.** Item 2 now describes what actually happens: `timeoutMs` on the tool's
+   own `ToolDefinition`, falling back to `MCP_TOOL_TIMEOUT_DEFAULT_MS`, with
+   `MCP_TOOL_TIMEOUT_FORCE_MS` overriding both. Same pass fixed the e2e
+   "deferred/stub" claims and the env↔flag rule.
 
 ## Parked ideas (deliberate "no for now")
 

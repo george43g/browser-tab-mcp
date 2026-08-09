@@ -18,6 +18,15 @@ import type {
   TabActionInput,
 } from "@george43g/shared-types";
 
+/**
+ * Options for `focusTab`. `raiseWindow` defaults to TRUE in every pathway —
+ * that is what focus_tab always did. With it false the adapter activates the
+ * tab and touches nothing else: no un-minimize, no reordering, no `activate`.
+ */
+export interface FocusTabOptions {
+  raiseWindow?: boolean;
+}
+
 export interface AdapterSpec {
   browser: BrowserId;
   /** AppleScript application name, e.g. "Google Chrome". */
@@ -37,7 +46,12 @@ export interface BrowserAdapter {
    * running:false + empty windows when the browser is not up.
    */
   readState(signal?: AbortSignal): Promise<BrowserState>;
-  focusTab(tabId: string, signal?: AbortSignal): Promise<CommandResult>;
+  /**
+   * Activate a tab, and (by default) raise its window. Reports the window's
+   * before/after state on the result so a window manager can act without a
+   * second read — browser-tab itself never touches Spaces or visibility.
+   */
+  focusTab(tabId: string, opts?: FocusTabOptions, signal?: AbortSignal): Promise<CommandResult>;
   closeTab(tabId: string, signal?: AbortSignal): Promise<CommandResult>;
   openTab(input: OpenTabInput, signal?: AbortSignal): Promise<CommandResult>;
   /**

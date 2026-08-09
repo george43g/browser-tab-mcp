@@ -75,6 +75,51 @@ if a decision is reversed, append the reversal.
   agent memory — multiple agents (Claude ↔ Codex) rotate on this work and
   cannot read each other's memory.
 
+- **2026-08-09 · `focus_tab` is not responsible for window visibility.** User
+  ruling: its job is to make the selected tab active in its window. Whether the
+  window is visible, focused, minimised, on another Space or another monitor is
+  **the window manager's concern**. browser-tab's obligation is to *return
+  enough state* (`cgWindowId`, window state) that the caller can act. Evidence
+  it is sufficient: a scratch window's `cgWindowId: 140001` resolved in yabai to
+  `display:1, space:4` — yabai already indexes the exact id browser-tab emits,
+  so no yabai actuation belongs in this tool. `raiseWindow` is nonetheless
+  added defaulting to **true**: it is rare to want a focused tab left in a
+  minimised window, so the WM-owned part becomes explicit and opt-*out* rather
+  than a behaviour change.
+
+- **2026-08-09 · Kit packages are frozen in this repo; fixes go upstream.**
+  `@george43g/{cli-kit,tui-kit,robustness}` are now published from
+  `mcp-cli-starter-template`. Patching the workspace copies would diverge from
+  npm and be lost on migration, so defects are written to
+  `UPSTREAM-KIT-BRIEF.md` for that repo's agent and browser-tab waits for a
+  publish. Consequence accepted by the user: **the REPL stays broken** (`raw`
+  unusable, 15/18 tools uncallable) until `cli-kit@0.2.0` lands. Verified the
+  published `cli-kit@0.1.0` contains the same defect, so migrating first would
+  not have helped.
+
+- **2026-08-09 · Build identity is separate from semver.** Semver only moves on
+  release, so it cannot distinguish two builds *between* releases — which is how
+  a rebuilt-but-never-reloaded extension keeps reporting a plausible version
+  (hit twice in one session). Every artifact now carries
+  `<semver>+<count>.<sha>[.dirty.<ts>]`. The counter is `git rev-list --count
+  HEAD` rather than a committed counter file: history *is* the home that
+  survives clean checkouts and agrees between a laptop and CI instead of
+  colliding. A dirty build of the same commit counts as a MATCH — flagging it
+  would cry wolf every dev iteration; the source revision is what matters.
+
+- **2026-08-09 · release-please for semver automation** (user choice over
+  changesets / semantic-release-minus-npm / release-it). Decisive property: it
+  separates versioning from publishing — a rolling Release PR does versions +
+  CHANGELOG + tags + GitHub Releases, and the npm publish step is simply a job
+  you never add. The existing `.releaserc.json` is orphaned (semantic-release
+  is not even a dependency) and gets retired.
+
+- **2026-08-09 · CLI gets human-readable output; the MCP text block stays JSON.**
+  `mcp-kit`'s `dispatch.ts` text block is the MCP *protocol* surface and must
+  remain `JSON.stringify(result)`. Human rendering therefore lives only in the
+  CLI's `printResult`, which already receives `structuredContent`. (`toContent`
+  is for media blocks — it is not the hook for this.)
+
 - **2026-08-09 · release-please over semantic-release/changesets (PR-F).**
   User wanted "git tags, releases, changelogs done properly" but explicitly
   **not coupled to npm publishing**. release-please wins because publishing is

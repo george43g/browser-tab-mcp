@@ -28,7 +28,8 @@ import type {
 import { makeChromiumTabId, makeWindowId, parseTabId, parseWindowId } from "../ids.js";
 import { osaQuote, probeProcess, runOsa, runOsaRead } from "../osascript.js";
 import { parseRecordOutput } from "../parse.js";
-import type { AdapterSpec, BrowserAdapter } from "./types.js";
+import { focusWindowState } from "./focus-state.js";
+import type { AdapterSpec, BrowserAdapter, FocusTabOptions } from "./types.js";
 
 /** WindowBounds {x,y,w,h} → the AppleScript {left, top, right, bottom} list. */
 function boundsRect(b: WindowBounds): string {
@@ -155,12 +156,28 @@ export function makeChromiumAdapter(spec: AdapterSpec): BrowserAdapter {
     return { ...emptyState(pid, true), windows };
   }
 
-  async function focusTab(tabId: string, signal?: AbortSignal): Promise<CommandResult> {
+  async function focusTab(
+    tabId: string,
+    opts?: FocusTabOptions,
+    signal?: AbortSignal,
+  ): Promise<CommandResult> {
     const parsed = parseTabId(tabId);
     if (!parsed || parsed.browser !== spec.browser || !parsed.nativeId || parsed.ext) {
       throw new Error(`tabId "${tabId}" is not a ${spec.browser} tab handle from list_tabs.`);
     }
     const nid = requireNumeric(parsed.nativeId, "tabId");
+    const raiseWindow = opts?.raiseWindow !== false;
+    // `set minimized … to false` comes FIRST and is the whole point of this
+    // block: the extension pathway un-minimizes as a side effect of
+    // windows.update({focused:true}), so without it the two pathways gave the
+    // same call two different outcomes (a focused tab in a still-minimized
+    // window). Raising a window that is still minimized is a no-op, so the
+    // order is load-bearing, not cosmetic.
+    const raiseLines = raiseWindow
+      ? `        set minimized of w to false
+        set index of w to 1
+        activate`
+      : "";
     const script = `
 tell application ${osaQuote(spec.appName)}
   repeat with w in windows
@@ -168,10 +185,10 @@ tell application ${osaQuote(spec.appName)}
     repeat with t in tabs of w
       set i to i + 1
       if (id of t as text) is "${nid}" then
+        set wasMin to minimized of w
         set active tab index of w to i
-        set index of w to 1
-        activate
-        return "ok" & ${RS_EXPR} & (id of w as text) & ${RS_EXPR} & i
+${raiseLines}
+        return "ok" & ${RS_EXPR} & (id of w as text) & ${RS_EXPR} & i & ${RS_EXPR} & (wasMin as text) & ${RS_EXPR} & (minimized of w as text) & ${RS_EXPR} & (index of w as text)
       end if
     end repeat
   end repeat
@@ -185,7 +202,7 @@ end tell`;
         `Tab not found — it may have been closed. Re-run list_tabs for fresh handles.`,
       );
     }
-    const [, winNative, index1] = out.split("\x1e");
+    const [, winNative, index1, wasMin, isMin, winIndex] = out.split("\x1e");
     return {
       ok: true,
       command: "focus_tab",
@@ -193,6 +210,7 @@ end tell`;
       tabId,
       ...(winNative ? { windowId: makeWindowId(spec.browser, winNative) } : {}),
       ...(index1 ? { index: Number.parseInt(index1, 10) - 1 } : {}),
+      ...focusWindowState({ wasMin, isMin, winIndex }),
     };
   }
 

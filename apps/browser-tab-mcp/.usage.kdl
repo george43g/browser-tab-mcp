@@ -131,6 +131,7 @@ cmd "screenshot" help="Capture a tab or window as a jpeg (needs the daemon + ext
 
 cmd "focus" help="Focus a tab and raise its window" {
     arg "<tabId>"
+    flag "--no-raise" help="Activate the tab without raising or un-minimizing its window"
 }
 
 cmd "close" help="Close a tab" {
