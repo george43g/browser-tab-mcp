@@ -10,7 +10,16 @@
  *       r refresh · d dev stats · q quit
  */
 
-import { DevStatsPanel, HelpBar, StatusBar, useTheme, useVimKeys } from "@george43g/tui-kit";
+import {
+  DevStatsPanel,
+  HelpBar,
+  StatusBar,
+  useTerminalSize,
+  useTheme,
+  useVimKeys,
+  viewportRows,
+  visibleWindow,
+} from "@george43g/tui-kit";
 import { Box, Text, useApp, useInput } from "ink";
 import { useMemo, useState } from "react";
 import { callMcpTool } from "../dispatcher.js";
@@ -18,8 +27,6 @@ import { APP_NAME, buildStamp } from "../meta.js";
 import { engineLabel } from "../native-bridge.js";
 import { buildRows, type Row, tabBadges } from "./rows.js";
 import { useSnapshot } from "./useSnapshot.js";
-import { useTerminalSize } from "./useTerminalSize.js";
-import { viewportRows, visibleWindow } from "./viewport.js";
 
 type Mode =
   | { kind: "browse" }

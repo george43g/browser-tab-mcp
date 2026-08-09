@@ -34,18 +34,22 @@ below is not part of it.
 
 **Remaining:**
 
-- **Kit migration (blocked on upstream).** `@george43g/{cli-kit,tui-kit,
-  robustness}` are published from `mcp-cli-starter-template`; browser-tab still
-  uses its workspace copies. Defects found are written up in
-  **`UPSTREAM-KIT-BRIEF.md`** for that repo's agent. When `cli-kit@0.2.0` /
-  `tui-kit@0.2.0` ship: swap the deps, delete the three workspace packages.
-  **Until then the REPL stays broken by decision** — `raw` is unusable and
-  15/18 tools it advertises are uncallable (the published `0.1.0` has the same
-  defect, so migrating early would not help).
-  **Handover is ready to send**: `UPSTREAM-HANDOFF-MESSAGE.md` is the
-  paste-able message (it also contributes the build-stamp design + the turbo
-  cache-key and vitest-glob fixes back to the template — Class B items the
-  template inherits).
+- ~~**Kit migration (blocked on upstream).**~~ — **DONE 2026-08-09** (the
+  kit-migration PR). Upstream published robustness `0.6.0` / cli-kit `0.3.1` /
+  tui-kit `0.3.3` / secret-store `0.2.2`; browser-tab now depends on those
+  ranges and `packages/{cli-kit,tui-kit,robustness,secrets}` are deleted
+  (`secrets` had zero consumers here, so no `secret-store` dep was added).
+  Rode along for free: **the REPL is repaired** (cli-kit 0.3.1's real
+  `<tool> <json>` dispatch + quote-preserving tokenizer — smoke-tested against
+  the built bin), and the app-local `useTerminalSize`/`viewport` copies were
+  replaced by the upstreamed tui-kit exports (`viewport.test.ts` stays as the
+  guard that the kit's `CHROME_ROWS` keeps fitting this app's chrome).
+  **One gap surfaced:** published robustness has no `TokenBucket.tryAcquire`
+  (this repo had added it locally for the screenshot fail-fast limiter) — an
+  app-local `ShotBucket` in `daemon/screenshot.ts` carries the exact semantics
+  until a `tryAcquire` ships upstream (**flagged for the next upstream brief**,
+  along with widening cli-kit's `ToolCallResult.content` to image blocks —
+  the REPL adapter in `cli.ts` currently summarizes image blocks into text).
 
 - ~~**Small test debts, declared during review (2026-08-09):**~~ — **DONE
   2026-08-09** (same-day, the test-debts PR):
@@ -132,9 +136,11 @@ below is not part of it.
 
 3. **`COVERAGE_GATE=1` flip** — the dormant half of the two-flag coverage
    design. Measured failing 2026-07-24: cli-kit 26% / robustness 58% /
-   secrets 73% vs the shared 80/70/70/70 bar → needs test-writing first.
-   Best done as a ratchet (arm per-package as suites mature), not a big-bang
-   flip. Context: `docs/FOLLOWUPS.md` §1 (P2).
+   secrets 73% vs the shared 80/70/70/70 bar → needed test-writing first.
+   **Unblocked 2026-08-09:** the three worst offenders left the repo with the
+   kit migration, so the ratchet now only has in-tree packages to arm
+   (re-measure before flipping). Best done as a ratchet (arm per-package as
+   suites mature), not a big-bang flip. Context: `docs/FOLLOWUPS.md` §1 (P2).
 
 4. **Native module on the global install** — **ANSWERED 2026-07-29, no longer
    urgent.** The user chose to keep launchd on the workspace build, and

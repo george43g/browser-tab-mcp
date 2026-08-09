@@ -46,30 +46,34 @@ here.** Nothing about this work may live only in an agent's private memory.
 6. **No AI inside the tool.** browser-tab serves data/actuation; the consumer
    AI interprets. (`annotate` is a cache substrate, never intelligence.)
 
-## Status (2026-08-09, session close) — bug-sweep remediation COMPLETE
+## Status (2026-08-09, later session) — v1.0.0 RELEASED · kits migrated
 
-`main` = **`6330b0c`**, clean, CI green. The 14-defect bug sweep
-(`BUGSWEEP-2026-08-07.md`) is fully remediated: **#22** handle validation ·
-**#23** TUI viewport · **#24** build stamp · **#25→#27** `set_window` state
-(three wrong fixes before the right one — see GOTCHAS, "geometry poisons a
-minimized window") · **#26** human CLI output + env flags · **#28**
-release-please · **#29** turbo cache key + `.tsx` test collection · **#30**
-`focus_tab` contract + `history.sources` + doc fixes. The plan file
-(`~/.claude/plans/gleaming-tumbling-koala.md`) is now historical.
+**v1.0.0 is released** (tag + GitHub Release + CHANGELOG exist — the tag was
+cut *manually* after release-please's cut silently failed; the config is now
+fixed, see GOTCHAS "release-cut" + `docs/RELEASE.md`). `main` history since
+the bug sweep: **#31** v1.0.0 release PR · **#32** version-map fix · **#33**
+release title pin (**wrong fix**, superseded) · **#34** test debts · **#36**
+the real release-cut fix (componentless branch → component branch) · the
+**kit-migration PR** (this session — see below).
 
 **Open right now:**
 
-- **PR #31 `chore: release main`** — release-please's rolling release PR.
-  ⚠ It proposes **`1.0.0`** (release-please's *initial-release* default;
-  `bump-minor-pre-major` only affects later bumps). USER DECISION: accept
-  1.0.0, or add `"release-as": "0.1.0"` to `release-please-config.json` for
-  one cycle. Merging #31 mints the first tag + GitHub Release + CHANGELOG.
+- **Rolling release PR #37** `chore(main): release 1.0.1` — merging it
+  (user-gated) is the end-to-end proof of the #36 fix: the workflow must mint
+  the tag by itself. **After ANY release-PR merge, verify the tag exists.**
+- **Kit migration PR** — `@george43g/{robustness,cli-kit,tui-kit}` are now
+  npm deps (`^0.6.0`/`^0.3.1`/`^0.3.3`); the four frozen workspace copies
+  (incl. unused `secrets`) are deleted. The REPL is repaired by cli-kit 0.3.1.
+  Next upstream asks queued in BACKLOG: robustness `TokenBucket.tryAcquire`,
+  cli-kit image-block `ToolCallResult`.
 - **User-gated reloads for build `+32.6330b0c`**: Chrome
   (`chrome://extensions` ⟳) and Safari (Settings → Extensions → toggle
   "Browser Tab Helper Extension" off/on — the sideload has already been run).
-  Until then `doctor` reports the stamp mismatch.
-- **Upstream handover**: paste `UPSTREAM-HANDOFF-MESSAGE.md` to the
-  `mcp-cli-starter-template` agent (reference doc: `UPSTREAM-KIT-BRIEF.md`).
+  Until then `doctor` reports the stamp mismatch. (The extension bundles are
+  untouched by everything since `6330b0c` — extension-core depends only on
+  shared-types — so this reload is still the only browser-side step owed. The
+  **daemon** is different: once the kit-migration PR merges, rebuild + restart
+  it so it runs the published-kit bundle.)
 
 Everything else deferred/parked lives in `BACKLOG.md` — start there.
 

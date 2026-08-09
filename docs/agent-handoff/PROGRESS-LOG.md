@@ -545,3 +545,39 @@ Fix PR removes both options + the now-dead title pattern, with differential
 the true story, including that #33's claim was wrong. Release PR #35 will be
 superseded by a new PR on the component branch after merge — verify the NEW
 one tags on merge; that is the end-to-end proof.
+
+## 2026-08-09 (later) — kit migration: workspace copies → published npm kits
+
+Upstream published the kits (robustness **0.6.0**, cli-kit **0.3.1**, tui-kit
+**0.3.3**, secret-store **0.2.2**). Branch `chore/consume-published-kits`:
+
+- **Deps swapped:** app devDeps → `^0.6.0`/`^0.3.1`/`^0.3.3`; mcp-kit's
+  robustness dep likewise. ink/react bumped to `^7.1.1`/`^19.2.8` to satisfy
+  tui-kit's peers (pnpm dedupes tui-kit onto the app's React — context
+  identity for ThemeProvider verified via `pnpm why`).
+- **Deleted:** `packages/{robustness,cli-kit,tui-kit,secrets}`. `secrets` had
+  ZERO consumers (only its own files) — published `secret-store` was NOT added
+  as a dep; wiring an unused package would be baggage.
+- **API drift found (2 items, both handled):**
+  1. Published robustness has **no `TokenBucket.tryAcquire`** — that method was
+     a local addition for the screenshot fail-fast limiter. An app-local
+     `ShotBucket` in `daemon/screenshot.ts` carries the exact semantics; a new
+     refill guard test + 2 sabotage checks (deduction, refill) prove it.
+     → next upstream brief: `tryAcquire` in robustness.
+  2. Published cli-kit's `ToolCallResult.content` is text-only (the local
+     image-block widening never went upstream) — the REPL dispatcher in
+     `cli.ts` now adapts image blocks to a summary line.
+     → next upstream brief: widen `ToolCallResult`.
+- **Free wins:** REPL repaired (cli-kit 0.3.1 real dispatch + tokenizer;
+  smoke-tested `help`/`list` against the built bin). App-local
+  `useTerminalSize`/`viewport` deleted in favour of the upstreamed tui-kit
+  exports; `viewport.test.ts` kept as the CHROME_ROWS-fits-our-chrome guard
+  (one assertion updated: kit treats non-finite rows as an unknown 24-row
+  terminal, not a 1-row one).
+- **Bar:** lint 0 · typecheck · turbo test --force 351/351 (41 files) ·
+  test:no-native · build (bin runs, REPL smoke) · stress 27/27 --force ·
+  e2e 3/3 · check:usage fresh · 3 sabotage checks red-then-green.
+- **Ops gotcha re-bitten:** `cp` is aliased `-i` on this machine — a sabotage
+  restore silently didn't happen ("not overwritten") and a persisted shell cwd
+  made a `git checkout <path>` clobber uncommitted work. Use `/bin/cp -f`,
+  absolute paths, and scratchpad file-copies (never git) to restore sabotage.

@@ -227,8 +227,10 @@ apps/
   rust-accel/               napi-rs crate (optional acceleration)
 
 packages/
-  robustness, mcp-kit, cli-kit, tui-kit, env-loader, secrets, shared-types,
+  mcp-kit, extension-core, env-loader, shared-types, test-kit,
   tsconfig, biome-config, vitest-config
+  (robustness / cli-kit / tui-kit are npm deps published from
+   mcp-cli-starter-template — no longer vendored here)
 
 mise.toml                   toolchain pins (node, pnpm) + named tasks
 .github/workflows/          ci.yml, release.yml (release-please; tags+releases, no npm publish),
