@@ -525,3 +525,23 @@ exactly where expected. e2e not run: test-only changes, no shipped code moved.
 `tui-kit@0.2.0` are in flight on the template side. wm-stack rewire is
 explicitly the OTHER agent's job (user decision) — this repo only serves the
 contract.
+
+## 2026-08-09 (correction) — the #33 title pin was NOT the release-cut fix
+
+Dry-run verification after #33 merged showed the next release PR (#35) still
+on the componentless branch — the same shape that failed v1.0.0. Source dive
+(v17.3.0 `strategies/base.ts` `buildRelease`): the cut-time check compares the
+**head branch's** `--components--` suffix against the node package name; the
+PR *title* is not consulted for the component at all. Our branch was
+componentless because **explicit `separate-pull-requests: false`** (the
+single-package default is `true` — `?? packages.length === 1`) and the
+**node-workspace plugin** each independently force the group Merge plugin.
+Canonical single-package repos (release-please itself) have neither and get
+`--components--<name>` branches.
+
+Fix PR removes both options + the now-dead title pattern, with differential
+`release-pr --dry-run` proof (componentless with either option present;
+`--components--browser-tab` with neither). docs/RELEASE.md rewritten to tell
+the true story, including that #33's claim was wrong. Release PR #35 will be
+superseded by a new PR on the component branch after merge — verify the NEW
+one tags on merge; that is the end-to-end proof.
