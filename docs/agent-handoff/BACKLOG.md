@@ -47,14 +47,16 @@ below is not part of it.
   cache-key and vitest-glob fixes back to the template — Class B items the
   template inherits).
 
-- **Small test debts, declared during review (2026-08-09):**
-  - `test-kit`'s `stateClobbers` knob (added for #27) is exercised by no test —
-    disabling it turns nothing red. Either use it in a regression test for the
-    settle path or remove it.
-  - No CLI-action harness exists, so commander flag→tool-input mappings (e.g.
-    `focus --no-raise` → `raiseWindow:false`) are only verifiable live. A thin
-    harness that parses argv and asserts the `callMcpTool` payload would close
-    a whole class of untested glue.
+- ~~**Small test debts, declared during review (2026-08-09):**~~ — **DONE
+  2026-08-09** (same-day, the test-debts PR):
+  - `stateClobbers` is now load-bearing: `commands.test.ts` asserts the END
+    STATE of `set_window` under a modelled clobber (the restore absorbs it) —
+    the pre-#27 implementation fails it. Sabotage-checked.
+  - `apps/browser-tab-mcp/src/cli.test.ts` is the CLI-action harness: mocks
+    the dispatcher, drives the real commander program with argv, asserts exact
+    tool payloads (`--no-raise`, `--bounds` parsing, csv trim, number
+    coercion, the env↔flag preAction hook). Three sabotage checks, each
+    killing exactly its own guard.
 
 - **Release PR shows no CI checks** — GitHub doesn't trigger workflows for
   events created with `GITHUB_TOKEN`, so #31 (and every future release PR)

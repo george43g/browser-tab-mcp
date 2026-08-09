@@ -493,3 +493,35 @@ Safari sideload run for `+32.6330b0c`.
 **Outstanding (user-gated):** Chrome reload + Safari toggle for `+32.6330b0c`;
 #31 version decision + merge; upstream handover
 (`UPSTREAM-HANDOFF-MESSAGE.md`). RESUME-2026-08-09.md retired (stale).
+
+## 2026-08-09 (later) — v1.0.0 shipped (manually), release cut fixed, test debts closed
+
+**Merges:** #31 (`chore: release main` → accepted **1.0.0**) and #32 (session-close
+docs) squash-merged on the user's word. Both extensions confirmed reloaded to
+`+32.6330b0c` beforehand; doctor clean; live `focus_tab` smoke returned the full
+enriched contract.
+
+**Release incident:** merging #31 tagged NOTHING despite a green workflow —
+release-please's default group title (`chore: release main`) is unparseable at
+cut time (`PR component: undefined does not match configured component` →
+"untagged, merged release PRs outstanding - aborting"), upstream bug
+googleapis/release-please#2712. The version bump + CHANGELOG landed on main;
+only the tag/Release was skipped. **Recovered manually:** `gh release create
+v1.0.0` at the merge commit with the changelog section as notes, PR #31
+relabelled `autorelease: pending` → `autorelease: tagged`, workflow re-run
+clean. **PR #33** (awaiting merge word) pins
+`group-pull-request-title-pattern` with `${component} ${version}` so future
+merges cut releases themselves, and documents the recovery runbook in
+`docs/RELEASE.md`. Full proof of the pin needs the next release cycle — check
+the next release PR is titled `chore: release browser-tab X.Y.Z` and tags on
+merge.
+
+**Test debts (this PR):** both BACKLOG debts closed same-day — the
+`stateClobbers` end-state regression test in extension-core, and the CLI-action
+harness (`src/cli.test.ts`, 12 tests). Four sabotage checks total, each red
+exactly where expected. e2e not run: test-only changes, no shipped code moved.
+
+**Context:** the upstream kit handover has been pasted; `cli-kit@0.2.0` /
+`tui-kit@0.2.0` are in flight on the template side. wm-stack rewire is
+explicitly the OTHER agent's job (user decision) — this repo only serves the
+contract.
