@@ -220,27 +220,25 @@ async function setWindowOutcome(args: CommandArgs): Promise<CommandOutcome> {
   }
 
   // chrome.windows.update rejects a state alongside explicit geometry, so a
-  // request carrying BOTH has to become two sequential updates. It previously
-  // took `bounds` and silently discarded `state` while still returning ok.
+  // request carrying BOTH has to become two sequential updates. Which order,
+  // and what to wait on, took four attempts to get right. What was measured:
   //
-  // GEOMETRY ALWAYS GOES FIRST, STATE ALWAYS LAST. Not a style choice:
+  //  - Sending geometry to a MINIMISED window poisons it. The window visibly
+  //    restores, then re-minimises a second or two later, because the geometry
+  //    update is applied asynchronously and re-asserts the state it captured.
+  //    This happens in EITHER order, so ordering alone never fixed it, and it
+  //    happens even when the bounds are unchanged.
+  //  - Sending geometry to a NORMAL window is safe and sticks.
+  //  - `windows.get().state` cannot be used to detect the transition: it reports
+  //    the requested state as soon as the update is accepted, so a poll returns
+  //    "normal" while the window is still mid-restore. (At rest it IS accurate —
+  //    it agrees with AppleScript's `minimized` — which is what made this
+  //    confusing.)
   //
-  //  - A state change is animated by the platform. `windows.update` resolves
-  //    when Chrome ACCEPTS it, not when macOS finishes it, so a geometry update
-  //    issued straight after lands mid-transition and CANCELS it. Measured
-  //    against real Chrome: 0ms gap loses the state 3/3, ~200ms keeps it 3/3.
-  //  - There is no completion signal to wait on instead: `windows.get().state`
-  //    reports the requested state OPTIMISTICALLY, the moment the update is
-  //    accepted. (An earlier fix polled it and was a silent no-op — the live
-  //    window still came back minimised.)
-  //
-  // So the ordering has to make waiting unnecessary: nothing is issued after
-  // the state change, and geometry set beforehand becomes the frame the window
-  // restores INTO — which is what a caller passing both actually wants.
-  //
-  // Known limitation: going maximised/fullscreen → normal WITH bounds, Chrome
-  // may ignore geometry set while still maximised and restore to its previous
-  // normal frame. Losing the placement is strictly better than losing the state.
+  // So the rule is not about ordering, it is about WHAT STATE THE WINDOW IS IN
+  // when geometry arrives: never send geometry to a non-normal window. Restore
+  // first, let the restore actually finish, then place it, then apply the
+  // caller's target state.
   const stateStep = (): chrome.windows.UpdateInfo => {
     const step: chrome.windows.UpdateInfo = { state };
     // focused is invalid alongside a minimized state; safe otherwise.
@@ -260,9 +258,55 @@ async function setWindowOutcome(args: CommandArgs): Promise<CommandOutcome> {
   };
 
   let win: chrome.windows.Window | undefined;
-  if (bounds) win = await windows.update(windowId, boundsStep());
+  if (bounds) {
+    win = (await ensureRestored(windows, windowId)) ?? win;
+    win = await windows.update(windowId, boundsStep());
+  }
   if (state) win = await windows.update(windowId, stateStep());
   return { windowId: win?.id ?? windowId, payload: {} };
+}
+
+/**
+ * How long to let a restore actually complete before touching geometry.
+ *
+ * This is a real sleep rather than a poll on purpose: `windows.get().state`
+ * flips to the requested value as soon as the update is ACCEPTED, so polling it
+ * returns immediately while the window is still mid-restore — that was the bug
+ * in two earlier fixes. There is no accurate in-flight signal to wait on, so the
+ * wait is bounded by time and only paid when a restore was actually needed.
+ */
+const RESTORE_SETTLE_MS = 400;
+
+const delay = (ms: number): Promise<void> => new Promise((r) => setTimeout(r, ms));
+
+/**
+ * Bring `windowId` to `normal` if it isn't already, so geometry can be applied.
+ *
+ * Geometry sent to a minimised window is applied asynchronously and re-asserts
+ * the old state when it lands — the window visibly pops up and then drops back
+ * a second later. Restoring FIRST and letting it finish avoids that entirely.
+ *
+ * A no-op when the window is already normal, so the common case costs one
+ * `windows.get` and no delay. Degrades to a no-op where `windows.get` is absent
+ * (Safari's shim) rather than blindly sleeping, and never throws.
+ */
+async function ensureRestored(
+  windows: Windows,
+  windowId: number,
+): Promise<chrome.windows.Window | undefined> {
+  const get = windows.get as
+    | ((id: number) => Promise<chrome.windows.Window | undefined>)
+    | undefined;
+  if (typeof get !== "function") return undefined;
+  try {
+    const seen = await get(windowId);
+    if (!seen || seen.state === "normal") return seen ?? undefined;
+    const restored = await windows.update(windowId, { state: "normal" });
+    await delay(RESTORE_SETTLE_MS);
+    return restored;
+  } catch {
+    return undefined; // window vanished — the next update will surface it
+  }
 }
 
 export async function executeCommand(kind: string, args: CommandArgs): Promise<CommandOutcome> {

@@ -90,3 +90,7 @@ example/**/*.node
 test-results/
 playwright-report/
 playwright/.cache/
+
+# Agent worktrees (isolated checkouts created by the Agent tool). They nest a
+# second root biome.json inside the repo; also excluded in biome.json.
+.claude/worktrees/

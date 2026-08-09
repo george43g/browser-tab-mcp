@@ -38,6 +38,14 @@ export interface FakeChromeConfig {
   storage?: Record<string, unknown>;
   /** Include `chrome.alarms`. Default true; set false to simulate Safari. */
   withAlarms?: boolean;
+  /** What `windows.get` reports before any state update lands. Default "normal". */
+  initialWindowState?: string;
+  /**
+   * How many `windows.update({state})` calls are accepted and then silently
+   * reverted, modelling a pending geometry update re-asserting the old state.
+   * Default 0 (state applies immediately).
+   */
+  stateClobbers?: number;
   /**
    * What `scripting.executeScript({func, args})` resolves its `result` to —
    * the extracted payload the injected `__btExtract` would return. The
@@ -89,6 +97,9 @@ export function installFakeChrome(config: FakeChromeConfig = {}): FakeChrome {
   let windows: ChromeWindowLike[] = config.windows ?? [];
   const groups: ChromeTabGroupLike[] = config.groups ?? [];
   let nextWindowId = 900;
+  /** What `windows.get` reports, and how many state updates get clobbered first. */
+  let observedWindowState = config.initialWindowState ?? "normal";
+  let stateClobbersLeft = config.stateClobbers ?? 0;
 
   const storage = new Map<string, unknown>(Object.entries(config.storage ?? {}));
   const calls: Record<string, unknown[][]> = {};
@@ -216,8 +227,20 @@ export function installFakeChrome(config: FakeChromeConfig = {}): FakeChrome {
         const tabs = urls.map((u, i) => ({ id: 8000 + i, url: u, index: i, active: i === 0 }));
         return Promise.resolve({ id: nextWindowId++, tabs });
       },
+      get: (windowId: number) => {
+        record("windows.get", [windowId]);
+        return Promise.resolve({ id: windowId, state: observedWindowState });
+      },
       update: (windowId: number, info?: unknown) => {
         record("windows.update", [windowId, info]);
+        const next = (info as { state?: string } | undefined)?.state;
+        if (next !== undefined) {
+          // Model the real clobber: a geometry update lands asynchronously and
+          // re-asserts the old state, so the first N state updates paired with
+          // one appear to be accepted and then silently revert.
+          if (stateClobbersLeft > 0) stateClobbersLeft -= 1;
+          else observedWindowState = next;
+        }
         return Promise.resolve({ id: windowId });
       },
       remove: (windowId: number) => {
