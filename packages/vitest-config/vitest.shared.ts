@@ -13,9 +13,12 @@ export const shared = defineConfig({
   test: {
     globals: true,
     environment: "node",
-    // .tsx too — the Ink TUI's render tests are JSX, and a .ts-only pattern
-    // silently discovers nothing rather than failing loudly.
-    include: ["src/**/*.test.ts", "src/**/*.test.tsx", "tests/**/*.test.ts"],
+    // .tsx in BOTH roots. A .ts-only pattern doesn't fail — it discovers
+    // nothing, so the tests just never report. That already bit `src/` once
+    // (the Ink TUI render tests silently ran zero); `tests/` had the same hole,
+    // and AGENTS.md's taxonomy sends integration tests there, so an Ink/React
+    // integration test landed exactly where it would never be collected.
+    include: ["src/**/*.test.{ts,tsx}", "tests/**/*.test.{ts,tsx}"],
     exclude: ["**/node_modules/**", "**/dist/**", "**/.turbo/**"],
     reporters: process.env.CI ? ["default", "junit"] : ["default"],
     outputFile: {

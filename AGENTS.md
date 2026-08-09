@@ -211,7 +211,7 @@ Add a case whenever you ship something touching lifecycle, dispatch, error handl
 
 After any change:
 
-1. **Rebuild**: `pnpm build` (turbo will only rebuild what changed).
+1. **Rebuild**: `pnpm build` (turbo will only rebuild what changed). Use the pnpm script, **not bare `turbo run build`** — the script exports `BUILD_STAMP=$(node scripts/build-stamp.mjs --print)`, which `turbo.json` lists in `tasks.build.env` so git identity is part of the cache key. Without it turbo replays a `dist/` stamped with an older commit and the build stamp starts lying (a bare `turbo run build` warns about this). `scripts/build-stamp.mjs` is a hashed input via `$TURBO_ROOT$`, so editing the generator invalidates the build too.
 2. **Reload the dev MCP**: the proxy at `apps/browser-tab-mcp/scripts/mcp-dev-proxy.ts` auto-reloads on `src/**/*.ts` changes. If your MCP host already has a session, restart it.
 3. **Exercise via the dev MCP**: call the relevant `mcp__browser-tab-mcp-dev__*` tool and confirm the change.
 4. **Add a regression test** when unit-testable. Tests live colocated as `*.test.ts` or in `tests/` for integration.
@@ -249,11 +249,13 @@ Acceptance held when built: dropping `background.scripts`, reintroducing `backgr
 | Layer | Lives | Naming | May touch |
 |---|---|---|---|
 | unit | colocated `src/**/*.test.ts` | `<module>.test.ts` | one module's logic; fakes ok, no sockets/FS/daemon |
-| integration | `tests/*.test.ts` | `<feature>.test.ts` | real components wired (daemon+client, `DaemonSocket`↔`ExtensionServer`), temp FS, loopback WS |
+| integration | `tests/*.test.{ts,tsx}` | `<feature>.test.ts` | real components wired (daemon+client, `DaemonSocket`↔`ExtensionServer`, daemon↔TUI render), temp FS, loopback WS |
 | contract | `tests/*.contract.test.ts` | `.contract.test.ts` | schema/wire invariants two implementations must agree on |
 | e2e | `apps/chrome-extension/e2e/*` | `.e2e.test.ts` | built `dist/` in real Chromium — **deferred/stub** |
 
 Decision tree: pure logic → unit (colocated). Crosses a process/socket/FS boundary or wires 2+ real components → integration (`tests/`) with `withDaemonEnv` + `installFakeChrome`/`installNodeWebSocket` from `@george43g/test-kit`. Defines a shape another implementation must match (Rust struct, WS wire, MCP tool I/O) → contract. Needs a real browser rendering the bundle → e2e (deferred). **DOM-touching test → add `// @vitest-environment happy-dom` at the top** (default env is node so `socket.ts` timer tests stay DOM-free).
+
+**Both roots collect `.ts` AND `.tsx`** (`packages/vitest-config/vitest.shared.ts`). A too-narrow `include` doesn't fail — it discovers nothing, so the tests never report. That has now bitten twice: `src/` once (TUI render tests silently ran zero), then `tests/`, where an Ink/React integration test sat uncollected in exactly the directory this taxonomy prescribes. Don't narrow the globs back.
 
 **Fixtures live in `@george43g/test-kit`** — `make*` factories + `install*`/`with*` global-lifecycle fakes only; never import an app (cycle). Add a helper there only when ≥2 packages need it. See `packages/test-kit/README.md`.
 
