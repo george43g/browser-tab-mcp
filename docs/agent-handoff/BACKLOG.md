@@ -42,6 +42,24 @@ below is not part of it.
   **Until then the REPL stays broken by decision** — `raw` is unusable and
   15/18 tools it advertises are uncallable (the published `0.1.0` has the same
   defect, so migrating early would not help).
+  **Handover is ready to send**: `UPSTREAM-HANDOFF-MESSAGE.md` is the
+  paste-able message (it also contributes the build-stamp design + the turbo
+  cache-key and vitest-glob fixes back to the template — Class B items the
+  template inherits).
+
+- **Small test debts, declared during review (2026-08-09):**
+  - `test-kit`'s `stateClobbers` knob (added for #27) is exercised by no test —
+    disabling it turns nothing red. Either use it in a regression test for the
+    settle path or remove it.
+  - No CLI-action harness exists, so commander flag→tool-input mappings (e.g.
+    `focus --no-raise` → `raiseWindow:false`) are only verifiable live. A thin
+    harness that parses argv and asserts the `callMcpTool` payload would close
+    a whole class of untested glue.
+
+- **Release PR shows no CI checks** — GitHub doesn't trigger workflows for
+  events created with `GITHUB_TOKEN`, so #31 (and every future release PR)
+  merges without status checks. Documented PAT escape hatch in
+  `docs/RELEASE.md` if that ever matters.
 
 ## Queue
 
@@ -177,9 +195,11 @@ below is not part of it.
 - ~~Release automation~~ — **answered / shipped (PR-F)**: release-please, tags
   + releases + changelog, no npm publish. Remaining question is narrower: when
   (if ever soon) to enable **npm publish** (queue item 6)?
-- First release will be **`0.1.0`** with a changelog spanning the full history
-  (the manifest baseline is `0.0.0` and no tag exists). Want that, or should
-  `bootstrap-sha` narrow it? See `docs/RELEASE.md` § "First release".
+- First release: the prediction of `0.1.0` was **wrong** — the live run
+  proposes **`1.0.0`** (release-please's initial-release default; PR #31).
+  Accept 1.0.0, or pin `"release-as": "0.1.0"` in `release-please-config.json`
+  for one cycle? Changelog spans full history either way unless
+  `bootstrap-sha` narrows it (`docs/RELEASE.md` § "First release").
 - Does the `cgWindowId` tiebreaker (queue item 1) need to preserve *stable*
   ids across a re-tile, or is per-snapshot correctness enough? (Titles change
   as the user navigates; ids must stay right, not stay constant.)

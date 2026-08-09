@@ -456,3 +456,40 @@ Newest entry LAST. Every working session appends one entry:
   `window set --state` fix. After that, BACKLOG's remaining items are the kit
   migration (blocked on upstream) and the wm-stack rewire — and the wm-stack
   rewire is exactly what this PR's `focus_tab` window state was built for.
+
+---
+
+## 2026-08-09 · session close — bug sweep COMPLETE, release automation live
+
+**Merged this stretch:** #27 (`set_window` restore-before-geometry — the real
+fix after #25 shipped a wrong one), #28 (release-please), #29 (turbo cache key
++ `.tsx` collection), #30 (`focus_tab` contract, squash-retitled `feat:` for
+release-please). `main` = `6330b0c`. Bug-sweep plan closed.
+
+**The `set_window` saga, compressed for posterity:** four attempts. (1) state
+silently dropped; (2) reorder + poll `windows.get` — poll returned instantly,
+believed "optimistic", WRONG; (3) geometry-first ordering — still failed live;
+(4) the user's observation ("window pops up, then re-minimises") revealed the
+mechanism: geometry sent to a minimized window is applied async and re-asserts
+the captured state, in either order. Fix: restore → settle → place → target
+state. Verified live both halves (state held 20s managed; state+exact bounds
+on a floated window). Instrument lessons: AppleScript `window N` is z-order;
+`windows.get` is accurate at rest; #24's stamp is what kept four rounds of
+"is this even the new code" honest.
+
+**Release-please live:** first run failed (`Actions … not permitted to create
+PRs`) → repo setting flipped via API → #31 open, proposing **1.0.0** (not the
+predicted 0.1.0). User decision pending; merging #31 mints the first release.
+
+**Review:** #30 audited per `pr-review-sop` (security PASS, verify+stress
+re-run independently, 27/27). Its agent's sabotage pass found and closed a
+hole in its own coverage; two declared debts recorded in BACKLOG.
+
+**Ops:** agent worktrees removed + now gitignored & biome-excluded (they broke
+bare `pnpm lint` via nested root configs and made every stamp read `.dirty`);
+plain `pnpm build` now rebuilds on new commits (0 cached — #29 working);
+Safari sideload run for `+32.6330b0c`.
+
+**Outstanding (user-gated):** Chrome reload + Safari toggle for `+32.6330b0c`;
+#31 version decision + merge; upstream handover
+(`UPSTREAM-HANDOFF-MESSAGE.md`). RESUME-2026-08-09.md retired (stale).
