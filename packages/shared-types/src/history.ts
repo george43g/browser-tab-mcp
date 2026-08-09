@@ -31,11 +31,47 @@ export const HistoryInputSchema = z.object({
 });
 export type HistoryInput = z.infer<typeof HistoryInputSchema>;
 
+/**
+ * Per-source outcome for one history query.
+ *
+ * A merged query used to return Chrome-only rows with no way to tell whether
+ * Safari genuinely had nothing or was simply never asked (the flag is off, the
+ * extension is not connected, the sqlite read blew up). `sources` makes that
+ * explicit: one entry per source the tool considered, whether or not it ran.
+ */
+export const HistorySourceSchema = z.object({
+  browser: BrowserIdSchema.describe("Which browser this source reads."),
+  source: z
+    .enum(["extension", "safari-db"])
+    .describe(
+      "extension = chrome.history via the connector; safari-db = sqlite read of History.db.",
+    ),
+  status: z
+    .enum(["ok", "unavailable", "error"])
+    .describe(
+      "ok = queried successfully · unavailable = not queried (disabled/not connected) · " +
+        "error = queried and failed.",
+    ),
+  rows: z.number().int().default(0).describe("Rows this source contributed BEFORE the merge trim."),
+  reason: z
+    .string()
+    .optional()
+    .describe("Why the source is unavailable, or the error message. Absent when status is ok."),
+});
+export type HistorySource = z.infer<typeof HistorySourceSchema>;
+
 export const HistoryOutputSchema = z.object({
   rows: z
     .array(HistoryRowSchema)
     .default([])
     .describe("Merged visits across the queried sources, newest first."),
   truncated: z.boolean().describe("True when more rows matched than maxResults."),
+  sources: z
+    .array(HistorySourceSchema)
+    .default([])
+    .describe(
+      "Per-source outcome, so an empty or partial result says WHY. Additive-optional: older " +
+        "daemons omit it and it defaults to [].",
+    ),
 });
 export type HistoryOutput = z.infer<typeof HistoryOutputSchema>;

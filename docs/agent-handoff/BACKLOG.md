@@ -11,52 +11,28 @@ Execution plan: **`~/.claude/plans/gleaming-tumbling-koala.md`**.
 - ~~**PR-A** cross-browser handles + set_window bounds/state~~ — **DONE, #22 (`5af7f15`)**
 - ~~**PR-B** TUI viewport + subscription supervision~~ — **DONE, #23 (`d340acf`)**
 - ~~**PR-E** build identity stamp~~ — **DONE, #24 (`ed99f7a`)**
+- ~~**PR-C** human-readable CLI output + curated env flags~~ — **DONE, #26 (`b1cb999`)**
+- ~~**PR-D** `focus_tab` contract + `history.sources` + doc fixes~~ — **DONE
+  2026-08-09, branch `refactor/focus-tab-contract`** (PR open, awaiting the merge
+  word). `raiseWindow` defaults true; both pathways now un-minimize before
+  raising; `CommandResult` gained `cgWindowId`/`windowState`/`wasMinimized`/
+  `windowFocused` (additive-optional — `version` did NOT move, and no
+  `MIRRORED_SCHEMAS` type was touched, so no Rust mirror was needed).
+  `history` gained `sources`. Doc claims corrected in AGENTS.md.
+  **One plan premise was wrong:** `.env.example` was *not* missing — it exists at
+  `apps/browser-tab-mcp/.env.example` and already covered 58 of the recognized
+  vars. It was audited against a fresh grep instead of regenerated: 10 genuinely
+  missing knobs added (`MCP_DISABLE_RESOURCES`, `MCP_DEV_CMD`,
+  `MCP_DEV_WATCH_DIR`, `MCP_TEST_NOOP_DELAY_MS`, `COVERAGE`, `COVERAGE_GATE`,
+  `STRESS_*`, `WORKLOAD_DURATION_S`) plus an "ambient conventions" block for the
+  16 vars the tool honors but does not own (`CI`/`NO_COLOR`/`NODE_ENV`/…).
 
-**Remaining, in order:**
+- ~~**PR-F** release automation via release-please~~ — **DONE, #28 (`f8e9261`)**
 
-- **PR-C `feat(cli)` — human-readable output + curated env flags.**
-  `browser-tab list` prints raw JSON with or without `--json`; `cli-kit`'s
-  `output.ts` (`printTable`/`printAuto`/`printJson`/`resolveOutputMode`) is
-  correct but **never called**. Render per-tool in `cli.ts`'s `printResult`
-  (which already receives `structuredContent`) — **not** in `mcp-kit`'s
-  `dispatch.ts`, whose text block is the MCP protocol surface and must stay
-  JSON. Render `list_tabs` as the browser→window→tab tree, not a flat table.
-  Then wire these 10 env↔flag bindings via cli-kit's `bindEnvFlags`
-  (`stripPrefixes: ["BROWSER_TAB_", "MCP_"]`): `--log-dir`, `--disable-native`,
-  `--socket-path`, `--ws-port`, `--state-dir`, `--cache-dir`, `--browsers`,
-  `--poll-ms`, `--fake-adapter` (bool), `--dev` (bool) — exactly the knobs the
-  e2e harness already sets by env. ⚠ **New flags trip `check:usage`**: update
-  `apps/browser-tab-mcp/.usage.kdl` (source of truth) then regenerate via
-  `mise run docs`, `mise run completions`, `mise run manpage`. Never hand-edit
-  `completions/`, `man/`, `docs/cli/`.
+**With PR-D merged, the bug-sweep remediation plan is complete.** What is left
+below is not part of it.
 
-- **PR-D `refactor(focus)` + docs** — *branch `refactor/focus-tab-contract`
-  already exists with the docs committed; only the code half remains.*
-  Add `raiseWindow?: boolean` **defaulting to true** (behaviour-preserving); when
-  true the AppleScript path gains `set minimized of w to false` before
-  `set index of w to 1` so both paths finally match; when false, activate the
-  tab only. Enrich `CommandResult` with `cgWindowId`, `windowState`,
-  `wasMinimized`, `windowFocused` — **additive-optional, do NOT bump the
-  contract `version`**; mirror in `apps/rust-accel/src/types.rs` if a
-  `MIRRORED_SCHEMAS` type is touched. Also: `history` result gains a `sources`
-  field so a merged query says *why* Safari contributed nothing.
-  Doc fixes still to make in `AGENTS.md` (edit that file — `CLAUDE.md` and
-  `.cursorrules` are symlinks): `:254`/`:260` wrongly call the Playwright e2e a
-  "deferred/stub"/"gated-off stub job" (it runs **unconditionally** with 3 real
-  tests); best-practice #2 cites `TOOL_TIMEOUTS_MS`, which **does not exist**
-  anywhere (old item 8); `:149`'s env↔flag rule must be reworded to the curated
-  contract PR-C ships. And **`.env.example` is missing** although `.gitignore:14`
-  says "lock to repo: .env.example only" and AGENTS.md calls it exhaustive —
-  regenerate from the ~46 vars in source.
-
-- **PR-F `chore(release)` — release-please.** Manifest mode +
-  `node-workspace` plugin so the bin and the extension version independently.
-  Rolling Release PR → versions + CHANGELOG + tags + GitHub Releases, with **no
-  publish job** (deliberately not npm-coupled — that is why it was chosen).
-  Retire the orphaned `.releaserc.json` + `release.yml` (semantic-release is not
-  even a dependency) and close old queue item 6. This sets the `<semver>` half
-  of the build stamp — `--version` currently reads `0.0.0+26.ed99f7a` because
-  the package version has never been bumped.
+**Remaining:**
 
 - **Kit migration (blocked on upstream).** `@george43g/{cli-kit,tui-kit,
   robustness}` are published from `mcp-cli-starter-template`; browser-tab still
@@ -172,11 +148,12 @@ Execution plan: **`~/.claude/plans/gleaming-tumbling-koala.md`**.
    - Chrome SW-kill reconnect check (`chrome://serviceworker-internals`) —
      should reconnect <30s via the alarms watchdog.
 
-8. **Doc fix:** `AGENTS.md` § "MCP best practices" item 2 says to declare
-   timeouts in `TOOL_TIMEOUTS_MS` in `src/tools/registry.ts` — PR-B recon
-   (2026-07-26) found **that constant does not exist** (tools ride the
-   `withTimeout` default). Fix the doc. Edit `AGENTS.md` (source);
-   `CLAUDE.md`/`.cursorrules` are symlinks to it.
+8. ~~**Doc fix:** `AGENTS.md` § "MCP best practices" item 2 cites a
+   `TOOL_TIMEOUTS_MS` constant that does not exist.~~ — **DONE 2026-08-09 in
+   PR-D.** Item 2 now describes what actually happens: `timeoutMs` on the tool's
+   own `ToolDefinition`, falling back to `MCP_TOOL_TIMEOUT_DEFAULT_MS`, with
+   `MCP_TOOL_TIMEOUT_FORCE_MS` overriding both. Same pass fixed the e2e
+   "deferred/stub" claims and the env↔flag rule.
 
 ## Parked ideas (deliberate "no for now")
 

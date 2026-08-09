@@ -46,18 +46,24 @@ here.** Nothing about this work may live only in an agent's private memory.
 6. **No AI inside the tool.** browser-tab serves data/actuation; the consumer
    AI interprets. (`annotate` is a cache substrate, never intelligence.)
 
-## Status (2026-08-09) — bug-sweep remediation, 3 of 6 PRs merged
+## Status (2026-08-09) — bug-sweep remediation, PR-D is the last one open
 
-`main` = **`ed99f7a`**, clean, CI green. A live test-drive on 2026-08-07 found
+`main` = **`f8e9261`**, clean, CI green. A live test-drive on 2026-08-07 found
 **14 defects** (evidence: `BUGSWEEP-2026-08-07.md`); the remediation plan lives
 at `~/.claude/plans/gleaming-tumbling-koala.md` and **that plan file is the
-execution source of truth**.
+execution source of truth** — with one correction: it claims `.env.example` is
+missing, and it is not (see the 2026-08-09 PR-D PROGRESS-LOG entry).
 
 Merged: **#22** cross-browser handle validation + `set_window` bounds/state ·
 **#23** terminal-derived TUI viewport + subscription supervision · **#24**
-build-identity stamp. Remaining: **PR-C** (human CLI output + env flags),
-**PR-D** (`focus_tab` contract + doc fixes — *this branch*), **PR-F**
-(release-please). Full detail per PR in `BACKLOG.md` § ACTIVE.
+build-identity stamp · **#26** human CLI output + curated env flags · **#28**
+release-please. **PR-D** (`focus_tab` contract + `history.sources` + doc fixes)
+is **open on branch `refactor/focus-tab-contract`, fully verified, awaiting the
+merge word** — and it is the last item in the plan. Full detail per PR in
+`BACKLOG.md` § ACTIVE.
+
+Note two other PRs (#27, #29) are open from parallel work and are not part of
+this plan.
 
 ⚠ **One user-gated step is outstanding:** reload the Chrome connector
 (`chrome://extensions`). Until then `doctor` correctly reports

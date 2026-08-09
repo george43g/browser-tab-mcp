@@ -112,7 +112,15 @@ export function makeFakeAdapter(spec: AdapterSpec): BrowserAdapter {
     spec,
     probe: async () => ({ running: true, pid: 4242 }),
     readState: async () => state(),
-    focusTab: async (tabId) => okResult("focus_tab", { tabId }),
+    // Models the AppleScript pathway's post-state: the fixture windows are
+    // never minimized, so raising is what changes `windowFocused`.
+    focusTab: async (tabId, opts) =>
+      okResult("focus_tab", {
+        tabId,
+        wasMinimized: false,
+        windowState: "normal",
+        windowFocused: opts?.raiseWindow !== false,
+      }),
     closeTab: async (tabId) => okResult("close_tab", { tabId }),
     openTab: async (input: OpenTabInput) =>
       okResult("open_tab", {

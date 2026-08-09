@@ -37,6 +37,7 @@ browser-tab daemon install   # launchd daemon: polling + extension socket + IPC
 browser-tab daemon token     # print the extension auth token
 browser-tab list --json      # windows + tabs + cgWindowId (yabai join key)
 browser-tab focus <tabId>    # activate a tab and raise its window
+browser-tab focus <tabId> --no-raise   # activate it in place, leave the window alone
 browser-tab move <tabId> --target-window <windowId>   # true move (extension)
 browser-tab open <url>       # open a tab
 browser-tab close <tabId>    # close a tab
@@ -87,7 +88,7 @@ Every MCP tool is also a CLI subcommand and a REPL command (one in-process dispa
 | Tool | Description | Annotations |
 |---|---|---|
 | `list_tabs` | Windows + tabs across Chrome/Brave/Chromium/Safari with opaque handles, bounds, and `cgWindowId` (yabai join key). Filters: `browser`, `windowId`, `urlFilter`. | read-only, idempotent |
-| `focus_tab` | Activate a tab and raise its window. | |
+| `focus_tab` | Activate a tab and — unless `raiseWindow:false` — un-minimize and raise its window. Returns the window's post-state for a window manager to act on. | |
 | `move_tab` | Move a tab across windows. True state-preserving move via the extension; Safari AppleScript fallback with `allowReload:true`. | |
 | `open_tab` | Open an http(s) URL, optionally in a specific window/browser or in the background. | open-world |
 | `close_tab` | Close a tab. | destructive |
@@ -95,6 +96,42 @@ Every MCP tool is also a CLI subcommand and a REPL command (one in-process dispa
 | `health_check` | Server/runtime snapshot. Never touches external I/O. | read-only, idempotent |
 | `noop` | Echo demo (Rust acceleration path). | read-only, idempotent |
 | `get_logs` | **Dev-mode only** (`MCP_DEV=1`). Last N in-memory log lines. | read-only |
+
+### `focus_tab` and the window manager
+
+`focus_tab` activates the tab and, by default (`raiseWindow: true`), un-minimizes
+and raises its window — identically whether it runs through the extension or
+through AppleScript. Pass `raiseWindow: false` (`--no-raise`) to select the tab
+and touch nothing else.
+
+Either way the result carries the window's post-state, so a window manager never
+needs a second `list_tabs` to decide what to do next:
+
+| Field | Meaning |
+|---|---|
+| `cgWindowId` | CoreGraphics/yabai window id — the join key. `null` when correlation is ambiguous; absent when the daemon isn't running (correlation lives there). |
+| `windowState` | `normal` / `minimized` / `maximized` / `fullscreen` after the call. |
+| `wasMinimized` | Whether the window was minimized *before* — i.e. the tab was somewhere you couldn't see. |
+| `windowFocused` | Whether the window is now its browser's frontmost window. |
+
+browser-tab deliberately does **not** manage Spaces or window placement: it
+reports, your WM decides. There is no yabai actuation in this tool.
+
+### Why `history` returned nothing
+
+Every `history` result carries a `sources` array — one entry per source the
+query considered, *including the ones it never asked* — so an empty or
+Chrome-only result says why instead of looking like "there was nothing":
+
+```json
+{ "browser": "safari", "source": "safari-db", "status": "unavailable", "rows": 0,
+  "reason": "Safari history is disabled — set BROWSER_TAB_SAFARI_HISTORY=1 …" }
+```
+
+`status` is `ok` (queried, `rows` counts its pre-merge contribution),
+`unavailable` (not queried) or `error` (queried and failed, `reason` carries the
+message). A merged query degrades per-source; naming one `browser` explicitly
+still errors outright.
 
 ### Output: human at a terminal, JSON everywhere else
 

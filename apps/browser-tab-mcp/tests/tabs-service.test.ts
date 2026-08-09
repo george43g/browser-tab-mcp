@@ -35,7 +35,9 @@ describe("tabs-service degrade (daemon down, not fixture mode)", () => {
   });
 
   it("history degrades to an empty result", async () => {
-    await expect(svc.history({})).resolves.toEqual({ rows: [], truncated: false });
+    // sources is empty rather than "all unavailable": with the daemon down no
+    // source was consulted at all, and claiming otherwise would be a lie.
+    await expect(svc.history({})).resolves.toEqual({ rows: [], truncated: false, sources: [] });
   });
 
   it("daemon_status reports reachable:false with a start-it hint", async () => {

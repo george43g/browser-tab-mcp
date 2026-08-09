@@ -39,6 +39,7 @@ export interface CommandArgs {
   state?: string;
   incognito?: boolean;
   focused?: boolean;
+  raiseWindow?: boolean;
 }
 
 export interface CommandOutcome {
@@ -47,6 +48,12 @@ export interface CommandOutcome {
   groupId?: number;
   index?: number;
   payload?: unknown;
+  /** Window state after the command (focus_tab). */
+  windowState?: string;
+  /** Whether the window was minimized BEFORE the command ran (focus_tab). */
+  wasMinimized?: boolean;
+  /** Whether the window is focused after the command (focus_tab). */
+  windowFocused?: boolean;
 }
 
 function requireTab(args: CommandArgs): number {
@@ -63,6 +70,26 @@ function requireWindow(args: CommandArgs): number {
 type Tabs = typeof chrome.tabs;
 type Windows = typeof chrome.windows;
 type TabGroups = typeof chrome.tabGroups;
+
+/**
+ * Read a window without ever failing the command it decorates.
+ *
+ * `windows.get` is only used to report state (before/after a focus), never to
+ * decide anything — a browser that lacks it, or a window that vanished between
+ * two awaits, must degrade to "unknown" rather than turn a successful focus
+ * into an error.
+ */
+async function peekWindow(
+  windows: Windows,
+  windowId: number,
+): Promise<chrome.windows.Window | undefined> {
+  if (typeof windows.get !== "function") return undefined;
+  try {
+    return await windows.get(windowId);
+  } catch {
+    return undefined;
+  }
+}
 
 async function tabActionOutcome(args: CommandArgs): Promise<CommandOutcome> {
   const tabId = requireTab(args);
@@ -288,19 +315,16 @@ const delay = (ms: number): Promise<void> => new Promise((r) => setTimeout(r, ms
  *
  * A no-op when the window is already normal, so the common case costs one
  * `windows.get` and no delay. Degrades to a no-op where `windows.get` is absent
- * (Safari's shim) rather than blindly sleeping, and never throws.
+ * (Safari's shim) rather than blindly sleeping, and never throws — the read
+ * itself is `peekWindow`, which owns both of those guarantees.
  */
 async function ensureRestored(
   windows: Windows,
   windowId: number,
 ): Promise<chrome.windows.Window | undefined> {
-  const get = windows.get as
-    | ((id: number) => Promise<chrome.windows.Window | undefined>)
-    | undefined;
-  if (typeof get !== "function") return undefined;
+  const seen = await peekWindow(windows, windowId);
+  if (!seen || seen.state === "normal") return seen;
   try {
-    const seen = await get(windowId);
-    if (!seen || seen.state === "normal") return seen ?? undefined;
     const restored = await windows.update(windowId, { state: "normal" });
     await delay(RESTORE_SETTLE_MS);
     return restored;
@@ -314,16 +338,31 @@ export async function executeCommand(kind: string, args: CommandArgs): Promise<C
   const windows = api.windows as Windows;
   switch (kind) {
     case "focus_tab": {
+      // raiseWindow defaults TRUE: that is what this pathway always did, and
+      // the AppleScript pathway now matches it (it clears `minimized` first).
+      // false = activate the tab in place, leaving window placement to whoever
+      // owns it — browser-tab does not manage Spaces or visibility.
+      const raiseWindow = args.raiseWindow !== false;
       const tabId = requireTab(args);
       const tab = await tabs.update(tabId, { active: true });
-      if (tab?.windowId !== undefined) {
-        await windows.update(tab.windowId, { focused: true });
-      }
-      return {
+      const outcome: CommandOutcome = {
         tabId,
-        ...(tab?.windowId !== undefined ? { windowId: tab.windowId } : {}),
         ...(tab?.index !== undefined ? { index: tab.index } : {}),
       };
+      const windowId = tab?.windowId;
+      if (windowId === undefined) return outcome;
+      outcome.windowId = windowId;
+
+      // Read BEFORE raising — the pre-state is the one thing a later snapshot
+      // can never recover, and it is what tells a WM the tab was somewhere the
+      // user could not see.
+      const before = await peekWindow(windows, windowId);
+      if (before?.state !== undefined) outcome.wasMinimized = before.state === "minimized";
+      if (raiseWindow) await windows.update(windowId, { focused: true });
+      const after = (await peekWindow(windows, windowId)) ?? before;
+      if (after?.state !== undefined) outcome.windowState = after.state;
+      if (after?.focused !== undefined) outcome.windowFocused = after.focused;
+      return outcome;
     }
     case "close_tab": {
       const tabId = requireTab(args);

@@ -94,8 +94,91 @@ describe("history — merge across sources", () => {
   it("returns an empty, non-truncated result when no source is reachable", async () => {
     const { ext, sendCommand } = makeExt([]); // nothing connected, safari off
     const out = await history({}, { ext });
-    expect(out).toEqual({ rows: [], truncated: false });
+    expect(out.rows).toEqual([]);
+    expect(out.truncated).toBe(false);
     expect(sendCommand).not.toHaveBeenCalled();
+  });
+});
+
+// The whole point of `sources`: an empty or partial merge has to say WHY,
+// instead of being indistinguishable from "every source had nothing".
+describe("history — per-source reporting", () => {
+  it("reports every unreached source with a reason when nothing is reachable", async () => {
+    const { ext } = makeExt([]);
+    const out = await history({}, { ext });
+    expect(out.sources.map((s) => s.browser).sort()).toEqual([
+      "brave",
+      "chrome",
+      "chromium",
+      "safari",
+    ]);
+    expect(out.sources.every((s) => s.status === "unavailable" && s.rows === 0)).toBe(true);
+    const safari = out.sources.find((s) => s.browser === "safari");
+    expect(safari?.source).toBe("safari-db");
+    expect(safari?.reason).toMatch(/BROWSER_TAB_SAFARI_HISTORY/);
+    expect(out.sources.find((s) => s.browser === "chrome")?.reason).toMatch(/not connected/);
+  });
+
+  it("marks a queried source ok with its pre-trim row count", async () => {
+    const { ext } = makeExt(["chrome"]);
+    const out = await history({ maxResults: 1 }, { ext });
+    const chrome = out.sources.find((s) => s.browser === "chrome");
+    expect(chrome).toMatchObject({ source: "extension", status: "ok", rows: 2 });
+    expect(chrome?.reason).toBeUndefined();
+    // rows is the source's contribution BEFORE the merge trim, not after.
+    expect(out.rows).toHaveLength(1);
+  });
+
+  it("a PARTIAL merge still names the sources it skipped", async () => {
+    // The regression this exists for: rows came back Chrome-only and there was
+    // no way to tell whether Safari had nothing or was never asked.
+    const { ext } = makeExt(["chrome"]);
+    const out = await history({}, { ext });
+    expect(out.rows.every((r) => r.browser === "chrome")).toBe(true);
+    const byBrowser = Object.fromEntries(out.sources.map((s) => [s.browser, s.status]));
+    expect(byBrowser).toEqual({
+      chrome: "ok",
+      chromium: "unavailable",
+      brave: "unavailable",
+      safari: "unavailable",
+    });
+    expect(out.sources.find((s) => s.browser === "safari")?.reason).toMatch(
+      /BROWSER_TAB_SAFARI_HISTORY/,
+    );
+  });
+
+  it("a failing source becomes an error entry instead of failing the merge", async () => {
+    process.env.BROWSER_TAB_SAFARI_HISTORY = "1";
+    const { ext } = makeExt(["chrome"]);
+    const readSafari = vi.fn(async () => {
+      throw new Error("sqlite3 exited 1");
+    });
+    const out = await history({ maxResults: 10 }, { ext, readSafari });
+    expect(out.rows.map((r) => r.browser)).toEqual(["chrome", "chrome"]);
+    expect(out.sources.find((s) => s.browser === "safari")).toMatchObject({
+      status: "error",
+      rows: 0,
+      reason: "sqlite3 exited 1",
+    });
+  });
+
+  it("an EXPLICIT browser still throws rather than degrading to a partial answer", async () => {
+    process.env.BROWSER_TAB_SAFARI_HISTORY = "1";
+    const { ext } = makeExt([]);
+    const readSafari = vi.fn(async () => {
+      throw new Error("sqlite3 exited 1");
+    });
+    await expect(history({ browser: "safari" }, { ext, readSafari })).rejects.toThrow(
+      /sqlite3 exited 1/,
+    );
+  });
+
+  it("an explicit browser reports only that source, not the ones it never asked", async () => {
+    const { ext } = makeExt(["chrome"]);
+    const out = await history({ browser: "chrome" }, { ext });
+    expect(out.sources).toEqual([
+      { browser: "chrome", source: "extension", status: "ok", rows: 2 },
+    ]);
   });
 });
 
@@ -105,6 +188,11 @@ describe("history — defensive ext-payload coercion", () => {
     const send = vi.fn(async () => ({}) as CommandResult);
     const { ext } = makeExt(["chrome"], send);
     const out = await history({ browser: "chrome" }, { ext });
-    expect(out).toEqual({ rows: [], truncated: false });
+    expect(out.rows).toEqual([]);
+    expect(out.truncated).toBe(false);
+    // Queried and answered — just with nothing in it. That is `ok`, not an error.
+    expect(out.sources).toEqual([
+      { browser: "chrome", source: "extension", status: "ok", rows: 0 },
+    ]);
   });
 });

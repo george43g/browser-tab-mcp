@@ -323,3 +323,136 @@ Newest entry LAST. Every working session appends one entry:
   stale-stamp proof reproduces on the new base, and `docs/RELEASE.md`'s "the
   stamp moves every commit" claim now carries the cache-key caveat that makes it
   true.
+
+---
+
+## 2026-08-09 · Claude · PR-D: `focus_tab` contract + `history.sources` + doc fixes
+
+- **Context:** the last PR of the bug-sweep plan. Branch
+  `refactor/focus-tab-contract` already carried two docs-only commits; the code
+  half was written on top. A usage-limit pause left a `wip:` snapshot commit,
+  since squashed away — it must not appear in PR history, because its message
+  says the work is unverified.
+- **`main` moved TWICE during the session** — `b1cb999` → `f8e9261` (#28) →
+  `ee15cc1` (#27, #29) — so the branch was rebased twice and the full bar was
+  re-run from scratch after each. Worth internalising for parallel work: a rebase
+  target read at the start of a session is not the one you finish on, and
+  "verified" only means anything against the tree you actually push. Conflicts,
+  and how they were taken:
+  - **DECISIONS / PROGRESS-LOG** (both sides append) — kept **both** sets, in
+    chronological order.
+  - **AGENTS.md § CI/Release** — **main's** release-please line (it supersedes
+    the semantic-release text this branch was written against) plus **this
+    branch's** ci.yml line (the one carrying the e2e correction).
+  - **test-kit's `windows` fake** — #27 added `windows.get` + a `stateClobbers`
+    model at the same time this branch added `windows.get` + an update overlay.
+    Merged into one mechanism: the overlay, with `stateClobbers` deleting the
+    `state` key from the patch instead of keeping a separate variable.
+    Semantics-preserving, and **proved so by sabotage** (dropping
+    `initialWindowState` turns #27's two restore-before-geometry tests red).
+  - **`extension-core/commands.ts`** — merged cleanly but left `ensureRestored`
+    (#27) and `peekWindow` (this branch) as two near-identical guarded
+    `windows.get` readers in one file. `ensureRestored` now calls `peekWindow`;
+    identical in all four branches (missing `get` / throwing `get` /
+    already-normal / failing `update`). **This is the only freshly-merged code
+    this PR touched**, and the PR body flags it for the reviewer.
+- **`focus_tab` now has one behaviour, not two.** `raiseWindow?: boolean`
+  defaults **true** (behaviour-preserving — the flag exists to make the raise
+  opt-OUTable). The real bug: the extension's `windows.update({focused:true})`
+  un-minimizes as a side effect, while the AppleScript path only reordered
+  windows, so the identical call left a focused tab in a still-minimized window.
+  Both adapters now clear `minimized`/`miniaturized` **before**
+  `set index of w to 1` — raising a minimized window is a no-op, so the ORDER is
+  the fix, and that is what the guard test asserts (indices, not just presence).
+  `raiseWindow:false` activates the tab and touches the window not at all.
+- **Result enriched for the WM:** `cgWindowId`, `windowState`, `wasMinimized`,
+  `windowFocused`. Division of labour is deliberate — the acting pathway owns
+  `wasMinimized` (a BEFORE-state nothing read later can recover) and the daemon
+  fills `cgWindowId` from the freshly merged snapshot (`enrichFocusResult`),
+  never overwriting what the pathway reported. **Additive-optional: the Snapshot
+  `version` did NOT move**, and no `MIRRORED_SCHEMAS` type was touched, so no
+  Rust mirror was needed (drift test stayed green untouched). No yabai
+  actuation — Spaces/visibility remain the WM's job.
+- **`history` gained `sources`** — one `{browser, source, status, rows, reason?}`
+  per source considered, *including the ones never asked*, so a Chrome-only
+  merge stops being indistinguishable from "Safari had nothing". A merged query
+  moved to `Promise.allSettled`, so one failing source becomes `status:"error"`
+  instead of failing the whole call; an explicit `browser` still throws (there is
+  no partial answer to degrade to).
+- **Docs corrected in `AGENTS.md`:** e2e is no longer called a "deferred/stub"
+  or "gated-off stub job" (the `e2e-chromium` job is unconditional with 3 real
+  tests); best-practice #2 no longer cites the non-existent `TOOL_TIMEOUTS_MS`
+  and now describes `ToolDefinition.timeoutMs` → `MCP_TOOL_TIMEOUT_DEFAULT_MS` →
+  `MCP_TOOL_TIMEOUT_FORCE_MS`; the env↔flag rule now states the curated-10
+  contract from #26 instead of claiming every var is a flag. Also updated
+  `README.md`, `docs/WM_STACK_CONTRACT.md` (the consumer contract) and BACKLOG.
+- **⚠ A plan premise was WRONG and is worth recording:** the plan (and BACKLOG)
+  said "**`.env.example` is missing** … regenerate from the ~46 vars in source".
+  It was never missing — it lives at `apps/browser-tab-mcp/.env.example` (the
+  root has none, because the `--env-file-if-exists` flags are per-app) and
+  already documented 58 vars. A fresh grep of `process.env.*` / `env*("…")`
+  across `apps` + `packages` found 84 names; the file was audited rather than
+  regenerated. 10 genuinely-missing knobs were added (`MCP_DISABLE_RESOURCES`,
+  `MCP_DEV_CMD`, `MCP_DEV_WATCH_DIR`, `MCP_TEST_NOOP_DELAY_MS`, `COVERAGE`,
+  `COVERAGE_GATE`, `STRESS_DURATION_S`, `STRESS_RSS_FAIL_MB`,
+  `STRESS_LAG_FAIL_MS`, `WORKLOAD_DURATION_S`) plus an "ambient conventions"
+  block covering the 16 that are honored but not owned (`CI`, `NO_COLOR`,
+  `FORCE_COLOR`, `NODE_ENV`, the CI-detection set, `NAPI_RS_*`, `EXT_ENTRY`).
+  The header now carries the grep that reproduces the audit. Two names in the
+  grep are NOT vars: `ENVLOADER_TEST_KEY` (written inside an env-loader test's
+  temp `.env`) and `STARTER_HTTP_TOKEN` (a docstring example in cli-kit's
+  published typings). Related correction: AGENTS.md claimed `.env.test` is
+  committed — `.gitignore` ignores it and it is not in `git ls-files`.
+- **Verified (final run, on `ee15cc1`):** bare `pnpm lint` exit 0 (needed one
+  `lint:fix` pass — a *format* diagnostic is an error) · `pnpm typecheck` 0 ·
+  `pnpm exec turbo test --force` 0 (338 app · 77 extension-core · 27
+  chrome-extension) · `pnpm test:no-native` 0 · `turbo build --force` 0 (forced,
+  and the flag was confirmed present in the emitted **chunk**, not just src —
+  `dist/cli.js` is only a shim, so grepping it says nothing) · `pnpm stress` 0
+  (**27/27**, up from 25 — two new focus_tab cases) · e2e-chromium 3/3 ·
+  `check:usage` fresh after regenerating completions/manpage/docs for
+  `--no-raise`. **`mise run completions` etc. do not work in an agent worktree**
+  (mise refuses untrusted config); run the `usage g …` commands directly from
+  `apps/browser-tab-mcp` instead — byte-identical output, no trust prompt.
+- **Live-exercised the built bin** (`BROWSER_TAB_FAKE_ADAPTER=1`):
+  `focus t:chrome:9900 --json` → `windowFocused:true`;
+  `--no-raise --json` → `windowFocused:false`. This is the only coverage of the
+  commander `--no-raise` → `raiseWindow` mapping — there is no CLI-action test
+  harness in this repo and adding one was judged worse than a verified manual
+  check plus tested layers underneath.
+- **Sabotage-checked, 12 inversions, each turning exactly the intended test(s)
+  red and nothing else** (every file restored and sha256-compared afterwards):
+  swapping the chromium un-minimize/raise order → 1 red (the ordering guard);
+  same for Safari → 1; flipping the extension's `raiseWindow` default to false →
+  2 (both extension-core focus tests); deleting `enrichFocusResult` → 1 (the
+  cgWindowId integration test); not forwarding `raiseWindow` from the daemon →
+  1 (the raiseWindow:false integration test); making `osaBool` guess `false`
+  instead of returning `undefined` → 1 (the "stays silent" test); skipping the
+  pre-state read when raising → 1 (`wasMinimized`); reverting `allSettled` to
+  `all` → 1; suppressing the unqueried-source list → 1; flipping the Zod
+  `.default(true)` → exactly 1 stress case. **Post-rebase, two were re-run**
+  against the merged code: the `raiseWindow` default flip (still 2) and dropping
+  `initialWindowState` from the merged fake (**#27's** two restore-before-geometry
+  tests → red, which is what proves the fake merge kept their model).
+  **One honest gap:** #27's `stateClobbers` knob has no test exercising it —
+  disabling it turns nothing red. That predates this PR; its semantics were
+  preserved faithfully rather than removed.
+- **One sabotage found a real hole and it was fixed:** suppressing
+  `unqueriedSources` in the *merge* path initially turned nothing red — the
+  existing test only covered the `targets.length === 0` early return. Added
+  "a PARTIAL merge still names the sources it skipped", re-ran the sabotage,
+  confirmed red. Also note the app's integration tests import `extension-core`
+  from its **built dist**, so sabotaging extension-core `src` does not move
+  them — the extension-core unit tests are the guard there.
+- **`@george43g/test-kit` fake chrome gained two modelled behaviours** (not
+  stubs): `windows.update` now merges into a per-window overlay that
+  `windows.get` reads back, and `tabs.update` resolves the *seeded* tab so a
+  caller reading `windowId` off the result lands on the right window instead of
+  a constant. Without either, none of the post-state reporting is testable.
+- NEXT: nothing in the bug-sweep plan — PR-F landed as #28 while this was in
+  flight, so merging PR-D **closes the plan**. Still outstanding and still
+  user-gated: reload the Chrome connector (`chrome://extensions`), which is what
+  clears `doctor`'s stale-stamp warning and confirms #25's extension-side
+  `window set --state` fix. After that, BACKLOG's remaining items are the kit
+  migration (blocked on upstream) and the wm-stack rewire — and the wm-stack
+  rewire is exactly what this PR's `focus_tab` window state was built for.

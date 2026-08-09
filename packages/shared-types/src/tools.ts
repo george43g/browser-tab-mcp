@@ -101,6 +101,15 @@ export type ListTabsInput = z.infer<typeof ListTabsInputSchema>;
 
 export const FocusTabInputSchema = z.object({
   tabId: z.string().describe("Opaque tab handle from list_tabs."),
+  raiseWindow: z
+    .boolean()
+    .default(true)
+    .describe(
+      "Also raise the tab's window: un-minimize it and bring it to the front (the default, and " +
+        "what every pathway did before this flag existed). Set false to activate the tab in place " +
+        "— no raise, no un-minimize — e.g. when a window manager owns window placement and only " +
+        "needs the tab selected.",
+    ),
 });
 export type FocusTabInput = z.infer<typeof FocusTabInputSchema>;
 
@@ -298,6 +307,44 @@ export const CommandResultSchema = z.object({
     .unknown()
     .optional()
     .describe("Command-specific extra data (e.g. the action performed, window bounds)."),
+
+  // ── window post-state (focus_tab) ───────────────────────────────────
+  //
+  // browser-tab is NOT responsible for Spaces or window visibility — that is
+  // the window manager's job. What it owes a WM is enough post-state to decide
+  // for itself without a second list_tabs round-trip: the CoreGraphics id to
+  // join on, what state the window is in, whether it had to be un-minimized,
+  // and whether it ended up frontmost. Deliberately no yabai actuation here.
+  //
+  // All four are additive-optional, so the Snapshot contract `version` does NOT
+  // move for them (see the contract invariant in AGENTS.md).
+  cgWindowId: z
+    .number()
+    .int()
+    .nullable()
+    .optional()
+    .describe(
+      "CoreGraphics window id (== yabai window id) of the affected window — the join key against " +
+        "`yabai -m query --windows`. Null when correlation is unavailable or ambiguous; absent " +
+        "when the command did not run through the daemon (correlation lives there).",
+    ),
+  windowState: WindowStateSchema.optional().describe(
+    "Window state after the command. Absent when the pathway cannot observe it.",
+  ),
+  wasMinimized: z
+    .boolean()
+    .optional()
+    .describe(
+      "True when the window was minimized BEFORE the command ran — i.e. the tab was somewhere the " +
+        "user could not see. Only the acting pathway can observe this, so it is never backfilled.",
+    ),
+  windowFocused: z
+    .boolean()
+    .optional()
+    .describe(
+      "True when the window is its browser's frontmost window after the command (same meaning as " +
+        "`focused` on a snapshot window — it says nothing about which app owns the OS focus).",
+    ),
 });
 export type CommandResult = z.infer<typeof CommandResultSchema>;
 
