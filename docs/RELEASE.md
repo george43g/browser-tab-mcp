@@ -1,70 +1,148 @@
 # Release flow
 
-`release.yml` ships disabled. Enabling it is a deliberate, per-tool decision — not every tool cloned from this template will publish to npm.
+**Tool: [release-please](https://github.com/googleapis/release-please) (manifest mode, `node-workspace` plugin).**
+**Output: git tags + GitHub Releases + `CHANGELOG.md`. Nothing is published to npm.**
 
-## When to enable
+That last sentence is the design, not an omission. Versioning and distribution
+are separate concerns here: this repo wants a durable answer to *"which release
+is this"* without committing to a registry. release-please was chosen over
+semantic-release and changesets precisely because publishing is a **job you
+simply never add** rather than a plugin you have to keep disabled — the shipped
+`.releaserc.json` had `@semantic-release/npm` wired in and only stayed harmless
+because the whole workflow was switched off.
 
-Enable when:
+## How it works
 
-- The tool is open-source AND
-- You want versioned, semantic-release-driven npm publishes on every push to main
+Two files drive it:
 
-Don't enable when:
+| File | Role |
+|---|---|
+| `release-please-config.json` | What gets released, how versions are computed |
+| `.release-please-manifest.json` | The last released version per path — **generated; release-please owns it** |
 
-- The tool is private and you distribute it via internal mechanisms (GitHub Packages with auth, internal registry, container image)
-- You're not ready to commit to SemVer (semantic-release derives the version from your commit messages — `fix:` = patch, `feat:` = minor, `BREAKING CHANGE:` footer = major)
+And one workflow, `.github/workflows/release.yml`:
 
-## How to enable
+1. **Every push to `main`** → release-please reads the Conventional Commits
+   since the last release and opens (or updates) a single rolling **release
+   PR** titled `chore(main): release X.Y.Z`. Its diff is only:
+   - `package.json` → new version
+   - `apps/browser-tab-mcp/package.json` → new version (this is the one
+     `--version` prints; see *Why the root path* below)
+   - `CHANGELOG.md` → generated release notes
+   - `.release-please-manifest.json` → new baseline
+2. **Merging that PR** → the same workflow tags `vX.Y.Z` and creates the GitHub
+   Release with those notes.
 
-The shipped workflow has a single trigger — `workflow_dispatch:` — so it never runs automatically; you can also fire it ad-hoc from the Actions tab to test the pipeline. To run it on every push to main:
+If no commit since the last release warrants a bump (`chore:`, `test:`,
+`refactor:`, `ci:`, `style:`, `build:`), no release PR appears. That is the
+intended quiet state — not a failure.
 
-1. **Uncomment the `push:` trigger** in `.github/workflows/release.yml`:
-   ```yaml
-   on:
-     workflow_dispatch:
-     push:
-       branches: [main]
-   ```
-2. **Add the `NPM_TOKEN` secret** to the repo (Settings → Secrets and variables → Actions). Generate it on npmjs.com with the `Automation` token type and publish scope for your packages.
-3. **Decide which packages to publish.** The starter ships `"private": true` on every workspace package. Set `"private": false` on the packages you want to publish:
-   - `apps/browser-tab-mcp/package.json` — the user-facing CLI / MCP / TUI bin (most common)
-   - Any `packages/*` you want reused outside this repo (typically `robustness`, `mcp-kit`, etc.)
-4. **Set the `name` field** on each publishable package to match your npm scope (the starter uses `@george43g/*`; rename if you're publishing to a different scope or unscoped).
-5. **Push a commit with a conventional-commits prefix** (e.g. `feat: initial release`) — semantic-release will compute the first version and publish.
+Nothing releases without a human merging the release PR.
 
 ## Conventional-commits cheat sheet
 
-| Prefix | Version bump |
-|--------|--------------|
-| `fix:` | patch (0.0.x) |
-| `feat:` | minor (0.x.0) |
-| `feat!:` or footer `BREAKING CHANGE:` | major (x.0.0) |
-| `chore:` / `docs:` / `style:` / `refactor:` / `test:` / `ci:` | no release |
+| Prefix | Version bump | In the changelog? |
+|--------|--------------|---|
+| `fix:` | patch (0.0.x) | yes — *Bug Fixes* |
+| `feat:` | minor (0.x.0) | yes — *Features* |
+| `perf:` | patch | yes — *Performance Improvements* |
+| `docs:` | none | yes — *Documentation* |
+| `feat!:` / `BREAKING CHANGE:` footer | **minor** while < 1.0.0, major after | yes |
+| `chore:` `test:` `refactor:` `ci:` `style:` `build:` | none | hidden |
 
-`semantic-release` will skip the release if no commit since the last tag triggered a bump.
+`bump-minor-pre-major: true` is set, so a breaking change before 1.0.0 bumps the
+minor rather than jumping to 1.0.0. Remove that option the day this repo is
+ready to promise a stable API.
 
-## Plugin chain
+This repo squash-merges with the PR title as the commit subject, so **the PR
+title is the release input**. A mislabelled PR title is a mislabelled release.
 
-`.releaserc.json`:
+## Why the root path (`"."`) and not `apps/browser-tab-mcp`
 
-1. `@semantic-release/commit-analyzer` — reads commit messages.
-2. `@semantic-release/release-notes-generator` — builds the changelog body.
-3. `@semantic-release/changelog` — writes the body to `CHANGELOG.md` (Keep-a-Changelog format).
-4. `@semantic-release/npm` — `npm publish` with `tarballDir: release`.
-5. `@semantic-release/github` — creates the GitHub release with the tarball attached.
-6. `@semantic-release/git` — commits the bumped `package.json` + `CHANGELOG.md` with `[skip ci]` so CI doesn't loop.
+release-please filters commits by the configured package path — a package at
+`apps/browser-tab-mcp` only ever sees commits that touched
+`apps/browser-tab-mcp/**` (`CommitSplit` in release-please; the root path `"."`
+is the documented special case that receives *all* commits).
 
-## Disabling for a specific tool
+That filtering would be wrong here. The shipped bin **bundles the workspace
+packages inline** (PR #14, self-contained global bin), so a fix in
+`packages/mcp-kit` or `packages/shared-types` genuinely ships inside the
+released binary. Scoping the release line to the app directory would silently
+swallow those changes: no bump, no changelog line, for code that is in the
+artifact.
 
-If you cloned this template and decided NOT to release:
+So the release line is the repo root, and `extra-files` mirrors the version
+into `apps/browser-tab-mcp/package.json` — which is what `src/meta.ts` reads at
+runtime for `--version` and the TUI header. Tags stay plain `vX.Y.Z`
+(`include-component-in-tag: false`) because there is exactly one release line.
 
-1. Delete `.github/workflows/release.yml` (or leave it disabled — `workflow_dispatch:` is the only trigger, so it never fires automatically).
-2. Delete `.releaserc.json`.
-3. Remove `semantic-release`-related entries from any package.json scripts.
+## What is deliberately NOT released
 
-## Monorepo multi-package release (advanced)
+| Package | Why not |
+|---|---|
+| `@george43g/cli-kit`, `@george43g/tui-kit`, `@george43g/robustness` | Published from `mcp-cli-starter-template`, frozen here pending a migration. Releasing them from this repo would fork their version lines. |
+| `@george43g/mcp-kit`, `shared-types`, `extension-core`, `test-kit`, `env-loader`, `secrets`, `tsconfig`, `biome-config`, `vitest-config` | Internal, unpublished, no external consumer to version for. They ship *inside* the bin, and the root release line already covers changes to them. |
+| `@george43g/chrome-extension` | Its version is the **manifest** version — user-facing in the browser's extension list, and kept in lockstep with `public/manifest.json` by `pnpm --filter @george43g/chrome-extension run bump` (PR #21), with a build-output test that fails CI on drift. Letting release-please bump `package.json` alone would break that invariant. Bumping the connector stays a deliberate manual act. |
+| `@george43g/rust-accel`, `@george43g/safari-extension` | Build inputs, not distributed artifacts. |
 
-Semantic-release in its default config publishes one root package. If you need to release multiple packages independently:
+The `node-workspace` plugin is configured but **inert today** — its scope is the
+set of release-please-managed packages (it reads the config's `packages` map,
+not the pnpm workspace globs), and there is currently one. It is there so the
+moment a second `release-type: node` line is added, intra-workspace dependency
+ranges and dependent bumps are handled correctly instead of drifting. It is a
+guard, not decoration.
 
-- Use `semantic-release-monorepo` or move to `changesets` (the latter is better for monorepos but requires more manual orchestration).
-- The starter's `.releaserc.json` is single-package by design. Don't over-engineer the release process until you actually have multiple consumers.
+## Release identity vs build identity
+
+Two different questions, two different strings — don't merge them:
+
+- **semver** (`0.3.1`) — *which release*. Moves only when a release PR merges.
+- **build stamp** (`0.3.1+412.9721c9b.dirty.0809T1420`, `scripts/build-stamp.mjs`)
+  — *which build*. Moves every commit, frozen into the bundle at build time via
+  Vite `define`. This is what catches a stale extension bundle sitting in a
+  browser reporting a plausible version.
+
+The stamp is built *from* the semver, so release-please moving the semver flows
+into the stamp automatically. Neither replaces the other.
+
+## First release
+
+The manifest starts at `0.0.0` with no matching tag, so the first release PR's
+changelog spans the full history — a complete record of the build up to the
+first tag. With `feat:` commits present and `bump-minor-pre-major: true`, the
+first release will be **`0.1.0`**, not `1.0.0`.
+
+To narrow that first changelog instead, set `bootstrap-sha` in
+`release-please-config.json` to the commit you want history to start from — it
+is honoured for the initial release only, then removable.
+
+## Operational notes
+
+- **The release PR does not run CI.** GitHub deliberately does not trigger
+  workflows for events raised by the default `GITHUB_TOKEN`, so the rolling
+  release PR shows no checks. This is acceptable because its diff is
+  version-strings + changelog, and `ci.yml` runs on the resulting push to
+  `main`. If checks on the release PR are ever wanted, swap
+  `token: ${{ secrets.GITHUB_TOKEN }}` for a PAT / GitHub App token.
+- **Forks are excluded** via `if: github.repository == 'george43g/browser-tab-mcp'`.
+- **Manual run**: the workflow also accepts `workflow_dispatch` if you need to
+  re-drive it without a new push.
+- **Never hand-edit `.release-please-manifest.json`** except to correct a
+  genuinely wrong baseline — release-please rewrites it on every release.
+
+## If npm publishing is ever wanted
+
+Deliberately not wired. If the decision changes, it is an *additive* job in
+`release.yml`, not a change to any of the above:
+
+```yaml
+  publish:
+    needs: release-please
+    if: needs.release-please.outputs.release_created == 'true'
+    # ... checkout, pnpm install, pnpm build, npm publish with NPM_TOKEN
+```
+
+That would also require `apps/browser-tab-mcp/package.json` to carry
+`"publishConfig": { "access": "public" }`, an `NPM_TOKEN` secret, and the
+`id-token: write` permission if provenance is wanted. CI already proves the
+tarball is well-formed (`npm pack --dry-run`). See `docs/FOLLOWUPS.md` § 2.

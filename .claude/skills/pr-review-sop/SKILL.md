@@ -58,8 +58,8 @@ If the PR is from a fork, run in a worktree to avoid polluting your tree.
 
 ## 5. Merge
 
-- Use `gh pr merge --squash` (default), preserving the PR title as the commit subject for semantic-release.
-- Verify the commit type prefix (`feat:`, `fix:`, `chore:`, etc) is correct — semantic-release uses it for version bumping.
+- Use `gh pr merge --squash` (default), preserving the PR title as the commit subject for release-please.
+- Verify the commit type prefix (`feat:`, `fix:`, `chore:`, etc) is correct — release-please uses it for version bumping and changelog sectioning.
 - Delete the branch after merge.
 
 ## 6. After merge
@@ -76,4 +76,4 @@ If the PR is from a fork, run in a worktree to avoid polluting your tree.
 - New `process.env` reads that bypass `envNum`/`envStr`/`envBool`
 - `// eslint-disable` or `// @ts-ignore` comments without justification in the diff
 - Refactors that disable rules in `biome.json`
-- Changes to `.releaserc.json` (these are infrastructure decisions; require explicit approval)
+- Changes to `release-please-config.json` / `.release-please-manifest.json` / `release.yml` — especially **anything that adds an npm publish step** (these are infrastructure decisions; require explicit approval)

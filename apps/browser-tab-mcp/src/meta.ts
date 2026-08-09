@@ -1,6 +1,7 @@
 /**
  * App metadata — read from package.json at runtime to avoid hand-syncing
- * the version when semantic-release bumps it.
+ * the version when release-please bumps it (this file's `version` is the one
+ * release-please mirrors here via `extra-files`; see docs/RELEASE.md).
  */
 
 import { execFileSync } from "node:child_process";

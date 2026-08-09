@@ -94,10 +94,13 @@ genuine decisions into DECISIONS.md.
    Open sub-item: yabai does **not** list the Safari window in
    `query --windows`, so Safari can't correlate under tier 2 (native only).
 
-6. **npm release enablement** — deliberately OFF until the user wants to
-   distribute beyond this machine. Full plan: `docs/FOLLOWUPS.md` §2 (publish
-   only the bin package; `NPM_TOKEN` secret; uncomment the `release.yml`
-   trigger; semantic-release dry-run first).
+6. **npm publish enablement** — deliberately OFF, and no longer coupled to
+   versioning. ~~Release automation~~ **landed (PR-F)**: release-please
+   (manifest mode + `node-workspace`) now produces tags + GitHub Releases +
+   `CHANGELOG.md` on merge of a rolling release PR; the orphaned
+   `.releaserc.json` was deleted. What's still deferred is **distribution
+   only** — `docs/FOLLOWUPS.md` §2 (publish only the bin package; `NPM_TOKEN`
+   secret; add a separate `publish` job gated on `release_created`).
 
 7. **Optional polish** (from `docs/HANDOFF.md`):
    - Safari background-*page* 30-min idle soak — confirm it stays connected or
@@ -130,7 +133,12 @@ genuine decisions into DECISIONS.md.
 - ~~Install full Xcode for Safari packaging~~ — **answered 2026-07-29**: Xcode
   is installed, Safari extension is live (queue item 5).
 - When to start the COVERAGE_GATE ratchet (queue item 3)?
-- When (if ever soon) to enable `release.yml` / npm publish (queue item 6)?
+- ~~Release automation~~ — **answered / shipped (PR-F)**: release-please, tags
+  + releases + changelog, no npm publish. Remaining question is narrower: when
+  (if ever soon) to enable **npm publish** (queue item 6)?
+- First release will be **`0.1.0`** with a changelog spanning the full history
+  (the manifest baseline is `0.0.0` and no tag exists). Want that, or should
+  `bootstrap-sha` narrow it? See `docs/RELEASE.md` § "First release".
 - Does the `cgWindowId` tiebreaker (queue item 1) need to preserve *stable*
   ids across a re-tile, or is per-snapshot correctness enough? (Titles change
   as the user navigates; ids must stay right, not stay constant.)

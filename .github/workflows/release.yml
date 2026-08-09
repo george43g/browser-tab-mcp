@@ -1,70 +1,85 @@
-# Release workflow — semantic-release driven npm publish.
+# Release — release-please (manifest mode).
 #
-# DISABLED BY DEFAULT: the only trigger is `workflow_dispatch`, so this
-# workflow never runs on its own — you have to fire it manually from the
-# Actions tab. To enable automatic releases on push to main:
+# WHAT THIS DOES
+#   1. On every push to `main` it opens/updates ONE rolling "release PR"
+#      (`chore(main): release X.Y.Z`) whose diff is: the version bump in
+#      `package.json` + `apps/browser-tab-mcp/package.json`, the generated
+#      `CHANGELOG.md`, and `.release-please-manifest.json`.
+#   2. When you merge that PR, the same job tags `vX.Y.Z` and creates the
+#      GitHub Release with the changelog body.
 #
-#   1. Uncomment the `push:` trigger below.
-#   2. Add NPM_TOKEN as a repository secret (with publish scope for the
-#      packages listed in .releaserc.json or your tool's package.json).
-#   3. Decide which packages to publish: the starter ships private:true
-#      on every workspace package — set `private: false` only on the apps
-#      / packages you want to publish, then customize `.releaserc.json`
-#      accordingly.
+#   Nothing is released until a human merges the release PR. Config lives in
+#   `release-please-config.json` + `.release-please-manifest.json`; the flow is
+#   documented in `docs/RELEASE.md`.
 #
-# See docs/RELEASE.md for the full flow.
+# THERE IS DELIBERATELY NO npm PUBLISH STEP — DO NOT ADD ONE.
+#   This repo wants versioning decoupled from distribution: git tags, GitHub
+#   Releases and changelogs, and nothing else. release-please was chosen over
+#   semantic-release precisely because publishing is a separate job you simply
+#   never add, rather than a plugin you have to keep disabled. If publishing is
+#   ever wanted, it becomes a NEW job gated on
+#   `needs.release-please.outputs.release_created`, decided explicitly — see
+#   docs/RELEASE.md § "If npm publishing is ever wanted".
+#
+# WHY THIS NEVER RUNS ON A PULL REQUEST
+#   The only triggers are `push: branches: [main]` and manual dispatch. It is
+#   not part of the PR check set, so it cannot make a contributor's PR red.
+#
+# BUILD IDENTITY IS A SEPARATE AXIS
+#   `scripts/build-stamp.mjs` stamps every artifact with
+#   `<semver>+<count>.<sha>[.dirty]` — that answers "which build is running".
+#   The semver this workflow moves answers "which release". They coexist: the
+#   stamp reads whatever version release-please last wrote.
 
 name: Release
 
 on:
+  push:
+    branches: [main]
   workflow_dispatch:
-  # push:
-  #   branches: [main]
 
 permissions:
   contents: write
-  issues: write
   pull-requests: write
-  id-token: write
 
 concurrency:
-  group: release-${{ github.ref }}
+  group: release-please-${{ github.ref }}
   cancel-in-progress: false
 
 jobs:
-  release:
-    if: "!contains(github.event.head_commit.message, '[skip ci]')"
+  release-please:
+    name: release-please
+    # Forks must never try to open release PRs against their own copy.
+    if: github.repository == 'george43g/browser-tab-mcp'
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout
-        uses: actions/checkout@v6
+      # The action talks to the GitHub API only — no checkout, no pnpm install,
+      # no build. Correctness of the tree is already CI's job (ci.yml runs on
+      # this same push).
+      - name: Run release-please
+        id: release
+        uses: googleapis/release-please-action@v4
         with:
-          fetch-depth: 0
-          persist-credentials: true
+          token: ${{ secrets.GITHUB_TOKEN }}
+          config-file: release-please-config.json
+          manifest-file: .release-please-manifest.json
 
-      - name: Setup pnpm
-        uses: pnpm/action-setup@v6
-        with:
-          version: 10.29.3
-
-      - name: Setup Node
-        uses: actions/setup-node@v6
-        with:
-          node-version: "24"
-          cache: pnpm
-          registry-url: https://registry.npmjs.org
-
-      - name: Setup Rust
-        uses: dtolnay/rust-toolchain@stable
-
-      - name: Install dependencies
-        run: pnpm install --frozen-lockfile
-
-      - name: Verify (lint + typecheck + test + build)
-        run: pnpm verify
-
-      - name: Run semantic-release
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
-        run: pnpm dlx semantic-release
+      # Visibility only: the step summary records whether this run opened a
+      # release PR or cut a release, so the Actions tab answers "did anything
+      # happen" without opening logs.
+      #
+      # NOTE — these output names are UN-PREFIXED only because the release line
+      # is the root path ".". release-please-action namespaces per-path outputs
+      # as `<path>--<key>` and special-cases "." to the bare key. If the package
+      # path in release-please-config.json ever moves off the root, these become
+      # `<path>--release_created` / `<path>--tag_name` and this step silently
+      # renders blanks. Update both together.
+      - name: Summarize
+        run: |
+          {
+            echo "### release-please"
+            echo ""
+            echo "- release cut: \`${{ steps.release.outputs.release_created || 'false' }}\`"
+            echo "- tag: \`${{ steps.release.outputs.tag_name || '(none)' }}\`"
+            echo "- release PR open/updated: \`${{ steps.release.outputs.prs_created || 'false' }}\`"
+          } >> "$GITHUB_STEP_SUMMARY"
