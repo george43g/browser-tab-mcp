@@ -42,11 +42,22 @@ export class EngineLoop {
   private queue: Promise<void> = Promise.resolve();
   private lastScanDurationMs = 0;
   private lastPolled: Snapshot | null = null;
+  private onTick: (() => void) | null = null;
 
   constructor(
     private readonly store: StateStore,
     private readonly merger: SourceMerger,
   ) {}
+
+  /**
+   * Run `fn` after every tick that completes without throwing. This is the
+   * liveness signal the heartbeat file rides on: a tick that wedges or throws
+   * never fires it, so a stalled read loop stops the beat instead of faking it.
+   * Settable (not constructor-injected) because the writer needs the loop.
+   */
+  setOnTick(fn: () => void): void {
+    this.onTick = fn;
+  }
 
   start(): void {
     if (this.timer) return;
@@ -114,6 +125,8 @@ export class EngineLoop {
         this.store.update(merged);
       }
       this.lastScanDurationMs = Date.now() - started;
+      // Last thing in the happy path — see setOnTick.
+      this.onTick?.();
     } catch (err) {
       logError("engine_loop_tick_failed", { message: (err as Error).message });
     } finally {

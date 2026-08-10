@@ -631,3 +631,34 @@ main-display data point came from the user moving Safari by hand. That
 the kit owner's cli-kit/robustness release questions (see BACKLOG for the two
 queued follow-ups: heartbeat file, kit shim removal at `robustness@^0.7.0` /
 `cli-kit@^1.0.0` — note cli-kit went to **1.0.0**, not 0.4.0).
+
+## 2026-08-10 (later) — daemon heartbeat file for shell consumers
+
+**Trigger:** the wm-stack session's one feature request. Their sketchybar tier
+reads `snapshot.json` directly (zero forks), but had no cheap way to tell a
+*quiet* daemon from a *dead* one: `daemon status` costs ~130ms of node boot per
+bar event, and a stale socket file lies after a crash.
+
+- **Why a second file:** `snapshot.json` is rewritten ONLY on a state diff, so
+  its mtime means "state changed" and can be hours old while perfectly correct.
+  Touching it every tick would have answered "alive?" by destroying the answer
+  to "changed?". Two questions, two files.
+- **Why it rides the tick, not a timer** (the design point worth keeping): a
+  `setInterval` beacon keeps beating while the read loop is wedged on a hung
+  `osascript` — precisely the failure a consumer wants to detect. It's written
+  as the last statement of the happy path in `EngineLoop.tick`, via
+  `setOnTick`, so a stalled or throwing tick stops the beat.
+- **Removed on clean `stop()`** so a stopped daemon reads as down immediately;
+  a crash leaves it to age out, which is what the age check is for.
+- `snapshotChangedAt` rides along so one read separates "alive" from "current".
+- **Bar:** lint 0 (bare) · typecheck · `turbo test --force` 551 tests · 
+  test:no-native · build · stress 27/27. **2 sabotage checks:** decoupling the
+  beacon from the tick → 3 red; collapsing it onto `snapshot.json` → 8 red;
+  restored → 23/23.
+- **Live:** heartbeat mtime advanced 343→348→353 (5s cadence) while
+  `snapshot.json` stayed frozen at 341 — the two-meanings property observed
+  rather than assumed.
+- Clean-stop removal is covered by unit + integration tests but was NOT
+  live-checked, to avoid downing the user's daemon for the observation.
+
+New env: `BROWSER_TAB_HEARTBEAT_PATH` (added to `.env.example` same commit).

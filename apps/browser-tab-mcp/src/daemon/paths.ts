@@ -3,7 +3,8 @@
  * flag-overridable via the env↔flag binder).
  *
  *   ~/.browser-tab/            state dir (socket, extension token, pid)
- *   ~/.cache/browser-tab/      snapshot.json + last.json for shell consumers
+ *   ~/.cache/browser-tab/      snapshot.json + last.json + heartbeat.json
+ *                              for shell consumers
  *   ~/Library/Logs/browser-tab/  launchd stdout/stderr
  */
 
@@ -32,6 +33,15 @@ export function snapshotPath(): string {
 
 export function lastScanPath(): string {
   return join(cacheDir(), "last.json");
+}
+
+/**
+ * Liveness beacon for shell consumers. Deliberately NOT `snapshot.json`, whose
+ * mtime must keep meaning "state changed" — a bar renderer that wants change
+ * detection and a bar renderer that wants liveness need different files.
+ */
+export function heartbeatPath(): string {
+  return process.env.BROWSER_TAB_HEARTBEAT_PATH ?? join(cacheDir(), "heartbeat.json");
 }
 
 /** Focus/navigation journal directory (ndjson rings). */

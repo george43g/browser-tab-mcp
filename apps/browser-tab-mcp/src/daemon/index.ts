@@ -553,6 +553,9 @@ export async function startDaemon(): Promise<DaemonHandle> {
   const merger = new SourceMerger();
   const loop = new EngineLoop(store, merger);
   const writer = new SnapshotWriter(() => loop.lastScanDuration());
+  // Liveness beacon rides the tick, not a timer — a wedged read loop must stop
+  // the beat rather than keep reporting "alive" (see SnapshotWriter.heartbeat).
+  loop.setOnTick(() => writer.heartbeat());
   const journal = new JournalStore();
   journal.warmFromDisk();
   const contentCache = new ContentCache();

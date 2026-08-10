@@ -125,7 +125,9 @@ Per-app:
 - `pnpm --filter @george43g/safari-extension unregister` — prune stale/duplicate Safari extension registrations (`clean.sh --all` for a hard reset)
 - `pnpm --filter @george43g/browser-tab-mcp stress:tui` — TUI memory/lag soak
 
-State/paths at runtime: socket `~/.browser-tab/daemon.sock`, extension token `~/.browser-tab/extension-token`, snapshot cache `~/.cache/browser-tab/{snapshot,last}.json`, launchd logs `~/Library/Logs/browser-tab/`.
+State/paths at runtime: socket `~/.browser-tab/daemon.sock`, extension token `~/.browser-tab/extension-token`, snapshot cache `~/.cache/browser-tab/{snapshot,last}.json`, liveness beacon `~/.cache/browser-tab/heartbeat.json`, launchd logs `~/Library/Logs/browser-tab/`.
+
+**Heartbeat vs snapshot — two files, two meanings, don't merge them.** `snapshot.json` is rewritten ONLY on a state diff (debounced ≤1/s), so its mtime means *"state changed"* and can be hours old while perfectly correct — it cannot distinguish a quiet daemon from a dead one. `heartbeat.json` (`SnapshotWriter.heartbeat`, `daemon/paths.ts:heartbeatPath`) is written at the **end of every completed engine tick** via `EngineLoop.setOnTick`, so its mtime means *"alive"*. It rides the tick rather than a `setInterval` **on purpose**: a timer keeps beating while the read loop is wedged on a hung `osascript`, which is exactly the failure a consumer is trying to detect. It's removed on a clean `stop()` so a stopped daemon reads as down immediately; a crash leaves it to age out. Carries `snapshotChangedAt` so one read separates "alive" from "current". Shell consumers `stat` it instead of forking `daemon status` (~130ms of node boot). New env: `BROWSER_TAB_HEARTBEAT_PATH`.
 
 ## Connector extension (Chrome + Safari)
 
