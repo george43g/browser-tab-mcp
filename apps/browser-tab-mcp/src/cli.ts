@@ -45,6 +45,28 @@ function parseBounds(s?: string): { x: number; y: number; w: number; h: number }
 }
 
 /**
+ * A failing tool has no `structuredContent`, so JSON mode used to print the raw
+ * MCP envelope (`{content:[{type:"text",…}],isError:true}`) — a different
+ * top-level shape from the success case, which meant `jq '.rows'` quietly
+ * yielded `null` instead of failing. Emit one documented shape instead, so a
+ * consumer can branch on a single key.
+ *
+ * Returns undefined for a successful result (caller falls through to the
+ * normal payload).
+ */
+function errorEnvelope(
+  result: Awaited<ReturnType<typeof callMcpTool>>,
+  tool?: string,
+): { error: { tool: string; message: string } } | undefined {
+  if (!result.isError) return undefined;
+  const message = (result.content ?? [])
+    .map((item) => (item.type === "text" ? item.text : ""))
+    .filter(Boolean)
+    .join("\n");
+  return { error: { tool: tool ?? "unknown", message: message || "Tool failed." } };
+}
+
+/**
  * Print a tool result.
  *
  * Mode comes from cli-kit's `resolveOutputMode`: explicit `--json` wins, then a
@@ -54,14 +76,23 @@ function parseBounds(s?: string): { x: number; y: number; w: number; h: number }
  * `tool` is optional: pass it to opt a command into a human renderer. Without
  * one — or for a tool `renderForTool` doesn't know — output falls back to the
  * dispatcher's JSON text block, so nothing silently loses information.
+ *
+ * **Failure is signalled before the mode switch, never after it.** The exit code
+ * used to be set at the bottom of the human branch, which the JSON branch
+ * returns before ever reaching — so a failing tool exited 0 for every piped,
+ * `--json` or CI caller and 1 only for a human watching a terminal. That is
+ * backwards: the non-interactive callers are the ones that can't read prose.
+ * `process.exitCode` (not `process.exit()`) so a pending stdout write on a pipe
+ * still flushes.
  */
 async function printResult(
   result: Awaited<ReturnType<typeof callMcpTool>>,
   json: boolean,
   tool?: string,
 ) {
+  if (result.isError) process.exitCode = 1;
   if (resolveOutputMode({ json }) === "json") {
-    printJson(result.structuredContent ?? result);
+    printJson(errorEnvelope(result, tool) ?? result.structuredContent ?? result);
     return;
   }
   const human =
@@ -79,7 +110,8 @@ async function printResult(
       process.stdout.write(`[image ${item.mimeType}, ${item.data.length} base64 chars]\n`);
     }
   }
-  if (result.isError) process.exit(1);
+  // Exit code already set above, before the mode switch — deliberately not
+  // process.exit() here, which can truncate the write we just queued.
 }
 
 export async function main(argv: readonly string[] = process.argv): Promise<void> {
@@ -179,7 +211,7 @@ export async function main(argv: readonly string[] = process.argv): Promise<void
     .action(async () => {
       const json = program.opts<{ json?: boolean }>().json ?? false;
       const result = await callMcpTool("health_check", {});
-      await printResult(result, json);
+      await printResult(result, json, "health_check");
     });
 
   program
@@ -269,7 +301,7 @@ export async function main(argv: readonly string[] = process.argv): Promise<void
         mode: opts.mode ?? "text",
         force: opts.force ?? false,
       });
-      await printResult(result, json);
+      await printResult(result, json, "get_page");
     });
 
   program
@@ -283,7 +315,7 @@ export async function main(argv: readonly string[] = process.argv): Promise<void
         url,
         ...(opts.note !== undefined ? { note: opts.note } : {}),
       });
-      await printResult(result, json);
+      await printResult(result, json, "annotate");
     });
 
   program
@@ -311,7 +343,7 @@ export async function main(argv: readonly string[] = process.argv): Promise<void
         });
         const sc = result.structuredContent as { path?: string } | undefined;
         if (opts.out && sc?.path) copyFileSync(sc.path, opts.out);
-        await printResult(result, json);
+        await printResult(result, json, "screenshot");
       },
     );
 
@@ -324,7 +356,11 @@ export async function main(argv: readonly string[] = process.argv): Promise<void
     .argument("<tabId>", "Opaque tabId from `browser-tab list`")
     .action(async (tabId: string, opts: { raise: boolean }) => {
       const json = program.opts<{ json?: boolean }>().json ?? false;
-      await printResult(await callMcpTool("focus_tab", { tabId, raiseWindow: opts.raise }), json);
+      await printResult(
+        await callMcpTool("focus_tab", { tabId, raiseWindow: opts.raise }),
+        json,
+        "focus_tab",
+      );
     });
 
   program
@@ -333,7 +369,7 @@ export async function main(argv: readonly string[] = process.argv): Promise<void
     .argument("<tabId>", "Opaque tabId from `browser-tab list`")
     .action(async (tabId: string) => {
       const json = program.opts<{ json?: boolean }>().json ?? false;
-      await printResult(await callMcpTool("close_tab", { tabId }), json);
+      await printResult(await callMcpTool("close_tab", { tabId }), json, "close_tab");
     });
 
   program
@@ -351,7 +387,7 @@ export async function main(argv: readonly string[] = process.argv): Promise<void
         ...(opts.browser ? { browser: opts.browser } : {}),
         ...(opts.window ? { windowId: opts.window } : {}),
       });
-      await printResult(result, json);
+      await printResult(result, json, "open_tab");
     });
 
   program
@@ -375,7 +411,7 @@ export async function main(argv: readonly string[] = process.argv): Promise<void
           ...(opts.targetWindow ? { targetWindowId: opts.targetWindow } : {}),
           ...(opts.index !== undefined ? { targetIndex: Number.parseInt(opts.index, 10) } : {}),
         });
-        await printResult(result, json);
+        await printResult(result, json, "move_tab");
       },
     );
 
@@ -394,7 +430,7 @@ export async function main(argv: readonly string[] = process.argv): Promise<void
         action,
         ...(opts.url ? { url: opts.url } : {}),
       });
-      await printResult(result, json);
+      await printResult(result, json, "tab_action");
     });
 
   program
@@ -435,7 +471,7 @@ export async function main(argv: readonly string[] = process.argv): Promise<void
           ...(opts.targetWindow ? { targetWindowId: opts.targetWindow } : {}),
           ...(opts.index !== undefined ? { index: Number.parseInt(opts.index, 10) } : {}),
         });
-        await printResult(result, json);
+        await printResult(result, json, "group_tabs");
       },
     );
 
@@ -472,7 +508,7 @@ export async function main(argv: readonly string[] = process.argv): Promise<void
           ...(opts.display !== undefined ? { display: Number.parseInt(opts.display, 10) } : {}),
           ...(opts.state ? { state: opts.state } : {}),
         });
-        await printResult(result, json);
+        await printResult(result, json, "open_window");
       },
     );
   windowCmd
@@ -496,7 +532,7 @@ export async function main(argv: readonly string[] = process.argv): Promise<void
           ...(opts.state ? { state: opts.state } : {}),
           ...(opts.focus ? { focused: true } : {}),
         });
-        await printResult(result, json);
+        await printResult(result, json, "set_window");
       },
     );
   windowCmd
@@ -505,7 +541,7 @@ export async function main(argv: readonly string[] = process.argv): Promise<void
     .argument("<windowId>", "Opaque windowId from `browser-tab list`")
     .action(async (windowId: string) => {
       const json = program.opts<{ json?: boolean }>().json ?? false;
-      await printResult(await callMcpTool("close_window", { windowId }), json);
+      await printResult(await callMcpTool("close_window", { windowId }), json, "close_window");
     });
 
   registerDaemonCommand(program);
@@ -518,7 +554,7 @@ export async function main(argv: readonly string[] = process.argv): Promise<void
     .action(async (opts: { input: string; upper: boolean }) => {
       const json = program.opts<{ json?: boolean }>().json ?? false;
       const result = await callMcpTool("noop", { input: opts.input, upper: opts.upper });
-      await printResult(result, json);
+      await printResult(result, json, "noop");
     });
 
   program
