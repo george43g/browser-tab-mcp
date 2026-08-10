@@ -8,6 +8,7 @@ The interface `~/dotfiles/wm-stack` rewires around, replacing
 |---|---|---|
 | Unix socket `~/.browser-tab/daemon.sock` | Hammerspoon/long-lived consumers (subscribe = push events) | <5ms |
 | Snapshot file `~/.cache/browser-tab/snapshot.json` | sketchybar / shell one-liners | free (read a file) |
+| Heartbeat file `~/.cache/browser-tab/heartbeat.json` | liveness for the same shell tier | free (one `stat`) |
 | `browser-tab list --json` | scripts, ad-hoc | ~50ms (daemon up) / ~300ms+ (degraded osascript) |
 
 ## Snapshot shape (version 2)
@@ -208,6 +209,46 @@ it reports these and leaves the decision to the WM.
 Handles come from `list_tabs`; a command may reissue a handle — re-list afterward.
 `display` targeting needs the native module (`list_displays()`); without it, use explicit
 `bounds` in global screen coordinates. Query available displays via the `status` method.
+
+### Liveness: `heartbeat.json` (do NOT use `generatedAt`)
+
+`snapshot.json` is rewritten **only when state changes** (debounced ≤1/s), so
+its `generatedAt` and mtime are "last change", not "last check". An idle machine
+leaves both hours old while the content stays perfectly correct — which means
+**neither can tell a healthy quiet daemon from a dead one**. Same for
+`last.json`, written in the same flush.
+
+So liveness is a separate file:
+
+```json
+{"ts":1786303812441,"pid":79004,"build":"1.0.1+40.1291921","contractVersion":2,"snapshotChangedAt":1786303044118}
+```
+
+- Written at the **end of every completed engine tick** — cadence is
+  `BROWSER_TAB_POLL_MS` (5s default). Deliberately not a standalone timer: a
+  timer keeps beating while the read loop is wedged on a hung `osascript`,
+  which is the failure you are trying to detect. A stalled loop stops the beat.
+- **Removed on a clean stop**, so a stopped daemon reads as down immediately
+  instead of ageing out. A crash leaves it behind — that's what the age check is
+  for.
+- `snapshotChangedAt` dates `snapshot.json` separately, so one read answers both
+  "is the daemon alive?" and "is my snapshot current, or merely unchanged?"
+
+Recommended shell check — one `stat`, no fork of ours:
+
+```bash
+hb=~/.cache/browser-tab/heartbeat.json
+if [ -f "$hb" ] && [ $(( $(date +%s) - $(stat -f %m "$hb") )) -lt 90 ]; then
+  # daemon alive; snapshot.json is current-or-genuinely-unchanged
+else
+  # fall back to your own source
+fi
+```
+
+A 60–90s threshold gives 12–18 ticks of headroom at the default poll. Do **not**
+infer extension health from the heartbeat: a connector can drop while the daemon
+keeps beating and serves that browser from AppleScript instead. Check
+`browsers[].extensionConnected` / `dataSource` for that.
 
 **`ok: true` is not a promise the geometry stuck.** Under a tiling WM the command
 executes and yabai re-tiles the window milliseconds later — verified 2026-08-10:

@@ -133,6 +133,24 @@ Chrome-only result says why instead of looking like "there was nothing":
 message). A merged query degrades per-source; naming one `browser` explicitly
 still errors outright.
 
+### Reading state without running anything
+
+The daemon keeps two files under `~/.cache/browser-tab/` for consumers that
+can't afford to fork a CLI (a status-bar plugin re-running every few seconds):
+
+| File | Rewritten | mtime means |
+|---|---|---|
+| `snapshot.json` | only when state changes (≤1/s) | **state changed** |
+| `heartbeat.json` | end of every completed poll tick | **daemon alive** |
+
+They're separate on purpose: an idle machine leaves `snapshot.json` hours old
+*and* perfectly correct, so its age can't tell a quiet daemon from a dead one.
+`heartbeat.json` answers that with one `stat` — and because it's written at the
+end of a tick rather than on a timer, a daemon wedged on a hung `osascript`
+stops beating instead of lying. It's removed on a clean stop, and carries
+`snapshotChangedAt` so one read separates "alive" from "current". See
+[`docs/WM_STACK_CONTRACT.md`](docs/WM_STACK_CONTRACT.md) for the shell recipe.
+
 ### Output: human at a terminal, JSON everywhere else
 
 Read commands (`list`, `journal`, `history`, `daemon status`) print a readable

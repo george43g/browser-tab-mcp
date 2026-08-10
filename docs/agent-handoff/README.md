@@ -63,12 +63,12 @@ the matched CG frame is adopted so `bounds` stop lying). Full detail + the
 disproved earlier theory: `BACKLOG.md` item 5.
 
 **Queued behind it** (user-sequenced, 2026-08-10):
-1. **Heartbeat file** for shell consumers — wm-stack's sketchybar tier needs a
-   liveness signal it can `stat`; `daemon status` costs a ~130ms node fork and a
-   stale socket file lies after a crash. Agreed design: a separate
-   `~/.cache/browser-tab/heartbeat.json` (NOT `snapshot.json`, whose mtime must
-   keep meaning "state changed"), written at the **end of a successful engine
-   tick** so a wedged osascript stops the beat instead of faking liveness.
+1. ~~**Heartbeat file**~~ **DONE** — branch `feat/daemon-heartbeat`.
+   `~/.cache/browser-tab/heartbeat.json`, written at the end of every completed
+   engine tick (`EngineLoop.setOnTick` → `SnapshotWriter.heartbeat`), removed on
+   a clean stop, carrying `snapshotChangedAt`. Kept separate from
+   `snapshot.json` so that file's mtime keeps meaning "state changed" — the two
+   questions ("alive?" / "current?") need two files.
 2. **Kit shim removal** — `robustness@^0.7.0` (delete `ShotBucket`) and
    `cli-kit@^1.0.0` (collapse the REPL adapter in `cli.ts` to
    `return callMcpTool(name, args)`). Both published; `tui-kit@0.4.0` is

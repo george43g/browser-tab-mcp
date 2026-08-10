@@ -4,7 +4,7 @@
  * exactly the pathway MCP/CLI/TUI clients use.
  */
 
-import { existsSync, rmSync } from "node:fs";
+import { existsSync, readFileSync, rmSync, statSync } from "node:fs";
 import { join } from "node:path";
 import type { Snapshot } from "@george43g/shared-types";
 import {
@@ -206,5 +206,51 @@ describe("diffSnapshots", () => {
   it("emits nothing when nothing changed", () => {
     const s = snap([{ tabId: "t:chrome:1", url: "https://a.test/", index: 0 }]);
     expect(diffSnapshots(s, s)).toEqual([]);
+  });
+});
+
+/**
+ * The heartbeat is the liveness signal shell consumers (sketchybar plugins)
+ * stat instead of forking `daemon status`. It must ride a COMPLETED engine
+ * tick — a bare timer would keep beating while the read loop is wedged, which
+ * is exactly the failure the consumer is trying to detect.
+ */
+describe("daemon heartbeat file", () => {
+  const heartbeatFile = (): string => join(tmp, "heartbeat.json");
+
+  it("appears once the daemon has completed a tick", async () => {
+    await startTestDaemon();
+    expect(existsSync(heartbeatFile())).toBe(true);
+  });
+
+  it("advances on each subsequent tick while the snapshot stays unchanged", async () => {
+    const d = await startTestDaemon();
+    const first = JSON.parse(readFileSync(heartbeatFile(), "utf8")) as { ts: number };
+    const snapshotBefore = existsSync(join(tmp, "snapshot.json"))
+      ? statSync(join(tmp, "snapshot.json")).mtimeMs
+      : 0;
+
+    const spin = Date.now();
+    while (Date.now() === spin) {
+      /* ensure ts can move */
+    }
+    await d.loop.refresh();
+
+    const second = JSON.parse(readFileSync(heartbeatFile(), "utf8")) as { ts: number };
+    expect(second.ts).toBeGreaterThan(first.ts);
+    // ...and the unchanged snapshot was NOT rewritten: the two files carry
+    // different meanings and must not be collapsed into one.
+    const snapshotAfter = existsSync(join(tmp, "snapshot.json"))
+      ? statSync(join(tmp, "snapshot.json")).mtimeMs
+      : 0;
+    expect(snapshotAfter).toBe(snapshotBefore);
+  });
+
+  it("is removed on a clean stop so a stopped daemon reads as down", async () => {
+    const d = await startTestDaemon();
+    expect(existsSync(heartbeatFile())).toBe(true);
+    await d.stop();
+    daemon = null;
+    expect(existsSync(heartbeatFile())).toBe(false);
   });
 });
