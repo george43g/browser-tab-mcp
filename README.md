@@ -158,6 +158,19 @@ view when stdout is a terminal, and **JSON** when it isn't — so pipes, scripts
 and CI keep the exact machine-readable output they always had. Precedence:
 `--json` wins, then a non-TTY stdout, then `CI=true`, else human.
 
+**Failure is signalled the same way in every mode.** A failing tool exits
+non-zero whether you're piping, passing `--json`, running under CI, or watching
+a terminal, and JSON mode emits one documented shape so a consumer can branch on
+a single key:
+
+```console
+$ browser-tab --json focus nonsense ; echo "exit=$?"
+{"error":{"tool":"focus_tab","message":"Tool \"focus_tab\" failed: Malformed handle \"nonsense\" — use handles from list_tabs."}}
+exit=1
+```
+
+Success output is unchanged — the bare domain object, no wrapper.
+
 ```console
 $ browser-tab list --browser chrome
 chrome  extension · 2 windows · 4 tabs ← focused
