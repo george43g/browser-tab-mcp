@@ -1,5 +1,17 @@
 # Changelog
 
+## [1.1.0](https://github.com/george43g/browser-tab-mcp/compare/v1.0.1...v1.1.0) (2026-08-10)
+
+
+### Features
+
+* **daemon:** heartbeat file so shell consumers can check liveness with one stat ([#41](https://github.com/george43g/browser-tab-mcp/issues/41)) ([1956e75](https://github.com/george43g/browser-tab-mcp/commit/1956e75fda6150ed019d9a70a4ae3ed96a4f44f3))
+
+
+### Bug Fixes
+
+* **correlate:** resolve cgWindowId when a source reports display-local bounds ([#39](https://github.com/george43g/browser-tab-mcp/issues/39)) ([1291921](https://github.com/george43g/browser-tab-mcp/commit/129192104b6791d81fa3479de179a25c1f7b7a24))
+
 ## [1.0.1](https://github.com/george43g/browser-tab-mcp/compare/v1.0.0...v1.0.1) (2026-08-09)
 
 
