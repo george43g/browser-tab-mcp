@@ -59,14 +59,14 @@
     "zod": "^3.23.0"
   },
   "devDependencies": {
-    "@george43g/cli-kit": "^0.3.1",
+    "@george43g/cli-kit": "^2.0.0",
     "@george43g/extension-core": "workspace:*",
     "@george43g/mcp-kit": "workspace:*",
-    "@george43g/robustness": "^0.6.0",
+    "@george43g/robustness": "^0.7.0",
     "@george43g/shared-types": "workspace:*",
     "@george43g/test-kit": "workspace:*",
     "@george43g/tsconfig": "workspace:*",
-    "@george43g/tui-kit": "^0.3.3",
+    "@george43g/tui-kit": "^0.4.0",
     "@george43g/vitest-config": "workspace:*",
     "@types/node": "^24.13.3",
     "@types/react": "^19.2.17",

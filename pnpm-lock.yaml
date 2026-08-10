@@ -55,8 +55,8 @@ importers:
         version: 3.25.76
     devDependencies:
       '@george43g/cli-kit':
-        specifier: ^0.3.1
-        version: 0.3.1(commander@14.0.3)
+        specifier: ^2.0.0
+        version: 2.0.0(commander@14.0.3)
       '@george43g/extension-core':
         specifier: workspace:*
         version: link:../../packages/extension-core
@@ -64,8 +64,8 @@ importers:
         specifier: workspace:*
         version: link:../../packages/mcp-kit
       '@george43g/robustness':
-        specifier: ^0.6.0
-        version: 0.6.0
+        specifier: ^0.7.0
+        version: 0.7.0
       '@george43g/shared-types':
         specifier: workspace:*
         version: link:../../packages/shared-types
@@ -76,8 +76,8 @@ importers:
         specifier: workspace:*
         version: link:../../packages/tsconfig
       '@george43g/tui-kit':
-        specifier: ^0.3.3
-        version: 0.3.3(@george43g/robustness@0.6.0)(@types/react@19.2.17)(ink@7.1.1(@types/react@19.2.17)(react@19.2.8))(react@19.2.8)
+        specifier: ^0.4.0
+        version: 0.4.0(@george43g/robustness@0.7.0)(@types/react@19.2.17)(ink@7.1.1(@types/react@19.2.17)(react@19.2.8))(react@19.2.8)
       '@george43g/vitest-config':
         specifier: workspace:*
         version: link:../../packages/vitest-config
@@ -211,8 +211,8 @@ importers:
   packages/mcp-kit:
     dependencies:
       '@george43g/robustness':
-        specifier: ^0.6.0
-        version: 0.6.0
+        specifier: ^0.7.0
+        version: 0.7.0
       '@modelcontextprotocol/sdk':
         specifier: ^1.29.0
         version: 1.29.0(zod@3.25.76)
@@ -709,21 +709,21 @@ packages:
     cpu: [x64]
     os: [win32]
 
-  '@george43g/cli-kit@0.3.1':
-    resolution: {integrity: sha512-L6z1w8r9ocFETr/HTKkNgdyx9zv9JMbmfbRY5N5SzqA7EFVdTj10WOtcFoe7mYj8X7jwDb44yTCZpU47M6u/AA==}
+  '@george43g/cli-kit@2.0.0':
+    resolution: {integrity: sha512-S7yI0jfEf70ig7SSebqgBDPFOvutIYbrrwt7xtX2tkPJg/s7NWkKKxSGDzHN/r/VChS5QSG2aTX8jAr3cySong==}
     engines: {node: '>=24'}
     peerDependencies:
       commander: ^14.0.0
 
-  '@george43g/robustness@0.6.0':
-    resolution: {integrity: sha512-txRM8vueafx6bsCbs2wYbh1jncOpYU2iPgDSKk+IXnbZkgWLkZ0moRtJsr205fb7TT+p7t4OFQj/4UunU3A4fw==}
+  '@george43g/robustness@0.7.0':
+    resolution: {integrity: sha512-dTdN/tGRPzIgyjtcPzIVpNjzPFNoUdyx6DJ3V0CW/KO62Pqie/u0W/wLBmmEp9kE66j2RD+DE6Y1jTwz4XCVqA==}
     engines: {node: '>=24'}
 
-  '@george43g/tui-kit@0.3.3':
-    resolution: {integrity: sha512-aclnaBN2TWcy1jr53WN3mvpn3upJdzz+NQVF1nR9DjVLFPopjtYtGNzHwLEnAnrSqFaeQhqPZa1X63/Wd7FOmg==}
+  '@george43g/tui-kit@0.4.0':
+    resolution: {integrity: sha512-NH/tAcjKJr5tgPf419XJrof9eIG9RkmJJ6Fb4D6b5Ja1hK2UBILPv9RnqQWk8Nvx2Tbs3KhO33fgNkxubwHZ+g==}
     engines: {node: '>=24'}
     peerDependencies:
-      '@george43g/robustness': ^0.1.1 || ^0.2.0 || ^0.3.0 || ^0.4.0 || ^0.5.0 || ^0.6.0
+      '@george43g/robustness': '>=0.1.1 <1'
       ink: ^7.1.1
       react: ^19.2.8
 
@@ -2853,17 +2853,17 @@ snapshots:
   '@esbuild/win32-x64@0.28.1':
     optional: true
 
-  '@george43g/cli-kit@0.3.1(commander@14.0.3)':
+  '@george43g/cli-kit@2.0.0(commander@14.0.3)':
     dependencies:
       cli-table3: 0.6.5
       commander: 14.0.3
       picocolors: 1.1.1
 
-  '@george43g/robustness@0.6.0': {}
+  '@george43g/robustness@0.7.0': {}
 
-  '@george43g/tui-kit@0.3.3(@george43g/robustness@0.6.0)(@types/react@19.2.17)(ink@7.1.1(@types/react@19.2.17)(react@19.2.8))(react@19.2.8)':
+  '@george43g/tui-kit@0.4.0(@george43g/robustness@0.7.0)(@types/react@19.2.17)(ink@7.1.1(@types/react@19.2.17)(react@19.2.8))(react@19.2.8)':
     dependencies:
-      '@george43g/robustness': 0.6.0
+      '@george43g/robustness': 0.7.0
       fullscreen-ink: 0.1.0(@types/react@19.2.17)
       ink: 7.1.1(@types/react@19.2.17)(react@19.2.8)
       react: 19.2.8
