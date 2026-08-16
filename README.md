@@ -247,7 +247,7 @@ apps/
 packages/
   mcp-kit, extension-core, env-loader, shared-types, test-kit,
   tsconfig, biome-config, vitest-config
-  (robustness ^0.7.0 / cli-kit ^2.0.0 / tui-kit ^0.4.0 are npm deps published
+  (robustness ^0.7.0 / cli-kit ^2.0.1 / tui-kit ^0.4.1 are npm deps published
    from mcp-cli-starter-template — no longer vendored here, and bundled inline
    so the shipped bin stays self-contained)
 

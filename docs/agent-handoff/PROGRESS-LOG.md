@@ -707,3 +707,26 @@ rather than patched locally (per the standing rule): `useVimKeys` drops
 multi-character stdin chunks (and its lexicographic digit guard lets `"5j"`
 poison the next keystroke), `runRepl` writes banner/prompt/echo to stdout so
 piped REPL output can't be parsed, and `isCI()` treats `CI=false` as true.
+
+### Patch bump mid-PR: cli-kit 2.0.1 / tui-kit 0.4.1
+
+The three kit defects this session's stress test found were fixed and published
+as patches while PR #43 was open, so the PR consumes them rather than shipping a
+knowingly-broken input path. All three verified **in our own binary**, not taken
+on trust:
+
+- `useVimKeys` now dispatches per character and guards digits with a regex
+  (`dist/hooks/useVimKeys.js:62` `DIGIT.test(input)`, `:121` `for (const ch of
+  input)`) instead of the lexicographic `input >= "0" && input <= "9"`. Upstream
+  deliberately did NOT take a blind `[...input]` fan-out — a mixed chunk like
+  `dj` goes to `onUnhandled` whole, so a pasted paragraph can't reach a
+  consumer's destructive-key handlers one character at a time.
+- REPL piped output is parseable at last:
+  `printf 'noop q\nquit\n' | browser-tab repl | jq -c .` → `{"echo":"q",…}`.
+- `CI=false browser-tab list` prints the human view again (was JSON).
+
+Also worth recording from upstream: their own release-token guard only ran on
+`pull_request` and `main` isn't protected, so a direct push never met it — now
+fixed on the publishing path. And the guard prevents spurious *majors*, not
+under-classified breaking changes published as *minors*, which is the dangerous
+class and remains open. Treat a kit minor as capable of breaking us.

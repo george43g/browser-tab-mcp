@@ -55,8 +55,8 @@ importers:
         version: 3.25.76
     devDependencies:
       '@george43g/cli-kit':
-        specifier: ^2.0.0
-        version: 2.0.0(commander@14.0.3)
+        specifier: ^2.0.1
+        version: 2.0.1(commander@14.0.3)
       '@george43g/extension-core':
         specifier: workspace:*
         version: link:../../packages/extension-core
@@ -76,8 +76,8 @@ importers:
         specifier: workspace:*
         version: link:../../packages/tsconfig
       '@george43g/tui-kit':
-        specifier: ^0.4.0
-        version: 0.4.0(@george43g/robustness@0.7.0)(@types/react@19.2.17)(ink@7.1.1(@types/react@19.2.17)(react@19.2.8))(react@19.2.8)
+        specifier: ^0.4.1
+        version: 0.4.1(@george43g/robustness@0.7.0)(@types/react@19.2.17)(ink@7.1.1(@types/react@19.2.17)(react@19.2.8))(react@19.2.8)
       '@george43g/vitest-config':
         specifier: workspace:*
         version: link:../../packages/vitest-config
@@ -709,8 +709,8 @@ packages:
     cpu: [x64]
     os: [win32]
 
-  '@george43g/cli-kit@2.0.0':
-    resolution: {integrity: sha512-S7yI0jfEf70ig7SSebqgBDPFOvutIYbrrwt7xtX2tkPJg/s7NWkKKxSGDzHN/r/VChS5QSG2aTX8jAr3cySong==}
+  '@george43g/cli-kit@2.0.1':
+    resolution: {integrity: sha512-vcV78yfHQSjDwgmPc5VefOnIA1U9ub8LsJPxa1+CXJBbJhsDTdLEUouH0JhVIeaAPNfhXaHIfm0xFFPZmLSimQ==}
     engines: {node: '>=24'}
     peerDependencies:
       commander: ^14.0.0
@@ -719,8 +719,8 @@ packages:
     resolution: {integrity: sha512-dTdN/tGRPzIgyjtcPzIVpNjzPFNoUdyx6DJ3V0CW/KO62Pqie/u0W/wLBmmEp9kE66j2RD+DE6Y1jTwz4XCVqA==}
     engines: {node: '>=24'}
 
-  '@george43g/tui-kit@0.4.0':
-    resolution: {integrity: sha512-NH/tAcjKJr5tgPf419XJrof9eIG9RkmJJ6Fb4D6b5Ja1hK2UBILPv9RnqQWk8Nvx2Tbs3KhO33fgNkxubwHZ+g==}
+  '@george43g/tui-kit@0.4.1':
+    resolution: {integrity: sha512-Ye6caSGBajxgaXeclrQ/biUKioGSuQIgY3ivuW/WMhs18SXzds25fb9ZT4FsAZVf8yntet6UFvsSsmAv6hr/Ng==}
     engines: {node: '>=24'}
     peerDependencies:
       '@george43g/robustness': '>=0.1.1 <1'
@@ -2853,7 +2853,7 @@ snapshots:
   '@esbuild/win32-x64@0.28.1':
     optional: true
 
-  '@george43g/cli-kit@2.0.0(commander@14.0.3)':
+  '@george43g/cli-kit@2.0.1(commander@14.0.3)':
     dependencies:
       cli-table3: 0.6.5
       commander: 14.0.3
@@ -2861,7 +2861,7 @@ snapshots:
 
   '@george43g/robustness@0.7.0': {}
 
-  '@george43g/tui-kit@0.4.0(@george43g/robustness@0.7.0)(@types/react@19.2.17)(ink@7.1.1(@types/react@19.2.17)(react@19.2.8))(react@19.2.8)':
+  '@george43g/tui-kit@0.4.1(@george43g/robustness@0.7.0)(@types/react@19.2.17)(ink@7.1.1(@types/react@19.2.17)(react@19.2.8))(react@19.2.8)':
     dependencies:
       '@george43g/robustness': 0.7.0
       fullscreen-ink: 0.1.0(@types/react@19.2.17)
