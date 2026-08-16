@@ -79,6 +79,99 @@ below is not part of it.
   merges without status checks. Documented PAT escape hatch in
   `docs/RELEASE.md` if that ever matters.
 
+## Stress-test findings (2026-08-16) — 3 fixed, 6 open
+
+Two adversarial agents drove the TUI and the CLI/REPL in isolated tmux windows
+against the live daemon. Full evidence in PROGRESS-LOG 2026-08-16. **Fixed:**
+CLI exit codes (#42), TUI width safety (#45), and — for free via the kit
+upgrade (#43) — the REPL discarding a screenshot's structured result.
+
+**Open, in the user's stated priority order (all four picked 2026-08-16):**
+
+- **S1. Colour is dead in the shipped binary.** VERIFIED: `vite.config.ts` has
+  no `resolve` block, Vite's default `mainFields` leads with `browser`, and
+  `picocolors/package.json` maps a browser build whose every colour function is
+  the identity. Proof under a pty: the kit emits 11 ANSI sequences, our built
+  bin emits **0**. So `color.green/bold/dim/red` are all no-ops — the human
+  renderers lost their entire visual hierarchy and nobody noticed.
+  *Fix:* `resolve: { mainFields: ["module","jsnext:main","jsnext"], conditions:
+  ["node","import","module","default"] }` **plus a build-output guard** asserting
+  no `dist/*.js` contains `picocolors_browser` — the guard is the point, since
+  this class silently swaps any dep for its browser build.
+- **S2. Human renderers discard the field they exist for.** `journal --view
+  windowMru` prints **no window handle** (`render.ts:190-196`; `JournalRecordLike`
+  declares `tabId?`/`windowId?` at :165-166 and the renderer never reads them),
+  so its output cannot be fed to `focus`/`window set` — which is the entire point
+  of an MRU view. `history` drops `sources` (`render.ts:209-225`), reintroducing
+  exactly the "was it Chrome-only or did Safari have nothing?" ambiguity that
+  field was added to kill. Also: narrow-width overflow — `Math.max(12, width -
+  fixed)` **floors** the title budget, guaranteeing a 2-column overflow at 60
+  cols; needs a real clamp that drops a column instead.
+- **S3. Flag and schema honesty.** `-q`/`-v`/`--no-color` are documented on every
+  command and **never read** (`cli.ts:95-97`); `--no-color` is a two-line fix
+  since cli-kit ships `disableColors()`. `--fields` silently accepts anything
+  (`cli.ts:198` is a ternary, not `.choices()`). `journal --view tabMru|journey`
+  ignores its own "required" argument and returns an empty result
+  indistinguishable from "no history". `open`/`window open` accept **any** string
+  as a URL (`z.string()`), so `file:`/`javascript:` reach a real browser.
+  `get_logs` is callable with `MCP_DEV` unset — `devOnly` is honoured only by
+  `toMcpTools()`, not by the dispatcher or the REPL's tool list.
+- **S4. `stress:tui` is a placeholder.** `scripts/stress-tui-workload.ts` is the
+  untouched starter-template file: it loops the `noop` tool and never touches
+  `App`, `buildRows`, `useSnapshot` or the viewport helpers. It passes and means
+  nothing.
+
+**Also open, lower:** `doctor` prints "all clear" *before* its warnings and exits
+0; `clockOf` prints no date so cross-day journal rows look mis-sorted; `chromium`
+is a first-class value everywhere except `DEFAULT_BROWSERS`; empty-string option
+values are silently dropped (`--browser ""` widens the query instead of failing).
+
+**Upstream (kit) — do NOT fix locally:** `StatusBar` is content-sized so a long
+message butts against the hint with no gap (`width="100%"`); REPL `Ctrl-C` kills
+the session instead of cancelling the line.
+
+## Capability audit vs. the 2026-08-16 scope request
+
+The user asked for tab-group colour, browser theme control, cross-extension data
+access, SurfingKeys integration, mute/sleep, bookmark CRUD — each exposed through
+TUI + MCP + console + **HTTP streaming** + a **static scriptable** interface —
+and explicitly said: *check what exists, then triage, park, defer, prioritise.*
+**This is that audit. Nothing below is built.**
+
+| Capability | State | Evidence |
+|---|---|---|
+| Mute / unmute | **EXISTS** | `tab_action` kinds `mute`/`unmute` (`tools.ts:183-184`) |
+| Sleep / wake | **EXISTS** | `discard` (`tools.ts:187`); wake = `reload`/focus |
+| Tab groups CRUD | **EXISTS** | `group_tabs` create/add/remove/update/move |
+| Tab-group **colour** | **READ+WRITE, NEVER DISPLAYED** | `color` is in `TabGroupSchema` (`contract.ts:43-45`), settable via `group_tabs` (`tools.ts:225-228`), mapped from Chrome (`extension-core/snapshot.ts:128`) — but **no renderer shows it**; the TUI prints only the group title (`⊞✅Claude`). Cheapest win on this list. |
+| Bookmark CRUD | **ABSENT** | zero matches repo-wide; manifest has no `bookmarks` permission |
+| Browser theme (dark/light) | **ABSENT, and likely NOT extension-reachable** | MV3 exposes no API to set Chrome's own theme. Needs research before promising anything. |
+| Read another extension's data | **IMPOSSIBLE from our extension** | `chrome.storage` is per-extension; our manifest has no `externally_connectable` and neither, in general, does a target. The user's own instinct is right: this belongs to the **daemon**, reading Chrome's on-disk `Local Extension Settings/<id>/` LevelDB. Risk: writing under a live Chrome. |
+| SurfingKeys integration | **NOT STARTED — research in flight** | A subagent was analysing SK's config persistence, `externally_connectable`, messaging protocol and on-disk reachability when this session compacted. **Re-run that research; do not assume a result.** |
+| TUI interface | **EXISTS** | `browser-tab tui` |
+| MCP interface | **EXISTS** | `browser-tab mcp` |
+| Interactive console | **EXISTS** | `browser-tab repl` (alias `console`) |
+| **HTTP streaming interface** | **ABSENT** | transports today are a **unix socket** (`ipc-server.ts`, NDJSON + `subscribe`) and a localhost **WebSocket** for the extension only. No HTTP server anywhere. |
+| Static scriptable interface | **PARTIAL** | `browser-tab <cmd> --json` + the `snapshot.json`/`heartbeat.json` files cover scripting; there is no declarative script/config format. Needs a definition before it can be built — **ask the user what "static scriptable" means to them.** |
+
+**Suggested triage** (mine, not the user's — confirm before acting):
+
+1. **Do now, cheap:** tab-group colour rendering (data already flows end to end,
+   this is a renderer change) — pairs naturally with **S1**, since colour output
+   is broken anyway and both touch the same rendering path.
+2. **Do next, unblocks a category:** bookmark CRUD. Additive, well-understood
+   (`bookmarks` permission + extension commands + a tool), and it is the template
+   for "add a new capability across all interfaces".
+3. **Research before committing:** SurfingKeys, cross-extension data, browser
+   theme. All three hinge on the same question — what can be reached from outside
+   an extension's sandbox — and the answer likely routes them to the daemon.
+   **Do not promise these until the research lands.**
+4. **Design decision first:** the HTTP streaming interface. Real work (a server,
+   auth, backpressure, an event stream that mirrors `subscribe`) and it widens
+   the attack surface of a tool that is currently loopback-and-filesystem only.
+   Worth an explicit decision in DECISIONS.md, not a drive-by.
+5. **Park until asked:** "static scriptable interface" — underspecified.
+
 ## Queue
 
 0. ~~**PR-D — deploy + real-world smoke.**~~ **DONE 2026-07-29** — all steps

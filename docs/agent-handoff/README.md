@@ -46,7 +46,41 @@ here.** Nothing about this work may live only in an agent's private memory.
 6. **No AI inside the tool.** browser-tab serves data/actuation; the consumer
    AI interprets. (`annotate` is a cache substrate, never intelligence.)
 
-## Status (2026-08-10) — v1.0.1 RELEASED unattended · kits are npm deps
+## Status (2026-08-16) — v1.1.0 released · 3 stress-test fixes merged · release HELD
+
+`main` = **`e95f6d8`**. Working tree clean. Daemon runs the merged build.
+
+**Released:** v1.1.0 (2026-08-10) — the **second consecutive unattended cut**.
+Release automation is proven twice; stop treating a cut as risky.
+
+**Merged since, all from an adversarial stress pass (see "Stress-test findings"
+in `BACKLOG.md`):**
+
+| PR | What |
+|---|---|
+| **#42** `59131cf` | CLI exit codes — a failing tool exited **0** for every piped/`--json`/CI caller and 1 only for a human. Plus a stable `{error:{tool,message}}` JSON shape instead of leaking the MCP envelope. |
+| **#43** `2edcc63` | Kit upgrade: `robustness@^0.7.0` / `cli-kit@^2.0.1` / `tui-kit@^0.4.1`. **Both app shims deleted** — `ShotBucket` and the REPL image adapter. |
+| **#45** `e95f6d8` | TUI width safety — rows and chrome both clamped to the terminal. Two causes; see PROGRESS-LOG. |
+
+**OPEN AND DELIBERATELY HELD: PR #44 `chore(main): release 1.1.1`.** The user
+chose "merge #45 only, hold the release" (2026-08-16) so more stress-test fixes
+can batch into one version. Merging it cuts the release; it will re-title itself
+as more lands. **Do not merge it without asking.**
+
+**Kit version rule, learned twice the hard way:** run
+`npm view @george43g/<kit> version` before any bump. cli-kit was relayed to us as
+`1.0.0` twice and the registry served `2.0.0` (byte-identical `dist/`; a
+docs-only commit's prose spelled a breaking-change token and cut a spurious
+major). A relayed number is a cache with no invalidation.
+
+**Available, NOT adopted:** `@george43g/robustness@0.8.1` (shutdown-cause
+reporting, `WatchdogState.memorySampled`, live memory read before the first
+sample). Adds two new diagnostics — `stdin_eof` and `orphaned` — that previously
+emitted nothing; harmless for us (no `onDiagnostic` sink matches on names).
+**Do NOT adopt 0.8.0** — it recorded shutdown cause before the exit-policy gate.
+Not on the user's work list; ask before bumping.
+
+## Historical status (2026-08-10) — v1.0.1 RELEASED unattended · kits are npm deps
 
 **The release automation is PROVEN.** Merging release PR #37 minted tag
 `v1.0.1` + the GitHub Release + the `autorelease: tagged` relabel with **no
