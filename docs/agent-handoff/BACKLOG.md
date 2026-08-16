@@ -147,7 +147,7 @@ and explicitly said: *check what exists, then triage, park, defer, prioritise.*
 | Bookmark CRUD | **ABSENT** | zero matches repo-wide; manifest has no `bookmarks` permission |
 | Browser theme (dark/light) | **ABSENT, and likely NOT extension-reachable** | MV3 exposes no API to set Chrome's own theme. Needs research before promising anything. |
 | Read another extension's data | **IMPOSSIBLE from our extension** | `chrome.storage` is per-extension; our manifest has no `externally_connectable` and neither, in general, does a target. The user's own instinct is right: this belongs to the **daemon**, reading Chrome's on-disk `Local Extension Settings/<id>/` LevelDB. Risk: writing under a live Chrome. |
-| SurfingKeys integration | **NOT STARTED — research in flight** | A subagent was analysing SK's config persistence, `externally_connectable`, messaging protocol and on-disk reachability when this session compacted. **Re-run that research; do not assume a result.** |
+| SurfingKeys integration | **RESEARCHED 2026-08-16 — feasible, but via neither obvious route.** See the dedicated section below. | Source-verified against `brookhong/Surfingkeys@660d990` = v1.18.0 = the build installed here |
 | TUI interface | **EXISTS** | `browser-tab tui` |
 | MCP interface | **EXISTS** | `browser-tab mcp` |
 | Interactive console | **EXISTS** | `browser-tab repl` (alias `console`) |
@@ -171,6 +171,122 @@ and explicitly said: *check what exists, then triage, park, defer, prioritise.*
    the attack surface of a tool that is currently loopback-and-filesystem only.
    Worth an explicit decision in DECISIONS.md, not a drive-by.
 5. **Park until asked:** "static scriptable interface" — underspecified.
+
+## SurfingKeys integration — research complete (2026-08-16)
+
+Source-verified against `brookhong/Surfingkeys@660d990` (v1.18.0), which is
+byte-for-byte the build installed here
+(`…/Extensions/gfbliohnnapiefjpjlpjnehglfpaknnc/1.18.0_0/`). **Both goals the
+user asked for are achievable. Neither works the way you would assume.**
+
+### Two doors are CLOSED — do not spend time on them
+
+1. **Cross-extension messaging: impossible.** SK declares no
+   `externally_connectable` and registers no `onMessageExternal`/`onConnectExternal`
+   — verified by grep in BOTH upstream `src/` and the installed
+   `background.js`/`content.js`/`api.js`. `chrome.runtime.sendMessage("gfbli…", …)`
+   cannot work. Impersonating a content script is also incoherent:
+   `chrome.runtime.onMessage` only accepts same-extension senders.
+2. **Writing its LevelDB while Chrome runs: impossible, not merely risky.**
+   Chrome holds an exclusive `fcntl` lock on
+   `Local Extension Settings/gfbli…/LOCK` for the whole session — confirmed by
+   `lsof` on this machine. LevelDB takes that lock even on a read-only open.
+   And *even if forced*: Chrome caches storage in the SW heap, SK registers **no**
+   `storage.onChanged` listener anywhere, and a `savedAt` reconciler
+   (`background/chrome.js:13-40`) compares local vs sync on every load and
+   overwrites the loser wholesale — so a successful write would be unnoticed,
+   then silently reverted, possibly across machines. **Reading a COPY is fine**
+   (that is how the facts below were established); writing is not. Kill any
+   design that proposes it.
+
+### Two doors are OPEN, and SK opened them on purpose
+
+**A. `localPath` → a config file our daemon serves over HTTP.** SK supports
+loading `snippets` from a URL, and re-fetches it **on every content-script init,
+i.e. every page load in every frame** (`content_scripts/content.js:160` →
+`background/start.js:145-175`), with `?nonce=<epoch-ms>` cache-busting applied to
+`http(s)` but **not** `file://` (`start.js:527-534`). It diffs before
+re-registering (`start.js:1131-1183`), so writing the file is enough — no
+restart, no options page, no storage write. `host_permissions: <all_urls>` means
+`http://127.0.0.1:<port>/…` works; SK already fetches `localhost:11434` for
+Ollama, so the loopback path is proven in practice.
+
+**B. SK's entire public API is a DOM CustomEvent bus on `document`.**
+`dispatchSKEvent` (`content_scripts/common/runtime.js:1-7`) fires
+`surfingkeys:<type>` with an array `detail`; `initSKFunctionListener`
+(`common/utils.js:309-333`) receives it. Registered buses: `surfingkeys:api`
+(map/mapkey/unmap/hints/normal/visual/clipboard/front), `surfingkeys:front`
+(showPopup/showDialog/addCommand/applySettingsFromSnippets),
+`surfingkeys:hints`, `surfingkeys:user`. **This crosses isolated worlds by
+design** — SK's own MV3 snippets run in the USER_SCRIPT world while the listener
+runs in the ISOLATED world, so every `api.map(...)` in the user's config already
+makes that hop. Our content script is simply a third world on the same
+`document`.
+
+### Facts about THIS machine (read from a copy, original untouched)
+
+- `showAdvanced = true`, **`localPath = "" (empty)`**, `snippets` = a ~9.5KB JS
+  string.
+- **`~/dotfiles/surfingkeys/config.js` is a DEAD COPY.** Because `localPath` is
+  empty, SK is running the `snippets` string pasted into its options page — which
+  happens to match the dotfile's opening bytes, but the two are unsynchronised
+  and will drift. Mechanism A fixes exactly this, and that is the strongest
+  single argument for doing it.
+
+### Hard prerequisite, worth a `doctor` check
+
+MV3 gates `showAdvanced` on `chrome.userScripts` availability
+(`start.js:1189-1191`), which requires Chrome's **Developer Mode / "Allow user
+scripts"** to stay on; the error is explicit at `start.js:1276`. If a Chrome
+update or policy flips it off, the config silently stops executing and mechanisms
+A and C die. It presents to a user as "my mappings vanished", so it needs an
+actionable doctor hint rather than an assumption.
+
+### One thing NOT verified — check before building on it
+
+Whether `CustomEvent.detail` structured-clones between **two different
+extensions'** isolated worlds (USER_SCRIPT→ISOLATED is proven, since SK works).
+Ten-second check from any page's DevTools console:
+`document.dispatchEvent(new CustomEvent('surfingkeys:front', {detail:['showPopup','bridge works']}))`
+— if an SK popup appears, the channel is confirmed. Designed fallback if not:
+inject a MAIN-world shim via `chrome.scripting.executeScript({world:"MAIN"})` and
+relay over `window.postMessage`.
+
+### Recommended shape (do NOT start without the user's word)
+
+1. **Settings management** = daemon serves one `text/javascript` route on
+   `127.0.0.1`; canonical source becomes `~/dotfiles/surfingkeys/config.js`;
+   tools `sk_config get|set|edit`; **validate by parsing as JS before serving** —
+   SK's own error path (`start.js:168`) only covers fetch failure, not a syntax
+   error, so a bad write silently kills every mapping. One unavoidable manual
+   setup step: the user sets "Load settings from" in SK's options once (it needs
+   SK's internal bus, which we cannot reach) — ship it as a doctor instruction.
+2. **Driving the running instance** = new `ExtCommand.kind` values dispatching
+   CustomEvents from our content script, routed through the existing
+   extension-core → daemon → MCP/CLI path. **Fire-and-forget**: the bus ignores
+   return values, so model these as commands, not queries. Probe for SK at
+   runtime and set a `surfingkeys` capability key — **never branch on browser
+   name** (existing invariant).
+3. **Optional, most capable:** a managed region appended to the served config
+   that opens a channel back to the daemon, giving the full `api` surface
+   including `RUNTIME` (which the CustomEvent bus does not expose). **UNKNOWN:**
+   whether `ws://127.0.0.1` clears mixed-content from an `https://` page in the
+   USER_SCRIPT world — verify empirically. Lower-risk variant: the managed region
+   only dispatches/listens for CustomEvents and our content script does transport.
+4. **Rejected:** registering ourselves as the `surfingkeys` native-messaging host
+   — it would hijack SK's neovim integration wholesale for a one-shot
+   `serverStarted` handshake we cannot even initiate.
+
+### Bonus: SK as a reference implementation, not an integration target
+
+Our write-side API is a strict superset **except bookmarks**. SK has fairly
+complete bookmark CRUD (`start.js:127-143` create with recursive folder
+creation, `.search`/`.getTree`/`.getSubTree`/`.remove`) — read `createBookmark`
+and `getFolders` (`start.js:112-123`) before writing ours. SK's mute is
+**toggle-only** (`start.js:898-903`), which our explicit `mute`/`unmute` already
+supersedes; SK has **no** discard/sleep at all; and SK's `settings.theme` styles
+**its own overlays**, not the browser — so it is no help for browser theme
+control.
 
 ## Queue
 

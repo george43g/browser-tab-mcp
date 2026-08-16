@@ -841,5 +841,7 @@ hold the release") so further stress-test fixes batch into one version.
 SurfingKeys, bookmarks, and five interface surfaces incl. HTTP streaming). The
 user asked only for an audit and triage, not a build — that is written up in
 `BACKLOG.md` under "Capability audit vs. the 2026-08-16 scope request".
-**A subagent was mid-research on SurfingKeys' architecture when this session
-compacted; its result was not received. Re-run it, do not assume.**
+**The SurfingKeys research LANDED** — see BACKLOG "SurfingKeys integration —
+research complete". Headline: cross-extension messaging and LevelDB writes are
+both impossible; SK's `localPath` HTTP config (re-fetched every page load) and
+its DOM CustomEvent API bus are both open and supported.
