@@ -1,21 +1,41 @@
 /**
- * Renderer unit tests. `color` from cli-kit no-ops off-TTY and vitest runs
- * without one, so every expectation here is plain text — no ANSI stripping.
+ * Renderer unit tests — assertions are about CONTENT, so they run against
+ * SGR-stripped output.
+ *
+ * This file used to say "`color` no-ops off-TTY and vitest has no TTY, so every
+ * expectation is plain text". That was ambient luck, not a guarantee: cli-kit's
+ * `colorEnabled()` also honours `FORCE_COLOR`, so anyone with that exported
+ * (terminal multiplexers and CI wrappers set it routinely) got two red tests on
+ * a clean checkout — which is how this was found. Stripping at the boundary
+ * makes the suite deterministic *and* exercises the coloured path rather than
+ * only the monochrome one.
+ *
+ * Width assertions must measure GLYPHS, not escape bytes: the renderer budgets
+ * on plain text and colours fixed-size pieces afterwards, so a raw `.length`
+ * over-counts and reports a false overflow.
  */
 
 import { describe, expect, it } from "vitest";
-import {
-  clockOf,
-  hostOf,
-  layoutWidth,
-  renderDaemonStatus,
-  renderForTool,
-  renderHistory,
-  renderJournal,
-  renderSnapshot,
-  shortDuration,
-  truncate,
-} from "./render.js";
+import * as render from "./render.js";
+import { clockOf, hostOf, layoutWidth, shortDuration, truncate } from "./render.js";
+
+const SGR = /\u001b\[[0-9;]*m/g;
+
+/** Strip SGR from a renderer's return value; non-strings (undefined) pass through. */
+function plain<T>(value: T): T {
+  return typeof value === "string" ? (value.replace(SGR, "") as T) : value;
+}
+
+const renderSnapshot = (...args: Parameters<typeof render.renderSnapshot>) =>
+  plain(render.renderSnapshot(...args));
+const renderJournal = (...args: Parameters<typeof render.renderJournal>) =>
+  plain(render.renderJournal(...args));
+const renderHistory = (...args: Parameters<typeof render.renderHistory>) =>
+  plain(render.renderHistory(...args));
+const renderDaemonStatus = (...args: Parameters<typeof render.renderDaemonStatus>) =>
+  plain(render.renderDaemonStatus(...args));
+const renderForTool = (...args: Parameters<typeof render.renderForTool>) =>
+  plain(render.renderForTool(...args));
 
 describe("helpers", () => {
   it("truncate collapses whitespace and marks elision", () => {
