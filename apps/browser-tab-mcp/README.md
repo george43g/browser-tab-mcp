@@ -310,6 +310,27 @@ badge-worthy tab state:
 The leading `●`/`·` marks the window's active tab; `lastAccessed` drives sort/MRU
 (see `journal`) rather than a per-row glyph.
 
+### Soak-testing the TUI (`pnpm stress:tui`)
+
+Two verdicts, deliberately separate. The **workload** owns correctness: it
+renders the real `App` against a real daemon (fake adapter, no browser) across
+six terminal geometries from 200x60 down to 40x12, drives real keystrokes, and
+fails on any frame taller than the terminal or any line wider than it. It also
+pushes ~20M rows through `buildRows` + the viewport helpers with tabs opening,
+closing and folding between iterations. The **driver** owns resources: RSS and
+event-loop p99, sampled from the watchdog state file.
+
+Two things this harness now refuses to do, because it used to do both:
+
+- **Pass while measuring nothing.** Zero collected samples is a failure. It
+  previously printed `max RSS 0MB, max lag 0ms, 0 samples` and exited 0 — the
+  workload's hot loop was synchronous, so the watchdog's timer never fired.
+- **Render content that cannot break.** `BROWSER_TAB_FAKE_SCALE` /
+  `BROWSER_TAB_FAKE_TABS` scale the fake adapter up with long, realistic,
+  emoji-bearing titles. Its default fixtures ("Inbox (3) - Gmail") are far too
+  short to reach a width budget, so rendering them measures the fixture rather
+  than the layout.
+
 The list height follows the terminal: it is derived from `stdout.rows` minus the
 chrome (header + status bar + help bar) and re-derived on resize, so the list
 fills a tall window and shrinks rather than overflowing a short one. The scroll

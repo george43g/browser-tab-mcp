@@ -51,6 +51,47 @@ const SAFARI_WINDOWS: FakeTabSeed[][] = [
   ],
 ];
 
+/**
+ * Titles long enough to reach a width budget, because the short ones above
+ * cannot.
+ *
+ * The TUI overflow bug (#45) survived a green suite precisely because every
+ * fixture title fit: rows were composed from ~122 columns of fixed slice
+ * budgets, but no fixture ever produced a row that long, so nothing wrapped
+ * and nothing failed. A stress harness that renders "Inbox (3) - Gmail" is
+ * measuring the fixture, not the layout. These are real titles and URLs from
+ * this machine; emoji are included because they are where display width and
+ * `.length` disagree.
+ */
+const LONG_TITLES = [
+  "KFD 240W USB-C GaN Adapter 48V 5A NVIDIA DGX Spark \u{1F3B5}",
+  "fastify/fastify: Fast and low overhead web framework, for Node.js",
+  "Generate Music for Any Video with AI, Instant Video to Music Matching",
+  "\u{2705}Claude \u2014 browser-tab-mcp \u2014 stress",
+  "Posts matching '' - Stack Overflow",
+];
+
+/**
+ * Opt-in scaling for the stress harness: `BROWSER_TAB_FAKE_SCALE` windows per
+ * browser, `BROWSER_TAB_FAKE_TABS` tabs each, with realistic titles.
+ *
+ * Off by default (scale 0), and when off the seeds above are returned
+ * byte-identical — every existing fixture assertion is untouched. This exists
+ * so the TUI harness can render at a scale and content length that can
+ * actually break, without a real browser.
+ */
+function scaledSeeds(browser: BrowserId, base: FakeTabSeed[][]): FakeTabSeed[][] {
+  const windows = Number(process.env.BROWSER_TAB_FAKE_SCALE ?? 0);
+  if (!Number.isFinite(windows) || windows <= 0) return base;
+  const tabs = Math.max(1, Number(process.env.BROWSER_TAB_FAKE_TABS ?? 40));
+  return Array.from({ length: Math.floor(windows) }, (_, w) =>
+    Array.from({ length: tabs }, (_, t) => ({
+      url: `https://www.google.com/search?q=240w+usb+c+power+adapter&oq=thunderbolt+${browser}+${w}+${t}`,
+      title: `${LONG_TITLES[(w + t) % LONG_TITLES.length]} \u2014 ${t}`,
+    })),
+  );
+}
+
 function buildWindows(browser: BrowserId, seeds: FakeTabSeed[][]): BrowserWindow[] {
   return seeds.map((tabs, wi) => {
     const nativeWinId = 100 + wi;
@@ -97,7 +138,7 @@ export function makeFakeAdapter(spec: AdapterSpec): BrowserAdapter {
     tabGroups: [],
     windows: buildWindows(
       spec.browser,
-      spec.browser === "safari" ? SAFARI_WINDOWS : CHROMIUM_WINDOWS,
+      scaledSeeds(spec.browser, spec.browser === "safari" ? SAFARI_WINDOWS : CHROMIUM_WINDOWS),
     ),
   });
 
