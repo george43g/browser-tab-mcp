@@ -9,18 +9,21 @@
 
 import type { ToolDefinition } from "@george43g/mcp-kit";
 import { CommandResultSchema, TabActionInputSchema } from "@george43g/shared-types";
+import { navigableUrl } from "./url-policy.js";
+
+const TabActionInput = TabActionInputSchema.extend({
+  url: navigableUrl('URL — required when action is "navigate". See url-policy.ts.').optional(),
+});
+
 import { tabAction } from "../client/tabs-service.js";
 
-export const tabActionTool: ToolDefinition<
-  typeof TabActionInputSchema,
-  typeof CommandResultSchema
-> = {
+export const tabActionTool: ToolDefinition<typeof TabActionInput, typeof CommandResultSchema> = {
   name: "tab_action",
   description:
     "Runs one action on a tab: mute|unmute, pin|unpin, discard (unload from memory), reload, " +
     "navigate (needs url), back|forward, duplicate. Handles come from list_tabs. Actions beyond " +
     "navigate/reload (and back/forward on Chromium) need the browser extension.",
-  input: TabActionInputSchema,
+  input: TabActionInput,
   output: CommandResultSchema,
   annotations: {
     readOnlyHint: false,

@@ -53,6 +53,16 @@ export interface BuildDispatcherOptions {
   onCall?: (toolName: string) => void;
   /** Engine label, e.g. "rust" or "ts". Surfaced in `_meta` and dev stats. */
   engineLabel?: () => string;
+  /**
+   * Whether `devOnly` tools are callable. Evaluated per dispatch, not once at
+   * construction, so flipping the env in a test takes effect immediately.
+   *
+   * `devOnly` used to be honoured ONLY by `toMcpTools()` — i.e. the tool was
+   * hidden from `tools/list` but still executed if you named it anyway, and
+   * every non-MCP caller (the CLI, the REPL's tool list) bypassed the filter
+   * entirely. Hiding a tool is not disabling it.
+   */
+  devOnlyEnabled?: () => boolean;
 }
 
 export type Dispatch = (name: string, args: unknown, signal?: AbortSignal) => Promise<ToolResult>;
@@ -72,7 +82,9 @@ export function buildDispatcher(opts: BuildDispatcherOptions): Dispatch {
     opts.onCall?.(name);
     const def = opts.registry.get(name);
 
-    if (!def) {
+    // A dev-only tool that is not enabled must be indistinguishable from one
+    // that does not exist — reporting "disabled" would confirm it is there.
+    if (!def || (def.devOnly && !(opts.devOnlyEnabled?.() ?? false))) {
       opts.onError?.(name, new Error("unknown_tool"));
       return {
         content: [

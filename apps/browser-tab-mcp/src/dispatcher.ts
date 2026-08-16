@@ -12,12 +12,14 @@
  *  6. NEVER console.log after StdioServerTransport.connect() — JSON-RPC
  *     owns stdout. Log via @george43g/robustness/logger.
  *  7. Tool responses include structuredContent + _meta footer.
+ *  8. `devOnly` tools are unreachable unless dev mode is on — for EVERY
+ *     caller, not just the MCP `tools/list` surface.
  */
 
 import { buildDispatcher, type Dispatch } from "@george43g/mcp-kit";
 import { recordToolCall, recordToolError } from "./counters.js";
 import { engineLabel } from "./native-bridge.js";
-import { makeAppRegistry } from "./tools/registry.js";
+import { devModeEnabled, makeAppRegistry } from "./tools/registry.js";
 
 let _dispatch: Dispatch | null = null;
 
@@ -28,6 +30,10 @@ export function getDispatcher(): Dispatch {
       onCall: () => recordToolCall(),
       onError: () => recordToolError(),
       engineLabel,
+      // Invariant 8: `devOnly` is enforced HERE, not only by `toMcpTools()`.
+      // Hiding get_logs from tools/list left it callable by name — and by the
+      // CLI and REPL, which never consult that filter at all.
+      devOnlyEnabled: devModeEnabled,
     });
   }
   return _dispatch;

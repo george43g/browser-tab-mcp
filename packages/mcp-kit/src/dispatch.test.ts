@@ -146,3 +146,62 @@ describe("buildDispatcher", () => {
     expect(errors).toEqual(["ghost"]);
   });
 });
+
+/**
+ * `devOnly` used to be honoured ONLY by `toMcpTools()`. That hides a tool from
+ * `tools/list` — it does not disable it. Naming the tool anyway still ran it,
+ * and every non-MCP caller (a CLI, a REPL tool list) never consulted the filter
+ * at all. Hiding is not disabling.
+ */
+describe("devOnly is enforced at dispatch, not just in tools/list", () => {
+  const secret: ToolDefinition = {
+    name: "secret",
+    description: "Dev-only",
+    devOnly: true,
+    input: z.object({}),
+    output: z.object({ ok: z.boolean() }),
+    annotations: { readOnlyHint: true },
+    handler: async () => ({ ok: true }),
+  };
+  const registry = makeRegistry([echo, secret]);
+
+  it("refuses a devOnly tool when dev mode is off", async () => {
+    const dispatch = buildDispatcher({ registry, devOnlyEnabled: () => false });
+    const res = await dispatch("secret", {});
+    expect(res.isError).toBe(true);
+  });
+
+  // The refusal must be indistinguishable from a tool that does not exist —
+  // "disabled" would confirm it is there.
+  it("refuses it the same way it refuses a name that does not exist", async () => {
+    const dispatch = buildDispatcher({ registry, devOnlyEnabled: () => false });
+    const hidden = await dispatch("secret", {});
+    const missing = await dispatch("no_such_tool", {});
+    const text = (r: Awaited<ReturnType<typeof dispatch>>) =>
+      r.content?.map((c) => ("text" in c ? c.text : "")).join("");
+    expect(text(hidden)?.replace("secret", "X")).toBe(text(missing)?.replace("no_such_tool", "X"));
+  });
+
+  it("runs it when dev mode is on", async () => {
+    const dispatch = buildDispatcher({ registry, devOnlyEnabled: () => true });
+    const res = await dispatch("secret", {});
+    expect(res.isError).toBeFalsy();
+  });
+
+  // Omitting the option must fail CLOSED — a caller that forgets to pass it
+  // should not silently expose every dev tool it owns.
+  it("defaults to refusing when the option is not passed at all", async () => {
+    const dispatch = buildDispatcher({ registry });
+    expect((await dispatch("secret", {})).isError).toBe(true);
+    expect((await dispatch("echo", { input: "hi" })).isError).toBeFalsy();
+  });
+
+  // Evaluated per dispatch, so flipping the env mid-process takes effect.
+  it("re-reads the predicate on every call", async () => {
+    let on = false;
+    const dispatch = buildDispatcher({ registry, devOnlyEnabled: () => on });
+    expect((await dispatch("secret", {})).isError).toBe(true);
+    on = true;
+    expect((await dispatch("secret", {})).isError).toBeFalsy();
+  });
+});
