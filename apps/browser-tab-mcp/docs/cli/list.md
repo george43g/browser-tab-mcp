@@ -19,6 +19,11 @@ Restrict to one window (opaque windowId)
 
 Filter tabs by URL substring
 
-### `--fields <set>`
+### `--fields [set]`
 
-Field set: core (trimmed) or full (default)
+Field set: core (trimmed) or full
+
+**Choices:**
+
+- `core`
+- `full`
