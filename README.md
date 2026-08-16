@@ -186,7 +186,17 @@ $ browser-tab list --json | jq '.browsers[0].windows | length'
 
 `▸` marks the active tab; a window with no `cgWindowId` shows `cg:none`, since
 that field is the yabai/wm-stack join key and a silent `null` there is easy to
-miss.
+miss. The TUI uses the same `cg:none` marker.
+
+### The TUI adapts to the terminal, in both dimensions
+
+`browser-tab tui` derives its viewport from the live terminal size and clamps
+every row to the available width, so a narrow or short window degrades by
+truncating (`…`) rather than wrapping. That matters more than it sounds: a
+wrapped row makes Ink print more lines than the screen has, which scrolls the
+frame and overprints the status bar — and the status bar is where the
+`press y to confirm` prompt for closing a tab appears. Titles are truncated by
+display width and never mid-emoji. Resize while it's running; it re-lays out.
 
 ### Global flags for the knobs you flip per-invocation
 
