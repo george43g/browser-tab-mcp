@@ -79,14 +79,21 @@ below is not part of it.
   merges without status checks. Documented PAT escape hatch in
   `docs/RELEASE.md` if that ever matters.
 
-## Stress-test findings (2026-08-16) — 3 fixed, 6 open
+## Stress-test findings (2026-08-16) — 7 fixed, 2 open
 
 Two adversarial agents drove the TUI and the CLI/REPL in isolated tmux windows
 against the live daemon. Full evidence in PROGRESS-LOG 2026-08-16. **Fixed:**
 CLI exit codes (#42), TUI width safety (#45), and — for free via the kit
 upgrade (#43) — the REPL discarding a screenshot's structured result.
 
-**Open, in the user's stated priority order (all four picked 2026-08-16):**
+**All four of the user's priorities are FIXED and open as a stacked PR chain
+(2026-08-17): S1 → #47, S2 → #48, S3a → #49, S3b → #50, S4 → #51. Merge in that
+order; each is based on the previous.** Detail below is kept as the record of
+what each one was, and the PROGRESS-LOG entry for 2026-08-17 has the evidence.
+
+Still open from the "also open, lower" list at the bottom: `doctor` prints "all
+clear" before its warnings, and `clockOf` prints no date. Everything else in
+this section has landed.
 
 - **S1. Colour is dead in the shipped binary.** VERIFIED: `vite.config.ts` has
   no `resolve` block, Vite's default `mainFields` leads with `browser`, and

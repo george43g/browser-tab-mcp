@@ -845,3 +845,109 @@ user asked only for an audit and triage, not a build — that is written up in
 research complete". Headline: cross-extension messaging and LevelDB writes are
 both impossible; SK's `localPath` HTTP config (re-fetched every page load) and
 its DOM CustomEvent API bus are both open and supported.
+
+---
+
+## 2026-08-17 — the four stress-test fixes, S1 → S4 (Claude)
+
+All four items George prioritised are done and open as a **stacked chain**.
+Nothing merged: ground rule 1 stands, every one needs his word.
+
+**Merge order matters** — each PR's base is the one before it, so the diffs stay
+reviewable. GitHub retargets each to `main` as its parent lands.
+
+| PR | Item | What it fixes |
+|---|---|---|
+| #47 | S1 | colour dead in the shipped bin |
+| #48 | S2 | renderers dropping the field they exist for |
+| #49 | S3a | the three inert global flags |
+| #50 | S3b | URL-scheme allowlist + `devOnly` at dispatch |
+| #51 | S4 | a TUI soak that can actually fail |
+
+(#46, this docs PR, is independent of the chain and can merge any time.)
+
+### S1 — colour was dead in `dist/`, alive in source
+
+Root cause is a build-config default, not a code bug: **Vite's
+`resolve.mainFields` leads with `"browser"`**, so `picocolors` resolved to
+`picocolors.browser.js`, whose every colour function is `String`. Measured:
+the same command emits **18 ANSI sequences from `tsx src/cli.ts` and 0 from
+`node dist/cli.js`**. Every test runs on source, so nothing could see it.
+
+The guard is behavioural on purpose — it runs the REAL bin under `FORCE_COLOR`
+and asserts ANSI bytes on the wire, so it catches the class (any dep swapped
+for its browser build), not just picocolors.
+
+**Second finding, pre-existing on `main`:** `render.test.ts` claimed "`color`
+no-ops off-TTY and vitest has no TTY". That was ambient luck — `colorEnabled()`
+also honours `FORCE_COLOR`, which multiplexers export routinely. Verified on a
+clean `main` checkout: with it set, 2 of 21 tests fail. They now strip SGR at
+the boundary, which is deterministic *and* exercises the coloured path.
+
+### S2 — three renderer defects with one theme
+
+`journal --view windowMru` printed no window handle, so the answer to "which
+window did I use last" could not be fed to `focus`. `history` dropped
+`sources` — and returned early on the empty path, so the one case that field
+exists for printed nothing. And `Math.max(12, width - fixed)` is a **floor**,
+which cannot prevent an overflow: a history row measured **73 columns wide at
+every requested width from 40 to 60**, and 101 at width 100. Header rows never
+went through width logic at all.
+
+All rows now go through one `layoutRow` that DROPS optional columns before
+squeezing the flexible one. **The handle and the `cg:` join key are never
+dropped** — a row you can read but cannot act on has lost its only purpose.
+
+Sabotage check: 18 of the 41 renderer tests fail against the old renderer.
+
+### S3 — split in two, because a security change deserves its own review
+
+**#49, flags.** `-q`, `-v`, `--no-color` were on the root command (so `--help`
+advertised them everywhere) and nothing read them. `--quiet` suppresses the
+success payload **but never an error and never the exit code**. `--fields` was a
+ternary, so `--fields nonsense` silently became `full`. And `journal --view
+tabMru` relayed a request it knew was incomplete — the daemon rejects it, but
+`journal` DEGRADES to empty when the daemon is down, so a missing `--window`
+read as "no records".
+
+**#50, security.** `url: z.string()` while documenting "http(s) URL" meant
+`javascript:` (script in the page's origin) and `file:` (local file, which
+`get_page` reads back) both reached a real browser. The caller is usually a
+model that has just read untrusted web content. Now an **allowlist** — a
+denylist has to be right forever, an allowlist fails closed. And `devOnly` was
+honoured only by `toMcpTools()`: hiding `get_logs` from `tools/list` never
+disabled it, and the CLI/REPL never consulted that filter at all.
+
+### S4 — and then I audited the harness the same way
+
+The new TUI soak renders the real `App` against a real daemon across six
+geometries. Reintroducing #45 **did not fail it**, twice over:
+
+1. `wrap="truncate"` is an independent second guard and held alone — the code
+   was right, my sabotage was incomplete.
+2. **The render phase was feeding the fake adapter's short fixture titles.**
+   Rendering `"Inbox (3) - Gmail"` measures the FIXTURE, not the layout — which
+   is exactly how the overflow shipped past a green suite. Fixed with opt-in
+   `BROWSER_TAB_FAKE_SCALE` / `_TABS` (default off, existing fixtures untouched).
+
+Running it for real then surfaced two *driver* defects: it printed
+`max RSS 0MB, max lag 0ms, 0 samples` and **exited 0** — passing while measuring
+nothing — because phase A's loop was synchronous and starved the watchdog's
+timer; and it ignored the workload's exit code entirely, so a correctness
+failure could not fail the run. Both fixed. After: 23 samples, max RSS 417.5MB,
+max event-loop p99 113.8ms.
+
+### Notes for whoever picks this up
+
+- **`FORCE_COLOR` is set in this job's shell.** It is why the render tests
+  looked broken at first. Check the ambient env before believing a colour or
+  width failure is yours.
+- **`cp` is aliased to `cp -i` here** — a restore-from-backup silently does
+  nothing and prompts instead. Use `command cp -f`. This bit once mid-sabotage
+  and left the old renderer in place.
+- **A single-guard sabotage proves nothing when there are two guards.** Both
+  #45 clamps had to go before the harness went red.
+- Bash cwd persists between tool calls. Two README edits went to
+  `apps/browser-tab-mcp/README.md` instead of the root one after an earlier
+  `cd`; both landed correctly in the end, but check `pwd` before a relative path.
+
