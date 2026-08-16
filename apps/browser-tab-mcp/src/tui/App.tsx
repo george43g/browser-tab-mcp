@@ -14,11 +14,13 @@ import {
   DevStatsPanel,
   HelpBar,
   StatusBar,
+  truncateToWidth,
   useTerminalSize,
   useTheme,
   useVimKeys,
   viewportRows,
   visibleWindow,
+  visualWidth,
 } from "@george43g/tui-kit";
 import { Box, Text, useApp, useInput } from "ink";
 import { useMemo, useState } from "react";
@@ -37,8 +39,14 @@ export function App() {
   const theme = useTheme();
   const { exit } = useApp();
   const { snapshot, live, refresh } = useSnapshot();
-  const { rows: termRows } = useTerminalSize();
+  const { rows: termRows, columns: termColumns } = useTerminalSize();
   const viewport = viewportRows(termRows);
+  // Every row must fit ONE line. Ink word-wraps a Text that overflows, and
+  // `overflow="hidden"` does not clip the extra lines — so an over-long row
+  // silently turns N rows into N+k printed lines, the frame scrolls, and the
+  // chrome (status bar, help bar) is overprinted. That was reproducible below
+  // ~156 columns with real data. Container has paddingX={1}.
+  const usableCols = Math.max(20, (termColumns || 80) - 2);
   const [cursor, setCursor] = useState(0);
   const [folded, setFolded] = useState<ReadonlySet<string>>(new Set());
   const [mode, setMode] = useState<Mode>({ kind: "browse" });
@@ -84,11 +92,21 @@ export function App() {
       if (mode.kind === "move") {
         setTargetIdx((i) => Math.max(0, Math.min(moveTargets.length - 1, i + delta)));
       } else {
+        // Any motion retires the last action's message. It used to persist for
+        // the rest of the session, permanently replacing the row-count/liveness
+        // indicator with a stale success string.
+        setMessage("");
         setCursor((c) => Math.max(0, Math.min(rows.length - 1, c + delta)));
       }
     },
-    onTop: () => setCursor(0),
-    onBottom: () => setCursor(Math.max(0, rows.length - 1)),
+    onTop: () => {
+      setMessage("");
+      setCursor(0);
+    },
+    onBottom: () => {
+      setMessage("");
+      setCursor(Math.max(0, rows.length - 1));
+    },
     // floor(): an odd viewport would otherwise land the cursor on a .5 index,
     // and rows[22.5] is undefined.
     onHalfPageDown: () => setCursor((c) => Math.min(rows.length - 1, c + Math.floor(viewport / 2))),
@@ -128,7 +146,11 @@ export function App() {
     }
 
     if (input === "q" || key.escape) exit();
-    if (input === "d") setShowStats((v) => !v);
+    // `!key.ctrl` matters: Ink reports ^D as input "d" with key.ctrl, and
+    // useVimKeys has already consumed it as half-page-down. Without the guard,
+    // scrolling down a half page also toggles the stats panel — which steals
+    // ~38 columns from the list and used to trigger the wrapping bug above.
+    if (input === "d" && !key.ctrl) setShowStats((v) => !v);
     if (input === "r") {
       refresh();
       setMessage("refreshed");
@@ -156,16 +178,31 @@ export function App() {
       setMode({ kind: "confirm-close", tabId: current.tab.tabId, title: current.tab.title });
     }
     if (input === "m" && current?.kind === "tab") {
+      // Refusing beats entering a mode whose only action is a silent no-op:
+      // with no legal target, Enter did nothing and the status bar still showed
+      // the PREVIOUS action's message, so the user got no signal at all.
+      if (moveTargets.length === 0) {
+        setMessage("no other window in this browser to move to");
+        return;
+      }
+      setMessage("");
       setTargetIdx(0);
       setMode({ kind: "move", tabId: current.tab.tabId, title: current.tab.title });
     }
   });
 
-  const { start: visibleStart, end: visibleEnd } = visibleWindow(
-    clampedCursor,
-    rows.length,
-    viewport,
-  );
+  // In move mode the thing the user is steering is the TARGET, not the cursor.
+  // Centring on the cursor meant `j` produced a byte-identical frame whenever
+  // the target was outside the scroll window — and Enter then moved the tab
+  // into a window that was never shown.
+  const focusRow =
+    mode.kind === "move"
+      ? Math.max(
+          0,
+          rows.findIndex((r) => r.key === moveTargets[targetIdx]?.key),
+        )
+      : clampedCursor;
+  const { start: visibleStart, end: visibleEnd } = visibleWindow(focusRow, rows.length, viewport);
   const visible = rows.slice(visibleStart, visibleEnd);
 
   const renderRow = (row: Row, idx: number) => {
@@ -177,21 +214,40 @@ export function App() {
       text = `▸ ${row.browser.browser} — ${row.browser.windows.length} windows, ${tabs} tabs [${src}]${row.browser.error ? " ⚠" : ""}`;
     } else if (row.kind === "window") {
       const fold = folded.has(row.window.windowId) ? "▸" : "▾";
-      const cg = row.window.cgWindowId !== null ? ` cg=${row.window.cgWindowId}` : "";
+      // A null cgWindowId is the wm-stack join failing — the thing this tool
+      // exists to surface. Say so rather than rendering an absence.
+      const cg = row.window.cgWindowId !== null ? ` cg=${row.window.cgWindowId}` : " cg:none";
       const isTarget =
         mode.kind === "move" && moveTargets[targetIdx]?.key === row.key ? " ◀ move here" : "";
-      text = `  ${fold} ${row.window.title.slice(0, 60) || "(untitled)"} — ${row.window.tabCount} tabs${cg}${isTarget}`;
+      const fixed = `  ${fold}  — ${row.window.tabCount} tabs${cg}${isTarget}`;
+      const titleW = Math.max(8, usableCols - visualWidth(fixed));
+      text = `  ${fold} ${truncateToWidth(row.window.title || "(untitled)", titleW)} — ${row.window.tabCount} tabs${cg}${isTarget}`;
     } else {
       const marker = row.tab.active ? "●" : "·";
       const badges = tabBadges(row.tab, row.browser.tabGroups);
       const suffix = badges ? `  ${badges}` : "";
-      text = `      ${marker} ${row.tab.title.slice(0, 50) || "(untitled)"}  ${row.tab.url.slice(0, 60)}${suffix}`;
+      // Split the remaining cells between title and url rather than chopping
+      // either at a fixed length — at 100 cols the old fixed budgets alone
+      // needed 122, so the row wrapped before a single badge was added.
+      const budget = Math.max(10, usableCols - visualWidth(`      ${marker}   ${suffix}`));
+      const titleW = Math.max(8, Math.min(50, Math.floor(budget * 0.55)));
+      const urlW = Math.max(0, Math.min(60, budget - titleW));
+      const title = truncateToWidth(row.tab.title || "(untitled)", titleW);
+      const url = urlW > 0 ? `  ${truncateToWidth(row.tab.url, urlW)}` : "";
+      text = `      ${marker} ${title}${url}${suffix}`;
     }
+    // Single guarantee, whatever the branch composed above: one row, one line.
+    text = truncateToWidth(text, usableCols);
     const highlightTarget =
       mode.kind === "move" && row.kind === "window" && moveTargets[targetIdx]?.key === row.key;
     if (isCursor || highlightTarget) {
       return (
-        <Text key={row.key} color={theme.palette.bg} backgroundColor={theme.palette.accent}>
+        <Text
+          key={row.key}
+          wrap="truncate"
+          color={theme.palette.bg}
+          backgroundColor={theme.palette.accent}
+        >
           {text}
         </Text>
       );
@@ -199,6 +255,9 @@ export function App() {
     return (
       <Text
         key={row.key}
+        // Belt-and-braces with the truncation above: even if a future edit
+        // composes a row past the budget, Ink clips instead of wrapping.
+        wrap="truncate"
         color={row.kind === "tab" ? theme.palette.fg : theme.palette.accent}
         dimColor={row.kind === "tab" && !row.tab.active}
       >
@@ -211,16 +270,29 @@ export function App() {
     mode.kind === "confirm-close"
       ? `close "${mode.title.slice(0, 50)}"? press y to confirm`
       : mode.kind === "move"
-        ? `moving "${mode.title.slice(0, 40)}" — j/k picks window, Enter confirms, Esc cancels`
+        ? // Name the target: the marker row can be scrolled off, and even when
+          // it isn't, "which window am I about to move into" should not require
+          // hunting for a highlight.
+          `moving "${truncateToWidth(mode.title, 30)}" → "${truncateToWidth(
+            moveTargets[targetIdx]?.kind === "window"
+              ? (moveTargets[targetIdx] as Extract<Row, { kind: "window" }>).window.title ||
+                  "(untitled)"
+              : "(none)",
+            30,
+          )}" — j/k picks, Enter confirms, Esc cancels`
         : message || `${rows.length} rows · ${live ? "live (daemon)" : "polling"}`;
 
   return (
     <Box flexDirection="column" height="100%">
-      <Box paddingX={1}>
-        <Text color={theme.palette.accent} bold>
+      {/* Pinned to one line. viewportRows() subtracts a CONSTANT chrome height,
+          so any chrome that wraps at narrow widths silently steals a row from
+          the list and pushes the frame past the screen — a width bug that
+          presents as a height overflow. */}
+      <Box paddingX={1} height={1} overflow="hidden">
+        <Text color={theme.palette.accent} bold wrap="truncate">
           {APP_NAME.replace(/^@[^/]+\//, "").replace(/-mcp$/, "")}
         </Text>
-        <Text color={theme.palette.fgDim}>
+        <Text color={theme.palette.fgDim} wrap="truncate">
           {" "}
           v{buildStamp()} · {live ? "daemon stream" : "osascript polling"}
         </Text>
@@ -243,22 +315,33 @@ export function App() {
         ) : null}
       </Box>
 
-      <StatusBar
-        mode={mode.kind === "browse" ? "browse" : mode.kind}
-        message={statusMessage}
-        hint={`engine: ${engineLabel()}`}
-      />
-      <HelpBar
-        hints={[
-          { key: "j/k", label: "move" },
-          { key: "⏎", label: "focus" },
-          { key: "x", label: "close" },
-          { key: "m", label: "move tab" },
-          { key: "space", label: "fold" },
-          { key: "r", label: "refresh" },
-          { key: "q", label: "quit" },
-        ]}
-      />
+      {/* Same reason as the help bar: a long message wraps the bordered box to
+          a third line at ~40 columns. Two rows is its natural height and what
+          CHROME_ROWS budgets for, so pin it there. */}
+      <Box height={2} overflow="hidden" flexShrink={0}>
+        <StatusBar
+          mode={mode.kind === "browse" ? "browse" : mode.kind}
+          message={statusMessage}
+          hint={`engine: ${engineLabel()}`}
+        />
+      </Box>
+      {/* HelpBar is flexWrap="wrap" in the kit, so below ~90 columns it needs a
+          second line and chrome becomes 5 rows against a CHROME_ROWS of 4.
+          Clamped here rather than upstream: a wrapping help bar is right for a
+          consumer that sizes its own viewport, wrong for one that doesn't. */}
+      <Box height={1} overflow="hidden">
+        <HelpBar
+          hints={[
+            { key: "j/k", label: "move" },
+            { key: "⏎", label: "focus" },
+            { key: "x", label: "close" },
+            { key: "m", label: "move tab" },
+            { key: "space", label: "fold" },
+            { key: "r", label: "refresh" },
+            { key: "q", label: "quit" },
+          ]}
+        />
+      </Box>
     </Box>
   );
 }
