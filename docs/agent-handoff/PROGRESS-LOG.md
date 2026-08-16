@@ -730,3 +730,55 @@ Also worth recording from upstream: their own release-token guard only ran on
 fixed on the publishing path. And the guard prevents spurious *majors*, not
 under-classified breaking changes published as *minors*, which is the dangerous
 class and remains open. Treat a kit minor as capable of breaking us.
+
+## 2026-08-16 — TUI width safety (the render-corruption class)
+
+Found by the adversarial TUI stress pass. Rows were composed from fixed
+`String.slice` budgets (~122 columns before badges, ~156 fully badged), never
+clamped to the terminal and never marked `wrap`. Ink word-wraps an over-long
+`Text` and `overflow="hidden"` does not clip vertically, so N rows became N+k
+printed lines — measured 66 lines into a 40-row screen at 100x30. The frame
+scrolled and the chrome was overprinted.
+
+**Why it mattered beyond cosmetics:** the casualty is the status bar, which is
+where `close "…"? press y to confirm` renders. A user could sit in
+confirm-close mode with no visible prompt, one `y` from closing a real tab.
+
+Two distinct causes, both fixed:
+1. **Rows never clamped.** Now width-aware: budgets derive from
+   `useTerminalSize().columns`, split between title and url, and every row ends
+   with `truncateToWidth(text, usableCols)` as the single guarantee. Uses
+   tui-kit 0.4.1's grapheme-aware helper — `String.slice` counts UTF-16 units
+   and splits surrogate pairs (verified: `slice(0,50)` on an emoji title leaves
+   a lone `\ud83c`). `wrap="truncate"` on both `<Text>` branches as
+   defence-in-depth.
+2. **Chrome height was a lie at narrow widths.** `viewportRows()` subtracts a
+   constant 4, but `HelpBar` is `flexWrap="wrap"` and needs 2 lines below ~90
+   columns, and `StatusBar` wraps its bordered box to a 3rd line near 40. Both
+   are now pinned (`height={1}` / `height={2}`) so the constant is true. This
+   half was invisible until the row fix landed — the width test found it.
+
+Also in this pass: `!key.ctrl` guard on `d` (^D was half-page-down AND a stats
+toggle, and the panel steals ~38 columns, which re-triggered cause 1); move
+mode scrolls to the TARGET not the cursor (with the target off-screen, `j`
+produced a byte-identical frame and Enter moved the tab into a window never
+shown); the sticky status message now clears on motion; move mode refuses when
+there is no legal target instead of silently no-oping; `cg:none` renders for a
+failed cgWindowId join — the wm-stack failure this tool exists to surface.
+
+**Test debt closed:** `App.test.tsx` varies HEIGHT only and its fixture titles
+("Tab 0") are too short to wrap at ink-testing-library's 100 columns, which is
+exactly why this shipped. New `App.width.test.tsx` renders realistic content
+(real-length titles/URLs, emoji, a null cgWindowId) across 7 geometries from
+250x50 down to 40x12.
+
+**Bar:** lint 0 · typecheck 0 · 563 tests · test:no-native · build · stress
+27/27. **2 sabotage checks**: removing the row clamp reddens at 100x30
+(35 lines into 30); un-pinning the help bar reddens at 80x24 (25 into 24) —
+distinct geometries, so the two causes are guarded separately.
+**Live**: 100/80/60 columns in a tmux pane, rows truncate with `…`, status bar
+and help bar both intact, clean exit and terminal restore.
+
+**Left for upstream (kit):** `StatusBar` is content-sized, so a long message
+butts straight against the hint — `[browse] 92 rows · live (daemon)engine: rust`
+with no gap. Fix is `width="100%"` in tui-kit, not a local hack.
