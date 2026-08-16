@@ -260,8 +260,9 @@ apps/
 packages/
   mcp-kit, extension-core, env-loader, shared-types, test-kit,
   tsconfig, biome-config, vitest-config
-  (robustness / cli-kit / tui-kit are npm deps published from
-   mcp-cli-starter-template — no longer vendored here)
+  (robustness ^0.7.0 / cli-kit ^2.0.1 / tui-kit ^0.4.1 are npm deps published
+   from mcp-cli-starter-template — no longer vendored here, and bundled inline
+   so the shipped bin stays self-contained)
 
 mise.toml                   toolchain pins (node, pnpm) + named tasks
 .github/workflows/          ci.yml, release.yml (release-please; tags+releases, no npm publish),

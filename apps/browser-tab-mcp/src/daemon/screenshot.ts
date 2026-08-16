@@ -14,7 +14,7 @@
  */
 
 import { statSync } from "node:fs";
-import { envNum } from "@george43g/robustness";
+import { envNum, TokenBucket } from "@george43g/robustness";
 import type { BrowserId, BrowserWindow, ScreenshotOutput, Tab } from "@george43g/shared-types";
 import { type ParsedTabId, type ParsedWindowId, parseTabId, parseWindowId } from "../detect/ids.js";
 import type { ShotStore } from "./shots.js";
@@ -26,46 +26,18 @@ const RATE_RPS = 2;
 const RATE_BURST = 2;
 
 /**
- * Non-blocking token bucket. robustness's `TokenBucket` only offers the
- * BLOCKING `acquire()`, and the screenshot path must fail fast with a
- * "retry in Nms" hint instead of queuing — so the non-blocking variant lives
- * here until a `tryAcquire` ships upstream. With rps=0 the bucket never
- * refills, so once exhausted it reports `retryMs: 0` (caller decides).
+ * Per-browser token buckets — captureVisibleTab / screencapture fail fast.
+ *
+ * The screenshot path must refuse with a "retry in Nms" hint rather than queue,
+ * which is why this wants the NON-blocking `tryAcquire`. That shipped in
+ * robustness 0.7.0 (we specified it upstream and our two guards below were the
+ * acceptance oracle), so the app-local `ShotBucket` copy is gone.
+ *
+ * `tryAcquire` throws when `n > capacity` — a demand refill can never satisfy.
+ * Unreachable here: `RATE_BURST` is a constant 2 and `check` always asks for 1.
  */
-class ShotBucket {
-  private tokens: number;
-  private lastRefill: number;
-
-  constructor(
-    private readonly capacity: number,
-    private readonly rps: number,
-    private readonly clock: () => number = Date.now,
-  ) {
-    this.tokens = capacity;
-    this.lastRefill = clock();
-  }
-
-  tryAcquire(n = 1): { ok: boolean; retryMs: number } {
-    if (n <= 0) return { ok: true, retryMs: 0 };
-    const now = this.clock();
-    if (this.rps > 0) {
-      const elapsedSec = Math.max(0, (now - this.lastRefill) / 1000);
-      this.tokens = Math.min(this.capacity, this.tokens + elapsedSec * this.rps);
-      this.lastRefill = now;
-    }
-    if (this.tokens >= n) {
-      this.tokens -= n;
-      return { ok: true, retryMs: 0 };
-    }
-    if (this.rps <= 0) return { ok: false, retryMs: 0 };
-    const needed = n - this.tokens;
-    return { ok: false, retryMs: Math.max(1, Math.ceil((needed / this.rps) * 1000)) };
-  }
-}
-
-/** Per-browser token buckets — captureVisibleTab / screencapture fail fast. */
 export class ShotRateLimiter {
-  private readonly buckets = new Map<BrowserId, ShotBucket>();
+  private readonly buckets = new Map<BrowserId, TokenBucket>();
 
   constructor(
     private readonly rps = RATE_RPS,
@@ -76,7 +48,7 @@ export class ShotRateLimiter {
   check(browser: BrowserId): { ok: boolean; retryMs: number } {
     let bucket = this.buckets.get(browser);
     if (!bucket) {
-      bucket = new ShotBucket(this.burst, this.rps, this.clock);
+      bucket = new TokenBucket(this.burst, this.rps, this.clock);
       this.buckets.set(browser, bucket);
     }
     return bucket.tryAcquire(1);

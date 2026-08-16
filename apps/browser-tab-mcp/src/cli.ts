@@ -574,27 +574,11 @@ export async function main(argv: readonly string[] = process.argv): Promise<void
               description: t.description,
             }));
           },
-          async callTool(name, args) {
-            const result = await callMcpTool(name, args);
-            // cli-kit's ToolCallResult is text-only; a terminal REPL can't
-            // render an image block, so it becomes a summary line rather
-            // than a base64 dump.
-            return {
-              content: result.content.map((block) =>
-                block.type === "text"
-                  ? block
-                  : {
-                      type: block.type,
-                      text: `[${block.type} ${block.mimeType}, ${block.data.length} base64 chars]`,
-                    },
-              ),
-              ...(result.structuredContent === undefined
-                ? {}
-                : { structuredContent: result.structuredContent }),
-              ...(result.isError === undefined ? {} : { isError: result.isError }),
-              ...(result._meta === undefined ? {} : { _meta: result._meta }),
-            };
-          },
+          // Straight passthrough since cli-kit 2.0.0: its ToolCallResult carries
+          // the same text|image ContentBlock union our dispatcher emits, and it
+          // renders an image block as `[image image/jpeg, 61.4 KB]` itself. The
+          // adapter that used to flatten images into a summary line is gone.
+          callTool: callMcpTool,
         },
         shortcuts: [
           {

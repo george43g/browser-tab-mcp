@@ -69,10 +69,13 @@ disproved earlier theory: `BACKLOG.md` item 5.
    a clean stop, carrying `snapshotChangedAt`. Kept separate from
    `snapshot.json` so that file's mtime keeps meaning "state changed" — the two
    questions ("alive?" / "current?") need two files.
-2. **Kit shim removal** — `robustness@^0.7.0` (delete `ShotBucket`) and
-   `cli-kit@^1.0.0` (collapse the REPL adapter in `cli.ts` to
-   `return callMcpTool(name, args)`). Both published; `tui-kit@0.4.0` is
-   additive. **Note the range: cli-kit went to 1.0.0, not 0.4.0.**
+2. ~~**Kit shim removal**~~ **DONE** — branch `chore/kit-upgrade-2026-08`.
+   Consuming `robustness@^0.7.0` / `cli-kit@^2.0.0` / `tui-kit@^0.4.0`. Both
+   shims gone: `ShotBucket` (robustness shipped the `tryAcquire` we specified)
+   and the REPL image adapter (cli-kit's `ToolCallResult` now carries our
+   `text | image` union). **cli-kit's version was relayed to us as 1.0.0 twice
+   and is actually 2.0.0 — the two are byte-identical in `dist/`. Read
+   `npm view`, never a relayed number.**
 
 **Cross-session note:** the wm-stack consumer is adopting the read path now —
 Chrome-only for M1, Safari deferred until the fix above lands, fixtures encoded

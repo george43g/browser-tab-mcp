@@ -662,3 +662,71 @@ bar event, and a stale socket file lies after a crash.
   live-checked, to avoid downing the user's daemon for the observation.
 
 New env: `BROWSER_TAB_HEARTBEAT_PATH` (added to `.env.example` same commit).
+
+## 2026-08-10 (later) — kit upgrade: both app shims removed
+
+Consuming `robustness@^0.7.0` · `cli-kit@^2.0.0` · `tui-kit@^0.4.0`.
+
+- **`ShotBucket` deleted.** robustness 0.7.0 shipped the non-blocking
+  `TokenBucket.tryAcquire` we specified upstream, with our
+  `screenshot.test.ts` deny-with-hint + refill-then-retry guards used as the
+  acceptance oracle. Those two tests are now the cross-repo contract check —
+  they pass unchanged against the shipped implementation. Upstream added a
+  throw for `n > capacity` (a demand refill can never satisfy); unreachable
+  here since `RATE_BURST` is a constant 2 and `check()` always asks for 1.
+- **REPL image adapter deleted** — `callTool: callMcpTool` is now a straight
+  passthrough. cli-kit's `ToolCallResult` carries the same `text | image`
+  union our dispatcher emits. **This fixed a defect for free:** the old adapter
+  flattened an image block to `[image image/jpeg, 83992 base64 chars]` and
+  DISCARDED the structured result. Verified live:
+  ```
+  browser-tab> screenshot {"tabId":"t:chrome:x523241908"}
+  [image image/jpeg, 91.3 KB]
+  { "tier": "tab", "path": "…/shots/t-t_chrome_x523241908-20.jpg",
+    "bytes": 93519, "format": "jpeg", "cached": false, "navEpoch": 20 }
+  ```
+  Decoded size, and the payload survives.
+- The predicted `content[0].text` TS2339 never materialised — removing the
+  adapter outright avoids the narrowing rather than fixing it.
+- **Bar:** lint 0 · typecheck 0 · `turbo test --force` 551 · test:no-native ·
+  build · stress 27/27 · bin still fully self-contained (zero `@george43g/`
+  imports in `dist/cli.js`). REPL smoke on 2.0.0: `health`, `list safari`, and
+  the `raw` tokenizer round-tripping nested/escaped quotes + unicode byte-exact
+  through a pipe.
+
+**Version-number hazard, recorded because it cost real confusion:** cli-kit was
+relayed to us as `1.0.0` twice; the registry serves `2.0.0`, and the two
+tarballs are byte-identical in `dist/` (a docs-only commit whose prose spelled
+a breaking-change token cut a spurious major upstream). Had we pinned `^1.0.0`
+on the relayed number we would have been stranded a major behind while
+believing we were current. **Rule: `npm view @george43g/<kit> version` before
+any bump.** Upstream has since added a CI guard against the token.
+
+Three kit defects found by this session's stress testing were sent upstream
+rather than patched locally (per the standing rule): `useVimKeys` drops
+multi-character stdin chunks (and its lexicographic digit guard lets `"5j"`
+poison the next keystroke), `runRepl` writes banner/prompt/echo to stdout so
+piped REPL output can't be parsed, and `isCI()` treats `CI=false` as true.
+
+### Patch bump mid-PR: cli-kit 2.0.1 / tui-kit 0.4.1
+
+The three kit defects this session's stress test found were fixed and published
+as patches while PR #43 was open, so the PR consumes them rather than shipping a
+knowingly-broken input path. All three verified **in our own binary**, not taken
+on trust:
+
+- `useVimKeys` now dispatches per character and guards digits with a regex
+  (`dist/hooks/useVimKeys.js:62` `DIGIT.test(input)`, `:121` `for (const ch of
+  input)`) instead of the lexicographic `input >= "0" && input <= "9"`. Upstream
+  deliberately did NOT take a blind `[...input]` fan-out — a mixed chunk like
+  `dj` goes to `onUnhandled` whole, so a pasted paragraph can't reach a
+  consumer's destructive-key handlers one character at a time.
+- REPL piped output is parseable at last:
+  `printf 'noop q\nquit\n' | browser-tab repl | jq -c .` → `{"echo":"q",…}`.
+- `CI=false browser-tab list` prints the human view again (was JSON).
+
+Also worth recording from upstream: their own release-token guard only ran on
+`pull_request` and `main` isn't protected, so a direct push never met it — now
+fixed on the publishing path. And the guard prevents spurious *majors*, not
+under-classified breaking changes published as *minors*, which is the dangerous
+class and remains open. Treat a kit minor as capable of breaking us.
