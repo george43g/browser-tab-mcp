@@ -1,5 +1,17 @@
 # Changelog
 
+## [1.1.1](https://github.com/george43g/browser-tab-mcp/compare/v1.1.0...v1.1.1) (2026-08-17)
+
+
+### Bug Fixes
+
+* **cli:** make the documented flags real, and refuse values we can't honour ([#49](https://github.com/george43g/browser-tab-mcp/issues/49)) ([3073159](https://github.com/george43g/browser-tab-mcp/commit/307315916cb8c0447140458814173fc0f161fef4))
+* **cli:** print the field each renderer exists for, and mean it about width ([#52](https://github.com/george43g/browser-tab-mcp/issues/52)) ([3a51e75](https://github.com/george43g/browser-tab-mcp/commit/3a51e7581532907a771c202f24c2ec4f33d8515c))
+* **cli:** signal tool failure to scripts, not just to humans ([#42](https://github.com/george43g/browser-tab-mcp/issues/42)) ([59131cf](https://github.com/george43g/browser-tab-mcp/commit/59131cf0211c816f9c3bc8e7d75e3bdaa824e530))
+* **cli:** stop the bundler swapping picocolors for its browser stub ([#47](https://github.com/george43g/browser-tab-mcp/issues/47)) ([21549ee](https://github.com/george43g/browser-tab-mcp/commit/21549ee5e85ea3605d3279fd3b7f66b2d9814d64))
+* **security:** allowlist navigable URL schemes; enforce devOnly at dispatch ([#50](https://github.com/george43g/browser-tab-mcp/issues/50)) ([4b66087](https://github.com/george43g/browser-tab-mcp/commit/4b660870f562cefcf7b72959316568563338240a))
+* **tui:** clamp rows and chrome to the terminal width ([#45](https://github.com/george43g/browser-tab-mcp/issues/45)) ([e95f6d8](https://github.com/george43g/browser-tab-mcp/commit/e95f6d8b775189a4ae9c0b7973ae6bacde103c93))
+
 ## [1.1.0](https://github.com/george43g/browser-tab-mcp/compare/v1.0.1...v1.1.0) (2026-08-10)
 
 
