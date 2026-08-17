@@ -782,3 +782,172 @@ and help bar both intact, clean exit and terminal restore.
 **Left for upstream (kit):** `StatusBar` is content-sized, so a long message
 butts straight against the hint — `[browse] 92 rows · live (daemon)engine: rust`
 with no gap. Fix is `width="100%"` in tui-kit, not a local hack.
+
+## 2026-08-16 — adversarial stress pass, 3 fixes merged, release held
+
+**Method worth reusing.** Two subagents drove the app in **isolated tmux windows
+on the shared `drive` server**, joined via a **session group** (`drive-bt`): the
+window list is shared so the human can watch, but each session keeps its own
+current-window pointer, so nothing the agents did moved anyone's view. Each got
+one window, two panes, `window-size manual` (so they could resize 250x10 →
+40x12 without touching an attached client), and hard rules: their panes only,
+never `kill-server`/`select-window`/another session, never stop the live daemon,
+never touch the human's real tabs. Anything destructive ran against their own
+throwaway daemon on a temp socket. Both returned clean and left the panes alive.
+
+**Merged (in the user's chosen order):**
+- **#42 `59131cf`** CLI exit codes. A failing tool exited **0** for every piped,
+  `--json` and CI caller and **1** only for a human at a terminal — `printResult`
+  set the code at the bottom of the human branch, which the JSON branch returns
+  before reaching. Also emits `{error:{tool,message}}` instead of leaking the raw
+  MCP envelope, which had made `jq '.rows'` yield `null` rather than fail.
+- **#43 `2edcc63`** Kit upgrade + both shims deleted. Landed at `cli-kit@2.0.1` /
+  `tui-kit@0.4.1` / `robustness@0.7.0` after taking the patches that fixed the
+  three kit defects this same stress pass found.
+- **#45 `e95f6d8`** TUI width safety — see below.
+
+**The TUI bug had TWO causes, and the second was invisible until the first was
+fixed.** (1) Rows were built from fixed `String.slice` budgets (~122 cols before
+badges, ~156 fully badged), never clamped to the terminal, never marked `wrap`;
+Ink word-wraps and `overflow="hidden"` does not clip vertically, so 66 lines got
+printed into a 40-row screen. `App.tsx` read `useTerminalSize().rows` and threw
+`columns` away entirely. (2) `viewportRows()` subtracts a **constant** 4 for
+chrome, but `HelpBar` is `flexWrap="wrap"` (2 lines below ~90 cols) and
+`StatusBar` wraps to a 3rd line near 40 — so the constant was a lie exactly where
+it mattered. The new width test caught (2) at 80x24 only after (1) landed.
+**Not cosmetic:** the casualty is the status bar, which is where `close "…"?
+press y to confirm` renders — a user could sit in confirm-close mode with no
+visible prompt, one `y` from closing a real tab.
+
+**Kit defects sent upstream rather than patched here** (all three fixed and
+published as patches the same day): `useVimKeys` dropped any multi-character
+stdin chunk (fast scrolling lost ~60% of keystrokes) and its **lexicographic**
+digit guard let a coalesced `"5j"` into the count buffer, making the *next* `j`
+jump 5 rows; `runRepl` wrote banner/prompt/echo to stdout so piped REPL output
+could never be parsed; `isCI()` treated `CI=false` as true. Upstream's
+`useVimKeys` fix is better than what I proposed — I suggested a blind
+`[...input]` fan-out, they routed mixed chunks to `onUnhandled` whole so a paste
+cannot reach destructive-key handlers one character at a time.
+
+**Self-correction recorded:** I reported the `"5j"` corruption as deterministic.
+It is not — `"9z"` does not trip the old guard, because a longer string with the
+same prefix sorts above `"9"`. That inconsistency is probably why it never
+surfaced as a user bug report.
+
+**Release #44 is OPEN AND HELD** at the user's instruction ("merge #45 only,
+hold the release") so further stress-test fixes batch into one version.
+
+**New scope arrived** (tab-group colour, browser theme, cross-extension data,
+SurfingKeys, bookmarks, and five interface surfaces incl. HTTP streaming). The
+user asked only for an audit and triage, not a build — that is written up in
+`BACKLOG.md` under "Capability audit vs. the 2026-08-16 scope request".
+**The SurfingKeys research LANDED** — see BACKLOG "SurfingKeys integration —
+research complete". Headline: cross-extension messaging and LevelDB writes are
+both impossible; SK's `localPath` HTTP config (re-fetched every page load) and
+its DOM CustomEvent API bus are both open and supported.
+
+---
+
+## 2026-08-17 — the four stress-test fixes, S1 → S4 (Claude)
+
+All four items George prioritised are done and open as a **stacked chain**.
+Nothing merged: ground rule 1 stands, every one needs his word.
+
+**Merge order matters** — each PR's base is the one before it, so the diffs stay
+reviewable. GitHub retargets each to `main` as its parent lands.
+
+| PR | Item | What it fixes |
+|---|---|---|
+| #47 | S1 | colour dead in the shipped bin |
+| #48 | S2 | renderers dropping the field they exist for |
+| #49 | S3a | the three inert global flags |
+| #50 | S3b | URL-scheme allowlist + `devOnly` at dispatch |
+| #51 | S4 | a TUI soak that can actually fail |
+
+(#46, this docs PR, is independent of the chain and can merge any time.)
+
+### S1 — colour was dead in `dist/`, alive in source
+
+Root cause is a build-config default, not a code bug: **Vite's
+`resolve.mainFields` leads with `"browser"`**, so `picocolors` resolved to
+`picocolors.browser.js`, whose every colour function is `String`. Measured:
+the same command emits **18 ANSI sequences from `tsx src/cli.ts` and 0 from
+`node dist/cli.js`**. Every test runs on source, so nothing could see it.
+
+The guard is behavioural on purpose — it runs the REAL bin under `FORCE_COLOR`
+and asserts ANSI bytes on the wire, so it catches the class (any dep swapped
+for its browser build), not just picocolors.
+
+**Second finding, pre-existing on `main`:** `render.test.ts` claimed "`color`
+no-ops off-TTY and vitest has no TTY". That was ambient luck — `colorEnabled()`
+also honours `FORCE_COLOR`, which multiplexers export routinely. Verified on a
+clean `main` checkout: with it set, 2 of 21 tests fail. They now strip SGR at
+the boundary, which is deterministic *and* exercises the coloured path.
+
+### S2 — three renderer defects with one theme
+
+`journal --view windowMru` printed no window handle, so the answer to "which
+window did I use last" could not be fed to `focus`. `history` dropped
+`sources` — and returned early on the empty path, so the one case that field
+exists for printed nothing. And `Math.max(12, width - fixed)` is a **floor**,
+which cannot prevent an overflow: a history row measured **73 columns wide at
+every requested width from 40 to 60**, and 101 at width 100. Header rows never
+went through width logic at all.
+
+All rows now go through one `layoutRow` that DROPS optional columns before
+squeezing the flexible one. **The handle and the `cg:` join key are never
+dropped** — a row you can read but cannot act on has lost its only purpose.
+
+Sabotage check: 18 of the 41 renderer tests fail against the old renderer.
+
+### S3 — split in two, because a security change deserves its own review
+
+**#49, flags.** `-q`, `-v`, `--no-color` were on the root command (so `--help`
+advertised them everywhere) and nothing read them. `--quiet` suppresses the
+success payload **but never an error and never the exit code**. `--fields` was a
+ternary, so `--fields nonsense` silently became `full`. And `journal --view
+tabMru` relayed a request it knew was incomplete — the daemon rejects it, but
+`journal` DEGRADES to empty when the daemon is down, so a missing `--window`
+read as "no records".
+
+**#50, security.** `url: z.string()` while documenting "http(s) URL" meant
+`javascript:` (script in the page's origin) and `file:` (local file, which
+`get_page` reads back) both reached a real browser. The caller is usually a
+model that has just read untrusted web content. Now an **allowlist** — a
+denylist has to be right forever, an allowlist fails closed. And `devOnly` was
+honoured only by `toMcpTools()`: hiding `get_logs` from `tools/list` never
+disabled it, and the CLI/REPL never consulted that filter at all.
+
+### S4 — and then I audited the harness the same way
+
+The new TUI soak renders the real `App` against a real daemon across six
+geometries. Reintroducing #45 **did not fail it**, twice over:
+
+1. `wrap="truncate"` is an independent second guard and held alone — the code
+   was right, my sabotage was incomplete.
+2. **The render phase was feeding the fake adapter's short fixture titles.**
+   Rendering `"Inbox (3) - Gmail"` measures the FIXTURE, not the layout — which
+   is exactly how the overflow shipped past a green suite. Fixed with opt-in
+   `BROWSER_TAB_FAKE_SCALE` / `_TABS` (default off, existing fixtures untouched).
+
+Running it for real then surfaced two *driver* defects: it printed
+`max RSS 0MB, max lag 0ms, 0 samples` and **exited 0** — passing while measuring
+nothing — because phase A's loop was synchronous and starved the watchdog's
+timer; and it ignored the workload's exit code entirely, so a correctness
+failure could not fail the run. Both fixed. After: 23 samples, max RSS 417.5MB,
+max event-loop p99 113.8ms.
+
+### Notes for whoever picks this up
+
+- **`FORCE_COLOR` is set in this job's shell.** It is why the render tests
+  looked broken at first. Check the ambient env before believing a colour or
+  width failure is yours.
+- **`cp` is aliased to `cp -i` here** — a restore-from-backup silently does
+  nothing and prompts instead. Use `command cp -f`. This bit once mid-sabotage
+  and left the old renderer in place.
+- **A single-guard sabotage proves nothing when there are two guards.** Both
+  #45 clamps had to go before the harness went red.
+- Bash cwd persists between tool calls. Two README edits went to
+  `apps/browser-tab-mcp/README.md` instead of the root one after an earlier
+  `cd`; both landed correctly in the end, but check `pwd` before a relative path.
+
