@@ -20,10 +20,11 @@ import {
   withDaemonEnv,
 } from "@george43g/test-kit";
 import { installNodeWebSocket } from "@george43g/test-kit/node";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { DaemonClient } from "../src/client/daemon-client.js";
 import { type DaemonHandle, startDaemon } from "../src/daemon/index.js";
 import { ensureToken } from "../src/daemon/token.js";
+import { buildStamp } from "../src/meta.js";
 
 const WS_PORT = randomWsPort();
 let tmp: string;
@@ -62,12 +63,12 @@ afterEach(async () => {
   rmSync(tmp, { recursive: true, force: true });
 });
 
-function connect(authToken = token): DaemonSocket {
+function connect(authToken = token, extVersion = "test"): DaemonSocket {
   const s = new DaemonSocket({
     port: WS_PORT,
     token: authToken,
     browser: "chrome",
-    extVersion: "test",
+    extVersion,
   });
   sock = s;
   s.start();
@@ -177,5 +178,53 @@ describe("DaemonSocket ↔ ExtensionServer", () => {
     } finally {
       client.close();
     }
+  });
+});
+
+/**
+ * The build-identity line the extension prints on connect.
+ *
+ * `doctor` already compares these stamps, but only from the DAEMON's side —
+ * and "a rebuilt extension is not a reloaded one" is a browser-side fact, so
+ * the extension console is the one place a human sees it without leaving the
+ * browser. That console cannot be scraped from a test, so this pins the
+ * behaviour at the real socket seam instead: daemon sends `daemonBuild` in
+ * helloAck, extension compares and logs.
+ *
+ * The comparison is on COMMIT IDENTITY, not string equality — the two stamps
+ * legitimately differ in their semver prefix (`0.2.0+54.abc` vs
+ * `1.1.1+54.abc`), so equality would report a permanent false mismatch.
+ */
+describe("build identity is reported to the browser console", () => {
+  let logs: string[];
+  let spy: { mockRestore(): void };
+
+  beforeEach(() => {
+    logs = [];
+    const push = (...a: unknown[]) => {
+      logs.push(a.map(String).join(" "));
+    };
+    spy = vi.spyOn(console, "log").mockImplementation(push);
+    vi.spyOn(console, "warn").mockImplementation(push);
+  });
+  afterEach(() => spy.mockRestore());
+
+  it("logs a MATCH when only the semver prefix differs", async () => {
+    // Read the stamp in-process rather than over IPC: an extra DaemonClient
+    // here left a socket open and the daemon's stop() blocked on it, timing
+    // out the shared afterEach.
+    const daemonBuild = buildStamp();
+    const commit = daemonBuild.slice(daemonBuild.indexOf("+") + 1);
+    connect(token, `0.2.0+${commit}`);
+    await waitUntil(() => logs.some((l) => /matches daemon/.test(l)), 4000);
+    expect(logs.some((l) => l.includes("matches daemon"))).toBe(true);
+  });
+
+  it("warns on a genuine mismatch, naming both stamps", async () => {
+    connect(token, "0.2.0+1.deadbee");
+    await waitUntil(() => logs.some((l) => /BUILD MISMATCH/.test(l)), 4000);
+    const line = logs.find((l) => l.includes("BUILD MISMATCH")) ?? "";
+    expect(line).toContain("0.2.0+1.deadbee");
+    expect(line).toMatch(/reload this extension/i);
   });
 });
