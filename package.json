@@ -1,6 +1,6 @@
 {
   "name": "browser-tab",
-  "version": "1.1.0",
+  "version": "1.1.1",
   "private": true,
   "description": "browser-tab — MCP+CLI+TUI tool scaffolded from mcp-cli-starter-template.",
   "type": "module",
