@@ -142,3 +142,43 @@ time and will bite again. Append new ones as you hit them.
   ⌘R and a custom DerivedData path registers the app twice; `sideload` uses
   the default DerivedData, `unregister` prunes stale registrations. Re-run
   `convert` only when the file set / manifest structure changes.
+
+## release-please failing on `main` — GitHub incident, NOT a config break (2026-08-17)
+
+**Symptom:** every push to `main` produces a red `Release` workflow run:
+
+```
+##[error]release-please failed: Resource not accessible by integration
+  - https://docs.github.com/rest/git/trees#get-a-tree   (or .../git/blobs#get-a-blob)
+```
+
+The step gets a little further each attempt (config → manifest → releases →
+merge commits → package.json → blob) before 403ing, which makes it look like a
+permissions regression. **It is not.** Evidence, in the order that settles it:
+
+1. **Timing.** Last success `e95f6d8` at 2026-08-16 05:47. Every run from
+   2026-08-17 13:37 onward failed, with an unchanged `release.yml` and an
+   unchanged `release-please-config.json`.
+2. **The token has the rights.** The run log's own `GITHUB_TOKEN Permissions`
+   group prints `Contents: write · PullRequests: write` — exactly what
+   release-please needs.
+3. **githubstatus.com reported `Partially Degraded Service`** with **API
+   Requests, Actions, Pull Requests, Issues and Webhooks** all
+   `degraded_performance` during the whole window. The same run logged two
+   `429 Too Many Requests` retries just downloading the action.
+4. **Unauthenticated-looking 404s hit an ordinary `gh api` call too** —
+   `gh api repos/<owner>/<repo>/commits/main` returned 404 for a branch that
+   demonstrably exists. That is the incident, not the repo.
+
+**What NOT to do:** flipping the repo's
+`actions/permissions/workflow → default_workflow_permissions` from `read` to
+`write` does **nothing** (tried 2026-08-17, reverted immediately). The explicit
+`permissions:` block in `release.yml` already grants what is needed, and the
+repo default only applies to workflows that declare none. Don't loosen a
+security setting chasing this.
+
+**What to do:** wait for githubstatus.com to return to `operational`, then
+`gh workflow run release.yml --ref main`. The release PR refreshes itself.
+Check `curl -s https://www.githubstatus.com/api/v2/status.json | jq -r
+'.status.indicator'` — `none` means healthy.
+
