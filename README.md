@@ -188,6 +188,13 @@ $ browser-tab list --json | jq '.browsers[0].windows | length'
 that field is the yabai/wm-stack join key and a silent `null` there is easy to
 miss. The TUI uses the same `cg:none` marker.
 
+The human view is **coloured** — browser names bold, handles cyan, metadata dim,
+`cg:none` yellow, the active `▸` green — and honours the usual conventions:
+`NO_COLOR` off, `FORCE_COLOR` on regardless of TTY. Two escape hatches exist
+because the inferred signals have no inverse: `FORCE_HUMAN=1` selects the human
+view when stdout is a pipe (so `browser-tab list | less -R` works), and
+`FORCE_COLOR=1` keeps the colour with it.
+
 ### The TUI adapts to the terminal, in both dimensions
 
 `browser-tab tui` derives its viewport from the live terminal size and clamps

@@ -49,7 +49,7 @@ Architecture: MCP/CLI/TUI are daemon *clients* (unix socket); reads degrade to d
 
 - **Runtime**: Node.js ≥24 (native `--env-file-if-exists`)
 - **Module system**: ESM only (`type: "module"`)
-- **Build**: Vite library mode → `dist/cli.js` (the single bin, shebang-prefixed) + `dist/index.js` (library exports: `runMcpServer`, `callMcpTool`)
+- **Build**: Vite library mode → `dist/cli.js` (the single bin, shebang-prefixed) + `dist/index.js` (library exports: `runMcpServer`, `callMcpTool`). **This is a NODE build and the config says so explicitly** (`resolve.mainFields`/`conditions` in `apps/browser-tab-mcp/vite.config.ts`): Vite's defaults lead with `"browser"`, which silently swapped `picocolors` for its browser stub (every colour function = `String`) and left the shipped bin monochrome while `tsx`/vitest — which resolve like Node — stayed colourful. Nothing errored; a whole class of dep can be swapped this way. Guarded behaviourally in `tests/bundle.build-output.test.ts` by running the real bin under `FORCE_COLOR` and asserting ANSI on the wire. Don't remove the `resolve` block.
 - **Package manager**: pnpm 10.x (workspace at root)
 - **Lint/format**: Biome 2.x
 - **Tests**: Vitest (globals on)

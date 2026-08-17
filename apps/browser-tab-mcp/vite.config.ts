@@ -29,6 +29,25 @@ const pkgVersion = (createRequire(import.meta.url)("./package.json") as { versio
  * `dist/cli.js` is self-contained and installable outside the workspace.
  */
 export default defineConfig({
+  /**
+   * THIS IS A NODE BUILD — never take a dependency's browser build.
+   *
+   * Vite's default `mainFields` leads with `"browser"` and its default
+   * `conditions` include `"browser"`, both aimed at web output. That default
+   * silently swapped `picocolors` for `picocolors.browser.js`, whose every
+   * colour function is `String` — so `color.green/bold/dim/red` became
+   * identities and the shipped bin lost its entire visual hierarchy while the
+   * source path (tsx, vitest) stayed colourful. Nothing failed; the colours
+   * just weren't there.
+   *
+   * These two lines pin resolution to what Node itself does. The behavioural
+   * guard in `tests/bundle.build-output.test.ts` is the real defence — this
+   * class of defect swaps ANY dep for its browser build with no error.
+   */
+  resolve: {
+    mainFields: ["module", "jsnext:main", "jsnext"],
+    conditions: ["node", "import", "module", "default"],
+  },
   // Freeze build identity into the bundle so the running artifact can prove
   // which source it came from (see scripts/build-stamp.mjs).
   define: buildDefines(pkgVersion),

@@ -25,7 +25,6 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 const TAB_COUNT = 25;
 
 /** Strip SGR/ANSI so width maths measures glyphs, not escape bytes. */
-// biome-ignore lint/suspicious/noControlCharactersInRegex: matching ANSI ESC is the point
 const ANSI = /\[[0-9;]*m/g;
 const strip = (s: string) => s.replace(ANSI, "");
 
