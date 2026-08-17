@@ -201,6 +201,14 @@ first — badges, then host, then the clock — before the title is squeezed. Th
 handle and the `cg:` join key are never dropped: a row you can read but can't
 feed back into `focus` / `window set` has lost the only reason it was printed.
 
+The global flags are real: `--no-color` disables colour, `-v/--verbose` raises
+the log level, and `-q/--quiet` suppresses the success payload — **but never an
+error, and never the exit code**, because a quiet failure that also exits 0 is
+the one thing such a flag must not cause. Options that can't honour a value now
+refuse it (`--fields`, `journal --view`) instead of silently falling back, and
+`journal --view tabMru|journey` demands its handle up front rather than
+degrading to an empty result that reads like "no history".
+
 ### The TUI adapts to the terminal, in both dimensions
 
 `browser-tab tui` derives its viewport from the live terminal size and clamps

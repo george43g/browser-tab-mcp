@@ -17,12 +17,14 @@ import {
   applyEnvFromFlags,
   bindEnvFlags,
   color,
+  disableColors,
   isInteractive,
   printJson,
   resolveOutputMode,
 } from "@george43g/cli-kit";
+import { setLogLevel } from "@george43g/robustness/logger";
 import { WIRE_PROTOCOL_VERSION } from "@george43g/shared-types";
-import { Command } from "commander";
+import { Command, Option } from "commander";
 import { checkLocalAccess, formatAccessReport } from "./access-check.js";
 import { compareBuilds } from "./build-compare.js";
 import { daemonStatus } from "./client/tabs-service.js";
@@ -85,12 +87,22 @@ function errorEnvelope(
  * `process.exitCode` (not `process.exit()`) so a pending stdout write on a pipe
  * still flushes.
  */
+/**
+ * Set by `--quiet` before any action runs. Module-level rather than threaded
+ * through 17 call sites: it is a process-wide output mode, not a per-call one.
+ */
+let quiet = false;
+
 async function printResult(
   result: Awaited<ReturnType<typeof callMcpTool>>,
   json: boolean,
   tool?: string,
 ) {
   if (result.isError) process.exitCode = 1;
+  // `--quiet` suppresses the SUCCESS payload only. Errors still print, and the
+  // exit code is set above either way — a quiet failure that also exits 0 would
+  // be a silent failure, which is the one thing a flag like this must not cause.
+  if (quiet && !result.isError) return;
   if (resolveOutputMode({ json }) === "json") {
     printJson(errorEnvelope(result, tool) ?? result.structuredContent ?? result);
     return;
@@ -114,6 +126,24 @@ async function printResult(
   // process.exit() here, which can truncate the write we just queued.
 }
 
+/**
+ * Make the three global flags DO something.
+ *
+ * `-q`, `-v` and `--no-color` were declared on the root command — and so shown
+ * in `--help` for every subcommand — but nothing ever read them. A flag that is
+ * documented and inert is worse than a missing one: it invites a workaround
+ * that silently doesn't work.
+ *
+ * Commander maps `--no-color` to `color: false` (NOT `noColor`), which is the
+ * detail that makes this a two-line fix rather than a rewrite.
+ */
+function applyGlobalFlags(program: Command): void {
+  const opts = program.opts<{ color?: boolean; quiet?: boolean; verbose?: boolean }>();
+  if (opts.color === false) disableColors();
+  if (opts.verbose) setLogLevel("debug");
+  quiet = opts.quiet === true;
+}
+
 export async function main(argv: readonly string[] = process.argv): Promise<void> {
   const program = new Command();
   // Bin name = the tool name (no -cli suffix). Subcommands route to MCP/TUI/etc.
@@ -135,6 +165,7 @@ export async function main(argv: readonly string[] = process.argv): Promise<void
   bindEnvFlags(program, ENV_FLAGS, ENV_FLAG_OPTS);
   program.hook("preAction", () => {
     applyEnvFromFlags(program, ENV_FLAGS, ENV_FLAG_OPTS);
+    applyGlobalFlags(program);
   });
 
   program
@@ -220,7 +251,13 @@ export async function main(argv: readonly string[] = process.argv): Promise<void
     .option("--browser <name>", "Restrict to one browser: chrome|chromium|brave|safari")
     .option("--window <id>", "Restrict to one window (opaque windowId from a previous list)")
     .option("--url <substring>", "Filter tabs by URL substring (drops non-matching windows)")
-    .option("--fields <set>", "Field set: core (trimmed) or full (default)", "full")
+    // A ternary silently mapped every non-"core" value to "full", so
+    // `--fields nonsense` looked like it worked. `.choices()` rejects it.
+    .addOption(
+      new Option("--fields <set>", "Field set: core (trimmed) or full")
+        .choices(["core", "full"])
+        .default("full"),
+    )
     .action(async (opts: { browser?: string; window?: string; url?: string; fields?: string }) => {
       const json = program.opts<{ json?: boolean }>().json ?? false;
       const result = await callMcpTool("list_tabs", {
@@ -235,7 +272,11 @@ export async function main(argv: readonly string[] = process.argv): Promise<void
   program
     .command("journal")
     .description("Show recorded focus/navigation history (windowMru|tabMru|journey|recent)")
-    .option("--view <view>", "windowMru | tabMru | journey | recent", "recent")
+    .addOption(
+      new Option("--view <view>", "Which journal view to show")
+        .choices(["windowMru", "tabMru", "journey", "recent"])
+        .default("recent"),
+    )
     .option("--browser <name>", "Restrict to one browser")
     .option("--window <id>", "Window handle (required for tabMru)")
     .option("--tab <id>", "Tab handle (required for journey)")
@@ -249,6 +290,15 @@ export async function main(argv: readonly string[] = process.argv): Promise<void
         limit?: string;
       }) => {
         const json = program.opts<{ json?: boolean }>().json ?? false;
+        // Enforce the view's own required argument HERE, not just daemon-side.
+        // The daemon does throw, but `journal` degrades to an empty result when
+        // the daemon is down — so a missing `--window` produced "no records",
+        // indistinguishable from "this window has no history".
+        const needs = { tabMru: ["--window", opts.window], journey: ["--tab", opts.tab] } as const;
+        const need = needs[opts.view as keyof typeof needs];
+        if (need && !need[1]) {
+          throw new Error(`journal --view ${opts.view} requires ${need[0]} <id>.`);
+        }
         const result = await callMcpTool("journal", {
           view: opts.view ?? "recent",
           ...(opts.browser ? { browser: opts.browser } : {}),

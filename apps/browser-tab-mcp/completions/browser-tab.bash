@@ -59,13 +59,17 @@ cmd list help="List open browser windows and tabs (Chrome/Brave/Chromium/Safari)
     flag --url help="Filter tabs by URL substring" {
         arg <substring>
     }
-    flag --fields help="Field set: core (trimmed) or full (default)" {
-        arg <set>
+    flag --fields help="Field set: core (trimmed) or full" {
+        arg "[set]" required=#false default=full {
+            choices core full
+        }
     }
 }
 cmd journal help="Show recorded focus/navigation history" {
-    flag --view help="windowMru | tabMru | journey | recent" {
-        arg <view>
+    flag --view help="Which journal view to show" {
+        arg "[view]" required=#false default=recent {
+            choices windowMru tabMru journey recent
+        }
     }
     flag --browser help="Restrict to one browser" {
         arg <name>

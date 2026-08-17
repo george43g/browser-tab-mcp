@@ -7,9 +7,16 @@ Show recorded focus/navigation history
 
 ## Flags
 
-### `--view <view>`
+### `--view [view]`
 
-windowMru | tabMru | journey | recent
+Which journal view to show
+
+**Choices:**
+
+- `windowMru`
+- `tabMru`
+- `journey`
+- `recent`
 
 ### `--browser <name>`
 
