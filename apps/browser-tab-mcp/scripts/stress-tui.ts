@@ -27,7 +27,7 @@ import { fileURLToPath } from "node:url";
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const ROOT = resolve(__dirname, "..");
 const TSX = resolve(ROOT, "../../node_modules/.bin/tsx");
-const WORKLOAD = resolve(__dirname, "stress-tui-workload.ts");
+const WORKLOAD = resolve(__dirname, "stress-tui-workload.tsx");
 
 const RSS_FAIL_MB = Number(process.env.STRESS_RSS_FAIL_MB ?? 800);
 const LAG_FAIL_MS = Number(process.env.STRESS_LAG_FAIL_MS ?? 2000);
@@ -46,6 +46,9 @@ async function main(): Promise<void> {
   const child = spawn(TSX, [WORKLOAD], {
     env: {
       ...process.env,
+      // Keep the child alive slightly LONGER than we sample, so the last
+      // sample lands against a live process rather than a corpse.
+      WORKLOAD_DURATION_S: process.env.WORKLOAD_DURATION_S ?? String(DURATION_S + 5),
       MCP_WATCHDOG_STATE_PATH: STATE_PATH,
       MCP_MEMORY_SAMPLE_MS: "1000",
       MCP_EVENT_LOOP_SAMPLE_MS: "1000",
@@ -78,10 +81,27 @@ async function main(): Promise<void> {
   });
   clearInterval(sampler);
   child.kill("SIGTERM");
+  const workloadExit = await new Promise<number>((r) => child.once("exit", (code) => r(code ?? 0)));
 
   const maxRss = samples.reduce((m, s) => Math.max(m, s.rssMb), 0);
   const maxLag = samples.reduce((m, s) => Math.max(m, s.eventLoopP99Ms), 0);
   const failures: string[] = [];
+  // ZERO SAMPLES IS A FAILURE, not a clean run. This harness reported
+  // "max RSS 0MB, max lag 0ms, 0 samples" and exited 0 — passing while
+  // measuring nothing, which is the exact complaint that got it rewritten.
+  // (Root cause then: the workload's hot loop was synchronous, so the
+  // watchdog's timer never fired and the state file was never written.)
+  if (samples.length === 0) {
+    failures.push(
+      `no watchdog samples collected — the workload never wrote ${STATE_PATH}. ` +
+        "Either it died early or it starved the event loop.",
+    );
+  }
+  // The workload owns CORRECTNESS (frame invariants) and signals via its exit
+  // code; the driver owns RESOURCES. Neither verdict may swallow the other.
+  if (workloadExit !== 0 && workloadExit !== null) {
+    failures.push(`workload exited ${workloadExit} — see its invariant violations above`);
+  }
   if (maxRss > RSS_FAIL_MB) failures.push(`RSS ${maxRss}MB > ${RSS_FAIL_MB}MB`);
   if (maxLag > LAG_FAIL_MS) failures.push(`event-loop p99 ${maxLag}ms > ${LAG_FAIL_MS}ms`);
 
