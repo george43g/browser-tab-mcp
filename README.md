@@ -209,6 +209,13 @@ refuse it (`--fields`, `journal --view`) instead of silently falling back, and
 `journal --view tabMru|journey` demands its handle up front rather than
 degrading to an empty result that reads like "no history".
 
+**URLs are allowlisted.** `open`, `window open` and `act navigate` accept
+`http`, `https`, `about` and the browser-internal schemes; `javascript:`,
+`file:` and `data:` are refused, because the caller is often a model that has
+just read untrusted web content and those three turn a tab tool into script
+execution, local-file disclosure and inline-HTML injection. Widen it
+deliberately with `BROWSER_TAB_ALLOW_URL_SCHEMES=file,data`.
+
 ### The TUI adapts to the terminal, in both dimensions
 
 `browser-tab tui` derives its viewport from the live terminal size and clamps

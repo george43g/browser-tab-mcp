@@ -478,6 +478,58 @@ function ipcRequest(sock: string, method: string, timeoutMs = 5_000): Promise<un
   });
 }
 
+/**
+ * Case 14 — the two refusals that are security boundaries, checked across the
+ * REAL MCP transport rather than in-process.
+ *
+ * Both used to be no-ops: `url: z.string()` accepted `javascript:`/`file:`, and
+ * `devOnly` was honoured only by `toMcpTools()` — so `get_logs` was hidden from
+ * tools/list but still ran if you named it.
+ */
+async function caseRefusalsFakeAdapter(): Promise<void> {
+  const c = new McpClient({ BROWSER_TAB_FAKE_ADAPTER: "1", BROWSER_TAB_BROWSERS: "chrome" });
+  try {
+    await c.initialize();
+    const text = async (name: string, args: Record<string, unknown>): Promise<string> => {
+      const r = await c.request("tools/call", { name, arguments: args });
+      return r.result?.content?.[0]?.text ?? "";
+    };
+    for (const url of ["javascript:alert(1)", "file:///etc/passwd", "data:text/html,x"]) {
+      record(
+        `open_tab refuses ${url.split(":")[0]}:`,
+        /not allowed/i.test(await text("open_tab", { url })),
+      );
+    }
+    record(
+      "open_window refuses a javascript: url in its array",
+      /not allowed/i.test(await text("open_window", { urls: ["javascript:alert(1)"] })),
+    );
+    record(
+      "tab_action navigate refuses a file: url",
+      /not allowed/i.test(
+        await text("tab_action", {
+          tabId: "t:chrome:9900",
+          action: "navigate",
+          url: "file:///etc/passwd",
+        }),
+      ),
+    );
+    record(
+      "open_tab still opens https",
+      (await text("open_tab", { url: "https://example.com" })).includes('"ok": true'),
+    );
+    // Hidden must mean unreachable, and must look exactly like "no such tool"
+    // so the refusal doesn't confirm the tool exists.
+    record(
+      "get_logs is unreachable without MCP_DEV",
+      /unknown tool name/i.test(await text("get_logs", {})),
+    );
+  } finally {
+    c.kill();
+    await c.waitExit();
+  }
+}
+
 async function caseDaemonLifecycle(): Promise<void> {
   const tmp = mkdtempSync(join(tmpdir(), "browser-tab-stress-"));
   const sock = join(tmp, "daemon.sock");
@@ -550,6 +602,7 @@ async function main(): Promise<void> {
   await caseJournalFakeAdapter();
   await caseWriteCommandsFakeAdapter();
   await caseContentFakeAdapter();
+  await caseRefusalsFakeAdapter();
   await caseDaemonLifecycle();
 
   const failed = results.filter((r) => !r.pass);
