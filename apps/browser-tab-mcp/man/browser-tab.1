@@ -72,6 +72,9 @@ Print server health snapshot (calls health_check in\-process)
 \fBlist\fR
 List open browser windows and tabs (Chrome/Brave/Chromium/Safari)
 .TP
+\fBreload\-extension\fR
+Restart a browser's connector extension from disk (dev deploy loop)
+.TP
 \fBjournal\fR
 Show recorded focus/navigation history
 .TP
@@ -162,6 +165,16 @@ Filter tabs by URL substring
 .TP
 \fB\-\-fields\fR \fI<set>\fR
 Field set: core (trimmed) or full
+.SH "BROWSER-TAB RELOAD-EXTENSION"
+Restart a browser's connector extension from disk (dev deploy loop)
+.PP
+\fBUsage:\fR browser\-tab reload\-extension [OPTIONS]
+.PP
+\fBOptions:\fR
+.PP
+.TP
+\fB\-\-browser\fR \fI<name>\fR
+Which browser's extension to reload
 .SH "BROWSER-TAB JOURNAL"
 Show recorded focus/navigation history
 .PP

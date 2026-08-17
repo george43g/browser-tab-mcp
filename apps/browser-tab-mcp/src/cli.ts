@@ -23,11 +23,11 @@ import {
   resolveOutputMode,
 } from "@george43g/cli-kit";
 import { setLogLevel } from "@george43g/robustness/logger";
-import { WIRE_PROTOCOL_VERSION } from "@george43g/shared-types";
+import { type BrowserId, WIRE_PROTOCOL_VERSION } from "@george43g/shared-types";
 import { Command, Option } from "commander";
 import { checkLocalAccess, formatAccessReport } from "./access-check.js";
 import { compareBuilds } from "./build-compare.js";
-import { daemonStatus } from "./client/tabs-service.js";
+import { daemonStatus, reloadExtension } from "./client/tabs-service.js";
 import { registerDaemonCommand } from "./commands/daemon.js";
 import { callMcpTool } from "./dispatcher.js";
 import { ENV_FLAG_OPTS, ENV_FLAGS } from "./env-flags.js";
@@ -420,6 +420,41 @@ export async function main(argv: readonly string[] = process.argv): Promise<void
     .action(async (tabId: string) => {
       const json = program.opts<{ json?: boolean }>().json ?? false;
       await printResult(await callMcpTool("close_tab", { tabId }), json, "close_tab");
+    });
+
+  /**
+   * Deliberately a CLI-only surface. There is no `reload_extension` MCP tool,
+   * so a model driving this server cannot restart the extension it is talking
+   * through — that would be a self-inflicted outage, and the failure would look
+   * like a transport bug rather than a tool call. Operators get it; models
+   * don't.
+   */
+  program
+    .command("reload-extension")
+    .description("Restart a browser's connector extension from disk (dev deploy loop)")
+    .option("--browser <name>", "chrome|chromium|brave|safari", "chrome")
+    .action(async (opts: { browser?: string }) => {
+      const json = program.opts<{ json?: boolean }>().json ?? false;
+      const browser = (opts.browser ?? "chrome") as BrowserId;
+      // A failed reload THROWS (the daemon has no partial success to report),
+      // so catch it here and honour --json rather than letting a stack trace
+      // be the user interface.
+      try {
+        const result = await reloadExtension(browser);
+        if (resolveOutputMode({ json }) === "json") {
+          printJson(result);
+          return;
+        }
+        process.stdout.write(`${color.green("✓")} ${browser} extension reloaded and reconnected\n`);
+      } catch (err) {
+        process.exitCode = 1;
+        const message = (err as Error).message;
+        if (resolveOutputMode({ json }) === "json") {
+          printJson({ error: { command: "reload_extension", browser, message } });
+          return;
+        }
+        process.stderr.write(`${color.red("✗")} ${message}\n`);
+      }
     });
 
   program

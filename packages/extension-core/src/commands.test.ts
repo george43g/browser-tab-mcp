@@ -374,3 +374,26 @@ describe("safari profile lacks tab groups", () => {
     }
   });
 });
+
+/**
+ * The ack-before-reload ordering is the entire correctness of this command.
+ *
+ * `runtime.reload()` tears the background context down immediately, so calling
+ * it inline would kill the extension before the result frame reaches the
+ * daemon — every SUCCESSFUL reload would be reported as a command timeout.
+ * These tests pin the ordering, not the reload itself.
+ */
+describe("reload_extension", () => {
+  it("returns BEFORE reloading, so the ack can reach the daemon", async () => {
+    const outcome = await executeCommand("reload_extension", {});
+    // Resolved, and the reload has NOT fired yet.
+    expect(fc.calls["runtime.reload"]).toBeUndefined();
+    expect((outcome.payload as { scheduled?: boolean }).scheduled).toBe(true);
+  });
+
+  it("does reload, on a later turn of the event loop", async () => {
+    await executeCommand("reload_extension", {});
+    await new Promise((r) => setTimeout(r, 300));
+    expect(fc.calls["runtime.reload"]?.length).toBe(1);
+  });
+});
