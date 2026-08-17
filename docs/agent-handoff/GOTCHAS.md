@@ -182,3 +182,16 @@ security setting chasing this.
 Check `curl -s https://www.githubstatus.com/api/v2/status.json | jq -r
 '.status.indicator'` — `none` means healthy.
 
+**RESOLVED, and the resolution is the proof.** The incident cleared on its own
+later the same day. The very next `workflow_dispatch` — with **no config change
+of any kind**, the reverted permission setting still back at `read` — went
+green, refreshed release PR #44 with all six fixes, and merging it minted tag
+`v1.1.1` plus the GitHub Release unattended. Eight red runs, then one green,
+nothing touched in between. If you are reading this during a future outage:
+the fix really is to wait.
+
+**And verify the tag afterwards anyway.** `v1.0.0` was cut manually once because
+release-please's cut silently failed — a green workflow run is not by itself
+proof that the tag exists. `git fetch --tags && git tag -l 'vX.Y.Z'` plus
+`gh release view vX.Y.Z` takes two seconds.
+
