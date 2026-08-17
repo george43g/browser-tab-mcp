@@ -130,6 +130,11 @@ browser-tab journal --view journey --tab <id>   # a tab's navigation chain
 browser-tab journal --view recent               # raw focus tail
 ```
 
+Each row carries **the handle it is about** — a window handle for `windowMru`, a
+tab handle for the rest — so the output of a "where was I last" query can be
+pasted straight into `focus` / `window set`. That is the only reason to ask the
+question, and for a while the human view printed everything except that field.
+
 Journals live in the daemon only (empty when it's down), persist as rotated
 NDJSON under `$BROWSER_TAB_CACHE_DIR/journal/`, and the per-tab `navEpoch`
 maintained here is the cache-busting key later capabilities reuse. Handles in
@@ -269,6 +274,19 @@ Passing an explicit `--browser` whose source is unavailable errors with a hint;
 omitting it merges whatever's reachable (empty when nothing is, like `journal`).
 URLs/titles are untrusted web content. Env: `BROWSER_TAB_SAFARI_HISTORY` (0),
 `BROWSER_TAB_SQLITE_BIN` (`/usr/bin/sqlite3`), `BROWSER_TAB_SAFARI_HISTORY_DB`.
+
+**Every result reports its sources — including the empty one.** Rows alone
+can't distinguish "Safari had nothing" from "Safari was never asked", so each
+query lists one line per source it considered, whether or not it ran:
+
+```console
+$ browser-tab history --query zzz-no-such-url
+history - no rows
+  sources
+    chrome    extension   ok           0 rows
+    brave     extension   unavailable  the browser-tab extension is not connected
+    safari    safari-db   unavailable  Safari history is disabled - set BROWSER_TAB_SAFARI_HISTORY=1
+```
 
 ## TUI (`browser-tab tui`)
 

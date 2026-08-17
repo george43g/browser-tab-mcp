@@ -230,6 +230,190 @@ describe("renderJournal / renderHistory", () => {
   it("says 'no rows' for empty history", () => {
     expect(renderHistory({ rows: [] })).toContain("no rows");
   });
+
+  // An MRU view exists to answer "which window did I use last" so you can go
+  // BACK to it. Printing the row without its handle makes the answer
+  // unactionable — you can read it but you cannot feed it to `focus`.
+  it("windowMru prints the window handle, not just the title", () => {
+    const out = renderJournal({
+      view: "windowMru",
+      focus: [
+        {
+          ts: 1_700_000_000_000,
+          browser: "chrome",
+          kind: "window-focus",
+          windowId: "w:chrome:x523241490",
+          title: "Some Window",
+          url: "https://e.x/1",
+        },
+      ],
+    });
+    expect(out).toContain("w:chrome:x523241490");
+  });
+
+  it("tab-shaped views print the tab handle", () => {
+    const out = renderJournal({
+      view: "recent",
+      focus: [
+        {
+          ts: 1_700_000_000_000,
+          browser: "chrome",
+          kind: "tab-focus",
+          windowId: "w:chrome:x1",
+          tabId: "t:chrome:x11",
+          title: "T",
+          url: "https://e.x/1",
+        },
+      ],
+    });
+    expect(out).toContain("t:chrome:x11");
+  });
+
+  // `sources` was added because Chrome-only rows, "Safari had nothing" and
+  // "Safari was never asked" were indistinguishable. Dropping it from the human
+  // view put that ambiguity straight back.
+  it("history reports per-source outcomes alongside the rows", () => {
+    const out = renderHistory({
+      rows: [
+        { url: "https://e.x/1", title: "One", visitTime: 1_700_000_000_000, browser: "chrome" },
+      ],
+      truncated: false,
+      sources: [
+        { browser: "chrome", source: "extension", status: "ok", rows: 1 },
+        {
+          browser: "safari",
+          source: "safari-db",
+          status: "unavailable",
+          rows: 0,
+          reason: "Safari history is off (BROWSER_TAB_SAFARI_HISTORY=0)",
+        },
+      ],
+    });
+    expect(out).toContain("safari-db");
+    expect(out).toContain("unavailable");
+    expect(out).toContain("BROWSER_TAB_SAFARI_HISTORY=0");
+  });
+
+  // The empty path is where `sources` matters MOST: with no rows to reason
+  // from, "nothing found" and "nothing asked" look identical without it.
+  it("history explains an EMPTY result — that is what sources are for", () => {
+    const out = renderHistory({
+      rows: [],
+      sources: [
+        {
+          browser: "chrome",
+          source: "extension",
+          status: "error",
+          rows: 0,
+          reason: "not connected",
+        },
+      ],
+    });
+    expect(out).toContain("no rows");
+    expect(out).toContain("error");
+    expect(out).toContain("not connected");
+  });
+});
+
+/**
+ * Width is a promise, not a suggestion.
+ *
+ * The renderers used to budget the title with `Math.max(12, width - fixed)`.
+ * That is a FLOOR: once the fixed columns exceeded `width - 12` it handed the
+ * title more room than the row had, so narrow terminals overflowed and wrapped
+ * — the precise failure the TUI was fixed for in #45, still live in the CLI.
+ */
+describe("every renderer fits inside the requested width", () => {
+  const LONG = "T".repeat(400);
+  const SNAP = {
+    focusedBrowser: "chrome",
+    browsers: [
+      {
+        browser: "chrome",
+        running: true,
+        dataSource: "extension",
+        windows: [
+          {
+            windowId: "w:chrome:x523241490",
+            cgWindowId: 71018,
+            state: "normal",
+            bounds: { x: 0, y: 0, w: 1860, h: 1020 },
+            tabs: [
+              {
+                tabId: "t:chrome:x523241740",
+                title: LONG,
+                url: "https://a-really-long-hostname.example.com/deep/path",
+                active: true,
+                pinned: true,
+                audible: true,
+              },
+            ],
+          },
+        ],
+      },
+    ],
+  };
+  const JOURNAL = {
+    view: "windowMru",
+    focus: [
+      {
+        ts: 1_700_000_000_000,
+        browser: "chrome",
+        kind: "window-focus",
+        windowId: "w:chrome:x523241490",
+        title: LONG,
+        url: "https://a-really-long-hostname.example.com/deep/path",
+      },
+    ],
+  };
+  const HISTORY = {
+    rows: [
+      {
+        url: "https://a-really-long-hostname.example.com/deep/path",
+        title: LONG,
+        visitTime: 1_700_000_000_000,
+        visitCount: 42,
+        browser: "chrome",
+      },
+    ],
+    truncated: true,
+    sources: [
+      {
+        browser: "safari",
+        source: "safari-db",
+        status: "error",
+        rows: 0,
+        reason: "R".repeat(300),
+      },
+    ],
+  };
+
+  for (const width of [40, 50, 60, 80, 100]) {
+    it(`renderSnapshot at ${width} columns`, () => {
+      for (const line of renderSnapshot(SNAP, width).split("\n")) {
+        expect(line.length, `overflowing line: ${JSON.stringify(line)}`).toBeLessThanOrEqual(width);
+      }
+    });
+
+    it(`renderJournal at ${width} columns`, () => {
+      for (const line of renderJournal(JOURNAL, width).split("\n")) {
+        expect(line.length, `overflowing line: ${JSON.stringify(line)}`).toBeLessThanOrEqual(width);
+      }
+    });
+
+    it(`renderHistory at ${width} columns`, () => {
+      for (const line of renderHistory(HISTORY, width).split("\n")) {
+        expect(line.length, `overflowing line: ${JSON.stringify(line)}`).toBeLessThanOrEqual(width);
+      }
+    });
+  }
+
+  // Dropping columns must never drop the one you'd act on.
+  it("keeps the handle even at 40 columns, where the host is sacrificed", () => {
+    const narrow = renderJournal(JOURNAL, 40);
+    expect(narrow).toContain("w:chrome:x523241490");
+    expect(narrow).not.toContain("a-really-long-hostname.example.com");
+  });
 });
 
 describe("renderDaemonStatus", () => {

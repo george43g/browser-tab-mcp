@@ -195,6 +195,12 @@ because the inferred signals have no inverse: `FORCE_HUMAN=1` selects the human
 view when stdout is a pipe (so `browser-tab list | less -R` works), and
 `FORCE_COLOR=1` keeps the colour with it.
 
+**Narrow terminals lose a column, never the answer.** Rows lay out against the
+real terminal width, and when there isn't room the least useful column goes
+first — badges, then host, then the clock — before the title is squeezed. The
+handle and the `cg:` join key are never dropped: a row you can read but can't
+feed back into `focus` / `window set` has lost the only reason it was printed.
+
 ### The TUI adapts to the terminal, in both dimensions
 
 `browser-tab tui` derives its viewport from the live terminal size and clamps
