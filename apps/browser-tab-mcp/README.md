@@ -319,11 +319,18 @@ like a transport bug rather than a tool call. The CLI is the only way in.
 **Bootstrapping:** a bundle that predates this command can't reload itself —
 reload it by hand once and the command works from then on. It says so.
 
-**Safari:** the command is wired up, but `runtime.reload()` re-reads resources
-inside the registered `.appex`, and `scripts/rebuild.sh` produces a *new* app
-that macOS must register — which is what the Settings toggle does. So this
-likely does **not** replace the toggle on Safari. Untested; the command exists
-so it can be.
+**Safari: don't use this command — you don't need it.** MEASURED 2026-08-18
+(Safari 26.x): Safari accepts `chrome.runtime.reload()` and then does nothing
+observable — the background page never drops its socket, so the daemon
+correctly refuses to claim a reload happened.
+
+It doesn't matter, because Safari updates itself. `pnpm --filter
+@george43g/safari-extension sideload` prunes stale registrations, rebuilds,
+`xcodebuild`s and re-registers the app — and across two back-to-back trials
+with **no toggle and no reload command**, the extension disconnected and came
+back on the freshly built stamp within ~15s. The manual "Settings > Extensions
+toggle off/on" step that script used to print is unnecessary here; it remains
+the fallback if a future Safari regresses this.
 
 ### Which build is actually running?
 

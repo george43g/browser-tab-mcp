@@ -509,11 +509,25 @@ async function reloadExtension(ext: ExtensionServer, browser: BrowserId): Promis
   });
   const wentDown = await waitFor(() => !ext.isConnected(browser), RELOAD_DOWN_TIMEOUT_MS);
   if (!wentDown) {
+    // MEASURED 2026-08-18: this is what Safari does. It accepts
+    // `chrome.runtime.reload()` and then does nothing observable — the
+    // background page never drops its socket. Do NOT blame a stale bundle
+    // here: the bootstrap case is already caught above by "unknown command
+    // kind", so reaching this point means the extension DOES support reload
+    // and the browser simply ignored it.
+    //
+    // Safari does not need this command anyway: rebuilding via
+    // `pnpm --filter @george43g/safari-extension sideload` re-registers the
+    // app and Safari adopts the new bundle by itself within ~15s.
+    const safariNote =
+      browser === "safari"
+        ? " Safari accepts runtime.reload() and ignores it — this is expected. Use " +
+          "`pnpm --filter @george43g/safari-extension sideload` instead; Safari picks the " +
+          "rebuilt bundle up on its own."
+        : "";
     throw new Error(
       `The ${browser} extension acknowledged the reload but its connection never dropped, so ` +
-        `no restart was observed. It is probably running an older bundle without reload support ` +
-        `— reload it by hand once (chrome://extensions, or Safari > Settings > Extensions), ` +
-        `then this command works from here on.`,
+        `no restart happened.${safariNote}`,
     );
   }
   const cameBack = await waitFor(() => ext.isConnected(browser), RELOAD_UP_TIMEOUT_MS);
