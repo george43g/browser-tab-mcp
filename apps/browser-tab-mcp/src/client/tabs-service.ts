@@ -13,6 +13,7 @@ import { warn } from "@george43g/robustness";
 import type {
   AnnotateInput,
   AnnotateOutput,
+  BookmarksOutput,
   BrowserId,
   CloseWindowInput,
   CommandResult,
@@ -266,6 +267,17 @@ export async function history(params: Record<string, unknown>): Promise<HistoryO
     warn("daemon_unreachable_falling_back", { op: "history" });
     return empty;
   }
+}
+
+/**
+ * Bookmark CRUD. Daemon + extension only — there is no AppleScript surface for
+ * bookmarks, and the on-disk stores are owned by a running browser, so unlike
+ * `history` there is no local fallback to degrade to. A down daemon is an
+ * ERROR here rather than an empty result: an empty bookmark list would be
+ * indistinguishable from "you have no bookmarks", and a caller might act on it.
+ */
+export async function bookmarks(params: Record<string, unknown>): Promise<BookmarksOutput> {
+  return await viaDaemon((c) => c.request<BookmarksOutput>("bookmarks", params));
 }
 
 /**

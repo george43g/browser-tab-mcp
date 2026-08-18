@@ -53,6 +53,7 @@ export const CAPABILITY_KEYS = [
   "closeWindow",
   "focusEvents",
   "navEvents",
+  "bookmarks",
   "contentExtraction",
   "captureVisibleTab",
   "history",

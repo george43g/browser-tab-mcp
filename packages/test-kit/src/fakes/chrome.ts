@@ -55,6 +55,21 @@ export interface FakeChromeConfig {
   scriptResult?: unknown | ((mode?: string) => unknown);
   /** data URL `tabs.captureVisibleTab` resolves to. Default a 3-byte jpeg. */
   captureDataUrl?: string;
+  /**
+   * Seed for `chrome.bookmarks` (chrome profile only).
+   *
+   * A FLAT list with `parentId`; the fake reassembles the tree, because the
+   * code under test walks `children` and a fixture that hand-nests would let a
+   * broken `flatten()` pass by accident.
+   */
+  bookmarkNodes?: Array<{
+    id: string;
+    parentId?: string;
+    title?: string;
+    url?: string;
+    index?: number;
+    dateAdded?: number;
+  }>;
   /** HistoryItems `history.search` returns (chrome profile only). Default []. */
   historyItems?: Array<{
     url: string;
@@ -378,6 +393,97 @@ export function installFakeChrome(config: FakeChromeConfig = {}): FakeChrome {
       onUpdated: makeEvent("tabGroups.onUpdated"),
       onMoved: makeEvent("tabGroups.onMoved"),
       onRemoved: makeEvent("tabGroups.onRemoved"),
+    };
+    // Bookmarks: a mutable store so create/update/remove are observable, and a
+    // tree assembled from the flat seed on every read — the code under test
+    // walks `children`, so building the nesting HERE is what makes its
+    // flatten() genuinely exercised.
+    const bmStore = new Map<string, Record<string, unknown>>();
+    for (const n of config.bookmarkNodes ?? []) bmStore.set(n.id, { ...n, title: n.title ?? "" });
+    let bmNextId = 1000;
+    const bmChildren = (parentId: string | undefined): Record<string, unknown>[] =>
+      [...bmStore.values()].filter((n) => n.parentId === parentId);
+    const bmTree = (node: Record<string, unknown>): Record<string, unknown> => ({
+      ...node,
+      ...(node.url === undefined ? { children: bmChildren(node.id as string).map(bmTree) } : {}),
+    });
+    fake.bookmarks = {
+      search: (query?: unknown) => {
+        record("bookmarks.search", [query]);
+        const q = String(query ?? "").toLowerCase();
+        return Promise.resolve(
+          [...bmStore.values()].filter(
+            (n) =>
+              String(n.title ?? "")
+                .toLowerCase()
+                .includes(q) ||
+              String(n.url ?? "")
+                .toLowerCase()
+                .includes(q),
+          ),
+        );
+      },
+      getTree: () => {
+        record("bookmarks.getTree", []);
+        // Real Chrome returns a single synthetic root whose children are the
+        // bars; modelling that shape is what makes the `flatMap(children)` in
+        // the command correct rather than accidentally right.
+        return Promise.resolve([
+          { id: "0", title: "", children: bmChildren(undefined).map(bmTree) },
+        ]);
+      },
+      getSubTree: (id?: unknown) => {
+        record("bookmarks.getSubTree", [id]);
+        const node = bmStore.get(String(id));
+        return Promise.resolve(node ? [bmTree(node)] : []);
+      },
+      get: (id?: unknown) => {
+        record("bookmarks.get", [id]);
+        const node = bmStore.get(String(id));
+        return Promise.resolve(node ? [node] : []);
+      },
+      create: (details?: unknown) => {
+        record("bookmarks.create", [details]);
+        const d = (details ?? {}) as Record<string, unknown>;
+        const id = String(bmNextId++);
+        const node: Record<string, unknown> = {
+          id,
+          ...(d.parentId !== undefined ? { parentId: String(d.parentId) } : {}),
+          title: String(d.title ?? ""),
+          ...(d.url !== undefined ? { url: String(d.url) } : {}),
+        };
+        bmStore.set(id, node);
+        return Promise.resolve(node);
+      },
+      update: (id?: unknown, changes?: unknown) => {
+        record("bookmarks.update", [id, changes]);
+        const node = bmStore.get(String(id));
+        if (!node) return Promise.reject(new Error("Can't find bookmark for id."));
+        Object.assign(node, changes ?? {});
+        return Promise.resolve(node);
+      },
+      remove: (id?: unknown) => {
+        record("bookmarks.remove", [id]);
+        const node = bmStore.get(String(id));
+        // Real Chrome throws here for a non-empty folder — the command probes
+        // and calls removeTree instead, and this is what proves it does.
+        if (node && node.url === undefined && bmChildren(String(id)).length > 0) {
+          return Promise.reject(
+            new Error("Can't remove non-empty folder (use recursive to force)"),
+          );
+        }
+        bmStore.delete(String(id));
+        return Promise.resolve();
+      },
+      removeTree: (id?: unknown) => {
+        record("bookmarks.removeTree", [id]);
+        const drop = (nid: string): void => {
+          for (const c of bmChildren(nid)) drop(c.id as string);
+          bmStore.delete(nid);
+        };
+        drop(String(id));
+        return Promise.resolve();
+      },
     };
     fake.history = {
       search: (query?: unknown) => {

@@ -16,6 +16,7 @@ interface ApiSurface {
   windows?: Record<string, unknown>;
   tabGroups?: { query?: unknown };
   history?: { search?: unknown };
+  bookmarks?: { search?: unknown };
   scripting?: { executeScript?: unknown };
   webNavigation?: { onCommitted?: unknown };
 }
@@ -48,5 +49,10 @@ export function probeCapabilities(sampleTab?: Record<string, unknown>): Capabili
     contentExtraction: typeof surface.scripting?.executeScript === "function",
     captureVisibleTab: isFn(tabs, "captureVisibleTab"),
     history: typeof surface.history?.search === "function",
+    // Probed, never assumed from the manifest: a permission can be declared and
+    // still be absent at runtime (Safari implements a different subset), and
+    // the whole capability contract exists so consumers gate on the MAP rather
+    // than on a browser name.
+    bookmarks: typeof surface.bookmarks?.search === "function",
   };
 }

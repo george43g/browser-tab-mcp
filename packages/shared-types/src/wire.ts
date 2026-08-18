@@ -104,6 +104,7 @@ export const ExtCommandSchema = z.object({
     "extract_content",
     "capture_tab",
     "history_search",
+    "bookmarks",
     // Restarts the extension from disk (chrome.runtime.reload). Deliberately
     // has NO MCP tool — see daemon/index.ts — so it is unreachable from a
     // model and can only be driven by an operator via the CLI.

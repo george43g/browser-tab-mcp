@@ -2,7 +2,7 @@
  * Unix-socket IPC server — the client API for MCP/CLI/TUI/wm-stack.
  *
  * Protocol: NDJSON, one JSON object per line.
- *   request:  { id, method: "getSnapshot"|"subscribe"|"unsubscribe"|"command"|"status"|"refresh"|"journal"|"getPage"|"annotate"|"screenshot"|"history", params? }
+ *   request:  { id, method: "getSnapshot"|"subscribe"|"unsubscribe"|"command"|"status"|"refresh"|"journal"|"getPage"|"annotate"|"screenshot"|"history"|"bookmarks", params? }
  *   response: { id, ok: true, result } | { id, ok: false, error, hint? }
  *   events (after subscribe): DaemonEvent objects (see state.ts)
  *
@@ -36,6 +36,7 @@ export interface IpcServerOptions {
   onAnnotate: (params: Record<string, unknown>) => Promise<unknown>;
   onScreenshot: (params: Record<string, unknown>) => Promise<unknown>;
   onHistory: (params: Record<string, unknown>) => Promise<unknown>;
+  onBookmarks: (params: Record<string, unknown>) => Promise<unknown>;
 }
 
 export class IpcServer {
@@ -159,6 +160,9 @@ export class IpcServer {
           break;
         case "history":
           reply({ ok: true, result: await this.opts.onHistory(req.params ?? {}) });
+          break;
+        case "bookmarks":
+          reply({ ok: true, result: await this.opts.onBookmarks(req.params ?? {}) });
           break;
         default:
           reply({ ok: false, error: `unknown method "${req.method}"` });

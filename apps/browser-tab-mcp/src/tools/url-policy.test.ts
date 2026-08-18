@@ -102,3 +102,17 @@ describe("the opt-in widens the list, explicitly", () => {
     expect(checkUrl("javascript:alert(1)").ok).toBe(false);
   });
 });
+
+describe("bookmarks reuse the navigation allowlist", () => {
+  // A tab opened with `javascript:` runs once. A BOOKMARK saved with it is a
+  // persistent, user-clickable trap that outlives the session — and the caller
+  // is usually a model that has just read untrusted web content.
+  it("rejects javascript: and file: for a saved bookmark", () => {
+    expect(checkUrl("javascript:alert(1)").ok).toBe(false);
+    expect(checkUrl("file:///etc/passwd").ok).toBe(false);
+  });
+
+  it("still accepts what a bookmark is normally for", () => {
+    expect(checkUrl("https://example.com/docs").ok).toBe(true);
+  });
+});
