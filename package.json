@@ -13,6 +13,7 @@
     "packages/*"
   ],
   "scripts": {
+    "prepare": "git config core.hooksPath .githooks || true",
     "build": "node scripts/turbo-with-stamp.mjs build",
     "dev": "turbo run dev",
     "test": "turbo run test",
@@ -24,6 +25,8 @@
     "stress": "node scripts/turbo-with-stamp.mjs stress",
     "release:check": "node scripts/verify-release.mjs",
     "verify": "pnpm lint && pnpm typecheck && pnpm test && pnpm build",
+    "verify:macos": "node scripts/verify-macos.mjs",
+    "hooks:install": "git config core.hooksPath .githooks",
     "clean": "turbo run clean && node scripts/rimraf.mjs node_modules .turbo coverage"
   },
   "devDependencies": {
