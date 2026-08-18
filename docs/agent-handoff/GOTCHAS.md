@@ -195,3 +195,22 @@ release-please's cut silently failed — a green workflow run is not by itself
 proof that the tag exists. `git fetch --tags && git tag -l 'vX.Y.Z'` plus
 `gh release view vX.Y.Z` takes two seconds.
 
+## Never `--delete-branch` when merging a STACKED PR chain (2026-08-18)
+
+`gh pr merge <n> --squash --delete-branch` deletes the head branch — and if
+another open PR is *based* on it, GitHub **auto-closes that child PR**. It
+happened mid-merge on the S1→S4 chain: merging #47 closed #48, which had to be
+reopened as #52 after rebasing onto `main`.
+
+Merging a chain safely:
+
+1. `gh pr edit <child> --base main` for **every** child, BEFORE merging the
+   parent. (You cannot retarget a closed PR — "Cannot change the base branch of
+   a closed pull request".)
+2. Merge the parent **without** `--delete-branch`.
+3. `git rebase --onto main <parent-tip>` the next branch, force-push, wait for
+   CI, merge. Repeat.
+
+Step 3 is not optional with squash-merges: the parent's commits enter `main`
+with new SHAs, so the child still carries the originals and its diff would
+replay them.

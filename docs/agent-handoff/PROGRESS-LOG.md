@@ -951,3 +951,92 @@ max event-loop p99 113.8ms.
   `apps/browser-tab-mcp/README.md` instead of the root one after an earlier
   `cd`; both landed correctly in the end, but check `pwd` before a relative path.
 
+
+---
+
+## 2026-08-18 — v1.1.1 shipped; extension self-reload (Claude)
+
+> **Precedence:** where this entry and any conversation summary disagree, this
+> entry is correct. It was written from command output, not from memory.
+
+### State
+
+v1.1.1 is released and deployed. PR #54 (extension self-reload + build
+identity) is open, CI green, **unmerged** — it needs George's per-PR word.
+
+### Constraints (verbatim, this session)
+
+- "merge and deploy - we have enough for this batch - further changes we'll put
+  into the next version"
+- "cross-browser, when i used that term, did not mean i wanted safari to refresh
+  extensions in chrome, thats absurd it makes no sense lol"
+
+### Done
+
+- **v1.1.1 released.** Tag `v1.1.1` → `0844c73`; `gh release view v1.1.1`
+  returns the release with all six fixes in its body. Verified rather than
+  assumed — this repo has cut a green release run that produced no tag before.
+- **Eight PRs merged:** #46 docs · #47 S1 · #52 S2 · #49 S3a · #50 S3b · #51 S4
+  · #44 release · #53 gotchas. `main` = `ced85bb`.
+- **PR #54 opened** — `reload-extension` + build-identity handshake. CI 4/4
+  green at `6755ed0` (`gh pr checks 54`).
+- **Chrome self-reload proven to deliver NEW CODE**, three times, not merely to
+  restart: `+54.ceee7e1 → +55.5a0e8a6`, then `+55.5a0e8a6 → +56.6755ed0`, plus
+  repeat runs. `{"ok":true,"reconnected":true}`, ~2.6s, exit 0.
+- **Safari auto-adoption measured, 3 trials, no toggle:** after
+  `safari-extension sideload`, the extension disconnects and returns on the
+  freshly built stamp within 5–15s. Trial 2 showed the mechanism plainly
+  (t+5s and t+10s disconnected, t+15s back on the new stamp). George confirmed
+  he did not toggle during the trials.
+- **Two docs corrected to match measurement:** `rebuild.sh` no longer instructs
+  the unnecessary GUI toggle, and the daemon's "never dropped" error no longer
+  blames a stale bundle.
+- **Machine left clean:** daemon `1.1.1+56.6755ed0`, Chrome and Safari both
+  `0.2.0+56.6755ed0`, proto v2, `stale:false`. `doctor` reports no
+  stamp-mismatch warnings for the first time this session.
+
+### Corrections
+
+- **"The extension does not log its build stamp" was WRONG.** I read the name
+  `safeManifestVersion()` and inferred manifest semver; it returns
+  `__BUILD_STAMP__` when defined, so startup has always logged the stamp. What
+  was genuinely missing is the *comparison against the daemon*, which is what
+  #54 adds. Corrected in-session before anything was built on it.
+- **I predicted Safari's toggle was required.** Measured false. `runtime.reload()`
+  IS a no-op on Safari — it acks and the background page never drops its socket
+  — but that is irrelevant, because `sideload` alone completes the deploy. The
+  toggle instruction had been in `rebuild.sh` unnecessarily.
+- **A subagent reported `wire.ts` had "18 kinds".** It had 12 (13 now). Its API
+  facts (`runtime.reload` in Chrome 25+/Safari 14+; no `chrome.management` in
+  Safari) held up; its file-level detail did not. Check relayed specifics.
+
+### Traps
+
+- **Never `gh pr merge --delete-branch` on a stacked chain.** Deleting a base
+  branch auto-CLOSES the child PR. It killed #48 mid-merge; S2 had to be
+  reopened as #52. Retarget children to `main` *before* merging the parent.
+- **A single-guard sabotage proves nothing when two guards exist.** The TUI has
+  both `truncateToWidth(text, usableCols)` and `wrap="truncate"`; removing one
+  leaves the other holding, so a harness looks blind when it is fine.
+- **Rendering short fixture titles measures the fixture, not the layout.** The
+  fake adapter's defaults never reach a width budget — scale with
+  `BROWSER_TAB_FAKE_SCALE` / `BROWSER_TAB_FAKE_TABS`.
+- **An extra `DaemonClient` in a test hangs the shared `afterEach`** — the
+  daemon's `stop()` blocks on the open socket. Read `buildStamp()` in-process.
+- **`cp` is aliased to `cp -i`** (restores silently no-op; use `command cp -f`);
+  **`FORCE_COLOR` is set in the job shell** (makes `render.test.ts` fail on a
+  clean `main`); **bash cwd persists between tool calls**.
+
+### Tree
+
+`/Users/george/repos/browser-tab-mcp` · branch `feat/reload-extension` ·
+`6755ed0` · 3 ahead / 0 behind `origin/main` · pushed (local == remote) ·
+working tree clean. No other agent's work in the tree.
+
+### Resume
+
+Nothing is mid-flight: no staged-but-uncommitted work, no running background
+task, no half-applied edit. The next action is a decision, not a keystroke —
+merge #54 or don't. If merged, release-please will open a rolling release PR
+for the next version (George: "further changes we'll put into the next
+version").
