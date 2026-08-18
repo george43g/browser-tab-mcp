@@ -16,6 +16,7 @@ afterEach(() => {
   rmSync(dir, { recursive: true, force: true });
   delete process.env.BROWSER_TAB_WINDOW_CAPTURE;
   delete process.env.BROWSER_TAB_SCREENCAPTURE_BIN;
+  delete process.env.BROWSER_TAB_PLATFORM;
 });
 
 const DATA_URL = "data:image/jpeg;base64,/9j/AA==";
@@ -163,6 +164,17 @@ describe("screenshot — argument validation", () => {
 });
 
 describe("screenshot — tier 'window'", () => {
+  // Tier 2 is macOS-only twice over: `/usr/bin/screencapture`, and a CGWindowID
+  // that only CoreGraphics issues. These tests shim the binary, so they can
+  // exercise the LOGIC anywhere — but `windowCaptureEnabled()` now refuses off
+  // macOS before the env opt-in is even read, which is correct in production
+  // and would make this suite platform-dependent (it failed on the Linux CI leg
+  // and passed on macOS — the exact split the matrix exists to expose).
+  // Declaring the platform is what the override is for.
+  beforeEach(() => {
+    process.env.BROWSER_TAB_PLATFORM = "macos";
+  });
+
   /** A fake `screencapture` that writes a 4-byte jpeg to its last-positional out path. */
   function shimScreencapture(): string {
     const bin = join(dir, "fake-screencapture.sh");
