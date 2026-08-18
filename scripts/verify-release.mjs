@@ -52,7 +52,8 @@ const REPO = join(dirname(fileURLToPath(import.meta.url)), "..");
  * @param {boolean} facts.anyTagsExist      does the repo have any release tag at all
  * @param {boolean} facts.tagExists         does `expectedTag` exist on the remote
  * @param {boolean|null} facts.releaseExists is there a published GitHub Release for it
- * @param {string[]|null} facts.pendingMergedPrs merged PRs still labelled `autorelease: pending`
+ * @param {string[]|null} facts.pendingMergedPrs merged release PRs whose version has NO tag
+ *   (a `autorelease: pending` label alone is not enough — see untaggedPending)
  * @param {string[]} facts.extraFiles       paths release-please is configured to rewrite
  * @param {{number: number, files: string[]}|null} facts.openReleasePr the open release PR, if any
  * @returns {{ok: boolean, problems: string[], notes: string[]}}
@@ -129,14 +130,53 @@ export function verdict({
     notes.push("merged-but-untagged release PRs not checked (gh unavailable)");
   } else if (pendingMergedPrs.length > 0) {
     problems.push(
-      `merged release PR(s) still labelled "autorelease: pending": ${pendingMergedPrs.join(", ")}. ` +
+      `merged release PR(s) with no tag for their version: ${pendingMergedPrs.join(", ")}. ` +
         `release-please aborts every subsequent cut while one of these is outstanding ` +
         `("There are untagged, merged release PRs outstanding"), so releases stop ` +
-        `silently. Tag it, then relabel it "autorelease: tagged".`,
+        `silently. Recover: gh release create v<version> --target <merge-commit>, then ` +
+        `relabel the PR "autorelease: tagged".`,
     );
   }
 
   return { ok: problems.length === 0, problems, notes };
+}
+
+/**
+ * Of the merged release PRs still labelled `autorelease: pending`, the ones
+ * that are genuinely untagged.
+ *
+ * WHY THE LABEL ALONE IS NOT THE TEST. release-please creates the tag and the
+ * GitHub Release FIRST, then swaps the label `pending` -> `tagged`. Between
+ * those two calls a perfectly healthy release looks exactly like the v1.0.0
+ * silent abort. Observed on the v1.2.1 cut: the tag and Release both existed,
+ * the label still said `pending`, and this check reported a problem that
+ * resolved itself seconds later.
+ *
+ * The Release workflow runs its verify job immediately after release-please, so
+ * that window is not theoretical — it is precisely when this runs. A check that
+ * goes red on a successful release is the failure this whole script exists to
+ * remove, so the invariant is stated on the thing that actually matters: a
+ * merged release PR whose version has NO TAG. The label is a hint about which
+ * PRs to look at, never the verdict.
+ *
+ * An unparseable title is reported rather than ignored — an unknown state in
+ * the release path should be loud.
+ *
+ * @param {{number: number, title: string}[]} prs
+ * @param {(version: string) => boolean} isTagged
+ * @returns {string[]} human-readable descriptions of the genuinely untagged ones
+ */
+export function untaggedPending(prs, isTagged) {
+  const out = [];
+  for (const pr of prs) {
+    const match = /release\s+v?(\d+\.\d+\.\d+(?:[-+][0-9A-Za-z.-]+)?)/.exec(pr.title);
+    if (!match) {
+      out.push(`#${pr.number} ${pr.title} (could not read a version from the title)`);
+      continue;
+    }
+    if (!isTagged(match[1])) out.push(`#${pr.number} ${pr.title}`);
+  }
+  return out;
 }
 
 /** Parse JSON, falling back rather than throwing — a `gh` shape change is not a release failure. */
@@ -187,11 +227,12 @@ function gatherFacts() {
       "20",
     ]);
     if (raw !== null) {
-      try {
-        pendingMergedPrs = JSON.parse(raw).map((pr) => `#${pr.number} ${pr.title}`);
-      } catch {
-        pendingMergedPrs = null;
-      }
+      const prs = safeJson(raw, null);
+      // Only the genuinely untagged ones are a problem — see untaggedPending.
+      pendingMergedPrs =
+        prs === null
+          ? null
+          : untaggedPending(prs, (version) => remoteTags.includes(`refs/tags/v${version}`));
     }
   }
 

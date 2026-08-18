@@ -14,7 +14,7 @@
  */
 
 import { describe, expect, it } from "vitest";
-import { verdict } from "../../../scripts/verify-release.mjs";
+import { untaggedPending, verdict } from "../../../scripts/verify-release.mjs";
 
 /** A repo in the healthy steady state: released, tagged, published, nothing pending. */
 const healthy = {
@@ -24,6 +24,49 @@ const healthy = {
   releaseExists: true,
   pendingMergedPrs: [],
 };
+
+describe("untaggedPending — the label/tag race", () => {
+  // release-please creates the tag and Release FIRST, then swaps the label
+  // `autorelease: pending` -> `tagged`. Between those two calls a healthy
+  // release is indistinguishable from the v1.0.0 silent abort — and the Release
+  // workflow runs its verify job in exactly that window. Observed live on the
+  // v1.2.1 cut: tag present, Release published, label still `pending`.
+  const tagged = (v: string) => v === "1.2.1";
+
+  it("ignores a pending label once the version is actually tagged", () => {
+    expect(untaggedPending([{ number: 60, title: "chore(main): release 1.2.1" }], tagged)).toEqual(
+      [],
+    );
+  });
+
+  it("still reports a merged release PR whose version was never tagged", () => {
+    expect(untaggedPending([{ number: 44, title: "chore(main): release 9.9.9" }], tagged)).toEqual([
+      "#44 chore(main): release 9.9.9",
+    ]);
+  });
+
+  it("reads a v-prefixed title", () => {
+    expect(untaggedPending([{ number: 7, title: "chore: release v1.2.1" }], tagged)).toEqual([]);
+  });
+
+  it("reports, rather than skips, a title it cannot parse", () => {
+    // An unknown state in the release path should be loud, not silently fine.
+    const out = untaggedPending([{ number: 8, title: "chore(main): something else" }], tagged);
+    expect(out).toHaveLength(1);
+    expect(out[0]).toContain("could not read a version");
+  });
+
+  it("separates the tagged from the untagged in one pass", () => {
+    const out = untaggedPending(
+      [
+        { number: 60, title: "chore(main): release 1.2.1" },
+        { number: 61, title: "chore(main): release 1.3.0" },
+      ],
+      tagged,
+    );
+    expect(out).toEqual(["#61 chore(main): release 1.3.0"]);
+  });
+});
 
 describe("release verdict", () => {
   it("passes in the quiet, fully-released state", () => {

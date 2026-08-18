@@ -9,7 +9,11 @@ export interface ReleaseFacts {
   tagExists: boolean;
   /** Is there a published GitHub Release for it; `null` = could not determine. */
   releaseExists: boolean | null;
-  /** Merged PRs still labelled `autorelease: pending`; `null` = could not determine. */
+  /**
+   * Merged release PRs whose version has NO tag; `null` = could not determine.
+   * A `autorelease: pending` label alone does not qualify — release-please tags
+   * before it relabels, so the label lags a healthy release.
+   */
   pendingMergedPrs: string[] | null;
   /** Paths `release-please-config.json` lists as `extra-files`. */
   extraFiles?: string[];
@@ -24,3 +28,12 @@ export interface ReleaseVerdict {
 }
 
 export declare function verdict(facts: ReleaseFacts): ReleaseVerdict;
+
+/**
+ * Filter merged release PRs down to those genuinely untagged. Exported for
+ * testing the label-vs-tag race directly.
+ */
+export declare function untaggedPending(
+  prs: { number: number; title: string }[],
+  isTagged: (version: string) => boolean,
+): string[];
