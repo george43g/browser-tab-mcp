@@ -156,8 +156,16 @@ So `scripts/verify-release.mjs` checks a standing invariant rather than a
 run outcome:
 
 > the version in `.release-please-manifest.json` has a git tag **and** a
-> published GitHub Release, and no merged release PR is still labelled
-> `autorelease: pending`.
+> published GitHub Release, and no merged release PR has a version without a
+> tag.
+
+That last clause is deliberately about the **tag**, not the
+`autorelease: pending` label. release-please creates the tag and the Release
+first and swaps the label a moment later, so for a second or two a perfectly
+healthy release is indistinguishable from the v1.0.0 silent abort — and the
+verify job runs in exactly that window. Keying the check on the label made it
+report a problem on the v1.2.1 cut that resolved itself seconds later. The label
+is a hint about which PRs to look at; the tag is the verdict.
 
 That is true in the quiet state, true immediately after a cut, and true
 everywhere in between — so it runs on every trigger, takes no arguments, and
