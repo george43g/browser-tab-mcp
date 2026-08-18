@@ -114,6 +114,7 @@ A **single** bin, `browser-tab`, with subcommands (run `browser-tab --help`):
 | `page` / `annotate` / `screenshot` | perception: content/state · URL notes · captures |
 | `bookmark` (alias `bm`) | bookmark CRUD: `search` · `list` · `create` · `update` · `remove` |
 | `daemon run\|install\|status\|token` | launchd daemon lifecycle |
+| `logs` | recent server/daemon log lines (**dev-only** — the dispatcher refuses without `MCP_DEV=1`) |
 | `repl` (alias `console`) | interactive REPL over the in-process dispatcher |
 
 ## Platforms
@@ -157,6 +158,7 @@ macOS-only anyway.
 Every platform branch is driven in CI from one runner via
 `BROWSER_TAB_PLATFORM`, and `windows-latest` is in the build matrix so the
 claims above are tested rather than asserted.
+
 ## Bookmarks (`bookmarks` / `browser-tab bookmark`)
 
 CRUD over the browser's own bookmark store, via the connected extension.
@@ -195,6 +197,18 @@ Three details worth knowing:
 
 Availability is the runtime-probed `bookmarks` capability, so gate on the map,
 never on the browser name.
+### One feature, every surface
+
+**Every tool is reachable from every interface.** MCP defines them, the CLI
+fronts all of them, the REPL shares the CLI's dispatcher, and the TUI covers the
+per-tab actions. That is asserted, not aspired to:
+`tests/interface-parity.contract.test.ts` walks the real commander tree and fails
+naming any tool with no CLI command — which is how `get_logs` came to have one.
+
+`logs` is registered unconditionally and gated by the **dispatcher**, not by
+hiding it from `--help`. Hiding never disabled anything, and a help text that
+changes with the environment would make the generated usage artifacts
+un-checkable.
 
 ## Focus & navigation journals
 
@@ -431,6 +445,26 @@ leaving the browser. Both use the same comparison (commit identity; the semver
 prefix and any `dirty` marker are ignored), so they cannot disagree.
 
 ## TUI (`browser-tab tui`)
+
+Keys: `j`/`k` move · `⏎` focus · `a` **actions** · `x` close · `m` move tab ·
+`space` fold · `r` refresh · `q` quit.
+
+`a` opens a tab-action picker (mute/unmute, pin/unpin, discard, reload,
+duplicate, back/forward) in the status bar — `j`/`k` choose, `⏎` runs, `Esc`
+cancels. It is a picker rather than ten more keybindings because the help bar is
+clamped to **one row**: the kit's `HelpBar` wraps below ~90 columns, and a
+wrapping bar silently steals a row from the list viewport, which is how a width
+bug presents here as a height overflow.
+
+The menu is **capability-filtered** from the runtime-probed map (never from the
+browser name), and never offers both halves of a toggle at once — a menu is a
+promise, and offering `duplicate` on an AppleScript-only pathway promises an
+error toast.
+
+The help bar itself now **drops its least useful hints rather than overflowing**
+(`refresh` → `fold` → `move tab` → `close` → `actions`); `j/k`, `⏎` and `q`
+survive at any width, because a TUI you cannot quit is worse than one with fewer
+hints.
 
 A live Ink tab manager (browser › window › tab), fed by the daemon event stream
 (falls back to 5s polling when the daemon is down). Keys: `j/k` move · `⏎` focus

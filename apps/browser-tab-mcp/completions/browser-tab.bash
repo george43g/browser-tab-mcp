@@ -78,6 +78,14 @@ cmd bookmark help="Read or edit bookmarks (search|list|create|update|remove) —
     }
     arg <action> help="search | list | create | update | remove"
 }
+cmd logs help="Show recent daemon/server log lines (dev-only: needs MCP_DEV=1)" {
+    flag --source help="memory (ring buffer) | file (NDJSON on disk) | all" {
+        arg <src>
+    }
+    flag --tail help="How many lines (1-500)" {
+        arg <n>
+    }
+}
 cmd list help="List open browser windows and tabs (Chrome/Brave/Chromium/Safari)" {
     flag --browser help="Restrict to one browser: chrome|chromium|brave|safari" {
         arg <name>

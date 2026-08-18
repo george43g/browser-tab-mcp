@@ -75,6 +75,9 @@ Read or edit bookmarks (search|list|create|update|remove) — needs daemon + ext
 \fIAliases: \fRbm
 .RE
 .TP
+\fBlogs\fR
+Show recent daemon/server log lines (dev\-only: needs MCP_DEV=1)
+.TP
 \fBlist\fR
 List open browser windows and tabs (Chrome/Brave/Chromium/Safari)
 .TP
@@ -191,6 +194,19 @@ Max rows
 .TP
 \fB<action>\fR
 search | list | create | update | remove
+.SH "BROWSER-TAB LOGS"
+Show recent daemon/server log lines (dev\-only: needs MCP_DEV=1)
+.PP
+\fBUsage:\fR browser\-tab logs [OPTIONS]
+.PP
+\fBOptions:\fR
+.PP
+.TP
+\fB\-\-source\fR \fI<src>\fR
+memory (ring buffer) | file (NDJSON on disk) | all
+.TP
+\fB\-\-tail\fR \fI<n>\fR
+How many lines (1\-500)
 .SH "BROWSER-TAB LIST"
 List open browser windows and tabs (Chrome/Brave/Chromium/Safari)
 .PP
