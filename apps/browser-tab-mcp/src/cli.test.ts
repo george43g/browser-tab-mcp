@@ -8,7 +8,7 @@
  */
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { main } from "./cli.js";
+import { isEntryPoint, main } from "./cli.js";
 
 interface RecordedCall {
   tool: string;
@@ -167,5 +167,35 @@ describe("env↔flag preAction hook", () => {
     const [call] = await run("--socket-path", "/tmp/harness.sock", "health");
     expect(call?.tool).toBe("health_check");
     expect(call?.envSocketPath).toBe("/tmp/harness.sock");
+  });
+});
+
+describe("isEntryPoint", () => {
+  // THE WINDOWS BUG THIS PINS. The check was `arg.endsWith("/dist/cli.js")`.
+  // On Windows `process.argv[1]` is `D:\...\dist\cli.js` — backslashes — so it
+  // never matched, `main()` never ran, and `browser-tab <anything>` printed
+  // nothing and exited 0. Not a degraded CLI: a SILENT one. Only the
+  // windows-latest CI leg caught it, via a bundle test asserting the built bin
+  // produces any output at all.
+  it("matches a POSIX entry path", () => {
+    expect(isEntryPoint("/Users/g/repo/apps/browser-tab-mcp/dist/cli.js")).toBe(true);
+    expect(isEntryPoint("/Users/g/repo/apps/browser-tab-mcp/src/cli.ts")).toBe(true);
+  });
+
+  it("matches a WINDOWS entry path", () => {
+    expect(isEntryPoint("D:\\a\\browser-tab-mcp\\apps\\browser-tab-mcp\\dist\\cli.js")).toBe(true);
+    expect(isEntryPoint("C:\\tools\\browser-tab\\src\\cli.ts")).toBe(true);
+  });
+
+  it("does not match some other file that merely ends in cli.js", () => {
+    // The suffix includes the directory on purpose — a dependency's own
+    // `cli.js` must not make this module think it is the entry point.
+    expect(isEntryPoint("/Users/g/repo/node_modules/other/cli.js")).toBe(false);
+    expect(isEntryPoint("C:\\node_modules\\other\\cli.js")).toBe(false);
+  });
+
+  it("is false for an absent argv[1] rather than throwing", () => {
+    expect(isEntryPoint(undefined)).toBe(false);
+    expect(isEntryPoint("")).toBe(false);
   });
 });

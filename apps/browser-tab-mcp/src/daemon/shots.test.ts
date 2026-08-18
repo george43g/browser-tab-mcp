@@ -1,6 +1,6 @@
 import { existsSync, mkdtempSync, readdirSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { basename, join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { ShotStore } from "./shots.js";
 
@@ -35,7 +35,10 @@ describe("ShotStore", () => {
   it("handle separators are made filesystem-safe", () => {
     const store = new ShotStore(dir);
     const path = store.putTab("t:chrome:x1", 0, JPEG);
-    expect(path).not.toContain(":");
+    // The FILENAME is what must be safe — asserting on the whole path fails on
+    // Windows for a reason that has nothing to do with the code: a drive letter
+    // (`C:\Users\...`) contains the very character under test.
+    expect(basename(path)).not.toContain(":");
     expect(path.endsWith(".jpg")).toBe(true);
   });
 
