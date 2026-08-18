@@ -47,11 +47,25 @@ echo "==> [3/4] xcodebuild clean build (Debug, default DerivedData)"
 # Clean first: because resources are referenced in place, Xcode's cache can
 # otherwise bundle a stale copy of dist/. No -derivedDataPath, so this shares
 # a location with Xcode's ⌘R builds → a single registered app.
+#
+# The version comes from the JUST-BUILT manifest, which is the file Safari
+# itself reads for the version shown in Settings > Extensions — so the container
+# app and the extension can never disagree about which release this is.
+# Overriding on the command line (rather than relying on the project) means a
+# release bump needs only a rebuild, never a re-convert. The build number is the
+# same commit count the build stamp uses (scripts/build-stamp.mjs), so the app's
+# version and the extension's stamp point at one commit.
+EXT_VERSION="$(node -p "JSON.parse(require('fs').readFileSync(process.argv[1],'utf8')).version" \
+  "$REPO_ROOT/apps/chrome-extension/dist/manifest.json")"
+BUILD_NUMBER="$(git -C "$REPO_ROOT" rev-list --count HEAD 2>/dev/null || echo 1)"
+echo "    version: $EXT_VERSION (build $BUILD_NUMBER)"
 XCARGS=(
   -project "$PROJECT"
   -scheme "$SCHEME"
   -configuration Debug
   -allowProvisioningUpdates
+  "MARKETING_VERSION=$EXT_VERSION"
+  "CURRENT_PROJECT_VERSION=$BUILD_NUMBER"
 )
 [[ -n "${DEVELOPMENT_TEAM:-}" ]] && XCARGS+=("DEVELOPMENT_TEAM=$DEVELOPMENT_TEAM")
 xcodebuild "${XCARGS[@]}" clean build

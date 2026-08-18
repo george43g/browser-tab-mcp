@@ -9,6 +9,16 @@
           "type": "json",
           "path": "apps/browser-tab-mcp/package.json",
           "jsonpath": "$.version"
+        },
+        {
+          "type": "json",
+          "path": "apps/chrome-extension/package.json",
+          "jsonpath": "$.version"
+        },
+        {
+          "type": "json",
+          "path": "apps/chrome-extension/public/manifest.json",
+          "jsonpath": "$.version"
         }
       ]
     }

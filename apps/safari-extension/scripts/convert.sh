@@ -43,6 +43,23 @@ xcrun safari-web-extension-converter "$DIST" \
   --no-open \
   --force
 
+# Stamp the container app with the connector's version.
+#
+# The converter hardcodes MARKETING_VERSION = 1.0 and never looks at the
+# manifest, so without this the Helper app's "About" box and every build
+# artifact claim 1.0 forever while the extension itself moves. The manifest
+# version is release-please-owned (release-please-config.json `extra-files`),
+# so stamping FROM it keeps the whole Safari side on the one release line
+# rather than inventing a second version to maintain by hand.
+#
+# rebuild.sh passes the same value on the xcodebuild command line, so a version
+# bump does NOT require a re-convert — this exists so that an Xcode ⌘R build,
+# which reads only the project, agrees with what the CLI produces.
+VERSION="$(node -p "JSON.parse(require('fs').readFileSync(process.argv[1],'utf8')).version" "$DIST/manifest.json")"
+PBXPROJ="$APP_DIR/xcode/Browser Tab Helper/Browser Tab Helper.xcodeproj/project.pbxproj"
+sed -i '' -E "s/(MARKETING_VERSION = )[^;]*;/\1$VERSION;/g" "$PBXPROJ"
+echo "Stamped MARKETING_VERSION = $VERSION into the generated project."
+
 echo
 echo "Xcode project generated at $APP_DIR/xcode/."
 echo "Next: open it in Xcode, set Signing to your personal team for BOTH"

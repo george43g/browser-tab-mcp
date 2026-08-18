@@ -33,8 +33,10 @@ And one workflow, `.github/workflows/release.yml`:
    the two options that broke it once.
    Its diff is only:
    - `package.json` → new version
-   - `apps/browser-tab-mcp/package.json` → new version (this is the one
-     `--version` prints; see *Why the root path* below)
+   - the `extra-files` → the same new version: `apps/browser-tab-mcp/package.json`
+     (what `--version` prints; see *Why the root path* below) and the connector
+     extension's `package.json` + `public/manifest.json` (what the browser shows
+     in its extensions list; see *One repo, one version* below)
    - `CHANGELOG.md` → generated release notes
    - `.release-please-manifest.json` → new baseline
 2. **Merging that PR** → the same workflow tags `vX.Y.Z` and creates the GitHub
@@ -89,8 +91,88 @@ runtime for `--version` and the TUI header. Tags stay plain `vX.Y.Z`
 |---|---|
 | `@george43g/cli-kit`, `@george43g/tui-kit`, `@george43g/robustness` | Not workspace code any more — consumed from npm (published from `mcp-cli-starter-template`; the frozen workspace copies were deleted 2026-08-09). Their versions move upstream. |
 | `@george43g/mcp-kit`, `shared-types`, `extension-core`, `test-kit`, `env-loader`, `tsconfig`, `biome-config`, `vitest-config` | Internal, unpublished, no external consumer to version for. They ship *inside* the bin, and the root release line already covers changes to them. |
-| `@george43g/chrome-extension` | Its version is the **manifest** version — user-facing in the browser's extension list, and kept in lockstep with `public/manifest.json` by `pnpm --filter @george43g/chrome-extension run bump` (PR #21), with a build-output test that fails CI on drift. Letting release-please bump `package.json` alone would break that invariant. Bumping the connector stays a deliberate manual act. |
-| `@george43g/rust-accel`, `@george43g/safari-extension` | Build inputs, not distributed artifacts. |
+| `@george43g/rust-accel` | Build input, not a distributed artifact. |
+| `@george43g/safari-extension` | Packaging only. Its Xcode project is gitignored and regenerated, so there is no tracked file to version; `MARKETING_VERSION` is stamped from the connector manifest at build time (`scripts/convert.sh`, `scripts/rebuild.sh`). |
+
+## One repo, one version (2026-08-18)
+
+Every version-carrying file moves together, in the release commit:
+
+| File | Who reads it |
+|---|---|
+| `package.json` | the release line itself |
+| `apps/browser-tab-mcp/package.json` | `--version`, the TUI header (`src/meta.ts`) |
+| `apps/chrome-extension/package.json` | tooling; mirror of the manifest |
+| `apps/chrome-extension/public/manifest.json` | **Chrome and Safari**, in the extensions list |
+
+The bottom two are new. They used to be bumped by hand
+(`chrome-extension run bump`), on the reasoning that the manifest version is
+user-facing and release-please bumping `package.json` alone would break the
+lockstep between them. That reasoning was sound and the outcome was still
+wrong: listing **both** files as `extra-files` preserves the lockstep *and*
+puts them on the release line, and the manual command — being a thing someone
+had to remember — was simply not run. The connector sat at `0.2.0` from
+2026-08-07 through v1.1.1 while the tool released seven times, and Safari
+displayed `0.2.0` in Settings › Extensions that entire time. The bump command
+is deleted; there is nothing left to forget.
+
+Two consequences worth knowing:
+
+- **The extension's version jumped 0.2.0 → 1.1.1.** Browsers require a
+  monotonically increasing version to accept an update, and this increases, so
+  it is accepted. It is a one-way step and it was taken deliberately.
+- **A prerelease would break the extension, not just look odd.** Chrome's
+  manifest grammar is 1–4 integer parts (each ≤ 65535), *not* semver — it
+  rejects `1.2.0-rc.1` outright and refuses to load the extension. Nothing here
+  produces prereleases today, so the guard is a test rather than a config
+  option: `apps/browser-tab-mcp/tests/release-versions.contract.test.ts` fails
+  if the released version is not loadable, and would need answering before any
+  prerelease flow is added.
+
+That contract test is also what stops this from recurring in general: it
+asserts that every file in the workspace carrying a version other than `0.0.0`
+is one release-please rewrites, and that they all already hold the released
+version. Adding a versioned file without declaring it turns CI red naming the
+file.
+
+## When the release itself fails
+
+Three distinct failure modes, three distinct answers — all in
+`.github/workflows/release.yml`, all reachable locally via `pnpm release:check`.
+
+| Failure | Looks like | Answer |
+|---|---|---|
+| **Transient blip** | one red run, next one green | the run retries itself once after 45s. release-please recomputes its state from the API every run, so a re-attempt is always safe |
+| **Sustained outage** | every run red for hours | a six-hourly `schedule` trigger re-drives it. A push-only workflow gets exactly one chance per commit — after the 2026-08-17 incident the recovery only happened because someone was watching |
+| **Silent abort** | workflow **green**, nothing released | the `verify` job |
+
+The third is the dangerous one, and the reason the verify job exists at all:
+success of the release-please step is not evidence that a release *happened*.
+At v1.0.0 the release PR merged, the bump and CHANGELOG landed on `main`, and
+the cut aborted with "There are untagged, merged release PRs outstanding" — no
+tag, no Release, no red build, cut by hand days later.
+
+So `scripts/verify-release.mjs` checks a standing invariant rather than a
+run outcome:
+
+> the version in `.release-please-manifest.json` has a git tag **and** a
+> published GitHub Release, and no merged release PR is still labelled
+> `autorelease: pending`.
+
+That is true in the quiet state, true immediately after a cut, and true
+everywhere in between — so it runs on every trigger, takes no arguments, and
+needs no knowledge of which event fired. It reads tags from `git ls-remote`
+(the remote, so a stale local tag cache cannot make a missing release look
+present), and its decision table is unit-tested in
+`apps/browser-tab-mcp/tests/release-verify.test.ts`. Missing `gh` degrades to
+"unknown" with a note, never to a false failure.
+
+**Do not respond to a red Release run by changing `permissions:`.** The block
+in `release.yml` already grants `contents: write` + `pull-requests: write`, and
+the repo-level `default_workflow_permissions` setting does not apply to a
+workflow that declares its own. Flipping it during the 2026-08-17 incident
+changed nothing and was reverted. Check
+[githubstatus.com](https://www.githubstatus.com) first.
 
 ## Why the config stays minimal (the v1.0.0 lesson)
 
