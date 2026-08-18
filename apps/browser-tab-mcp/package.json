@@ -32,7 +32,7 @@
     "tui": "node --env-file-if-exists=.env --env-file-if-exists=.env.local dist/cli.js tui",
     "doctor": "node --env-file-if-exists=.env --env-file-if-exists=.env.local dist/cli.js doctor",
     "test": "vitest run",
-    "test:no-native": "MCP_DISABLE_NATIVE=1 vitest run",
+    "test:no-native": "node ../../scripts/run-with-env.mjs MCP_DISABLE_NATIVE=1 -- vitest run",
     "test:watch": "vitest",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "lint": "biome check .",
