@@ -72,6 +72,46 @@ describe("release verdict", () => {
     expect(v.notes.join(" ")).toContain("gh unavailable");
   });
 
+  it("fails when an open release PR predates an extra-files change", () => {
+    // The 2026-08-18 miss. release-please refreshes an open release PR only
+    // when the version or notes change, so a new `extra-files` entry never
+    // reaches a PR that is already open — and the release ships a file whose
+    // version never moved. Nothing else in the pipeline notices until AFTER
+    // the merge.
+    const v = verdict({
+      ...healthy,
+      extraFiles: [
+        "apps/browser-tab-mcp/package.json",
+        "apps/chrome-extension/public/manifest.json",
+      ],
+      openReleasePr: {
+        number: 57,
+        files: ["package.json", "CHANGELOG.md", "apps/browser-tab-mcp/package.json"],
+      },
+    });
+    expect(v.ok).toBe(false);
+    expect(v.problems[0]).toContain("apps/chrome-extension/public/manifest.json");
+    expect(v.problems[0]).toContain("delete the branch");
+  });
+
+  it("passes when the open release PR touches every extra-file", () => {
+    const v = verdict({
+      ...healthy,
+      extraFiles: ["apps/chrome-extension/public/manifest.json"],
+      openReleasePr: {
+        number: 58,
+        files: ["package.json", "CHANGELOG.md", "apps/chrome-extension/public/manifest.json"],
+      },
+    });
+    expect(v.ok).toBe(true);
+  });
+
+  it("says so, rather than passing quietly, when no release PR is open", () => {
+    const v = verdict({ ...healthy, extraFiles: ["a/package.json"], openReleasePr: null });
+    expect(v.ok).toBe(true);
+    expect(v.notes.join(" ")).toContain("no open release PR");
+  });
+
   it("reports every independent problem at once", () => {
     // One run, one fix list — not fix, re-run, discover the next one.
     const v = verdict({

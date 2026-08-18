@@ -167,6 +167,29 @@ present), and its decision table is unit-tested in
 `apps/browser-tab-mcp/tests/release-verify.test.ts`. Missing `gh` degrades to
 "unknown" with a note, never to a false failure.
 
+### Changing `extra-files` while a release PR is open
+
+release-please decides whether to refresh an open release PR by comparing the
+**version and release notes** — *not* the set of files it would write. When they
+match it logs `PR #N remained the same` and leaves the branch untouched. So a
+new `extra-files` entry never reaches a release PR that is already open, and the
+release ships with that file's version unmoved.
+
+Hit for real on 2026-08-18: three PRs merged 16 seconds apart, so the release PR
+was built from the commit *before* the config change, the run carrying the change
+was cancelled as superseded in the concurrency queue, and the next run declared
+the PR unchanged. The release PR touched `package.json` and
+`apps/browser-tab-mcp/package.json` and silently omitted both extension files.
+
+**Recovery:** delete the branch
+`release-please--branches--main--components--browser-tab` (this closes the
+release PR), then re-run the Release workflow. release-please finds no open
+release PR and rebuilds one from current config.
+
+`pnpm release:check` now fails on exactly this — an open release PR whose diff
+does not touch every configured extra-file — so it is caught *before* the
+release PR is merged rather than by the version-coherence test one merge later.
+
 **Do not respond to a red Release run by changing `permissions:`.** The block
 in `release.yml` already grants `contents: write` + `pull-requests: write`, and
 the repo-level `default_workflow_permissions` setting does not apply to a
