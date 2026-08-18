@@ -65,6 +65,13 @@ cmd list help="List open browser windows and tabs (Chrome/Brave/Chromium/Safari)
         }
     }
 }
+cmd reload-extension help="Restart a browser's connector extension from disk (dev deploy loop)" {
+    flag --browser help="Which browser's extension to reload" {
+        arg "[name]" required=#false default=chrome {
+            choices chrome chromium brave safari
+        }
+    }
+}
 cmd journal help="Show recorded focus/navigation history" {
     flag --view help="Which journal view to show" {
         arg "[view]" required=#false default=recent {

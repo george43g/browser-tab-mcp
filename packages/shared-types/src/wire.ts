@@ -104,6 +104,10 @@ export const ExtCommandSchema = z.object({
     "extract_content",
     "capture_tab",
     "history_search",
+    // Restarts the extension from disk (chrome.runtime.reload). Deliberately
+    // has NO MCP tool — see daemon/index.ts — so it is unreachable from a
+    // model and can only be driven by an operator via the CLI.
+    "reload_extension",
   ]),
   args: z.record(z.unknown()),
 });
@@ -167,6 +171,15 @@ export const ExtHelloAckSchema = z.object({
     })
     .optional()
     .describe("Daemon policy pushed to the extension. Absent = extension defaults."),
+  daemonBuild: z
+    .string()
+    .optional()
+    .describe(
+      "The daemon's build stamp, so the extension can log whether ITS bundle matches. " +
+        "A rebuilt extension is not a reloaded one, and the extension console is the only " +
+        "place that can say so from the browser's side. Additive-optional: older daemons " +
+        "omit it and the extension just doesn't print the comparison.",
+    ),
 });
 export type ExtHelloAck = z.infer<typeof ExtHelloAckSchema>;
 

@@ -312,6 +312,15 @@ export function installFakeChrome(config: FakeChromeConfig = {}): FakeChrome {
         record("runtime.openOptionsPage", []);
         return Promise.resolve();
       },
+      /**
+       * Present in Chrome 25+ AND Safari 14+ — the only extension-restart
+       * mechanism that exists in both, which is why `reload_extension` uses it
+       * rather than a `chrome.management` disable/enable dance (Safari has no
+       * `chrome.management` at all). Recorded, never actually reloading.
+       */
+      reload: () => {
+        record("runtime.reload", []);
+      },
       onMessage: makeEvent("runtime.onMessage"),
       onStartup: makeEvent("runtime.onStartup"),
       onInstalled: makeEvent("runtime.onInstalled"),

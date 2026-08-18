@@ -288,6 +288,67 @@ history - no rows
     safari    safari-db   unavailable  Safari history is disabled - set BROWSER_TAB_SAFARI_HISTORY=1
 ```
 
+## Reloading the extension (`browser-tab reload-extension`)
+
+The deploy loop for extension changes used to end in a manual click. It doesn't
+have to:
+
+```sh
+pnpm --filter @george43g/chrome-extension build
+browser-tab reload-extension --browser chrome
+```
+
+**How it works, and why it is not fire-and-forget.** `chrome.runtime.reload()`
+restarts the extension from disk. It is the only restart mechanism present in
+both Chrome (25+) and Safari (14+) — `chrome.management` is absent from Safari
+entirely, which is why there is no "manager" mini-extension here. The extension
+**acks before it reloads**: `runtime.reload()` tears the background context
+down immediately, so replying afterwards is impossible and every successful
+reload would otherwise be reported as a command timeout.
+
+That ack therefore proves only that the message arrived. The daemon reports the
+truth by watching the socket — it waits for the connection to **drop and come
+back**, and fails loudly otherwise. This matters: if the rebuilt manifest
+requests a **new permission**, the browser leaves the extension disabled
+pending your approval and it never returns.
+
+**There is no `reload_extension` MCP tool, deliberately.** A model driving this
+server would be disconnecting its own transport, and the failure would look
+like a transport bug rather than a tool call. The CLI is the only way in.
+
+**Bootstrapping:** a bundle that predates this command can't reload itself —
+reload it by hand once and the command works from then on. It says so.
+
+**Safari: don't use this command — you don't need it.** MEASURED 2026-08-18
+(Safari 26.x): Safari accepts `chrome.runtime.reload()` and then does nothing
+observable — the background page never drops its socket, so the daemon
+correctly refuses to claim a reload happened.
+
+It doesn't matter, because Safari updates itself. `pnpm --filter
+@george43g/safari-extension sideload` prunes stale registrations, rebuilds,
+`xcodebuild`s and re-registers the app — and across two back-to-back trials
+with **no toggle and no reload command**, the extension disconnected and came
+back on the freshly built stamp within ~15s. The manual "Settings > Extensions
+toggle off/on" step that script used to print is unnecessary here; it remains
+the fallback if a future Safari regresses this.
+
+### Which build is actually running?
+
+The extension logs its build stamp at startup and, on every connect, whether it
+matches the daemon:
+
+```
+[browser-tab] worker up · v0.2.0+52.0844c73
+[browser-tab] connected to daemon 127.0.0.1:8790 as chrome
+[browser-tab] build 0.2.0+52.0844c73 matches daemon 1.1.1+52.0844c73
+```
+
+A mismatch logs a warning naming both stamps. `doctor` reports the same thing,
+but only from the daemon's side — and "a rebuilt extension is not a reloaded
+one" is a browser-side fact, so this is the one place you see it without
+leaving the browser. Both use the same comparison (commit identity; the semver
+prefix and any `dirty` marker are ignored), so they cannot disagree.
+
 ## TUI (`browser-tab tui`)
 
 A live Ink tab manager (browser › window › tab), fed by the daemon event stream

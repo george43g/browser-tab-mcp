@@ -445,6 +445,14 @@ export async function executeCommand(
       }
       break;
     }
+    case "reload_extension": {
+      const browser = params.browser as BrowserId;
+      if (!ext?.isConnected(browser)) {
+        throw new Error(notConnectedHint(String(browser), browser));
+      }
+      result = await reloadExtension(ext, browser);
+      break;
+    }
     default:
       throw new Error(`Unknown command kind "${String(kind)}".`);
   }
@@ -452,6 +460,101 @@ export async function executeCommand(
   // and, for focus_tab, so the correlated window is available to enrich with.
   const snapshot = await deps.refresh().catch(() => undefined);
   return kind === "focus_tab" ? enrichFocusResult(result, snapshot) : result;
+}
+
+/** How long to wait for the extension's socket to drop after it acks. */
+const RELOAD_DOWN_TIMEOUT_MS = 5_000;
+/** How long to then wait for it to come back. */
+const RELOAD_UP_TIMEOUT_MS = 20_000;
+
+/**
+ * Reload one browser's extension and REPORT WHAT ACTUALLY HAPPENED.
+ *
+ * The extension acks before it reloads (see extension-core `reload_extension`),
+ * so that `ok` proves only that the message was received — never that the
+ * reload worked. Treating it as success would be exactly the "passed while
+ * measuring nothing" failure this repo has been burning down all week, and the
+ * failure mode is real: if the reloaded manifest asks for a NEW PERMISSION,
+ * Chrome leaves the extension disabled pending user approval and it never
+ * comes back.
+ *
+ * So the truth is the socket. Watch it go down, then watch it come back:
+ *
+ *   down + up      → reconnected: true. It genuinely restarted.
+ *   down, no up    → reconnected: false, and say to go look at the browser.
+ *   never went down → acked but no restart observed; do not claim success.
+ *
+ * SAFARI CAVEAT, worth knowing before you trust this there: `runtime.reload()`
+ * restarts the extension and re-reads its resources, but on Safari those live
+ * inside a signed `.appex` that macOS has registered. `scripts/rebuild.sh`
+ * produces a NEW app and `open`s it to re-register; the Settings toggle is what
+ * makes Safari adopt that new registration. A reload very likely restarts the
+ * OLD bundle, so this probably does not replace the toggle. Unverified — the
+ * command is wired up for Safari precisely so it can be tested.
+ */
+async function reloadExtension(ext: ExtensionServer, browser: BrowserId): Promise<CommandResult> {
+  // THE BOOTSTRAP CASE. A bundle old enough to predate this command rejects the
+  // kind outright, and "unknown command kind" tells an operator nothing about
+  // what to do. Say the actual thing: this one time, reload by hand.
+  const raw = await ext.sendCommand(browser, "reload_extension", {}).catch((err: unknown) => {
+    const message = (err as Error).message;
+    if (/unknown command kind/i.test(message)) {
+      throw new Error(
+        `The ${browser} extension is running a bundle that predates self-reload support, so it ` +
+          `cannot reload itself yet. Reload it by hand ONCE — chrome://extensions, or Safari > ` +
+          `Settings > Extensions toggle off/on — and this command works from then on.`,
+      );
+    }
+    throw err;
+  });
+  const wentDown = await waitFor(() => !ext.isConnected(browser), RELOAD_DOWN_TIMEOUT_MS);
+  if (!wentDown) {
+    // MEASURED 2026-08-18: this is what Safari does. It accepts
+    // `chrome.runtime.reload()` and then does nothing observable — the
+    // background page never drops its socket. Do NOT blame a stale bundle
+    // here: the bootstrap case is already caught above by "unknown command
+    // kind", so reaching this point means the extension DOES support reload
+    // and the browser simply ignored it.
+    //
+    // Safari does not need this command anyway: rebuilding via
+    // `pnpm --filter @george43g/safari-extension sideload` re-registers the
+    // app and Safari adopts the new bundle by itself within ~15s.
+    const safariNote =
+      browser === "safari"
+        ? " Safari accepts runtime.reload() and ignores it — this is expected. Use " +
+          "`pnpm --filter @george43g/safari-extension sideload` instead; Safari picks the " +
+          "rebuilt bundle up on its own."
+        : "";
+    throw new Error(
+      `The ${browser} extension acknowledged the reload but its connection never dropped, so ` +
+        `no restart happened.${safariNote}`,
+    );
+  }
+  const cameBack = await waitFor(() => ext.isConnected(browser), RELOAD_UP_TIMEOUT_MS);
+  if (!cameBack) {
+    throw new Error(
+      `The ${browser} extension restarted but has not reconnected within ` +
+        `${RELOAD_UP_TIMEOUT_MS}ms. If the rebuilt manifest requests a NEW permission, the ` +
+        `browser leaves the extension disabled pending your approval and it will not come ` +
+        `back on its own — check chrome://extensions (or Safari > Settings > Extensions).`,
+    );
+  }
+  return {
+    ok: true,
+    command: "reload_extension",
+    browser,
+    payload: { reconnected: true, acked: raw?.ok !== false },
+  };
+}
+
+/** Poll `predicate` until true or the deadline passes. Resolution is coarse on purpose. */
+async function waitFor(predicate: () => boolean, timeoutMs: number): Promise<boolean> {
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() < deadline) {
+    if (predicate()) return true;
+    await new Promise((r) => setTimeout(r, 100).unref());
+  }
+  return predicate();
 }
 
 /** Current URL for a tab handle from the merged snapshot (for the cache key). */

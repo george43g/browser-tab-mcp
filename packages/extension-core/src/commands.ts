@@ -10,6 +10,14 @@
 import { injectExtract } from "./inject.js";
 import { api } from "./runtime.js";
 
+/**
+ * Grace period between acking a `reload_extension` and actually reloading.
+ * Long enough for the WebSocket write to drain, short enough that the operator
+ * does not notice. Not configurable: there is no reason to tune it, and an env
+ * knob here would be one more thing to get wrong.
+ */
+const RELOAD_DELAY_MS = 150;
+
 export interface CommandArgs {
   tabId?: number;
   mode?: string;
@@ -446,6 +454,37 @@ export async function executeCommand(kind: string, args: CommandArgs): Promise<C
       const dataUrl = await tabs.captureVisibleTab(windowId, { format: "jpeg", quality });
       return { tabId, windowId, payload: { dataUrl } };
     }
+    /**
+     * Restart this extension from disk.
+     *
+     * THE ORDERING IS THE WHOLE TRICK. `runtime.reload()` tears down the
+     * background context immediately, so calling it inline would kill us
+     * before the result frame reaches the daemon — every successful reload
+     * would be reported as a command timeout. So we return FIRST and reload on
+     * a later turn of the event loop, once the socket write has drained.
+     *
+     * This is also why a self-disable via `chrome.management` could never
+     * work: an extension that disables itself is gone and never gets to
+     * re-enable. `runtime.reload()` is atomic and needs no second party —
+     * which is why there is no "manager" mini-extension here. It is also the
+     * only mechanism present in BOTH Chrome (25+) and Safari (14+);
+     * `chrome.management` is absent from Safari entirely.
+     *
+     * The daemon does not trust this `ok` as proof of anything: it watches for
+     * the socket to drop and come back. See `reloadExtension` in
+     * daemon/index.ts.
+     */
+    case "reload_extension": {
+      const runtime = api.runtime as typeof chrome.runtime | undefined;
+      if (typeof runtime?.reload !== "function") {
+        throw new Error("runtime.reload is unavailable in this browser");
+      }
+      setTimeout(() => {
+        runtime.reload();
+      }, RELOAD_DELAY_MS);
+      return { payload: { scheduled: true, delayMs: RELOAD_DELAY_MS } };
+    }
+
     case "history_search": {
       const history = api.history as typeof chrome.history | undefined;
       if (typeof history?.search !== "function") {

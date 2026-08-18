@@ -71,10 +71,22 @@ open "$APP"
 
 cat <<'EOF'
 
-Done. Finish in Safari (GUI-only):
-  1. Settings > Extensions: toggle "Browser Tab Helper Extension" OFF then ON
-     (Safari won't load a rebuilt .appex until you do — or quit+reopen Safari).
-  2. Click the toolbar icon: the status dot should read "connected".
-If it doesn't, open Develop > Web Extension Backgrounds > Browser Tab Helper
-and read the [browser-tab] console for the actual error.
+Done. Safari should pick the new bundle up BY ITSELF within ~15s.
+
+  Measured 2026-08-18 (Safari 26.x, macOS 15): across two back-to-back trials
+  with NO toggle, the extension disconnected and came back on the rebuilt
+  stamp — clean.sh's prune plus lsregister's re-registration is enough. Verify
+  with `browser-tab daemon status` and compare `extensionInfo[].extVersion`
+  against the stamp this build just produced.
+
+  This script used to instruct a manual Settings > Extensions toggle here. It
+  is not needed on this setup. If a future Safari release regresses that, the
+  toggle is still the fallback — and so is quitting and reopening Safari.
+
+  NOTE: `browser-tab reload-extension --browser safari` does NOT help. Safari
+  accepts `chrome.runtime.reload()` and then does nothing observable: the
+  background page never drops its socket. That command is a Chrome facility.
+
+If the extension does NOT come back, open Develop > Web Extension Backgrounds >
+Browser Tab Helper and read the [browser-tab] console for the actual error.
 EOF

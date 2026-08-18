@@ -15,6 +15,7 @@
  */
 
 export * from "./base.js";
+export * from "./build-stamp.js";
 export * from "./contract.js";
 export * from "./enrichment.js";
 export * from "./history.js";

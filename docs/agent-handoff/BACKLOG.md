@@ -435,6 +435,20 @@ control.
   Revisit only if 3+ interdependent tools need atomic cross-cutting changes;
   then prefer mise-as-orchestrator over Nx/Bazel.
 
+## Open — extension self-reload (2026-08-18)
+
+- **PR #54 is open and unmerged.** CI green 4/4 at `6755ed0`
+  (`gh pr checks 54`); held only by ground rule 1 (no merge without George's
+  per-PR word). Adds `browser-tab reload-extension` and the ext↔daemon build
+  comparison in `helloAck`.
+- **The Safari auto-adoption finding is 3 trials on ONE machine and ONE Safari
+  version** (26.x / macOS 15, 2026-08-18). It is a measurement, not a
+  guarantee. `rebuild.sh` keeps the manual toggle documented as the fallback;
+  if a future Safari stops auto-adopting, that is where to look first.
+- **`reload-extension` is Chrome-only in effect.** Safari acks
+  `chrome.runtime.reload()` and ignores it — the background page never drops
+  its socket. Verified live 2026-08-18. Not a bug to chase.
+
 ## Open questions for the user
 
 - ~~Native-on-global~~ — **answered 2026-07-29**: daemon stays on the workspace

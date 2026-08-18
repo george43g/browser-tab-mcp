@@ -115,6 +115,24 @@ export function focusTab(input: FocusTabInput): Promise<CommandResult> {
   );
 }
 
+/**
+ * Reload a browser's extension from disk.
+ *
+ * NO AppleScript fallback: there is nothing to fall back TO — the whole
+ * operation is "tell the extension to restart itself", so a daemon that cannot
+ * reach the extension has no degraded mode, only an error. Note also that this
+ * has no MCP tool by design (see daemon/index.ts): the CLI is the only way in,
+ * which keeps a model from being able to disconnect its own transport.
+ */
+export function reloadExtension(browser: BrowserId): Promise<CommandResult> {
+  return command("reload_extension", { browser }, () => {
+    throw new Error(
+      `Cannot reload the ${browser} extension: the browser-tab daemon is not running. ` +
+        "Start it with `browser-tab daemon run`.",
+    );
+  });
+}
+
 export function closeTab(tabId: string): Promise<CommandResult> {
   return command("close_tab", { tabId }, () => makeAdapter(browserOf(tabId)).closeTab(tabId));
 }

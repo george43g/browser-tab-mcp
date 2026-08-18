@@ -10,12 +10,16 @@
  * background script restarts the socket after a SW respawn.
  */
 
-import { type ExtServerMessage, WIRE_PROTOCOL_VERSION } from "@george43g/shared-types";
+import {
+  compareBuilds,
+  type ExtServerMessage,
+  WIRE_PROTOCOL_VERSION,
+} from "@george43g/shared-types";
 import { probeCapabilities } from "./capabilities.js";
 import { BlurCapturer, type StateCaptureFrame } from "./capture.js";
 import { type CommandArgs, executeCommand } from "./commands.js";
 import { debounce, type ExtEventInput, wireEvents } from "./events.js";
-import { log, logError } from "./log.js";
+import { log, logError, logWarn } from "./log.js";
 import { api, type BrowserName } from "./runtime.js";
 import { buildSnapshot } from "./snapshot.js";
 import type { SnapshotSummary, SocketState } from "./status.js";
@@ -119,6 +123,14 @@ export class DaemonSocket {
         // so an old daemon that sends no config never triggers injections).
         this.capturer.setEnabled(msg.config?.blurCapture ?? false);
         log(`connected to daemon 127.0.0.1:${this.config.port} as ${this.config.browser}`);
+        // Say — in the BROWSER's own console — whether the bundle actually
+        // running matches the daemon. `doctor` already reports this, but only
+        // from the daemon's side, and the whole point of the check is that a
+        // rebuilt extension is not a reloaded one: that is a browser-side fact,
+        // and this is the only place a human sees it without leaving the
+        // browser. Same comparison `doctor` uses (commit identity, ignoring the
+        // semver prefix and the dirty marker) so the two can never disagree.
+        this.logBuildComparison(msg.daemonBuild);
         void this.sendSnapshot();
         return;
       }
@@ -217,6 +229,25 @@ export class DaemonSocket {
         }),
       );
     }
+  }
+
+  /** Log ext-vs-daemon build identity; silent when the daemon is too old to send one. */
+  private logBuildComparison(daemonBuild: string | undefined): void {
+    if (!daemonBuild) return;
+    const cmp = compareBuilds(daemonBuild, this.config.extVersion);
+    if (cmp.kind === "match") {
+      log(`build ${this.config.extVersion} matches daemon ${daemonBuild}`);
+      return;
+    }
+    if (cmp.kind === "unstamped") {
+      log(`build ${this.config.extVersion} vs daemon ${daemonBuild} — one side is unstamped`);
+      return;
+    }
+    logWarn(
+      `BUILD MISMATCH — this extension is ${this.config.extVersion}, the daemon is ` +
+        `${daemonBuild}. A rebuilt extension is not a reloaded one: reload this extension ` +
+        `to pick up the new bundle.`,
+    );
   }
 
   private async sendSnapshot(): Promise<void> {

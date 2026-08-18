@@ -34,6 +34,7 @@ import { type WebSocket, WebSocketServer } from "ws";
 import { conservativeCaps } from "../detect/capabilities.js";
 import { specFor } from "../detect/engine.js";
 import { makeExtGroupId, makeExtTabId, makeExtWindowId } from "../detect/ids.js";
+import { buildStamp } from "../meta.js";
 import { tokenMatches } from "./token.js";
 
 const PING_INTERVAL_MS = 20_000;
@@ -282,6 +283,12 @@ export class ExtensionServer {
             type: "helloAck",
             protocolVersion: WIRE_PROTOCOL_VERSION,
             config: { blurCapture: blurCaptureEnabled() },
+            // So the extension can print, in the BROWSER's console, whether the
+            // bundle actually running matches the daemon. `doctor` already
+            // compares these, but only from the daemon side — and the whole
+            // point of the check is that a rebuilt extension is not a reloaded
+            // one, which is a browser-side fact.
+            daemonBuild: buildStamp(),
           }),
         );
         if (stale) {
