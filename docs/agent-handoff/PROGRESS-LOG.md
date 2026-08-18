@@ -1231,3 +1231,116 @@ Nothing is mid-flight. The next action is review and merge of #63–#67, in any
 order — they are all based on `main` and were verified to integrate. Deploy is
 unchanged and still on the released build; no PR here requires a redeploy
 except #66 (bookmarks needs the extension rebuilt for the new permission).
+
+---
+
+## 2026-08-18 (checkpoint) — sweep complete, all seven PRs green
+
+Where this entry and any conversation summary disagree, **this entry is
+correct**. It supersedes the *"2026-08-18 (later) — the backlog sweep"* entry
+above on one point only: that entry was written while #64 was still red.
+
+### State
+
+Backlog cleared to a decision or a PR. **Seven PRs open, all CI-green, none
+merged.** `main` is unchanged at `cf66499`.
+
+### Constraints
+
+Unchanged — George's `/goal` is quoted verbatim in the entry above. No new
+instruction since.
+
+### Done
+
+| PR | Head | CI |
+|---|---|---|
+| #62 `chore(main): release 1.2.2` | release-please branch | 4/4 |
+| #63 five stress bugs | `fix/backlog-bug-sweep` | 4/4 |
+| #64 Windows daemon target | `feat/windows-daemon` `068f150` | **5/5 incl. windows-latest** |
+| #65 interface parity | `feat/interface-parity` | 4/4 |
+| #66 bookmark CRUD | `feat/bookmarks` | 4/4 |
+| #67 opt-in HTTP interface | `feat/http-interface` | 4/4 |
+| #68 closeout docs | `docs/backlog-closeout` | 4/4 |
+
+- **Issue #2 closed** (`gh issue close 2`) — every row verified shipped except
+  coverage gating, which is the deferred item.
+- **#64 needed six rounds after the initial commit** (`4482238` → `068f150`).
+  Round three (`c8474de`) was a **production** bug, not a test artefact:
+  `isMain` used `endsWith("/dist/cli.js")`, which never matches a backslash
+  path, so the Windows bin ran nothing and exited 0 — silent, not degraded. It
+  surfaced through the bundle test asserting the built bin emits *any* output,
+  a guard written for the unrelated picocolors browser-build swap.
+
+### Open
+
+- **Nothing is merged.** Evidence: `git log origin/main -1` = `cf66499`;
+  `gh pr list` returns all seven. Held by ground rule 1.
+- **Two soak checks — never attempted, not automatable here.** A 30-minute
+  Safari background-page idle soak and a Chrome SW-kill reconnect via
+  `chrome://serviceworker-internals`. Both need a real browser and wall-clock
+  time. The daemon half is covered by `ws-heartbeat.test.ts`; the browser half
+  is not.
+- **SurfingKeys mechanism B** — blocked on one console check recorded in
+  DECISIONS.md § 2026-08-18. Never run; the result picks between two materially
+  different designs.
+- **Live deploy has drifted and no PR here caused it.** `daemon status` right
+  now: daemon `1.2.1+59.e93d17e.dirty.0818T1619`, both extensions
+  `1.2.0+57.5b686ee`. The daemon picked up a dirty workspace `dist/` during the
+  release deploy earlier today; launchd re-execs whatever `dist/cli.js` holds.
+  Fix is `git switch main && pnpm build && browser-tab daemon restart`, then
+  reload the extensions — **user-gated**, so not done.
+
+### Corrections
+
+- **Two of my own commits on #64 were wrong and are superseded.** `182f227`
+  (resolve the tsx shim by probing the filesystem) and `0b24373` (probe in a
+  platform-preferred order) both still spawned a bin shim. `068f150` deletes the
+  approach: spawn `process.execPath` with `--import tsx`. I was fixing *which
+  shim file* when the question was *why involve a shim*.
+- **A commit landed on the wrong PR.** `520075a` (skip POSIX-shim suites) was
+  committed to `feat/bookmarks` while it belonged on `feat/windows-daemon`;
+  cherry-picked across as `537b8ef` and `git reset --hard`-ed off bookmarks
+  (force-pushed). Both branches re-verified green afterwards.
+
+### Traps
+
+New since the entry above; the earlier ones are not repeated.
+
+- **`node_modules/.bin/<tool>` is not reliably spawnable on Windows, three
+  separate ways.** No extension (ENOENT); the extensionless POSIX script exists
+  *alongside* `.CMD` so "first that exists" picks the unrunnable one (ENOENT);
+  and Node refuses to spawn a `.CMD` without a shell at all (EINVAL —
+  CVE-2024-27980 hardening). **Fix the shape: `process.execPath` +
+  `--import <loader>`, never a bin shim.**
+- **vitest's 5s default is not enough for a multi-geometry Ink render on a cold
+  Windows runner.** Raise the per-test budget; do not shrink the geometry list,
+  which trades real coverage for a number.
+- **A test that shims a binary can be made platform-dependent by a *production*
+  platform gate.** Declare `BROWSER_TAB_PLATFORM=macos` inside the suite;
+  weakening the gate to keep the test portable is backwards.
+- **`git commit` after a branch switch goes wherever HEAD is, not where you were
+  working.** Check `git branch --show-current` immediately before committing
+  when juggling more than two branches.
+
+### Tree
+
+`/Users/george/repos/browser-tab-mcp` · on `docs/backlog-closeout` · working
+tree **clean**. All six feature branches pushed and `local == remote`; each is
+1 commit ahead of `origin/main` except `feat/windows-daemon` (9). No other
+agent's work in the tree. No background tasks running.
+
+### Blocked on you
+
+1. **Which of #63–#68 to merge, and in what order.** All are based on `main` and
+   independent; a local test-merge of the earlier five was green.
+2. **Whether to cut #62 (v1.2.2)** before or after the feature PRs.
+3. **Whether to redeploy.** Only #66 strictly needs an extension rebuild (new
+   `bookmarks` permission). The daemon/extension stamp drift above is worth
+   fixing whatever you decide.
+
+### Resume
+
+Nothing is mid-flight — no staged-but-uncommitted work, no half-applied edit,
+no running task. The next action is a merge decision, then for each merged PR
+the ordinary post-merge check (`pnpm release:check`, and `doctor` after any
+redeploy).
