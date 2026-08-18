@@ -146,6 +146,33 @@ describe("release version coherence", () => {
     ).toEqual([]);
   });
 
+  it("keeps every release-please-rewritten file out of Biome's formatter", () => {
+    // release-please RE-SERIALISES each JSON file it rewrites — it does not
+    // edit one line. Cutting v1.2.0 expanded `"host_permissions": ["<all_urls>"]`
+    // across three lines in the extension manifest, Biome wanted it collapsed,
+    // and `main` went red on the release commit itself. Nothing warned: the
+    // release PR's diff looked like a version bump.
+    //
+    // The repo already has a name for this shape — a tool owns the file's
+    // format, so Biome does not (see `.mcp.json`, the napi-generated
+    // `apps/rust-accel/index.js`). Every file release-please writes belongs in
+    // that set. The root package.json is included even though its current
+    // content happens to round-trip unchanged: that is luck, not a property,
+    // and it would break the same way the first time someone writes a
+    // single-line array in it.
+    const { root, extras } = releasePleaseOwned();
+    const biome = readJson("biome.json") as { files?: { includes?: string[] } };
+    const includes = biome.files?.includes ?? [];
+
+    const notExcluded = [root, ...extras].filter((path) => !includes.includes(`!${path}`));
+    expect(
+      notExcluded,
+      "release-please re-serialises these files, so Biome must not also own their " +
+        'format — add "!<path>" to files.includes in biome.json. Otherwise the next ' +
+        "release commit turns `pnpm lint` red on main, after the release has shipped",
+    ).toEqual([]);
+  });
+
   it("the released version is loadable as a Chrome extension version", () => {
     // Chrome's grammar is NOT semver: 1-4 dot-separated integers, 0..65535, no
     // leading zeros, and no pre-release or build suffix. The manifest is now an

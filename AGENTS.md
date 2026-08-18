@@ -318,6 +318,16 @@ global **`mcpsync`** CLI (it retired the old `~/dotfiles/mcp/render.js` on
 `mcpsync sync --scope project`. Global servers and scope decisions:
 `~/dotfiles/docs/mcp-registry.md`.
 
+**Everything release-please rewrites is Biome-excluded too** — the root
+`package.json`, `apps/browser-tab-mcp/package.json`, and the connector's
+`package.json` + `public/manifest.json`. release-please **re-serialises** each
+JSON file it touches rather than editing one line, so its output format is its
+own: cutting v1.2.0 expanded `"host_permissions": ["<all_urls>"]` across three
+lines and turned `pnpm lint` red on `main` at the release commit, after the
+release had shipped. Same principle as the mcpsync/napi files below — a tool
+owns the format, so Biome doesn't. `release-versions.contract.test.ts` fails if
+a release-please-owned file is missing its `!` entry.
+
 These four files are **Biome-excluded** (`biome.json` `files.includes`): mcpsync
 owns their format and emits expanded JSON that Biome's formatter would rewrite,
 so — like the napi-generated `apps/rust-accel/index.{js,d.ts}` — they're

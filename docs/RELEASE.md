@@ -167,6 +167,31 @@ present), and its decision table is unit-tested in
 `apps/browser-tab-mcp/tests/release-verify.test.ts`. Missing `gh` degrades to
 "unknown" with a note, never to a false failure.
 
+### release-please RE-SERIALISES the files it rewrites
+
+It does not edit one line. Every JSON file on the release line — the root
+`package.json` and every `extra-file` — is parsed, the version is set, and the
+whole document is written back with a two-space indent. Formatting that differs
+from that output is silently normalised.
+
+Cutting v1.2.0 expanded the extension manifest's
+`"host_permissions": ["<all_urls>"]` across three lines. Biome wanted it
+collapsed, so **`pnpm lint` went red on `main` at the release commit itself** —
+after the release had shipped, with a release-PR diff that looked like nothing
+but a version bump.
+
+The repo already has a name for this shape: a tool owns the file's format, so
+Biome does not (`.mcp.json`, the napi-generated `apps/rust-accel/index.js`).
+Every file release-please writes now lives in that set — `biome.json`
+`files.includes` carries a `!` entry for each, and
+`release-versions.contract.test.ts` fails if one is missing.
+
+The root `package.json` is in that set too, even though its current content
+round-trips unchanged. That is luck, not a property: it would break the same way
+the first time someone writes a single-line array in it. Their *content* is
+still checked — the manifest by `build-output.test.ts`, the versions by the
+contract test — only their whitespace is release-please's business.
+
 ### Changing `extra-files` while a release PR is open
 
 release-please decides whether to refresh an open release PR by comparing the
