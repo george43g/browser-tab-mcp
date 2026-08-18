@@ -8,6 +8,20 @@ import { ShotStore } from "./shots.js";
 import type { StateStore } from "./state.js";
 import type { ExtensionServer } from "./ws-server.js";
 
+/**
+ * WINDOWS: skipped, deliberately.
+ *
+ * This suite shims a macOS-only binary with a `#!/bin/sh` script, which Windows
+ * cannot execute (`spawn EFTYPE`). Making the shim portable would mean teaching
+ * the production code to accept an interpreter plus arguments rather than a
+ * binary path — real complexity added to ship a fixture.
+ *
+ * The subsystem under test is macOS-only anyway. The windows-latest CI leg
+ * exists to prove the DAEMON builds and runs there, not to re-test features
+ * that platform does not have.
+ */
+const onPosix = process.platform !== "win32";
+
 let dir: string;
 beforeEach(() => {
   dir = mkdtempSync(join(tmpdir(), "bt-shot-unit-"));
@@ -16,6 +30,7 @@ afterEach(() => {
   rmSync(dir, { recursive: true, force: true });
   delete process.env.BROWSER_TAB_WINDOW_CAPTURE;
   delete process.env.BROWSER_TAB_SCREENCAPTURE_BIN;
+  delete process.env.BROWSER_TAB_PLATFORM;
 });
 
 const DATA_URL = "data:image/jpeg;base64,/9j/AA==";
@@ -162,7 +177,19 @@ describe("screenshot — argument validation", () => {
   });
 });
 
-describe("screenshot — tier 'window'", () => {
+describe.skipIf(!onPosix)("screenshot — tier 'window'", () => {
+  // Tier 2 is macOS-only twice over: `/usr/bin/screencapture`, and a CGWindowID
+  // that only CoreGraphics issues. These tests shim the binary, so they can
+  // exercise the LOGIC on any POSIX host — but `windowCaptureEnabled()` now
+  // refuses off macOS before the env opt-in is even read, which is correct in
+  // production and would make this suite platform-dependent (it failed on the
+  // Linux leg and passed on macOS — the exact split the matrix exists to
+  // expose). Declaring the platform is what the override is for; the skip above
+  // covers Windows, where the `#!/bin/sh` shim cannot execute at all.
+  beforeEach(() => {
+    process.env.BROWSER_TAB_PLATFORM = "macos";
+  });
+
   /** A fake `screencapture` that writes a 4-byte jpeg to its last-positional out path. */
   function shimScreencapture(): string {
     const bin = join(dir, "fake-screencapture.sh");

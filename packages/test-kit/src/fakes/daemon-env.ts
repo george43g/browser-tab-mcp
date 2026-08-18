@@ -36,6 +36,21 @@ export function randomWsPort(base = 18790, span = 500): number {
  * puts every touched key back to its prior value (deleting keys that were
  * unset). Always enables the fake AppleScript adapter.
  */
+/**
+ * A per-test IPC endpoint the local platform can actually bind.
+ *
+ * On Windows, `net.Server.listen(path)` binds a NAMED PIPE — a file path under
+ * a temp dir is not a valid endpoint there, so every daemon-backed test would
+ * fail to start with an unrelated-looking error. The pipe name is derived from
+ * the temp dir so parallel tests stay isolated, exactly as the temp socket file
+ * does on macOS and Linux.
+ */
+function defaultIpcEndpoint(tmp: string): string {
+  if (process.platform !== "win32") return join(tmp, "daemon.sock");
+  const unique = tmp.replace(/[^A-Za-z0-9]/g, "").slice(-24);
+  return `\\\\.\\pipe\\browser-tab-test-${unique}`;
+}
+
 export function withDaemonEnv(tmp: string, over: DaemonEnvOptions = {}): { restore(): void } {
   const prev = new Map<string, string | undefined>();
   const set = (key: string, value: string): void => {
@@ -45,7 +60,7 @@ export function withDaemonEnv(tmp: string, over: DaemonEnvOptions = {}): { resto
 
   set("BROWSER_TAB_FAKE_ADAPTER", "1");
   set("BROWSER_TAB_BROWSERS", over.browsers ?? "chrome");
-  set("BROWSER_TAB_SOCKET_PATH", over.socketPath ?? join(tmp, "daemon.sock"));
+  set("BROWSER_TAB_SOCKET_PATH", over.socketPath ?? defaultIpcEndpoint(tmp));
   set("BROWSER_TAB_SNAPSHOT_PATH", over.snapshotPath ?? join(tmp, "snapshot.json"));
   set("BROWSER_TAB_CACHE_DIR", over.cacheDir ?? tmp);
   set("BROWSER_TAB_POLL_MS", String(over.pollMs ?? 60000));

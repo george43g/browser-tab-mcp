@@ -11,12 +11,14 @@ import { accessSync, existsSync, constants as fsConstants, statSync } from "node
 import { homedir } from "node:os";
 import { join } from "node:path";
 import { envBool } from "@george43g/robustness";
+import { stateDir } from "./daemon/paths.js";
 import { safariHistoryDbPath } from "./daemon/safari-history.js";
 import { correlationTier } from "./detect/correlate.js";
 import { enabledBrowsers, specFor } from "./detect/engine.js";
 import { OsaPermissionError, osaQuote, probeProcess, runOsa } from "./detect/osascript.js";
 import { APP_NAME } from "./meta.js";
 import { hasNativeModule, tryLoadNative } from "./native-bridge.js";
+import { hasAppleScript, hasWindowCapture, platformId, unavailableBecause } from "./platform.js";
 
 export type CheckStatus = "ok" | "warn" | "error" | "info";
 
@@ -73,9 +75,10 @@ function checkNative(): AccessCheckItem {
 }
 
 function checkConfigDir(): AccessCheckItem {
-  // Generic check — tools may use ~/.{toolName}/ for credentials, logs, etc.
-  const slug = APP_NAME.replace(/^@[^/]+\//, "").replace(/-mcp$/, "");
-  const dir = join(homedir(), `.${slug}`);
+  // The dir the daemon actually uses, not a re-derived guess — those diverged
+  // the moment Windows moved state under %LOCALAPPDATA%, and doctor reported a
+  // path nothing would ever write to.
+  const dir = stateDir();
   if (!existsSync(dir)) {
     return {
       key: "configDir",
@@ -185,6 +188,12 @@ async function checkCorrelation(): Promise<AccessCheckItem> {
 function checkScreenRecording(): AccessCheckItem {
   const key = "screenRecording";
   const label = "Screen Recording (tier-2 window capture)";
+  // `screencapture -l` and the CoreGraphics preflight are both macOS. The
+  // opt-in env var can be set anywhere, so say why it will not work rather
+  // than probing a native module that cannot answer.
+  if (!hasWindowCapture()) {
+    return { key, label, status: "warn", detail: unavailableBecause("Window capture") };
+  }
   const native = tryLoadNative();
   if (!native) {
     return {
@@ -250,9 +259,38 @@ function checkSafariHistory(): AccessCheckItem {
   }
 }
 
+/**
+ * What this platform can do at all, before any probe runs.
+ *
+ * Without this row a Windows user sees a doctor with no browser checks and no
+ * correlation check and has to infer why. Naming the mode makes "the extension
+ * is the only source here" a stated fact rather than a gap.
+ */
+function checkPlatform(): AccessCheckItem {
+  if (hasAppleScript()) {
+    return {
+      key: "platform",
+      label: `Platform ${platformId()}`,
+      status: "ok",
+      detail: "AppleScript fallback + cgWindowId correlation available.",
+    };
+  }
+  return {
+    key: "platform",
+    label: `Platform ${platformId()}`,
+    status: "info",
+    detail:
+      "extension-only mode — no AppleScript fallback and no cgWindowId join " +
+      "(both are macOS-only). Load the connector extension; it supplies tab and " +
+      "window state and executes every write command directly.",
+  };
+}
+
 export async function checkLocalAccess(): Promise<AccessReport> {
+  // The AppleScript probes shell out to `osascript`, which does not exist off
+  // macOS — running them would spend a subprocess each to report ENOENT.
   const browserItems =
-    process.env.BROWSER_TAB_FAKE_ADAPTER === "1"
+    process.env.BROWSER_TAB_FAKE_ADAPTER === "1" || !hasAppleScript()
       ? []
       : [
           ...(await Promise.all(enabledBrowsers().map((b) => checkBrowser(b)))),
@@ -266,6 +304,7 @@ export async function checkLocalAccess(): Promise<AccessReport> {
     : [];
   const items = [
     checkNode(),
+    checkPlatform(),
     checkNative(),
     checkConfigDir(),
     ...browserItems,

@@ -15,13 +15,28 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { promisify } from "node:util";
 import { envBool } from "@george43g/robustness";
+import { hasWindowCapture, unavailableBecause } from "../platform.js";
 
 const execFileP = promisify(execFile);
 
 let tmpCounter = 0;
 
-/** Tier-2 (daemon screencapture) is opt-in — pixels of arbitrary windows. */
+/**
+ * Tier-2 (daemon screencapture) is opt-in — pixels of arbitrary windows.
+ *
+ * It is also macOS-only twice over: the binary is `/usr/bin/screencapture`, and
+ * the id it takes is a CGWindowID, which nothing off macOS issues. The env var
+ * can be set anywhere, so the platform gate comes FIRST — otherwise a Windows
+ * user who opts in gets `spawn /usr/bin/screencapture ENOENT` instead of an
+ * explanation. Tier-1 (`captureVisibleTab` through the extension) is
+ * unaffected and works everywhere.
+ */
 export function windowCaptureEnabled(): boolean {
+  if (!hasWindowCapture()) return false;
+  return windowCaptureOptedIn();
+}
+
+function windowCaptureOptedIn(): boolean {
   return envBool("BROWSER_TAB_WINDOW_CAPTURE", false);
 }
 
@@ -35,6 +50,7 @@ function screencaptureBin(): string {
  * the window id, `-t jpg` sets the format.
  */
 export async function captureWindow(cgWindowId: number): Promise<Buffer> {
+  if (!hasWindowCapture()) throw new Error(unavailableBecause("Window capture"));
   const tmp = join(tmpdir(), `browser-tab-shot-${process.pid}-${cgWindowId}-${tmpCounter++}.jpg`);
   try {
     await execFileP(screencaptureBin(), ["-x", "-o", "-t", "jpg", "-l", String(cgWindowId), tmp]);

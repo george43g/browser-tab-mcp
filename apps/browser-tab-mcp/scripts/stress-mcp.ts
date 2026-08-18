@@ -30,7 +30,23 @@ import { fileURLToPath } from "node:url";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const ROOT = resolve(__dirname, "..");
-const TSX = resolve(ROOT, "../../node_modules/.bin/tsx");
+/**
+ * Run TypeScript entry points through node itself, not through a bin shim.
+ *
+ * THREE FAILURES TAUGHT THIS. Spawning `node_modules/.bin/tsx` broke on Windows
+ * three different ways: the path has no extension there (ENOENT); probing for
+ * "the first file that exists" still picked the extensionless POSIX shell script
+ * because pnpm writes both (ENOENT again); and once the `.CMD` was selected,
+ * Node refuses to spawn a `.CMD` without a shell at all (EINVAL — the
+ * CVE-2024-27980 hardening).
+ *
+ * Every one of those is a property of the SHIM, not of tsx. Loading tsx into
+ * `process.execPath` sidesteps the shim entirely: one spawn form on every OS,
+ * no filesystem probing, no shell, and no argument re-parsing — which matters
+ * here because this harness inspects the child's stdio byte for byte.
+ */
+const NODE = process.execPath;
+const TSX_ARGS = ["--import", "tsx"];
 const ENTRY = resolve(ROOT, "src/index.ts");
 
 interface RpcRequest {
@@ -54,7 +70,7 @@ class McpClient {
   public stderr = "";
 
   constructor(env: Record<string, string> = {}) {
-    this.child = spawn(TSX, [ENTRY], {
+    this.child = spawn(NODE, [...TSX_ARGS, ENTRY], {
       env: { ...process.env, ...env },
       stdio: ["pipe", "pipe", "pipe"],
     });
@@ -533,7 +549,7 @@ async function caseRefusalsFakeAdapter(): Promise<void> {
 async function caseDaemonLifecycle(): Promise<void> {
   const tmp = mkdtempSync(join(tmpdir(), "browser-tab-stress-"));
   const sock = join(tmp, "daemon.sock");
-  const proc = spawn(TSX, [resolve(ROOT, "src/cli.ts"), "daemon", "run"], {
+  const proc = spawn(NODE, [...TSX_ARGS, resolve(ROOT, "src/cli.ts"), "daemon", "run"], {
     env: {
       ...process.env,
       BROWSER_TAB_FAKE_ADAPTER: "1",

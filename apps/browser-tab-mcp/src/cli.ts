@@ -691,10 +691,30 @@ export async function main(argv: readonly string[] = process.argv): Promise<void
   await program.parseAsync(argv as string[]);
 }
 
+/**
+ * Is this file the process entry point?
+ *
+ * WINDOWS BUG THIS FIXES. The check used to be `arg.endsWith("/dist/cli.js")`.
+ * On Windows `process.argv[1]` is `D:\a\...\dist\cli.js` — BACKSLASHES — so
+ * it never matched, `main()` never ran, and `browser-tab <anything>` printed
+ * nothing and exited 0. Not a degraded CLI: a silent one. It was caught by the
+ * windows-latest CI leg on that leg's first green-ish run, via a bundle test
+ * asserting the built bin produces output at all.
+ *
+ * Normalising separators rather than using `import.meta.url` because the
+ * comparison is against `process.argv[1]`, which is what the OS actually
+ * invoked, and that is the value that differs per platform.
+ */
+export function isEntryPoint(argv1: string | undefined): boolean {
+  // Normalise separators: on Windows `process.argv[1]` uses backslashes, and a
+  // suffix test written with forward slashes silently never matches.
+  const arg = (argv1 ?? "").replace(/\\/g, "/");
+  return arg.endsWith("/dist/cli.js") || arg.endsWith("/src/cli.ts");
+}
+
 const isMain = (() => {
   try {
-    const arg = process.argv[1] ?? "";
-    return arg.endsWith("/dist/cli.js") || arg.endsWith("/src/cli.ts");
+    return isEntryPoint(process.argv[1]);
   } catch {
     return false;
   }

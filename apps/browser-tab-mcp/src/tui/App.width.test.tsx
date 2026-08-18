@@ -154,24 +154,44 @@ describe("App width safety", () => {
     [40, 12],
   ];
 
-  it("never emits a line wider than the terminal", async () => {
-    for (const [cols, rows] of GEOMETRIES) {
-      const { lines, unmount } = await renderAt(cols, rows);
-      const widest = Math.max(...lines.map((l) => strip(l).length));
-      expect(widest, `geometry ${cols}x${rows}`).toBeLessThanOrEqual(cols);
-      unmount();
-    }
-  });
+  /**
+   * These two iterate SIX geometries, each a full Ink mount + render + unmount.
+   * That is ~350ms on a warm laptop and comfortably over vitest's 5s default on a
+   * cold, shared Windows runner, where it timed out on the windows-latest leg.
+   *
+   * A scheduling limit, not a correctness one — the same reason the integration
+   * suite's connect budget is generous. The timeout costs nothing on the happy
+   * path (the loop returns as soon as the geometries are done); shrinking the
+   * geometry list to fit a default would trade real coverage for a number.
+   */
+  const SLOW_RENDER_MS = 30_000;
 
-  it("never emits more lines than the terminal has — the wrap-corruption guard", async () => {
-    // This is the assertion that fails at 66-into-40 without the fix. Wrapping
-    // inflates the LINE count, so a width bug presents as a height overflow.
-    for (const [cols, rows] of GEOMETRIES) {
-      const { lines, unmount } = await renderAt(cols, rows);
-      expect(lines.length, `geometry ${cols}x${rows}`).toBeLessThanOrEqual(rows);
-      unmount();
-    }
-  });
+  it(
+    "never emits a line wider than the terminal",
+    async () => {
+      for (const [cols, rows] of GEOMETRIES) {
+        const { lines, unmount } = await renderAt(cols, rows);
+        const widest = Math.max(...lines.map((l) => strip(l).length));
+        expect(widest, `geometry ${cols}x${rows}`).toBeLessThanOrEqual(cols);
+        unmount();
+      }
+    },
+    SLOW_RENDER_MS,
+  );
+
+  it(
+    "never emits more lines than the terminal has — the wrap-corruption guard",
+    async () => {
+      // This is the assertion that fails at 66-into-40 without the fix. Wrapping
+      // inflates the LINE count, so a width bug presents as a height overflow.
+      for (const [cols, rows] of GEOMETRIES) {
+        const { lines, unmount } = await renderAt(cols, rows);
+        expect(lines.length, `geometry ${cols}x${rows}`).toBeLessThanOrEqual(rows);
+        unmount();
+      }
+    },
+    SLOW_RENDER_MS,
+  );
 
   it("keeps both chrome bars intact at a narrow width", async () => {
     const { lines, unmount } = await renderAt(100, 30);

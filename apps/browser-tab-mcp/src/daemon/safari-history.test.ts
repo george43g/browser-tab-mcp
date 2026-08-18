@@ -12,6 +12,20 @@ import {
   unixMsToCocoa,
 } from "./safari-history.js";
 
+/**
+ * WINDOWS: skipped, deliberately.
+ *
+ * This suite shims a macOS-only binary with a `#!/bin/sh` script, which Windows
+ * cannot execute (`spawn EFTYPE`). Making the shim portable would mean teaching
+ * the production code to accept an interpreter plus arguments rather than a
+ * binary path — real complexity added to ship a fixture.
+ *
+ * The subsystem under test is macOS-only anyway. The windows-latest CI leg
+ * exists to prove the DAEMON builds and runs there, not to re-test features
+ * that platform does not have.
+ */
+const onPosix = process.platform !== "win32";
+
 let dir: string;
 beforeEach(() => {
   dir = mkdtempSync(join(tmpdir(), "bt-safari-hist-"));
@@ -77,7 +91,7 @@ function shimSqlite(json: string): string {
   return bin;
 }
 
-describe("readSafariHistory (shimmed sqlite3)", () => {
+describe.skipIf(!onPosix)("readSafariHistory (shimmed sqlite3)", () => {
   function seedDb(): string {
     const db = join(dir, "History.db");
     writeFileSync(db, "not-a-real-db"); // only needs to exist for the copy
