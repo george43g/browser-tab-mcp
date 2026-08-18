@@ -109,7 +109,10 @@ jobs:
   e2e-chromium:
     name: e2e (chromium)
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    # Room for two browser-install attempts (see that step) plus the tests,
+    # which take well under a minute. Raised from 15 after an apt stall ate the
+    # entire budget and the tests never ran.
+    timeout-minutes: 20
     steps:
       - name: Checkout
         uses: actions/checkout@v6
@@ -134,8 +137,36 @@ jobs:
       - name: Build (extension bundle + daemon CLI)
         run: pnpm build
 
+      # WHY THIS IS NOT A ONE-LINER. `--with-deps` shells out to apt, and apt on
+      # a GitHub runner talks to a mirror that can simply stop answering: on
+      # 2026-08-18 `azure.archive.ubuntu.com` went unreachable, apt fell back to
+      # `archive.ubuntu.com` and then hung for 13.5 minutes until the JOB
+      # timeout cancelled everything. The e2e tests never ran, and the only
+      # signal was a red X on a PR whose code was fine.
+      #
+      # An unbounded step inside a bounded job spends the whole budget on the
+      # slowest thing that can happen to it. Bounding the step instead turns a
+      # 15-minute mystery cancellation into a fast failure with a retry — and
+      # because a stalled mirror is usually a different mirror by the next
+      # attempt, one retry is nearly always enough. The apt list cache is wiped
+      # in between so the retry re-resolves rather than re-reading the state
+      # that just failed.
+      #
+      # `timeout` (coreutils) rather than step-level `timeout-minutes` +
+      # `continue-on-error`, because the semantics of a cancelled step are one
+      # more thing to be wrong about; this is plain shell and does exactly what
+      # it says.
       - name: Install Playwright chromium (+ OS deps)
-        run: pnpm --filter @george43g/chrome-extension exec playwright install --with-deps chromium
+        run: |
+          set -euo pipefail
+          install() {
+            pnpm --filter @george43g/chrome-extension exec playwright install --with-deps chromium
+          }
+          if ! timeout 360 bash -c "$(declare -f install); install"; then
+            echo "::warning::Playwright browser install stalled or failed (usually an apt mirror). Retrying once."
+            sudo rm -rf /var/lib/apt/lists/*
+            timeout 360 bash -c "$(declare -f install); install"
+          fi
 
       - name: Run e2e (built extension ↔ throwaway daemon)
         run: pnpm --filter @george43g/chrome-extension test:e2e
