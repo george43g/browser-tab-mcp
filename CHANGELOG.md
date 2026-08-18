@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.2.1](https://github.com/george43g/browser-tab-mcp/compare/v1.2.0...v1.2.1) (2026-08-18)
+
+
+### Bug Fixes
+
+* **release:** finish the version-lockstep — an unrefreshed release PR, and a red main after the cut ([#58](https://github.com/george43g/browser-tab-mcp/issues/58)) ([dafddf7](https://github.com/george43g/browser-tab-mcp/commit/dafddf7c13c024d0355c08958bfec48906817265))
+
 ## [1.2.0](https://github.com/george43g/browser-tab-mcp/compare/v1.1.1...v1.2.0) (2026-08-18)
 
 
