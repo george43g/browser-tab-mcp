@@ -144,7 +144,16 @@ function applyGlobalFlags(program: Command): void {
   quiet = opts.quiet === true;
 }
 
-export async function main(argv: readonly string[] = process.argv): Promise<void> {
+/**
+ * Construct the commander program without running it.
+ *
+ * Split out of `main` so the surface can be INSPECTED rather than grepped:
+ * `tests/interface-parity.contract.test.ts` walks the real command tree to
+ * assert every tool is reachable from the CLI. A regex over this file would
+ * pass on a command that is registered but broken, and would need rewriting
+ * whenever the declaration style changes.
+ */
+export function buildProgram(): Command {
   const program = new Command();
   // Bin name = the tool name (no -cli suffix). Subcommands route to MCP/TUI/etc.
   program
@@ -295,6 +304,30 @@ export async function main(argv: readonly string[] = process.argv): Promise<void
         await printResult(result, json, "bookmarks");
       },
     );
+
+  program
+    .command("logs")
+    .description("Show recent daemon/server log lines (dev-only: needs MCP_DEV=1)")
+    .addOption(
+      new Option("--source <src>", "memory (ring buffer) | file (NDJSON on disk) | all")
+        .choices(["memory", "file", "all"])
+        .default("memory"),
+    )
+    .option("--tail <n>", "How many lines (1-500)", "50")
+    .action(async (opts: { source?: string; tail?: string }) => {
+      const json = program.opts<{ json?: boolean }>().json ?? false;
+      // Registered unconditionally, and gated by the DISPATCHER — the same
+      // decision as `toMcpTools()`. Hiding the command from `--help` when
+      // MCP_DEV is unset would make the help text (and the generated usage
+      // artifacts, which CI checks for freshness) depend on the environment,
+      // and hiding never disabled anything anyway: `buildDispatcher` fails
+      // closed and refuses with the same "Unknown tool name" as a tool that
+      // does not exist.
+      const tail = Number.parseInt(opts.tail ?? "50", 10);
+      if (!Number.isFinite(tail)) throw new Error(`--tail expects a number, got "${opts.tail}".`);
+      const result = await callMcpTool("get_logs", { source: opts.source ?? "memory", tail });
+      await printResult(result, json, "get_logs");
+    });
 
   program
     .command("list")
@@ -739,7 +772,11 @@ export async function main(argv: readonly string[] = process.argv): Promise<void
       });
     });
 
-  await program.parseAsync(argv as string[]);
+  return program;
+}
+
+export async function main(argv: readonly string[] = process.argv): Promise<void> {
+  await buildProgram().parseAsync(argv as string[]);
 }
 
 /**

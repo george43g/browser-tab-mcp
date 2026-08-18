@@ -27,13 +27,15 @@ import { useMemo, useState } from "react";
 import { callMcpTool } from "../dispatcher.js";
 import { APP_NAME, buildStamp } from "../meta.js";
 import { engineLabel } from "../native-bridge.js";
+import { availableActions, type TabActionChoice, visibleHints } from "./actions.js";
 import { buildRows, type Row, tabBadges } from "./rows.js";
 import { useSnapshot } from "./useSnapshot.js";
 
 type Mode =
   | { kind: "browse" }
   | { kind: "confirm-close"; tabId: string; title: string }
-  | { kind: "move"; tabId: string; title: string };
+  | { kind: "move"; tabId: string; title: string }
+  | { kind: "action"; tabId: string; title: string; choices: TabActionChoice[] };
 
 export function App() {
   const theme = useTheme();
@@ -73,6 +75,7 @@ export function App() {
     );
   }, [mode, rows]);
   const [targetIdx, setTargetIdx] = useState(0);
+  const [actionIdx, setActionIdx] = useState(0);
 
   const runCommand = (tool: string, args: Record<string, unknown>, verb: string) => {
     void callMcpTool(tool, args).then((result) => {
@@ -89,7 +92,9 @@ export function App() {
 
   useVimKeys({
     onMove: (delta) => {
-      if (mode.kind === "move") {
+      if (mode.kind === "action") {
+        setActionIdx((i) => Math.max(0, Math.min(mode.choices.length - 1, i + delta)));
+      } else if (mode.kind === "move") {
         setTargetIdx((i) => Math.max(0, Math.min(moveTargets.length - 1, i + delta)));
       } else {
         // Any motion retires the last action's message. It used to persist for
@@ -145,6 +150,21 @@ export function App() {
       return;
     }
 
+    if (mode.kind === "action") {
+      if (key.escape) {
+        setMode({ kind: "browse" });
+        return;
+      }
+      if (key.return) {
+        const choice = mode.choices[actionIdx];
+        if (choice) {
+          runCommand("tab_action", { tabId: mode.tabId, action: choice.action }, choice.label);
+        }
+        setMode({ kind: "browse" });
+      }
+      return;
+    }
+
     if (input === "q" || key.escape) exit();
     // `!key.ctrl` matters: Ink reports ^D as input "d" with key.ctrl, and
     // useVimKeys has already consumed it as half-page-down. Without the guard,
@@ -176,6 +196,20 @@ export function App() {
     }
     if (input === "x" && current?.kind === "tab") {
       setMode({ kind: "confirm-close", tabId: current.tab.tabId, title: current.tab.title });
+    }
+    if (input === "a" && current?.kind === "tab") {
+      // Same refusal as `m`: a picker with nothing in it would consume Enter
+      // and leave the previous action's message on screen, so the user gets no
+      // signal at all. Say why instead.
+      const choices = availableActions(current.browser, current.tab);
+      if (choices.length === 0) {
+        setMessage(`no tab actions available for ${current.browser.browser}`);
+        return;
+      }
+      setMessage("");
+      setActionIdx(0);
+      setMode({ kind: "action", tabId: current.tab.tabId, title: current.tab.title, choices });
+      return;
     }
     if (input === "m" && current?.kind === "tab") {
       // Refusing beats entering a mode whose only action is a silent no-op:
@@ -267,20 +301,26 @@ export function App() {
   };
 
   const statusMessage =
-    mode.kind === "confirm-close"
-      ? `close "${mode.title.slice(0, 50)}"? press y to confirm`
-      : mode.kind === "move"
-        ? // Name the target: the marker row can be scrolled off, and even when
-          // it isn't, "which window am I about to move into" should not require
-          // hunting for a highlight.
-          `moving "${truncateToWidth(mode.title, 30)}" → "${truncateToWidth(
-            moveTargets[targetIdx]?.kind === "window"
-              ? (moveTargets[targetIdx] as Extract<Row, { kind: "window" }>).window.title ||
-                  "(untitled)"
-              : "(none)",
-            30,
-          )}" — j/k picks, Enter confirms, Esc cancels`
-        : message || `${rows.length} rows · ${live ? "live (daemon)" : "polling"}`;
+    mode.kind === "action"
+      ? // Name the action AND the tab: the row can be scrolled off, and running
+        // `discard` on the wrong tab is not obviously undoable.
+        `${truncateToWidth(mode.title, 24)} → ${
+          mode.choices[actionIdx]?.label ?? "(none)"
+        } — j/k picks, Enter runs, Esc cancels`
+      : mode.kind === "confirm-close"
+        ? `close "${mode.title.slice(0, 50)}"? press y to confirm`
+        : mode.kind === "move"
+          ? // Name the target: the marker row can be scrolled off, and even when
+            // it isn't, "which window am I about to move into" should not require
+            // hunting for a highlight.
+            `moving "${truncateToWidth(mode.title, 30)}" → "${truncateToWidth(
+              moveTargets[targetIdx]?.kind === "window"
+                ? (moveTargets[targetIdx] as Extract<Row, { kind: "window" }>).window.title ||
+                    "(untitled)"
+                : "(none)",
+              30,
+            )}" — j/k picks, Enter confirms, Esc cancels`
+          : message || `${rows.length} rows · ${live ? "live (daemon)" : "polling"}`;
 
   return (
     <Box flexDirection="column" height="100%">
@@ -330,17 +370,7 @@ export function App() {
           Clamped here rather than upstream: a wrapping help bar is right for a
           consumer that sizes its own viewport, wrong for one that doesn't. */}
       <Box height={1} overflow="hidden">
-        <HelpBar
-          hints={[
-            { key: "j/k", label: "move" },
-            { key: "⏎", label: "focus" },
-            { key: "x", label: "close" },
-            { key: "m", label: "move tab" },
-            { key: "space", label: "fold" },
-            { key: "r", label: "refresh" },
-            { key: "q", label: "quit" },
-          ]}
-        />
+        <HelpBar hints={visibleHints(termColumns)} />
       </Box>
     </Box>
   );
