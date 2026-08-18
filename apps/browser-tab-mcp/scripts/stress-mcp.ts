@@ -31,30 +31,22 @@ import { fileURLToPath } from "node:url";
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const ROOT = resolve(__dirname, "..");
 /**
- * The `tsx` shim this platform can actually EXECUTE.
+ * Run TypeScript entry points through node itself, not through a bin shim.
  *
- * pnpm writes several shims side by side: an extensionless `tsx` (a POSIX shell
- * script), plus `tsx.CMD` and `tsx.ps1` on Windows. All of them exist there, so
- * "pick the first that exists" is not enough — Windows `CreateProcess` cannot
- * run the extensionless shell script, and spawning it fails with ENOENT. That
- * killed the stress harness on the windows-latest leg before a single one of
- * its 34 cases ran, twice: once because the path had no extension, and again
- * because the fix probed in the wrong ORDER.
+ * THREE FAILURES TAUGHT THIS. Spawning `node_modules/.bin/tsx` broke on Windows
+ * three different ways: the path has no extension there (ENOENT); probing for
+ * "the first file that exists" still picked the extensionless POSIX shell script
+ * because pnpm writes both (ENOENT again); and once the `.CMD` was selected,
+ * Node refuses to spawn a `.CMD` without a shell at all (EINVAL — the
+ * CVE-2024-27980 hardening).
  *
- * So the platform decides the PREFERENCE ORDER (which is genuinely a platform
- * question — what can this OS execute) and the filesystem decides the ANSWER.
+ * Every one of those is a property of the SHIM, not of tsx. Loading tsx into
+ * `process.execPath` sidesteps the shim entirely: one spawn form on every OS,
+ * no filesystem probing, no shell, and no argument re-parsing — which matters
+ * here because this harness inspects the child's stdio byte for byte.
  */
-function resolveTsx(): string {
-  const base = resolve(ROOT, "../../node_modules/.bin/tsx");
-  const candidates =
-    process.platform === "win32" ? [`${base}.CMD`, `${base}.cmd`, `${base}.exe`, base] : [base];
-  for (const candidate of candidates) {
-    if (existsSync(candidate)) return candidate;
-  }
-  return base; // let spawn report the real error rather than inventing one
-}
-
-const TSX = resolveTsx();
+const NODE = process.execPath;
+const TSX_ARGS = ["--import", "tsx"];
 const ENTRY = resolve(ROOT, "src/index.ts");
 
 interface RpcRequest {
@@ -78,7 +70,7 @@ class McpClient {
   public stderr = "";
 
   constructor(env: Record<string, string> = {}) {
-    this.child = spawn(TSX, [ENTRY], {
+    this.child = spawn(NODE, [...TSX_ARGS, ENTRY], {
       env: { ...process.env, ...env },
       stdio: ["pipe", "pipe", "pipe"],
     });
@@ -557,7 +549,7 @@ async function caseRefusalsFakeAdapter(): Promise<void> {
 async function caseDaemonLifecycle(): Promise<void> {
   const tmp = mkdtempSync(join(tmpdir(), "browser-tab-stress-"));
   const sock = join(tmp, "daemon.sock");
-  const proc = spawn(TSX, [resolve(ROOT, "src/cli.ts"), "daemon", "run"], {
+  const proc = spawn(NODE, [...TSX_ARGS, resolve(ROOT, "src/cli.ts"), "daemon", "run"], {
     env: {
       ...process.env,
       BROWSER_TAB_FAKE_ADAPTER: "1",
