@@ -32,6 +32,7 @@ import type {
   TabActionInput,
 } from "@george43g/shared-types";
 import { SnapshotSchema } from "@george43g/shared-types";
+import { serviceManager } from "../daemon/service.js";
 import { fakeAdapterEnabled } from "../detect/adapters/fake.js";
 import { resolveWindowBounds } from "../detect/displays.js";
 import { enabledBrowsers, makeAdapter, readSnapshot } from "../detect/engine.js";
@@ -225,7 +226,11 @@ export async function daemonStatus(): Promise<Record<string, unknown>> {
     if (!(err instanceof DaemonUnavailableError)) throw err;
     return {
       reachable: false,
-      hint: "Start it with `browser-tab daemon run` (or `browser-tab daemon install` for launchd).",
+      // Naming the wrong mechanism sends the reader to the wrong docs, so the
+      // hint asks the service manager which one is in play here.
+      hint:
+        "Start it with `browser-tab daemon run` (or `browser-tab daemon install` for " +
+        `${serviceManager().kind}).`,
     };
   }
 }

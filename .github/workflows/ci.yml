@@ -16,7 +16,14 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, macos-latest]
+        # windows-latest proves the daemon BUILDS AND RUNS off macOS. The
+        # connector extension is plain MV3 and already installs in Windows
+        # Chrome, so the daemon is the only piece that was macOS-bound — it
+        # shelled out to osascript, wrote a launchd plist, and bound a unix
+        # socket, none of which exist there. Windows now uses a named pipe, a
+        # Task Scheduler ONLOGON task, and the extension as its only data
+        # source; without a runner, all three would be untested claims.
+        os: [ubuntu-latest, macos-latest, windows-latest]
         node: ["24"]
     steps:
       - name: Checkout
@@ -65,8 +72,14 @@ jobs:
       - name: Coverage (collect + report — non-gating)
         # COVERAGE=1 collects + writes lcov (CI reporter). COVERAGE_GATE is
         # intentionally unset: we report coverage but don't fail on thresholds
-        # yet. Arm the gate later by adding COVERAGE_GATE=1 here.
-        run: COVERAGE=1 pnpm test
+        # yet. Arm the gate later by adding COVERAGE_GATE: "1" below.
+        #
+        # Set via `env:` rather than a `COVERAGE=1 pnpm test` prefix — that
+        # prefix is POSIX-only and is a syntax error under cmd.exe on the
+        # windows-latest leg.
+        env:
+          COVERAGE: "1"
+        run: pnpm test
       - name: Upload coverage
         if: always()
         uses: actions/upload-artifact@v7
@@ -75,7 +88,11 @@ jobs:
           path: "**/coverage/lcov.info"
           if-no-files-found: ignore
 
+      # mise has no Windows story here, and the artifacts it checks
+      # (completions/, man/) are POSIX shell + manpages — regenerating them on
+      # Windows would prove nothing.
       - name: Install usage(1) via mise
+        if: runner.os != 'Windows'
         # The freshness gate (next step) shells out to usage(1) to
         # regenerate completions + manpage + docs; mise pulls a pinned
         # binary so the check is reproducible across runners.
@@ -86,6 +103,7 @@ jobs:
         # since the last regen. Fix locally: `pnpm artifacts && git add
         # completions/ man/ docs/cli/`. Bypass: edit .usage.kdl + this
         # check together in the same PR.
+        if: runner.os != 'Windows'
         run: pnpm --filter "@george43g/*-mcp" check:usage
 
       - name: Verify npm tarball is publishable

@@ -2,21 +2,63 @@
  * Daemon filesystem layout. Everything env-overridable (and therefore
  * flag-overridable via the env↔flag binder).
  *
- *   ~/.browser-tab/            state dir (socket, extension token, pid)
- *   ~/.cache/browser-tab/      snapshot.json + last.json + heartbeat.json
- *                              for shell consumers
- *   ~/Library/Logs/browser-tab/  launchd stdout/stderr
+ * macOS / Linux:
+ *   ~/.browser-tab/              state dir (socket, extension token, pid)
+ *   ~/.cache/browser-tab/        snapshot.json + last.json + heartbeat.json
+ *   ~/Library/Logs/browser-tab/  launchd stdout/stderr (macOS)
+ *
+ * Windows:
+ *   %LOCALAPPDATA%\browser-tab\{state,cache,logs}
+ *   \\.\pipe\browser-tab-<user>   IPC endpoint (a NAMED PIPE, not a file)
+ *
+ * The Windows IPC endpoint is the one path here that is not a filesystem path
+ * at all. Node's `net` server binds a pipe name with the same `listen(path)`
+ * call, but the surrounding filesystem work — mkdir the parent, stat for a
+ * stale socket, unlink on shutdown — is meaningless and throws. `isPipe()`
+ * exists so callers gate that work instead of discovering it at runtime.
  */
 
-import { homedir } from "node:os";
+import { homedir, userInfo } from "node:os";
 import { join } from "node:path";
+import { isWindows } from "../platform.js";
 
 export function stateDir(): string {
-  return process.env.BROWSER_TAB_STATE_DIR ?? join(homedir(), ".browser-tab");
+  if (process.env.BROWSER_TAB_STATE_DIR) return process.env.BROWSER_TAB_STATE_DIR;
+  if (isWindows()) return join(localAppData(), "browser-tab", "state");
+  return join(homedir(), ".browser-tab");
 }
 
 export function socketPath(): string {
-  return process.env.BROWSER_TAB_SOCKET_PATH ?? join(stateDir(), "daemon.sock");
+  const override = process.env.BROWSER_TAB_SOCKET_PATH;
+  if (override) return override;
+  // Windows has no unix-domain socket in a user directory; the equivalent
+  // per-user rendezvous is a named pipe. It is namespaced by username because
+  // the pipe namespace is machine-wide, not per-user like a home directory.
+  if (isWindows()) return `\\\\.\\pipe\\browser-tab-${safeUser()}`;
+  return join(stateDir(), "daemon.sock");
+}
+
+/** Windows usernames can contain spaces; pipe names should not. */
+function safeUser(): string {
+  let name = "user";
+  try {
+    name = userInfo().username || "user";
+  } catch {
+    // A container with no passwd entry — the default is fine.
+  }
+  return name.replace(/[^A-Za-z0-9_.-]/g, "_");
+}
+
+/**
+ * True when the IPC endpoint is a Windows named pipe rather than a file.
+ *
+ * Callers use this to SKIP filesystem work — mkdir/stat/unlink on a pipe name
+ * throw ENOENT or EINVAL, and the stale-socket dance has no meaning: Windows
+ * reclaims a pipe when its last handle closes, so a dead daemon leaves nothing
+ * behind to clean up.
+ */
+export function isPipe(path: string = socketPath()): boolean {
+  return path.startsWith("\\\\.\\pipe\\") || path.startsWith("//./pipe/");
 }
 
 export function tokenPath(): string {
@@ -24,7 +66,14 @@ export function tokenPath(): string {
 }
 
 export function cacheDir(): string {
-  return process.env.BROWSER_TAB_CACHE_DIR ?? join(homedir(), ".cache", "browser-tab");
+  if (process.env.BROWSER_TAB_CACHE_DIR) return process.env.BROWSER_TAB_CACHE_DIR;
+  if (isWindows()) return join(localAppData(), "browser-tab", "cache");
+  return join(homedir(), ".cache", "browser-tab");
+}
+
+/** `%LOCALAPPDATA%`, falling back to the conventional path under the profile. */
+function localAppData(): string {
+  return process.env.LOCALAPPDATA ?? join(homedir(), "AppData", "Local");
 }
 
 export function snapshotPath(): string {
@@ -65,7 +114,12 @@ export function shotsDir(): string {
 }
 
 export function logDir(): string {
-  return join(homedir(), "Library", "Logs", "browser-tab");
+  if (process.env.BROWSER_TAB_LOG_DIR) return process.env.BROWSER_TAB_LOG_DIR;
+  if (isWindows()) return join(localAppData(), "browser-tab", "logs");
+  // `~/Library/Logs` is where macOS users (and Console.app) look; Linux has no
+  // equivalent convention for a user agent, so state-home is the closest fit.
+  if (process.platform === "darwin") return join(homedir(), "Library", "Logs", "browser-tab");
+  return join(homedir(), ".local", "state", "browser-tab", "logs");
 }
 
 export const LAUNCHD_LABEL = "com.george43g.browser-tab";

@@ -21,7 +21,7 @@
   "scripts": {
     "build": "pnpm build:ts && pnpm build:native:optional",
     "build:ts": "vite build",
-    "build:native:optional": "(pnpm --filter @george43g/rust-accel build 2>/dev/null) || (echo '⚠️  Rust native build skipped (rustc not installed or rust-accel missing). TS fallback will be used.' && exit 0)",
+    "build:native:optional": "node scripts/build-native-optional.mjs",
     "dev": "vite build --watch",
     "dev:mcp": "tsx --env-file-if-exists=.env --env-file-if-exists=.env.local src/cli.ts mcp",
     "dev:cli": "tsx --env-file-if-exists=.env --env-file-if-exists=.env.local src/cli.ts",
@@ -47,7 +47,7 @@
     "check:usage": "node scripts/check-usage-freshness.mjs",
     "pack:mcpb": "pnpm build && node scripts/build-mcpb.mjs",
     "verify": "pnpm lint && pnpm typecheck && pnpm test && pnpm build",
-    "clean": "rm -rf dist coverage *.mcpb"
+    "clean": "node ../../scripts/rimraf.mjs dist coverage"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.29.0",

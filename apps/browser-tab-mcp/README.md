@@ -115,6 +115,48 @@ A **single** bin, `browser-tab`, with subcommands (run `browser-tab --help`):
 | `daemon run\|install\|status\|token` | launchd daemon lifecycle |
 | `repl` (alias `console`) | interactive REPL over the in-process dispatcher |
 
+## Platforms
+
+| | macOS | Windows | Linux |
+|---|---|---|---|
+| Daemon (IPC, WS, snapshot, journal, history, page, tab-1 screenshots) | ✅ | ✅ | ✅ |
+| Connector extension (Chrome/Brave/Chromium) | ✅ | ✅ | ✅ |
+| AppleScript fallback — works with NO extension installed | ✅ | — | — |
+| `cgWindowId` correlation (the wm-stack join key) | ✅ | — | — |
+| Tier-2 window capture (`screencapture -l`) | ✅ | — | — |
+| Safari | ✅ | — | — |
+| Start at login | launchd LaunchAgent | Task Scheduler (`ONLOGON`) | run it yourself |
+
+**Off macOS the connector extension is not the preferred source, it is the only
+one** — and that is a smaller difference than it sounds, because the extension
+is authoritative on macOS too whenever it is connected. What Windows and Linux
+genuinely lose is the *no-extension fallback* and the CGWindowID join. Both are
+stated rather than simulated: `doctor` prints a platform row saying so, and
+every macOS-only command refuses with a sentence naming the platform and the
+fix instead of `spawn osascript ENOENT`.
+
+There is no `cgWindowId` off macOS because there is no CoreGraphics to issue
+one; the field is `null`, not wrong. The wm-stack consumer is yabai, which is
+macOS-only anyway.
+
+### Windows specifics
+
+- **IPC is a named pipe**, `\\.\pipe\browser-tab-<user>`, not a socket file.
+  The pipe namespace is machine-wide, so it is namespaced per user. `isPipe()`
+  in `daemon/paths.ts` is what makes callers skip the mkdir/stat/unlink work
+  that only applies to a real file.
+- **State, cache and logs** live under `%LOCALAPPDATA%\browser-tab\`.
+- **`daemon install`** registers a Task Scheduler task (`browser-tab-daemon`)
+  with an `ONLOGON` trigger, running as the logged-in user. It is deliberately
+  not a Windows *Service*: a service needs elevation and runs in session 0,
+  where it could not reach the user's browser at all. Task Scheduler has no
+  true KeepAlive — the daemon's own watchdog covers the wedged case by exiting,
+  and restart-on-failure covers the crash case.
+
+Every platform branch is driven in CI from one runner via
+`BROWSER_TAB_PLATFORM`, and `windows-latest` is in the build matrix so the
+claims above are tested rather than asserted.
+
 ## Focus & navigation journals
 
 The daemon records an event-sourced history of where the user has been —

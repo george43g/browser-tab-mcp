@@ -13,10 +13,12 @@
 
 import { warn } from "@george43g/robustness";
 import type { BrowserId, Snapshot } from "@george43g/shared-types";
+import { hasAppleScript, hasWindowCorrelation } from "../platform.js";
 import { CHROMIUM_SPECS, makeChromiumAdapter } from "./adapters/chromium.js";
 import { fakeAdapterEnabled, makeFakeAdapter } from "./adapters/fake.js";
 import { makeSafariAdapter, SAFARI_SPEC } from "./adapters/safari.js";
 import type { AdapterSpec, BrowserAdapter } from "./adapters/types.js";
+import { makeUnavailableAdapter } from "./adapters/unavailable.js";
 import { applescriptCaps } from "./capabilities.js";
 import { enrichWithCgWindowIds } from "./correlate.js";
 
@@ -44,6 +46,10 @@ export function specFor(browser: BrowserId): AdapterSpec {
 export function makeAdapter(browser: BrowserId): BrowserAdapter {
   const spec = specFor(browser);
   if (fakeAdapterEnabled()) return makeFakeAdapter(spec);
+  // Off macOS there is no `osascript` to talk to. Return an adapter that says
+  // so rather than one that spawns a binary which is not there — see
+  // adapters/unavailable.ts for why this is an adapter and not a branch.
+  if (!hasAppleScript()) return makeUnavailableAdapter(spec);
   return spec.browser === "safari" ? makeSafariAdapter() : makeChromiumAdapter(spec);
 }
 
@@ -93,5 +99,9 @@ export async function readSnapshot(
   };
   // Fixture data has synthetic pids/bounds — correlation would be noise.
   if (fakeAdapterEnabled()) return snapshot;
+  // The join key is a CGWindowID, which only CoreGraphics issues. Off macOS
+  // `cgWindowId` stays null — absent, not wrong — and the wm-stack consumer
+  // (yabai) is macOS-only anyway.
+  if (!hasWindowCorrelation()) return snapshot;
   return enrichWithCgWindowIds(snapshot, opts.signal);
 }

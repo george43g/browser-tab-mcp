@@ -14,6 +14,7 @@ import { existsSync, mkdirSync, unlinkSync } from "node:fs";
 import { createConnection, createServer, type Server, type Socket } from "node:net";
 import { dirname } from "node:path";
 import { info, error as logError, registerCleanup } from "@george43g/robustness";
+import { isPipe } from "./paths.js";
 import type { DaemonEvent, StateStore } from "./state.js";
 
 export interface IpcRequest {
@@ -50,7 +51,11 @@ export class IpcServer {
 
   async start(): Promise<void> {
     await this.reclaimStaleSocket();
-    mkdirSync(dirname(this.opts.socketPath), { recursive: true });
+    // A Windows named pipe has no parent directory to create — `dirname` of
+    // `\\.\pipe\x` is a path that does not exist and cannot be made.
+    if (!isPipe(this.opts.socketPath)) {
+      mkdirSync(dirname(this.opts.socketPath), { recursive: true });
+    }
 
     this.server = createServer((socket) => this.onConnection(socket));
     await new Promise<void>((resolve, reject) => {
@@ -72,6 +77,9 @@ export class IpcServer {
       this.server.close(() => resolve());
     });
     this.server = null;
+    // Windows reclaims a pipe when its last handle closes, so there is nothing
+    // to unlink — and unlinking a pipe NAME throws.
+    if (isPipe(this.opts.socketPath)) return;
     try {
       unlinkSync(this.opts.socketPath);
     } catch {
@@ -160,9 +168,17 @@ export class IpcServer {
     }
   }
 
-  /** If a socket file exists: live daemon → throw; dead socket → unlink. */
+  /**
+   * If a socket file exists: live daemon → throw; dead socket → unlink.
+   *
+   * On Windows the file test is meaningless (a pipe is not on the filesystem)
+   * but the LIVENESS probe still is, and it is the half that matters: it is how
+   * a second daemon is refused. A dead pipe simply does not accept, so the
+   * probe fails and `listen` succeeds — no cleanup step needed.
+   */
   private async reclaimStaleSocket(): Promise<void> {
-    if (!existsSync(this.opts.socketPath)) return;
+    const pipe = isPipe(this.opts.socketPath);
+    if (!pipe && !existsSync(this.opts.socketPath)) return;
     const alive = await new Promise<boolean>((resolve) => {
       const probe = createConnection(this.opts.socketPath);
       const timer = setTimeout(() => {
@@ -186,6 +202,7 @@ export class IpcServer {
           `Stop it first (browser-tab daemon stop) or point BROWSER_TAB_SOCKET_PATH elsewhere.`,
       );
     }
+    if (pipe) return;
     logError("stale_socket_reclaimed", { socket: this.opts.socketPath });
     unlinkSync(this.opts.socketPath);
   }

@@ -20,7 +20,7 @@
     "build": "tsc -p tsconfig.json",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "vitest run",
-    "clean": "rm -rf dist coverage"
+    "clean": "node ../../scripts/rimraf.mjs dist coverage"
   },
   "dependencies": {
     "zod": "^3.23.0",

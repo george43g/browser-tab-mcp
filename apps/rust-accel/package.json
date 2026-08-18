@@ -26,7 +26,7 @@
   "scripts": {
     "build": "napi build --platform --release",
     "build:debug": "napi build --platform",
-    "clean": "rm -rf target *.node index.js index.d.ts"
+    "clean": "node ../../scripts/rimraf.mjs target index.js index.d.ts"
   },
   "devDependencies": {
     "@napi-rs/cli": "^3.7.2"
