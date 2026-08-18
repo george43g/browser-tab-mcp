@@ -404,3 +404,70 @@ export const ScreenshotOutputSchema = z.object({
     .describe("Tab navigation epoch the shot was taken at (tier 'tab' only)."),
 });
 export type ScreenshotOutput = z.infer<typeof ScreenshotOutputSchema>;
+
+/**
+ * One bookmark node, FLAT.
+ *
+ * WHY FLAT AND NOT A TREE. Chrome's `BookmarkTreeNode` nests `children`, which
+ * needs `z.lazy()` to express and produces a payload whose depth a caller must
+ * walk before it can do anything. Every consumer here — a CLI table, an MCP
+ * tool result, a TUI list — wants rows. `parentId` preserves the structure
+ * exactly, and `list --recursive` flattens the subtree rather than nesting it.
+ */
+export const BookmarkNodeSchema = z.object({
+  id: z.string().describe("Opaque bookmark id, as issued by the browser."),
+  parentId: z.string().optional().describe("Parent folder id; absent for the root."),
+  title: z.string().default("").describe("Bookmark or folder title."),
+  url: z
+    .string()
+    .optional()
+    .describe("Target URL. ABSENT means this node is a FOLDER — that is how you tell them apart."),
+  dateAdded: z.number().optional().describe("Epoch ms."),
+  index: z.number().optional().describe("Position within its parent."),
+});
+export type BookmarkNode = z.infer<typeof BookmarkNodeSchema>;
+
+export const BookmarksInputSchema = z.object({
+  action: z
+    .enum(["search", "list", "create", "update", "remove"])
+    .default("search")
+    .describe(
+      "search = full-text over title+url; list = children of a folder; " +
+        "create/update/remove operate on one node.",
+    ),
+  browser: BrowserIdSchema.optional().describe(
+    "Which browser's bookmarks. Omit to use the single connected browser; required when more than one is connected.",
+  ),
+  query: z.string().optional().describe("search: substring matched against title and URL."),
+  folderId: z.string().optional().describe("list: the folder to read. Omit for the root."),
+  recursive: z
+    .boolean()
+    .default(false)
+    .describe("list: include the whole subtree, flattened, rather than direct children only."),
+  id: z.string().optional().describe("update/remove: the node to act on."),
+  parentId: z.string().optional().describe("create: destination folder. Omit for the default."),
+  title: z
+    .string()
+    .optional()
+    .describe("create/update: title. A create with no url makes a FOLDER."),
+  url: z
+    .string()
+    .optional()
+    .describe(
+      "create/update: target URL. Omit on create to make a folder. Scheme-checked by the same allowlist as open_tab.",
+    ),
+  index: z.number().int().min(0).optional().describe("create: position within the parent."),
+  maxResults: z.number().int().min(1).max(1000).default(100).describe("search/list cap."),
+});
+export type BookmarksInput = z.infer<typeof BookmarksInputSchema>;
+
+export const BookmarksOutputSchema = z.object({
+  action: z.string(),
+  browser: BrowserIdSchema,
+  nodes: z
+    .array(BookmarkNodeSchema)
+    .describe("Result rows; a single-element list for create/update."),
+  removed: z.string().optional().describe("remove: the id that was removed."),
+  truncated: z.boolean().default(false).describe("True when maxResults clipped the result."),
+});
+export type BookmarksOutput = z.infer<typeof BookmarksOutputSchema>;

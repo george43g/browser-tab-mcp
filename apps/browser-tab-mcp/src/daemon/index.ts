@@ -45,6 +45,7 @@ import {
 } from "../detect/ids.js";
 import { APP_VERSION, buildStamp } from "../meta.js";
 import { AnnotationStore } from "./annotations.js";
+import { bookmarks } from "./bookmarks.js";
 import { ContentCache } from "./content-cache.js";
 import { EngineLoop, pollMs } from "./engine-loop.js";
 import { history } from "./history.js";
@@ -746,6 +747,17 @@ export async function startDaemon(): Promise<DaemonHandle> {
     onScreenshot: (params) =>
       screenshot(params, { ext, store, journal, shots, limiter: shotLimiter }),
     onHistory: (params) => history(params, { ext }),
+    onBookmarks: (params) =>
+      bookmarks(params, {
+        ext,
+        // Only browsers with a LIVE feed can answer; the merge's authority
+        // check is the same signal the snapshot uses for `dataSource`.
+        connected: () =>
+          store
+            .getSnapshot()
+            .browsers.filter((b) => b.extensionConnected)
+            .map((b) => b.browser),
+      }),
   });
 
   await ipc.start();

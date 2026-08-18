@@ -44,6 +44,13 @@ export interface CommandArgs {
   color?: string;
   collapsed?: boolean;
   bounds?: { x: number; y: number; w: number; h: number };
+  // bookmarks. `id` is a STRING here (Chrome issues opaque string bookmark
+  // ids) unlike every tab/window id above, which are numbers.
+  id?: string;
+  query?: string;
+  folderId?: string;
+  parentId?: string;
+  recursive?: boolean;
   state?: string;
   incognito?: boolean;
   focused?: boolean;
@@ -506,7 +513,95 @@ export async function executeCommand(kind: string, args: CommandArgs): Promise<C
       }));
       return { payload: { rows } };
     }
+    case "bookmarks": {
+      const bookmarks = api.bookmarks as typeof chrome.bookmarks | undefined;
+      if (!bookmarks) throw new Error("bookmarks API unavailable in this browser");
+      const action = String(args.action ?? "search");
+      const max = typeof args.maxResults === "number" ? args.maxResults : 100;
+
+      // Chrome's tree nodes nest; every consumer here wants rows. `parentId`
+      // preserves the structure without a recursive schema.
+      const flatten = (nodes: chrome.bookmarks.BookmarkTreeNode[]): BookmarkRow[] => {
+        const out: BookmarkRow[] = [];
+        const walk = (n: chrome.bookmarks.BookmarkTreeNode): void => {
+          out.push({
+            id: n.id,
+            ...(n.parentId !== undefined ? { parentId: n.parentId } : {}),
+            title: n.title ?? "",
+            // A node with no `url` IS a folder — that distinction is the whole
+            // shape of the data, so it must survive the mapping intact.
+            ...(n.url !== undefined ? { url: n.url } : {}),
+            ...(n.dateAdded !== undefined ? { dateAdded: n.dateAdded } : {}),
+            ...(n.index !== undefined ? { index: n.index } : {}),
+          });
+          for (const c of n.children ?? []) walk(c);
+        };
+        for (const n of nodes) walk(n);
+        return out;
+      };
+
+      if (action === "search") {
+        const found = await bookmarks.search(String(args.query ?? ""));
+        const rows = flatten(found);
+        return { payload: { nodes: rows.slice(0, max), truncated: rows.length > max } };
+      }
+      if (action === "list") {
+        const folderId = args.folderId === undefined ? undefined : String(args.folderId);
+        // `getSubTree` on a folder returns that folder WITH its children; taking
+        // `children` skips re-reporting the folder as its own first row.
+        const roots = folderId ? await bookmarks.getSubTree(folderId) : await bookmarks.getTree();
+        const children = roots.flatMap((r) => r.children ?? []);
+        const rows = args.recursive === true ? flatten(children) : flatten(shallow(children));
+        return { payload: { nodes: rows.slice(0, max), truncated: rows.length > max } };
+      }
+      if (action === "create") {
+        const created = await bookmarks.create({
+          ...(args.parentId !== undefined ? { parentId: String(args.parentId) } : {}),
+          ...(args.title !== undefined ? { title: String(args.title) } : {}),
+          // Omitting url is what makes a FOLDER — passing an empty string
+          // would create a bookmark pointing nowhere instead.
+          ...(args.url !== undefined ? { url: String(args.url) } : {}),
+          ...(typeof args.index === "number" ? { index: args.index } : {}),
+        });
+        return { payload: { nodes: flatten([created]) } };
+      }
+      if (action === "update") {
+        const id = String(args.id ?? "");
+        if (!id) throw new Error("bookmarks update needs an id");
+        const updated = await bookmarks.update(id, {
+          ...(args.title !== undefined ? { title: String(args.title) } : {}),
+          ...(args.url !== undefined ? { url: String(args.url) } : {}),
+        });
+        return { payload: { nodes: flatten([updated]) } };
+      }
+      if (action === "remove") {
+        const id = String(args.id ?? "");
+        if (!id) throw new Error("bookmarks remove needs an id");
+        // A folder needs removeTree; `remove` throws on a non-empty one. Probe
+        // the node first so the caller does not have to know which it is.
+        const [node] = await bookmarks.get(id);
+        if (node && node.url === undefined) await bookmarks.removeTree(id);
+        else await bookmarks.remove(id);
+        return { payload: { removed: id, nodes: [] } };
+      }
+      throw new Error(`unknown bookmarks action "${action}"`);
+    }
     default:
       throw new Error(`unknown command kind "${kind}"`);
   }
+}
+
+/** The flat row shape the daemon maps into `BookmarkNodeSchema`. */
+interface BookmarkRow {
+  id: string;
+  parentId?: string;
+  title: string;
+  url?: string;
+  dateAdded?: number;
+  index?: number;
+}
+
+/** Strip children so `flatten` yields direct members only. */
+function shallow(nodes: chrome.bookmarks.BookmarkTreeNode[]): chrome.bookmarks.BookmarkTreeNode[] {
+  return nodes.map((n) => ({ ...n, children: undefined }));
 }

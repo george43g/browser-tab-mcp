@@ -69,6 +69,12 @@ Interactive REPL driving the in\-process dispatcher
 \fBhealth\fR
 Print server health snapshot (calls health_check in\-process)
 .TP
+\fBbookmark\fR
+Read or edit bookmarks (search|list|create|update|remove) — needs daemon + extension
+.RS
+\fIAliases: \fRbm
+.RE
+.TP
 \fBlist\fR
 List open browser windows and tabs (Chrome/Brave/Chromium/Safari)
 .TP
@@ -146,6 +152,45 @@ Restart the daemon (launchctl kickstart \-k)
 .TP
 \fBnoop\fR
 Demo: call the noop tool
+.SH "BROWSER-TAB BOOKMARK"
+Read or edit bookmarks (search|list|create|update|remove) — needs daemon + extension
+.PP
+\fBUsage:\fR browser\-tab bookmark [OPTIONS] <action>
+.PP
+\fBOptions:\fR
+.PP
+.TP
+\fB\-\-browser\fR \fI<name>\fR
+Which browser (required when >1 extension is connected)
+.TP
+\fB\-\-query\fR \fI<text>\fR
+search: substring over title and URL
+.TP
+\fB\-\-folder\fR \fI<id>\fR
+list: folder to read (omit for the root)
+.TP
+\fB\-\-recursive\fR
+list: flatten the whole subtree
+.TP
+\fB\-\-id\fR \fI<id>\fR
+update/remove: node to act on
+.TP
+\fB\-\-parent\fR \fI<id>\fR
+create: destination folder
+.TP
+\fB\-\-title\fR \fI<title>\fR
+create/update: title (create with no \-\-url makes a folder)
+.TP
+\fB\-\-url\fR \fI<url>\fR
+create/update: target URL
+.TP
+\fB\-\-limit\fR \fI<n>\fR
+Max rows
+\fBArguments:\fR
+.PP
+.TP
+\fB<action>\fR
+search | list | create | update | remove
 .SH "BROWSER-TAB LIST"
 List open browser windows and tabs (Chrome/Brave/Chromium/Safari)
 .PP

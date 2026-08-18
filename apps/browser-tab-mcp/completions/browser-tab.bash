@@ -49,6 +49,35 @@ cmd repl help="Interactive REPL driving the in-process dispatcher" {
     alias console
 }
 cmd health help="Print server health snapshot (calls health_check in-process)"
+cmd bookmark help="Read or edit bookmarks (search|list|create|update|remove) — needs daemon + extension" {
+    alias bm
+    flag --browser help="Which browser (required when >1 extension is connected)" {
+        arg <name>
+    }
+    flag --query help="search: substring over title and URL" {
+        arg <text>
+    }
+    flag --folder help="list: folder to read (omit for the root)" {
+        arg <id>
+    }
+    flag --recursive help="list: flatten the whole subtree"
+    flag --id help="update/remove: node to act on" {
+        arg <id>
+    }
+    flag --parent help="create: destination folder" {
+        arg <id>
+    }
+    flag --title help="create/update: title (create with no --url makes a folder)" {
+        arg <title>
+    }
+    flag --url help="create/update: target URL" {
+        arg <url>
+    }
+    flag --limit help="Max rows" {
+        arg <n>
+    }
+    arg <action> help="search | list | create | update | remove"
+}
 cmd list help="List open browser windows and tabs (Chrome/Brave/Chromium/Safari)" {
     flag --browser help="Restrict to one browser: chrome|chromium|brave|safari" {
         arg <name>

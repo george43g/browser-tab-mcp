@@ -11,6 +11,7 @@
 import { makeRegistry, type ToolRegistry } from "@george43g/mcp-kit";
 import { envBool } from "@george43g/robustness";
 import { annotateTool } from "./annotate.js";
+import { bookmarksTool } from "./bookmarks.js";
 import { closeTabTool } from "./close-tab.js";
 import { closeWindowTool } from "./close-window.js";
 import { daemonStatusTool } from "./daemon-status.js";
@@ -48,6 +49,7 @@ export function makeAppRegistry(): ToolRegistry {
     screenshotTool,
     journalTool,
     historyTool,
+    bookmarksTool,
     daemonStatusTool,
     noopTool,
     getLogsTool,

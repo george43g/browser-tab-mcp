@@ -246,6 +246,57 @@ export async function main(argv: readonly string[] = process.argv): Promise<void
     });
 
   program
+    .command("bookmark")
+    .alias("bm")
+    .description(
+      "Read or edit bookmarks (search|list|create|update|remove) — needs daemon + extension",
+    )
+    .argument("<action>", "search | list | create | update | remove")
+    .option("--browser <name>", "Which browser (required when >1 extension is connected)")
+    .option("--query <text>", "search: substring over title and URL")
+    .option("--folder <id>", "list: folder to read (omit for the root)")
+    .option("--recursive", "list: flatten the whole subtree")
+    .option("--id <id>", "update/remove: node to act on")
+    .option("--parent <id>", "create: destination folder")
+    .option("--title <title>", "create/update: title (create with no --url makes a folder)")
+    .option("--url <url>", "create/update: target URL")
+    .option("--limit <n>", "Max rows", "100")
+    .action(
+      async (
+        action: string,
+        opts: {
+          browser?: string;
+          query?: string;
+          folder?: string;
+          recursive?: boolean;
+          id?: string;
+          parent?: string;
+          title?: string;
+          url?: string;
+          limit?: string;
+        },
+      ) => {
+        const json = program.opts<{ json?: boolean }>().json ?? false;
+        const limit = Number.parseInt(opts.limit ?? "100", 10);
+        if (!Number.isFinite(limit))
+          throw new Error(`--limit expects a number, got "${opts.limit}".`);
+        const result = await callMcpTool("bookmarks", {
+          action,
+          ...(opts.browser ? { browser: opts.browser } : {}),
+          ...(opts.query ? { query: opts.query } : {}),
+          ...(opts.folder ? { folderId: opts.folder } : {}),
+          ...(opts.recursive ? { recursive: true } : {}),
+          ...(opts.id ? { id: opts.id } : {}),
+          ...(opts.parent ? { parentId: opts.parent } : {}),
+          ...(opts.title !== undefined ? { title: opts.title } : {}),
+          ...(opts.url ? { url: opts.url } : {}),
+          maxResults: limit,
+        });
+        await printResult(result, json, "bookmarks");
+      },
+    );
+
+  program
     .command("list")
     .description("List open browser windows and tabs (Chrome/Brave/Chromium/Safari)")
     .option("--browser <name>", "Restrict to one browser: chrome|chromium|brave|safari")

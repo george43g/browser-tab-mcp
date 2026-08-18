@@ -25,6 +25,7 @@ const EXPECTED = [
   "screenshot",
   "journal",
   "history",
+  "bookmarks",
   "daemon_status",
   "noop",
   "get_logs",

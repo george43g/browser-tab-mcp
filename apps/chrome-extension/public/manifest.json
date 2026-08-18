@@ -12,7 +12,8 @@
     "tabGroups",
     "webNavigation",
     "scripting",
-    "history"
+    "history",
+    "bookmarks"
   ],
   "host_permissions": [
     "<all_urls>"

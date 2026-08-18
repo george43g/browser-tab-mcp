@@ -112,6 +112,7 @@ A **single** bin, `browser-tab`, with subcommands (run `browser-tab --help`):
 | `focus` / `close` / `open` / `move` | tab commands (true moves need daemon + extension) |
 | `act` / `group` / `window` | write-side control: tab actions · tab groups · window ops |
 | `page` / `annotate` / `screenshot` | perception: content/state · URL notes · captures |
+| `bookmark` (alias `bm`) | bookmark CRUD: `search` · `list` · `create` · `update` · `remove` |
 | `daemon run\|install\|status\|token` | launchd daemon lifecycle |
 | `repl` (alias `console`) | interactive REPL over the in-process dispatcher |
 
@@ -156,6 +157,44 @@ macOS-only anyway.
 Every platform branch is driven in CI from one runner via
 `BROWSER_TAB_PLATFORM`, and `windows-latest` is in the build matrix so the
 claims above are tested rather than asserted.
+## Bookmarks (`bookmarks` / `browser-tab bookmark`)
+
+CRUD over the browser's own bookmark store, via the connected extension.
+
+```bash
+browser-tab bookmark search --query fastify
+browser-tab bookmark list --folder 10 --recursive
+browser-tab bookmark create --parent 10 --title Vitest --url https://vitest.dev
+browser-tab bookmark create --parent 1 --title Reading      # no --url => a FOLDER
+browser-tab bookmark remove --id 10                         # a folder takes its subtree
+```
+
+**Extension-only, and not merged across browsers.** There is no AppleScript
+surface for bookmarks in any supported browser, and the on-disk stores
+(Chrome's `Bookmarks` JSON, Safari's `Bookmarks.plist`) are owned and rewritten
+by a running browser — the same reason the SurfingKeys research ruled out
+touching its LevelDB. So a down daemon is an **error**, not an empty list: an
+empty result is indistinguishable from "you have no bookmarks", and a caller
+might act on it.
+
+`history` merges across sources because a union of visits is meaningful. A
+merged bookmark **write** is not, and a merged `remove` would be destructive —
+so exactly one browser per call, inferred when only one extension is connected
+and **required** when several are.
+
+Three details worth knowing:
+
+- **A folder is a node with no `url`.** Not `url: ""` — the absence *is* the
+  distinction, and it survives the mapping intact. Creating without `--url` is
+  how you make one.
+- **Rows are flat, with `parentId`.** Chrome nests `children`; every consumer
+  here wants rows, and `--recursive` flattens a subtree rather than nesting it.
+- **URLs go through the same allowlist as `open_tab`** — and it matters more
+  here. A tab opened with `javascript:` runs once; a *bookmark* saved with it is
+  a persistent, user-clickable trap that outlives the session.
+
+Availability is the runtime-probed `bookmarks` capability, so gate on the map,
+never on the browser name.
 
 ## Focus & navigation journals
 
