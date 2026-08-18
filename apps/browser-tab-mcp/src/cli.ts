@@ -25,7 +25,13 @@ import {
 import { setLogLevel } from "@george43g/robustness/logger";
 import { type BrowserId, WIRE_PROTOCOL_VERSION } from "@george43g/shared-types";
 import { Command, Option } from "commander";
-import { checkLocalAccess, formatAccessReport } from "./access-check.js";
+import {
+  buildReport,
+  checkLocalAccess,
+  type ExtensionStatusLike,
+  extensionCheckItems,
+  formatAccessReport,
+} from "./access-check.js";
 import { compareBuilds } from "./build-compare.js";
 import { daemonStatus, reloadExtension } from "./client/tabs-service.js";
 import { registerDaemonCommand } from "./commands/daemon.js";
@@ -56,6 +62,51 @@ function parseBounds(s?: string): { x: number; y: number; w: number; h: number }
  * Returns undefined for a successful result (caller falls through to the
  * normal payload).
  */
+/**
+ * One optional STRING option, as a payload fragment.
+ *
+ * WHY NOT `opts.x ? { k: opts.x } : {}`. That idiom cannot tell "flag absent"
+ * from "flag given an empty string" — both are falsy, so the key was simply
+ * dropped. `--browser ""` therefore did not narrow the query, it silently
+ * WIDENED it to every browser; `--window ""` listed every window. A filter that
+ * quietly becomes its own opposite is worse than an error, so an empty value is
+ * now rejected by name.
+ */
+function str<K extends string>(key: K, flag: string, value: string | undefined) {
+  if (value === undefined) return {} as Record<K, string>;
+  const trimmed = value.trim();
+  if (trimmed === "") {
+    throw new Error(`${flag} was given an empty value — omit the flag to leave it unset.`);
+  }
+  return { [key]: trimmed } as Record<K, string>;
+}
+
+/** Same, for an option whose payload is a number. */
+function num<K extends string>(key: K, flag: string, value: string | undefined) {
+  if (value === undefined) return {} as Record<K, number>;
+  const trimmed = value.trim();
+  if (trimmed === "") {
+    throw new Error(`${flag} was given an empty value — omit the flag to leave it unset.`);
+  }
+  const n = Number.parseInt(trimmed, 10);
+  if (!Number.isFinite(n)) throw new Error(`${flag} expects a number, got "${value}".`);
+  return { [key]: n } as Record<K, number>;
+}
+
+/**
+ * Comma-separated handles. An empty entry is rejected rather than filtered:
+ * `--tabs "a,,b"` is a typo, and silently acting on two tabs when three were
+ * named is the same class of quiet wrong as the empty-string case above.
+ */
+function csvStr<K extends string>(key: K, flag: string, value: string | undefined) {
+  if (value === undefined) return {} as Record<K, string[]>;
+  const parts = value.split(",").map((v) => v.trim());
+  if (parts.length === 0 || parts.some((v) => v === "")) {
+    throw new Error(`${flag} has an empty entry — expected a comma-separated list of handles.`);
+  }
+  return { [key]: parts } as Record<K, string[]>;
+}
+
 function errorEnvelope(
   result: Awaited<ReturnType<typeof callMcpTool>>,
   tool?: string,
@@ -203,46 +254,22 @@ export function buildProgram(): Command {
     .description("Run preflight checks (Node version, native module, config dir)")
     .action(async () => {
       const report = await checkLocalAccess();
-      process.stdout.write(`${formatAccessReport(report)}\n`);
-      // Extension staleness — best-effort; only meaningful when the daemon is up
-      // (a down daemon yields no extensionInfo, so this simply prints nothing).
+      // Extension staleness — best-effort; only meaningful when the daemon is
+      // up (a down daemon yields no extensionInfo, so this contributes
+      // nothing). Folded into ONE report so the verdict line accounts for it:
+      // these used to print underneath an already-emitted "Doctor: all clear."
       const status = await daemonStatus();
-      const extInfo = (status.extensionInfo ?? []) as Array<{
-        browser: string;
-        protocolVersion: number;
-        stale: boolean;
-        extVersion?: string;
-      }>;
-      for (const e of extInfo) {
-        if (!e.stale) continue;
-        process.stdout.write(
-          `⚠ ${e.browser} extension is stale (protocol v${e.protocolVersion} < daemon v${WIRE_PROTOCOL_VERSION}) — reload it (chrome://extensions) or sideload+toggle (Safari) to restore v2 commands, journaling, and capabilities.\n`,
-        );
-      }
-
-      // Protocol staleness only catches a bundle old enough to speak an older
-      // wire version. A rebuild that was never reloaded speaks the SAME
-      // protocol while running different code — invisible until something
-      // misbehaves. Build stamps make it obvious.
-      const daemonBuild = typeof status.build === "string" ? status.build : null;
-      if (daemonBuild) {
-        process.stdout.write(`  ℹ  daemon build ${daemonBuild}\n`);
-        const reload = "Reload it (chrome://extensions) or sideload+toggle (Safari).";
-        for (const e of extInfo) {
-          if (!e.extVersion) continue;
-          const cmp = compareBuilds(daemonBuild, e.extVersion);
-          if (cmp.kind === "unstamped") {
-            process.stdout.write(
-              `⚠ ${e.browser} extension reports "${e.extVersion}" with no build stamp — it predates build stamping. Rebuild and reload it.\n`,
-            );
-          } else if (cmp.kind === "mismatch") {
-            process.stdout.write(
-              `⚠ ${e.browser} extension build ${e.extVersion} ≠ daemon build ${daemonBuild} — a rebuilt extension is not a reloaded one. ${reload}\n`,
-            );
-          }
-        }
-      }
-      if (!report.ok) process.exit(1);
+      const full = buildReport([
+        ...report.items,
+        ...extensionCheckItems(
+          (status.extensionInfo ?? []) as ExtensionStatusLike[],
+          typeof status.build === "string" ? status.build : null,
+          WIRE_PROTOCOL_VERSION,
+          compareBuilds,
+        ),
+      ]);
+      process.stdout.write(`${formatAccessReport(full)}\n`);
+      if (!full.ok) process.exit(1);
     });
 
   program
@@ -286,20 +313,20 @@ export function buildProgram(): Command {
         },
       ) => {
         const json = program.opts<{ json?: boolean }>().json ?? false;
-        const limit = Number.parseInt(opts.limit ?? "100", 10);
-        if (!Number.isFinite(limit))
-          throw new Error(`--limit expects a number, got "${opts.limit}".`);
         const result = await callMcpTool("bookmarks", {
           action,
-          ...(opts.browser ? { browser: opts.browser } : {}),
-          ...(opts.query ? { query: opts.query } : {}),
-          ...(opts.folder ? { folderId: opts.folder } : {}),
+          ...str("browser", "--browser", opts.browser),
+          ...str("query", "--query", opts.query),
+          ...str("folderId", "--folder", opts.folder),
           ...(opts.recursive ? { recursive: true } : {}),
-          ...(opts.id ? { id: opts.id } : {}),
-          ...(opts.parent ? { parentId: opts.parent } : {}),
+          ...str("id", "--id", opts.id),
+          ...str("parentId", "--parent", opts.parent),
+          // `title` keeps `!== undefined` rather than `str()`: clearing a title
+          // with `--title ""` is a legitimate update, so empty is a VALUE here,
+          // not the "flag given nothing" mistake the helper exists to catch.
           ...(opts.title !== undefined ? { title: opts.title } : {}),
-          ...(opts.url ? { url: opts.url } : {}),
-          maxResults: limit,
+          ...str("url", "--url", opts.url),
+          ...num("maxResults", "--limit", opts.limit),
         });
         await printResult(result, json, "bookmarks");
       },
@@ -323,9 +350,10 @@ export function buildProgram(): Command {
       // and hiding never disabled anything anyway: `buildDispatcher` fails
       // closed and refuses with the same "Unknown tool name" as a tool that
       // does not exist.
-      const tail = Number.parseInt(opts.tail ?? "50", 10);
-      if (!Number.isFinite(tail)) throw new Error(`--tail expects a number, got "${opts.tail}".`);
-      const result = await callMcpTool("get_logs", { source: opts.source ?? "memory", tail });
+      const result = await callMcpTool("get_logs", {
+        source: opts.source ?? "memory",
+        ...num("tail", "--tail", opts.tail),
+      });
       await printResult(result, json, "get_logs");
     });
 
@@ -345,9 +373,9 @@ export function buildProgram(): Command {
     .action(async (opts: { browser?: string; window?: string; url?: string; fields?: string }) => {
       const json = program.opts<{ json?: boolean }>().json ?? false;
       const result = await callMcpTool("list_tabs", {
-        ...(opts.browser ? { browser: opts.browser } : {}),
-        ...(opts.window ? { windowId: opts.window } : {}),
-        ...(opts.url ? { urlFilter: opts.url } : {}),
+        ...str("browser", "--browser", opts.browser),
+        ...str("windowId", "--window", opts.window),
+        ...str("urlFilter", "--url", opts.url),
         fields: opts.fields === "core" ? "core" : "full",
       });
       await printResult(result, json, "list_tabs");
@@ -385,9 +413,9 @@ export function buildProgram(): Command {
         }
         const result = await callMcpTool("journal", {
           view: opts.view ?? "recent",
-          ...(opts.browser ? { browser: opts.browser } : {}),
-          ...(opts.window ? { windowId: opts.window } : {}),
-          ...(opts.tab ? { tabId: opts.tab } : {}),
+          ...str("browser", "--browser", opts.browser),
+          ...str("windowId", "--window", opts.window),
+          ...str("tabId", "--tab", opts.tab),
           limit: Number.parseInt(opts.limit ?? "20", 10),
         });
         await printResult(result, json, "journal");
@@ -412,10 +440,10 @@ export function buildProgram(): Command {
       }) => {
         const json = program.opts<{ json?: boolean }>().json ?? false;
         const result = await callMcpTool("history", {
-          ...(opts.browser ? { browser: opts.browser } : {}),
-          ...(opts.query ? { query: opts.query } : {}),
-          ...(opts.start ? { startTime: Number.parseInt(opts.start, 10) } : {}),
-          ...(opts.end ? { endTime: Number.parseInt(opts.end, 10) } : {}),
+          ...str("browser", "--browser", opts.browser),
+          ...str("query", "--query", opts.query),
+          ...num("startTime", "--start", opts.start),
+          ...num("endTime", "--end", opts.end),
           maxResults: Number.parseInt(opts.limit ?? "50", 10),
         });
         await printResult(result, json, "history");
@@ -553,8 +581,8 @@ export function buildProgram(): Command {
       const result = await callMcpTool("open_tab", {
         url,
         activate: opts.activate,
-        ...(opts.browser ? { browser: opts.browser } : {}),
-        ...(opts.window ? { windowId: opts.window } : {}),
+        ...str("browser", "--browser", opts.browser),
+        ...str("windowId", "--window", opts.window),
       });
       await printResult(result, json, "open_tab");
     });
@@ -577,7 +605,7 @@ export function buildProgram(): Command {
           tabId,
           newWindow: opts.newWindow,
           allowReload: opts.allowReload,
-          ...(opts.targetWindow ? { targetWindowId: opts.targetWindow } : {}),
+          ...str("targetWindowId", "--target-window", opts.targetWindow),
           ...(opts.index !== undefined ? { targetIndex: Number.parseInt(opts.index, 10) } : {}),
         });
         await printResult(result, json, "move_tab");
@@ -597,7 +625,7 @@ export function buildProgram(): Command {
       const result = await callMcpTool("tab_action", {
         tabId,
         action,
-        ...(opts.url ? { url: opts.url } : {}),
+        ...str("url", "--url", opts.url),
       });
       await printResult(result, json, "tab_action");
     });
@@ -631,13 +659,13 @@ export function buildProgram(): Command {
         const json = program.opts<{ json?: boolean }>().json ?? false;
         const result = await callMcpTool("group_tabs", {
           action,
-          ...(opts.tabs ? { tabIds: opts.tabs.split(",").map((s) => s.trim()) } : {}),
-          ...(opts.group ? { groupId: opts.group } : {}),
-          ...(opts.browser ? { browser: opts.browser } : {}),
+          ...csvStr("tabIds", "--tabs", opts.tabs),
+          ...str("groupId", "--group", opts.group),
+          ...str("browser", "--browser", opts.browser),
           ...(opts.title !== undefined ? { title: opts.title } : {}),
-          ...(opts.color ? { color: opts.color } : {}),
+          ...str("color", "--color", opts.color),
           ...(opts.collapsed ? { collapsed: true } : {}),
-          ...(opts.targetWindow ? { targetWindowId: opts.targetWindow } : {}),
+          ...str("targetWindowId", "--target-window", opts.targetWindow),
           ...(opts.index !== undefined ? { index: Number.parseInt(opts.index, 10) } : {}),
         });
         await printResult(result, json, "group_tabs");
@@ -672,10 +700,10 @@ export function buildProgram(): Command {
           urls,
           focused: opts.focus,
           incognito: opts.incognito ?? false,
-          ...(opts.browser ? { browser: opts.browser } : {}),
+          ...str("browser", "--browser", opts.browser),
           ...(parseBounds(opts.bounds) ? { bounds: parseBounds(opts.bounds) } : {}),
           ...(opts.display !== undefined ? { display: Number.parseInt(opts.display, 10) } : {}),
-          ...(opts.state ? { state: opts.state } : {}),
+          ...str("state", "--state", opts.state),
         });
         await printResult(result, json, "open_window");
       },
@@ -698,7 +726,7 @@ export function buildProgram(): Command {
           windowId,
           ...(parseBounds(opts.bounds) ? { bounds: parseBounds(opts.bounds) } : {}),
           ...(opts.display !== undefined ? { display: Number.parseInt(opts.display, 10) } : {}),
-          ...(opts.state ? { state: opts.state } : {}),
+          ...str("state", "--state", opts.state),
           ...(opts.focus ? { focused: true } : {}),
         });
         await printResult(result, json, "set_window");

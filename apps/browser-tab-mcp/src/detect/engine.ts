@@ -22,7 +22,16 @@ import { makeUnavailableAdapter } from "./adapters/unavailable.js";
 import { applescriptCaps } from "./capabilities.js";
 import { enrichWithCgWindowIds } from "./correlate.js";
 
-export const DEFAULT_BROWSERS: readonly BrowserId[] = ["chrome", "brave", "safari"];
+/**
+ * Browsers polled when `BROWSER_TAB_BROWSERS` is unset.
+ *
+ * `chromium` is included because it is a first-class `BrowserId` everywhere
+ * else — schema, adapters, handle grammar, capabilities — and omitting it here
+ * made it the one browser you had to name explicitly to see. A browser that is
+ * not installed costs one cheap `probeProcess` and reports `running: false`,
+ * so the default is inclusive rather than guessing what is on the machine.
+ */
+export const DEFAULT_BROWSERS: readonly BrowserId[] = ["chrome", "chromium", "brave", "safari"];
 
 const ALL_SPECS: readonly AdapterSpec[] = [...CHROMIUM_SPECS, SAFARI_SPEC];
 

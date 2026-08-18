@@ -117,11 +117,29 @@ export function hostOf(url: string): string {
   }
 }
 
-/** Local wall-clock HH:MM:SS for an epoch-ms timestamp. */
-export function clockOf(ts: number, now = new Date(ts)): string {
+/**
+ * Local wall-clock for an epoch-ms timestamp — `HH:MM:SS` today, `MM-DD
+ * HH:MM:SS` on any other day.
+ *
+ * WHY THE DATE APPEARS AT ALL. `journal` and `history` are reverse-chronological
+ * lists that routinely span midnight. With a time-only column, `23:59:01` sits
+ * directly above `00:05:12` and the list reads as mis-sorted — the reader
+ * distrusts the ordering, which is the one thing those views are for.
+ *
+ * The date is shown only when it differs from `reference`, so the common case
+ * keeps its 8-column width. That makes mixed-day rows ragged on purpose: the
+ * wider row IS the signal that the day changed.
+ */
+export function clockOf(ts: number, reference: Date = new Date()): string {
   if (!Number.isFinite(ts)) return "--:--:--";
+  const at = new Date(ts);
   const p = (n: number) => String(n).padStart(2, "0");
-  return `${p(now.getHours())}:${p(now.getMinutes())}:${p(now.getSeconds())}`;
+  const time = `${p(at.getHours())}:${p(at.getMinutes())}:${p(at.getSeconds())}`;
+  const sameDay =
+    at.getFullYear() === reference.getFullYear() &&
+    at.getMonth() === reference.getMonth() &&
+    at.getDate() === reference.getDate();
+  return sameDay ? time : `${p(at.getMonth() + 1)}-${p(at.getDate())} ${time}`;
 }
 
 /** Compact duration for an elapsed second count (uptime, age). */
@@ -144,6 +162,7 @@ interface TabLike {
   muted?: boolean;
   discarded?: boolean;
   frozen?: boolean;
+  groupId?: string;
 }
 
 interface WindowLike {
@@ -156,18 +175,66 @@ interface WindowLike {
   tabs?: TabLike[];
 }
 
+interface TabGroupLike {
+  groupId?: string;
+  title?: string;
+  color?: string;
+}
+
 interface BrowserLike {
   browser?: string;
   running?: boolean;
   dataSource?: string;
   extensionConnected?: boolean;
   windows?: WindowLike[];
+  tabGroups?: TabGroupLike[];
 }
 
 interface SnapshotLike {
   browsers?: BrowserLike[];
   focusedBrowser?: string | null;
   generatedAt?: number;
+}
+
+/**
+ * Chrome's tab-group palette → the closest terminal colour.
+ *
+ * WHY THIS EXISTS AT ALL. `color` has been in `TabGroupSchema` since v2: the
+ * extension maps it from Chrome, `group_tabs --color` writes it, and the
+ * snapshot carries it end to end — and no renderer has ever shown it, so the
+ * one visual property of a tab group was invisible in every human surface.
+ *
+ * Painted, never spelled: the cell's TEXT is the group title, so width maths
+ * sees exactly the glyphs that print. Colour rides in `paint`, which
+ * `layoutRow` applies after the arithmetic — an SGR escape costs bytes and zero
+ * columns. Terminals have no pink; magenta is the honest approximation, and an
+ * unknown colour name falls through undecorated rather than guessing.
+ */
+const GROUP_PAINT: Record<string, (s: string) => string> = {
+  grey: color.dim,
+  blue: color.blue,
+  red: color.red,
+  yellow: color.yellow,
+  green: color.green,
+  pink: color.magenta,
+  purple: color.magenta,
+  cyan: color.cyan,
+  orange: color.yellow,
+};
+
+/** The `⊞title` cell for a tab, or an empty cell when it is ungrouped. */
+function groupCell(t: TabLike, groups: readonly TabGroupLike[]): Cell {
+  if (!t.groupId) return { text: "" };
+  const g = groups.find((x) => x.groupId === t.groupId);
+  const label = g?.title?.trim() ? g.title.trim() : (g?.color ?? "group");
+  const paint = g?.color ? GROUP_PAINT[g.color] : undefined;
+  return {
+    text: `⊞${label}`,
+    ...(paint ? { paint } : {}),
+    // Below the host but above the state flags: the group is a stronger
+    // organising signal than "pinned", weaker than where the tab points.
+    sacrifice: 3,
+  };
 }
 
 /** Compact state flags for one tab, e.g. "pinned audible". */
@@ -250,7 +317,8 @@ export function renderSnapshot(snap: SnapshotLike, width = DEFAULT_WIDTH): strin
               { text: t.tabId ?? "?", paint: color.dim, gap: " " },
               { text: t.title ?? "(untitled)", flex: true },
               { text: hostOf(t.url ?? ""), paint: color.dim, sacrifice: 2 },
-              { text: tabBadges(t), paint: color.yellow, sacrifice: 3 },
+              groupCell(t, b.tabGroups ?? []),
+              { text: tabBadges(t), paint: color.yellow, sacrifice: 4 },
             ],
             width,
             "    ",

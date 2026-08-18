@@ -20,6 +20,19 @@ import type { BrowserState, BrowserWindow, Snapshot, Tab, TabGroup } from "@geor
  * `lastAccessed` is MRU data (surfaced via `journal`/sort), so neither gets a
  * glyph. Pure — unit-testable without ink.
  */
+/** Chrome's tab-group palette → a coloured disc. Unknown names fall back to `⊞`. */
+const GROUP_DISC: Record<string, string> = {
+  grey: "⚪",
+  blue: "🔵",
+  red: "🔴",
+  yellow: "🟡",
+  green: "🟢",
+  pink: "🩷",
+  purple: "🟣",
+  cyan: "🩵",
+  orange: "🟠",
+};
+
 export function tabBadges(tab: Tab, groups: readonly TabGroup[]): string {
   const parts: string[] = [];
   if (tab.pinned) parts.push("📌");
@@ -29,8 +42,21 @@ export function tabBadges(tab: Tab, groups: readonly TabGroup[]): string {
   if (tab.frozen) parts.push("🧊");
   if (tab.discarded) parts.push("💤");
   if (tab.groupId) {
-    const title = groups.find((g) => g.groupId === tab.groupId)?.title?.trim();
-    parts.push(title ? `⊞${title.slice(0, 16)}` : "⊞");
+    const group = groups.find((g) => g.groupId === tab.groupId);
+    const title = group?.title?.trim();
+    // The group's COLOUR is the property Chrome shows and this TUI never did.
+    // A coloured disc carries it without an ANSI escape — which matters here
+    // because this string is measured by `visualWidth` before it is printed,
+    // and colour bytes would corrupt that arithmetic (the CLI can paint
+    // instead, because layoutRow separates text from paint).
+    //
+    // An unknown colour falls back to the plain `⊞`, so a palette Chrome adds
+    // later degrades rather than rendering a stray glyph. If a font lacks one
+    // of these, it renders NARROWER than the width maths assumed — which
+    // leaves the row short, never overflowing.
+    const disc = group?.color ? GROUP_DISC[group.color] : undefined;
+    const glyph = disc ?? "⊞";
+    parts.push(title ? `${glyph}${title.slice(0, 16)}` : glyph);
   }
   return parts.join(" ");
 }

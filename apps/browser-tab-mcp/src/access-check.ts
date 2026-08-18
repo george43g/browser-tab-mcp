@@ -30,8 +30,19 @@ export interface AccessCheckItem {
 }
 
 export interface AccessReport {
+  /** No `error` items. Warnings do NOT clear this — see `warnings`. */
   ok: boolean;
+  /** How many `warn` items. A warning is actionable but not fatal. */
+  warnings: number;
   items: AccessCheckItem[];
+}
+
+/** The subset of `daemon_status`'s extension rows the checks below read. */
+export interface ExtensionStatusLike {
+  browser: string;
+  protocolVersion: number;
+  stale: boolean;
+  extVersion?: string;
 }
 
 const REQUIRED_NODE_MAJOR = 24;
@@ -311,8 +322,80 @@ export async function checkLocalAccess(): Promise<AccessReport> {
     ...windowCaptureItems,
     ...safariHistoryItems,
   ];
-  const ok = items.every((i) => i.status !== "error");
-  return { ok, items };
+  return buildReport(items);
+}
+
+/** Assemble a report from items, deriving the verdict from what is in it. */
+export function buildReport(items: AccessCheckItem[]): AccessReport {
+  return {
+    ok: items.every((i) => i.status !== "error"),
+    warnings: items.filter((i) => i.status === "warn").length,
+    items,
+  };
+}
+
+/**
+ * The extension-staleness checks, as report items rather than loose writes.
+ *
+ * WHY THESE MOVED HERE. `doctor` used to print its verdict line first and then
+ * append these warnings underneath, so a stale extension produced
+ * "Doctor: all clear." followed by two `⚠` lines. Worse, they lived inline in
+ * the CLI action, which made them the only checks with no unit test.
+ *
+ * As items they get the same glyph, the same ordering, and they count toward
+ * the verdict — which is the whole point of a preflight command.
+ *
+ * Pure: the caller fetches daemon status and passes it in.
+ */
+export function extensionCheckItems(
+  extensions: ExtensionStatusLike[],
+  daemonBuild: string | null,
+  wireProtocolVersion: number,
+  compareBuilds: (daemon: string, ext: string) => { kind: string },
+): AccessCheckItem[] {
+  const items: AccessCheckItem[] = [];
+  for (const e of extensions) {
+    if (e.stale) {
+      items.push({
+        key: `ext-protocol-${e.browser}`,
+        label: `${e.browser} extension protocol`,
+        status: "warn",
+        detail:
+          `v${e.protocolVersion} < daemon v${wireProtocolVersion} — reload it ` +
+          `(chrome://extensions) or sideload (Safari) to restore v2 commands, ` +
+          `journaling, and capabilities.`,
+      });
+    }
+  }
+  if (daemonBuild) {
+    items.push({
+      key: "daemon-build",
+      label: "daemon build",
+      status: "info",
+      detail: daemonBuild,
+    });
+    const reload = "Reload it (chrome://extensions) or sideload (Safari).";
+    for (const e of extensions) {
+      if (!e.extVersion) continue;
+      const cmp = compareBuilds(daemonBuild, e.extVersion);
+      if (cmp.kind === "unstamped") {
+        items.push({
+          key: `ext-build-${e.browser}`,
+          label: `${e.browser} extension build`,
+          status: "warn",
+          detail: `reports "${e.extVersion}" with no build stamp — it predates build stamping. Rebuild and reload it.`,
+        });
+      } else if (cmp.kind === "mismatch") {
+        items.push({
+          key: `ext-build-${e.browser}`,
+          label: `${e.browser} extension build`,
+          status: "warn",
+          detail: `${e.extVersion} ≠ daemon ${daemonBuild} — a rebuilt extension is not a reloaded one. ${reload}`,
+        });
+      }
+    }
+  }
+  return items;
 }
 
 export function formatAccessReport(report: AccessReport): string {
@@ -323,6 +406,18 @@ export function formatAccessReport(report: AccessReport): string {
     info: "ℹ",
   };
   const lines = report.items.map((i) => `  ${glyph[i.status]}  ${i.label} — ${i.detail}`);
-  lines.unshift(report.ok ? "Doctor: all clear." : "Doctor: issues found.");
+  // The headline has to survive being read on its own — it is the line that
+  // gets pasted into a chat. "all clear" above two `⚠` rows is worse than no
+  // headline at all, so warnings are named even though they are not fatal.
+  lines.unshift(headlineFor(report));
   return lines.join("\n");
+}
+
+/** The one-line verdict. Exported so tests can assert it without the body. */
+export function headlineFor(report: AccessReport): string {
+  if (!report.ok) return "Doctor: issues found.";
+  if (report.warnings > 0) {
+    return `Doctor: ${report.warnings} warning${report.warnings === 1 ? "" : "s"} — see below.`;
+  }
+  return "Doctor: all clear.";
 }
