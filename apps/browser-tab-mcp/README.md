@@ -197,6 +197,7 @@ Three details worth knowing:
 
 Availability is the runtime-probed `bookmarks` capability, so gate on the map,
 never on the browser name.
+
 ### One feature, every surface
 
 **Every tool is reachable from every interface.** MCP defines them, the CLI
@@ -255,6 +256,48 @@ unaffected), and the TUI badge uses a coloured disc (🔵🟢🟡…), falling b
 `journal` and `history` timestamps gain a `MM-DD` prefix on rows that are not
 from today — those lists routinely cross midnight, and a time-only column put
 `23:59:01` directly above `00:05:12`, which reads as mis-sorted.
+
+## HTTP interface (opt-in)
+
+```bash
+BROWSER_TAB_HTTP_PORT=8787 browser-tab daemon run
+TOKEN=$(browser-tab daemon token)
+
+curl -H "Authorization: Bearer $TOKEN" localhost:8787/snapshot
+curl -H "Authorization: Bearer $TOKEN" -N localhost:8787/events        # SSE
+curl -H "Authorization: Bearer $TOKEN" -H 'content-type: application/json' \
+     -d '{"fields":"core"}' localhost:8787/tools/list_tabs
+```
+
+| Route | |
+|---|---|
+| `GET /health` | liveness + open stream count |
+| `GET /snapshot` | the current snapshot |
+| `GET /events` | Server-Sent Events, mirroring the socket's `subscribe` |
+| `POST /tools/:name` | dispatch any tool; JSON body = its input |
+
+**Off unless `BROWSER_TAB_HTTP_PORT` is set.** There is no default port — a
+default would mean an upgrade silently starts listening on a machine whose owner
+never asked for it.
+
+Three properties make it safe to turn on, and all three are tested as behaviour:
+
+- **Binds `127.0.0.1`, not configurably.** Omitting the host makes Node listen on
+  every interface; on a laptop that joins untrusted networks that would expose
+  tab contents and tool dispatch to the LAN.
+- **`Authorization: Bearer` only** — never `?token=`, which lands in shell
+  history, proxy logs and `ps` output. Constant-time compared, and a missing
+  token gets the same answer as a wrong one (a distinct message is a probing
+  oracle).
+- **No CORS header, to anyone.** The extension already puts this daemon next
+  door to arbitrary pages; one that could *read* `/snapshot` would learn every
+  open tab.
+
+Tool dispatch goes through the **same `callMcpTool`** the CLI and MCP host use,
+so an HTTP caller cannot get different behaviour from the same tool name. SSE
+backpressure is **dropped, not buffered** — a live feed, not a queue.
+
+Rationale in full: `docs/agent-handoff/DECISIONS.md` § 2026-08-18.
 
 ## Focus & navigation journals
 

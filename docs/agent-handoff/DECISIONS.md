@@ -175,3 +175,48 @@ if a decision is reversed, append the reversal.
 - **First release version is an open user decision** — release-please proposes
   `1.0.0` (initial-release default), not the predicted `0.1.0`. See BACKLOG
   § Open questions.
+
+## 2026-08-18 — HTTP interface: yes, but opt-in and loopback-only
+
+**Decision: ship it, off by default.** The capability audit flagged this as the
+one item needing "an explicit decision, not a drive-by", because it is the first
+surface that accepts connections from anything other than our own extension.
+
+**Why ship it at all.** The standing rule is that most features should be
+reachable from every interface. "Every interface" meant a unix socket with our
+own NDJSON framing and a WebSocket reserved for the extension — fine for a
+process that can link this codebase, unreachable from a shell script, a
+Hammerspoon config, or anything that speaks HTTP and nothing else, which is most
+of the wm-stack's neighbours.
+
+**What makes it safe to turn on**, all three tested as behaviour rather than
+asserted in a comment (`tests/http-interface.integration.test.ts`):
+
+1. **Binds `127.0.0.1` explicitly, and that is not configurable.** Omitting the
+   host makes Node listen on every interface — on a laptop that joins untrusted
+   networks, that exposes tab contents and tool dispatch to the LAN. An operator
+   who wants remote access should put a reverse proxy in front and make that
+   decision consciously.
+2. **Token required on every route, constant-time compared, `Authorization:
+   Bearer` only.** Deliberately NOT accepted from a query string: a token in a
+   URL lands in shell history, proxy logs and `ps` output, and people reach for
+   `?token=` the moment it works. A missing and a wrong token get the identical
+   response, because a distinct message is a probing oracle.
+3. **No CORS header, to anyone.** The extension already puts this daemon next
+   door to arbitrary web pages; a page that could *read* `/snapshot` would learn
+   every open tab. CORS is not a request filter, so the token remains the actual
+   control — but there is no reason to hand a browser the response as well.
+
+**Why opt-in rather than a default port.** A default would mean an upgrade
+silently starts listening on a machine whose owner never asked for it. There is
+no default: `BROWSER_TAB_HTTP_PORT` unset means the server is never constructed.
+
+**Tool dispatch goes through the same `callMcpTool` the CLI and MCP host use**,
+so an HTTP caller cannot get different behaviour from the same tool name. That
+costs one extra local socket hop (the tools reach the daemon back over its own
+unix socket) in exchange for exactly one dispatch path. A second, "faster"
+in-process path would be a second place for behaviour to drift.
+
+**Backpressure is dropped, not buffered.** A stalled SSE reader gets its frame
+discarded and a logged warning. An event stream is a live feed, not a queue;
+buffering for a dead reader is how a long-lived daemon runs out of memory.
