@@ -167,6 +167,54 @@ present), and its decision table is unit-tested in
 `apps/browser-tab-mcp/tests/release-verify.test.ts`. Missing `gh` degrades to
 "unknown" with a note, never to a false failure.
 
+### release-please RE-SERIALISES the files it rewrites
+
+It does not edit one line. Every JSON file on the release line — the root
+`package.json` and every `extra-file` — is parsed, the version is set, and the
+whole document is written back with a two-space indent. Formatting that differs
+from that output is silently normalised.
+
+Cutting v1.2.0 expanded the extension manifest's
+`"host_permissions": ["<all_urls>"]` across three lines. Biome wanted it
+collapsed, so **`pnpm lint` went red on `main` at the release commit itself** —
+after the release had shipped, with a release-PR diff that looked like nothing
+but a version bump.
+
+The repo already has a name for this shape: a tool owns the file's format, so
+Biome does not (`.mcp.json`, the napi-generated `apps/rust-accel/index.js`).
+Every file release-please writes now lives in that set — `biome.json`
+`files.includes` carries a `!` entry for each, and
+`release-versions.contract.test.ts` fails if one is missing.
+
+The root `package.json` is in that set too, even though its current content
+round-trips unchanged. That is luck, not a property: it would break the same way
+the first time someone writes a single-line array in it. Their *content* is
+still checked — the manifest by `build-output.test.ts`, the versions by the
+contract test — only their whitespace is release-please's business.
+
+### Changing `extra-files` while a release PR is open
+
+release-please decides whether to refresh an open release PR by comparing the
+**version and release notes** — *not* the set of files it would write. When they
+match it logs `PR #N remained the same` and leaves the branch untouched. So a
+new `extra-files` entry never reaches a release PR that is already open, and the
+release ships with that file's version unmoved.
+
+Hit for real on 2026-08-18: three PRs merged 16 seconds apart, so the release PR
+was built from the commit *before* the config change, the run carrying the change
+was cancelled as superseded in the concurrency queue, and the next run declared
+the PR unchanged. The release PR touched `package.json` and
+`apps/browser-tab-mcp/package.json` and silently omitted both extension files.
+
+**Recovery:** delete the branch
+`release-please--branches--main--components--browser-tab` (this closes the
+release PR), then re-run the Release workflow. release-please finds no open
+release PR and rebuilds one from current config.
+
+`pnpm release:check` now fails on exactly this — an open release PR whose diff
+does not touch every configured extra-file — so it is caught *before* the
+release PR is merged rather than by the version-coherence test one merge later.
+
 **Do not respond to a red Release run by changing `permissions:`.** The block
 in `release.yml` already grants `contents: write` + `pull-requests: write`, and
 the repo-level `default_workflow_permissions` setting does not apply to a

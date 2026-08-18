@@ -11,6 +11,10 @@ export interface ReleaseFacts {
   releaseExists: boolean | null;
   /** Merged PRs still labelled `autorelease: pending`; `null` = could not determine. */
   pendingMergedPrs: string[] | null;
+  /** Paths `release-please-config.json` lists as `extra-files`. */
+  extraFiles?: string[];
+  /** The open release PR and the paths its diff touches; `null` = none open / unknown. */
+  openReleasePr?: { number: number; files: string[] } | null;
 }
 
 export interface ReleaseVerdict {

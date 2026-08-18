@@ -1040,3 +1040,104 @@ task, no half-applied edit. The next action is a decision, not a keystroke —
 merge #54 or don't. If merged, release-please will open a rolling release PR
 for the next version (George: "further changes we'll put into the next
 version").
+
+---
+
+## 2026-08-18 — one repo, one version; and a release that can't fail quietly
+
+Where this entry and any conversation summary disagree, **this entry is
+correct**.
+
+### State
+
+**v1.2.0 is released and fully deployed.** Tag `v1.2.0` → `5b686ee`, GitHub
+Release published (both verified, not assumed). Daemon, Chrome and Safari all
+run `1.2.0+57.5b686ee`; `doctor` says "all clear" with no stamp warning. One PR
+is open and unmerged: **#58** (the extra-files guard).
+
+### Constraints (George, verbatim)
+
+> "these all need to increment together, automatically, according to SEMVER
+> standards."
+
+> "having a frictionless release+deploy process has a *compounding* benefit,
+> because it speeds up cycles, which increases quality which speeds things up
+> more etc... prioritise making things robust, bug free, testable, re-creatable,
+> and it gives you freedom to grow quickly within those constraints - thats why
+> you often see me fixing seemingly unimportant technical debt - it often pays
+> off sooner than you'd expect"
+
+Standing, unchanged: never merge without explicit per-PR say-so; never push to
+`main` directly; loading browser extensions is user-gated.
+
+### Done
+
+- **#54 merged** (`7a15cf8`) — extension self-reload + build-stamp reporting.
+- **#55 merged** (`d967540`) — the connector extension's `package.json` and
+  `public/manifest.json` are release-please `extra-files`.
+  `chrome-extension run bump` is **deleted**. The extension had frozen at
+  `0.2.0` across seven releases while Safari displayed it.
+- **#56 merged** (`518ab44`) — bounded the Playwright install.
+- **v1.2.0 cut** (`5b686ee`) — all four version files moved in one commit.
+  Verified: `git ls-remote --tags` shows `refs/tags/v1.2.0`, `gh release view`
+  shows `draft=false`.
+- **Deployed and verified live** — `daemon restart` → `1.2.0+57.5b686ee`;
+  `reload-extension --browser chrome` → chrome `1.2.0+57.5b686ee`;
+  `safari-extension sideload` → safari `1.2.0+57.5b686ee` within 10s, **no
+  toggle**, re-confirming the 2026-08-18 finding. `MARKETING_VERSION = 1.2.0`
+  now stamped into the Xcode build.
+
+### Open
+
+- **#58 — `fix(release)`, CI green, awaiting George's say-so.** Evidence it is
+  open: `gh pr list` shows it; it has never been merged. It adds the guard
+  described under *Corrections* below. **Not a blocker** — the v1.2.0 release
+  was recovered without it.
+
+### Corrections
+
+- **The first v1.2.0 release PR (#57) was WRONG and was discarded.** It moved
+  `package.json` and `apps/browser-tab-mcp/package.json` and silently omitted
+  both extension files — the exact defect #55 existed to prevent.
+  **Root cause, and it will recur: release-please decides whether to refresh an
+  open release PR by comparing the VERSION AND RELEASE NOTES, not the set of
+  files it would write.** Its log says `PR #N remained the same` and it leaves
+  the branch alone. #57 was built by #54's run, *before* the config landed;
+  #55's own run was **cancelled as superseded in the concurrency queue**; #56's
+  run saw unchanged notes and skipped. Three merges 16 seconds apart produced
+  exactly the wrong interleaving.
+  **Recovery (worked):** delete the branch
+  `release-please--branches--main--components--browser-tab` — this closes the
+  PR — then re-dispatch Release. It rebuilt as #59 with all four files.
+- **The 2026-08-17 "release-please is broken" reading stands corrected in the
+  workflow itself**, not just in prose: `release.yml` now names the three
+  failure modes and what each one bought.
+
+### Traps
+
+- **A hung `apt` inside `playwright install --with-deps` reports as a JOB
+  timeout, so the red X names the wrong component.** The e2e job died at
+  exactly `timeout-minutes: 15` having never started a test. Read the log for
+  which STEP consumed the budget before believing a test hung.
+- **`git checkout -- <path>` restores from the INDEX**, so using it to undo a
+  sabotage silently discarded uncommitted baseline edits. Snapshot to the
+  scratchpad and restore with `command cp -f` — already recorded, hit again.
+- **Python `json.dumps` ASCII-escapes by default** — rewriting a JSON file with
+  it mangled an em-dash. Prefer a `sed` on the single line.
+- **`timeout(1)` does not exist on macOS**; a CI snippet using it needs a shim
+  to be smoke-tested locally. Worth the shim: a retry that swallows a genuine
+  failure is worse than no retry, and only the double-failure case proves it
+  doesn't.
+
+### Tree
+
+`/Users/george/repos/browser-tab-mcp` · branch `fix/release-pr-extra-files` ·
+rebased on `5b686ee` · pushed · working tree clean. `main` is at `5b686ee`
+(v1.2.0). No other agent's work in the tree.
+
+### Resume
+
+Nothing is mid-flight. The next action is a decision: merge #58 or don't. It is
+a pure guard — no behaviour outside `pnpm release:check` and the Release
+workflow's verify job — and the release it protects has already been recovered
+by hand, so nothing is blocked either way.
