@@ -1141,3 +1141,267 @@ Nothing is mid-flight. The next action is a decision: merge #58 or don't. It is
 a pure guard — no behaviour outside `pnpm release:check` and the Release
 workflow's verify job — and the release it protects has already been recovered
 by hand, so nothing is blocked either way.
+
+---
+
+## 2026-08-18 (later) — the backlog sweep
+
+Where this entry and any conversation summary disagree, **this entry is
+correct**.
+
+### State
+
+The backlog is cleared to a decision or a PR. **Seven PRs open, none merged** —
+ground rule 1 stands. `main` is at v1.2.1 and green.
+
+### Constraints (George, verbatim)
+
+> "static scriptable interface just means that the cli will accept commands and
+> its api surface is similar to that of the mcp and TUI - the general rule is
+> that most features should be available to all types of interfaces or api
+> surfaces. dont worry about cross-extension data access. also add a windows
+> build target (for the daemon - the chrome extension installs on windows chrome
+> i already tested it). so the goal is to clear the backlog/deffered - go!
+> coverage ratchet - defer. npm publish - defer."
+
+### Done
+
+| PR | What |
+|---|---|
+| **#63** | the five stress bugs — doctor verdict, dated clocks, chromium default, empty-option rejection, tab-group colour |
+| **#64** | Windows daemon target — `platform.ts`, named pipe, Task Scheduler, portable build scripts, `windows-latest` in CI |
+| **#65** | interface parity — `logs` command, TUI action picker, parity guard |
+| **#66** | bookmark CRUD across MCP/CLI/extension |
+| **#67** | opt-in HTTP interface (`/snapshot`, `/events` SSE, `POST /tools/:name`) |
+| — | browser theme **parked with evidence**; SurfingKeys **decided, not started** (DECISIONS.md) |
+| — | issue #2 closed; BACKLOG capability audit reconciled |
+
+### Open
+
+- **Two soak checks needing a real browser and wall-clock time** — a 30-min
+  Safari background-page idle soak and a Chrome SW-kill reconnect. Never
+  attempted; not automatable here. The daemon half is covered by
+  `ws-heartbeat.test.ts`; the browser half is not.
+- **SurfingKeys mechanism B** — blocked on one 10-second console check
+  (does `CustomEvent.detail` structured-clone between two extensions' isolated
+  worlds?). The answer picks between two materially different designs, so
+  writing code first would be guessing.
+- **Native module resolution for a tarball install** — only matters once npm
+  publish is enabled, which George deferred.
+
+### Corrections
+
+- **The backlog overstated the parity gap.** It read as though the CLI was far
+  behind MCP; 18 of 19 tools already had a command. The real gaps were
+  `get_logs` and the TUI's action set.
+- **Browser theme is not "hard", it is ABSENT.** Checked the MV3 typings
+  directly: there is no `chrome.theme` namespace and no color-scheme API at all.
+  The only route is `management.setEnabled` on an installed theme extension.
+
+### Traps
+
+- **A sabotage check against a BUILT package silently no-ops.** All three
+  bookmark sabotages passed on the first round because the integration test
+  loads `extension-core`'s `dist` and I had edited `src`. Rebuild between
+  sabotage and run, or the guard is decorative and you will believe it works.
+- **Testing that a helper CLASSIFIES correctly is not testing that a caller
+  USES it.** `url-policy.test.ts` stayed green while the bookmarks tool's
+  allowlist check was removed. Boundaries need their own test.
+- **`git stash -u` while switching branches mixes uncommitted work across
+  them.** Two PRs' files ended up on one branch. Park files in the scratchpad
+  and copy them back explicitly.
+- **A platform gate can make a passing test platform-dependent.** The Linux CI
+  leg went red on window-capture tests that shim the binary; declaring
+  `BROWSER_TAB_PLATFORM=macos` in the suite is right, weakening the production
+  gate is not.
+- **POSIX shell shims (`#!/bin/sh`) cannot run on Windows** (`spawn EFTYPE`).
+  Three suites shim macOS-only binaries; they are skipped there rather than
+  made portable, because portability would mean teaching production code to
+  take an interpreter plus args to ship a fixture.
+
+### Tree
+
+`/Users/george/repos/browser-tab-mcp` · branch `docs/backlog-closeout` ·
+off `main` (v1.2.1, `cf66499`). Six other branches pushed, all with open PRs.
+Working tree clean at commit time. No other agent's work in the tree.
+
+### Resume
+
+Nothing is mid-flight. The next action is review and merge of #63–#67, in any
+order — they are all based on `main` and were verified to integrate. Deploy is
+unchanged and still on the released build; no PR here requires a redeploy
+except #66 (bookmarks needs the extension rebuilt for the new permission).
+
+---
+
+## 2026-08-18 (checkpoint) — sweep complete, all seven PRs green
+
+Where this entry and any conversation summary disagree, **this entry is
+correct**. It supersedes the *"2026-08-18 (later) — the backlog sweep"* entry
+above on one point only: that entry was written while #64 was still red.
+
+### State
+
+Backlog cleared to a decision or a PR. **Seven PRs open, all CI-green, none
+merged.** `main` is unchanged at `cf66499`.
+
+### Constraints
+
+Unchanged — George's `/goal` is quoted verbatim in the entry above. No new
+instruction since.
+
+### Done
+
+| PR | Head | CI |
+|---|---|---|
+| #62 `chore(main): release 1.2.2` | release-please branch | 4/4 |
+| #63 five stress bugs | `fix/backlog-bug-sweep` | 4/4 |
+| #64 Windows daemon target | `feat/windows-daemon` `068f150` | **5/5 incl. windows-latest** |
+| #65 interface parity | `feat/interface-parity` | 4/4 |
+| #66 bookmark CRUD | `feat/bookmarks` | 4/4 |
+| #67 opt-in HTTP interface | `feat/http-interface` | 4/4 |
+| #68 closeout docs | `docs/backlog-closeout` | 4/4 |
+
+- **Issue #2 closed** (`gh issue close 2`) — every row verified shipped except
+  coverage gating, which is the deferred item.
+- **#64 needed six rounds after the initial commit** (`4482238` → `068f150`).
+  Round three (`c8474de`) was a **production** bug, not a test artefact:
+  `isMain` used `endsWith("/dist/cli.js")`, which never matches a backslash
+  path, so the Windows bin ran nothing and exited 0 — silent, not degraded. It
+  surfaced through the bundle test asserting the built bin emits *any* output,
+  a guard written for the unrelated picocolors browser-build swap.
+
+### Open
+
+- **Nothing is merged.** Evidence: `git log origin/main -1` = `cf66499`;
+  `gh pr list` returns all seven. Held by ground rule 1.
+- **Two soak checks — never attempted, not automatable here.** A 30-minute
+  Safari background-page idle soak and a Chrome SW-kill reconnect via
+  `chrome://serviceworker-internals`. Both need a real browser and wall-clock
+  time. The daemon half is covered by `ws-heartbeat.test.ts`; the browser half
+  is not.
+- **SurfingKeys mechanism B** — blocked on one console check recorded in
+  DECISIONS.md § 2026-08-18. Never run; the result picks between two materially
+  different designs.
+- **Live deploy has drifted and no PR here caused it.** `daemon status` right
+  now: daemon `1.2.1+59.e93d17e.dirty.0818T1619`, both extensions
+  `1.2.0+57.5b686ee`. The daemon picked up a dirty workspace `dist/` during the
+  release deploy earlier today; launchd re-execs whatever `dist/cli.js` holds.
+  Fix is `git switch main && pnpm build && browser-tab daemon restart`, then
+  reload the extensions — **user-gated**, so not done.
+
+### Corrections
+
+- **Two of my own commits on #64 were wrong and are superseded.** `182f227`
+  (resolve the tsx shim by probing the filesystem) and `0b24373` (probe in a
+  platform-preferred order) both still spawned a bin shim. `068f150` deletes the
+  approach: spawn `process.execPath` with `--import tsx`. I was fixing *which
+  shim file* when the question was *why involve a shim*.
+- **A commit landed on the wrong PR.** `520075a` (skip POSIX-shim suites) was
+  committed to `feat/bookmarks` while it belonged on `feat/windows-daemon`;
+  cherry-picked across as `537b8ef` and `git reset --hard`-ed off bookmarks
+  (force-pushed). Both branches re-verified green afterwards.
+
+### Traps
+
+New since the entry above; the earlier ones are not repeated.
+
+- **`node_modules/.bin/<tool>` is not reliably spawnable on Windows, three
+  separate ways.** No extension (ENOENT); the extensionless POSIX script exists
+  *alongside* `.CMD` so "first that exists" picks the unrunnable one (ENOENT);
+  and Node refuses to spawn a `.CMD` without a shell at all (EINVAL —
+  CVE-2024-27980 hardening). **Fix the shape: `process.execPath` +
+  `--import <loader>`, never a bin shim.**
+- **vitest's 5s default is not enough for a multi-geometry Ink render on a cold
+  Windows runner.** Raise the per-test budget; do not shrink the geometry list,
+  which trades real coverage for a number.
+- **A test that shims a binary can be made platform-dependent by a *production*
+  platform gate.** Declare `BROWSER_TAB_PLATFORM=macos` inside the suite;
+  weakening the gate to keep the test portable is backwards.
+- **`git commit` after a branch switch goes wherever HEAD is, not where you were
+  working.** Check `git branch --show-current` immediately before committing
+  when juggling more than two branches.
+
+### Tree
+
+`/Users/george/repos/browser-tab-mcp` · on `docs/backlog-closeout` · working
+tree **clean**. All six feature branches pushed and `local == remote`; each is
+1 commit ahead of `origin/main` except `feat/windows-daemon` (9). No other
+agent's work in the tree. No background tasks running.
+
+### Blocked on you
+
+1. **Which of #63–#68 to merge, and in what order.** All are based on `main` and
+   independent; a local test-merge of the earlier five was green.
+2. **Whether to cut #62 (v1.2.2)** before or after the feature PRs.
+3. **Whether to redeploy.** Only #66 strictly needs an extension rebuild (new
+   `bookmarks` permission). The daemon/extension stamp drift above is worth
+   fixing whatever you decide.
+
+### Resume
+
+Nothing is mid-flight — no staged-but-uncommitted work, no half-applied edit,
+no running task. The next action is a merge decision, then for each merged PR
+the ordinary post-merge check (`pnpm release:check`, and `doctor` after any
+redeploy).
+
+## 2026-08-18 — merge train: the backlog sweep lands (agent session 5a15fe80)
+
+**Precedence:** where this entry and any conversation summary disagree, this
+entry is correct.
+
+**State.** The six sweep PRs were merged into `main` in one train, each
+rebased and re-verified against the main it would actually land on rather
+than the main it was written against.
+
+**Merge order, and why.** Biggest diff first (`#64`, 40 files), then
+descending. The cost of integration is paid by whoever rebases, and that cost
+scales with the rebasing branch's own diff — so the large branches go in while
+they still apply cleanly, and the small ones absorb the conflicts.
+
+**What the rebases actually cost** (all conflicts were ADDITIVE — two features
+appending at the same anchor — resolved by keeping both, never by choosing):
+
+| PR | conflicted in | resolution |
+|---|---|---|
+| #66 | `README.md` | kept both sections |
+| #65 | `.usage.kdl`, `README.md`, `cli.ts`, + 4 generated | kept both; **regenerated** the generated four |
+| #63 | `README.md`, `cli.test.ts` | kept both `describe` blocks |
+
+**Generated artifacts are regenerated, never hand-merged.** `completions/*`,
+`man/*`, `docs/cli/*` conflicted on every CLI-adding PR. Resolving those by
+hand produces a file that is simultaneously plausible and not what
+`.usage.kdl` generates, and `check:usage` then fails for a reason that looks
+unrelated. Resolve `.usage.kdl` (the source), run `pnpm artifacts`, move on.
+
+**The parity guard earned its place on its first contact with another PR.**
+#65 added `tests/interface-parity.contract.test.ts`; #66 added the `bookmarks`
+tool fronted on the CLI as `bookmark` (alias `bm`). Rebasing #65 onto #66 went
+RED — `tool "bookmarks" has no CLI command ("bookmarks")` — which is exactly
+the gap the guard exists to catch, found by the guard rather than by a user.
+Fixed by stating the mapping (`bookmarks: "bookmark"`) and listing `bm`
+alongside `console` as an alias that fronts nothing of its own.
+**Sabotage-checked after the fix**, not before: renaming the `bookmark`
+command turned it red again, restoring turned it green, and `git diff` on
+`cli.ts` was empty afterwards.
+
+**Trap — a squash-merge invalidates a rebase you already did.** #65 was
+pre-rebased onto `feat/bookmarks` while #66's CI ran, to overlap the work.
+Once #66 squash-merged, its SHA changed, so the branch could not simply be
+rebased onto `main` (that would try to re-apply #66). The move is
+`git rebase --onto origin/main <old-base-sha> <branch>`, which replays only
+the branch's own commits. Verified by diffing the replayed tree against the
+already-verified one: empty, so the local verification carried over instead
+of being re-run.
+
+**Not a defect, worth knowing:** merging a `feat:` moved the rolling release
+PR from `1.2.2` to `1.3.0` on its own. The version-lockstep machinery from
+#55 is working unattended.
+
+**Housekeeping — tmux.** Four idle sessions of mine (`54`, `bt-lab`,
+`bt-lab-14`, `drive-bt`) were archived and killed, and three dead `bisect*`
+sockets removed. **Left alone deliberately:** George's attached `claude`
+session, and every server under `/tmp/*.sock` — those are life-stack work
+belonging to another agent, one of them mid-flight on an interactive
+password prompt. A tmux prompt showing a dirty branch is a STALE RENDER, not
+live state; the working tree is the authority.

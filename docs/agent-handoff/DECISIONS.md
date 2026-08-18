@@ -220,3 +220,79 @@ in-process path would be a second place for behaviour to drift.
 **Backpressure is dropped, not buffered.** A stalled SSE reader gets its frame
 discarded and a logged warning. An event stream is a live feed, not a queue;
 buffering for a dead reader is how a long-lived daemon runs out of memory.
+
+## 2026-08-18 — browser theme control: PARKED, with evidence
+
+**Decision: do not build it.** Not "not yet" — the API needed does not exist, and
+the only workaround costs more than the feature is worth.
+
+**What was checked** (`@types/chrome@0.0.280`, the MV3 surface, read directly
+rather than recalled):
+
+- **There is no `chrome.theme` namespace.** Zero declarations match
+  `namespace *theme*`. An extension can *be* a theme (a manifest key); nothing
+  lets one *set* the browser's theme.
+- **There is no color-scheme API either** — no `colorScheme`, no
+  `prefers-color-scheme` control, nothing about browser appearance.
+- **The only route is `chrome.management.setEnabled`** on an already-installed
+  theme extension (`ExtensionInfo.type` covers "theme").
+
+**Why that route is refused:**
+
+1. It needs the **`management` permission**, which is broad: it can disable *any*
+   installed extension, including a password manager or an ad blocker. Adding it
+   to the connector's manifest changes the install warning every user sees, to
+   buy a theme switcher.
+2. **Safari does not implement `chrome.management` at all** (established in the
+   2026-08-16 SurfingKeys research), so it would be Chrome-family only —
+   violating the gate-on-capability-not-browser-name rule in spirit even if the
+   map stayed honest.
+3. It can only switch between themes **the user already installed**, which is
+   not what "browser theme control" means to anyone asking for it.
+
+**The adjacent thing that does work, and is not ours:** macOS system appearance
+is settable via AppleScript, and browsers following the system change with it.
+That changes the user's whole desktop, not the browser, so it belongs in the
+wm-stack — not in a tab tool.
+
+**Reopen if** Chrome ships a real theme/appearance API. The manifest change and
+the capability key would be small; the reason this is parked is the permission
+cost and the API's absence, not the plumbing.
+
+## 2026-08-18 — SurfingKeys: mechanism A is unblocked, B still needs one check
+
+**Decision: neither started. Mechanism A is now cheap; mechanism B is still
+gated on a 10-second verification nobody has run.**
+
+The 2026-08-16 research stands unchanged and is not repeated here (BACKLOG
+§ SurfingKeys). What changed today is that **mechanism A's missing piece now
+exists**: SK's `localPath` fetches its config over HTTP on every content-script
+init, and this daemon now has an opt-in loopback HTTP server with token auth
+(§ above). Serving `~/dotfiles/surfingkeys/config.js` from a route is a small
+addition rather than "stand up a web server first".
+
+Doing it would also fix a live problem: `~/dotfiles/surfingkeys/config.js` is a
+**dead copy** today — SK's `localPath` is empty, so it runs the `snippets`
+string pasted into its options page, and the two have been drifting.
+
+**Still not started, deliberately**, because mechanism A carries an
+unavoidable one-time manual step (the user must set "Load settings from" in SK's
+options once — it needs SK's internal bus, which we cannot reach), and shipping a
+route nobody has pointed SK at is shipping a no-op.
+
+**Mechanism B (driving the running instance over SK's DOM CustomEvent bus)
+remains blocked on the one thing the research could NOT verify**: whether
+`CustomEvent.detail` structured-clones between *two different extensions'*
+isolated worlds. USER_SCRIPT→ISOLATED is proven (SK's own config relies on it);
+extension→extension is not. The check is ten seconds in any page's console:
+
+```js
+document.dispatchEvent(new CustomEvent('surfingkeys:front',
+  { detail: ['showPopup', 'bridge works'] }))
+```
+
+An SK popup appearing confirms the channel. **Run that before writing any code
+for B** — the designed fallback (a MAIN-world shim via
+`scripting.executeScript({world:"MAIN"})` relaying over `window.postMessage`) is
+a materially different design, and which one is correct is decided by that one
+result.
