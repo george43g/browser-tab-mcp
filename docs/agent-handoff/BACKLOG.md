@@ -480,6 +480,13 @@ checkpoint — see PROGRESS-LOG § "sweep complete"):
   re-execs whatever `dist/cli.js` holds, so any `pnpm build` on a feature branch
   can drift it again. Fix: `git switch main && pnpm build && browser-tab daemon
   restart`, then reload the extensions — **user-gated**, so left undone.
+  **WIDENED 2026-08-18 (merge train).** `main` has since taken #63–#68, so the
+  gap is no longer a stamp mismatch but six merged features the running daemon
+  and both extensions do not have — including the Windows platform gate, the
+  bookmarks command, and the parity work. The many `pnpm build` runs used to
+  verify those rebases each rewrote `dist/`, so the live daemon is now a build
+  from an arbitrary feature branch. Same fix, same user gate; it just matters
+  more than it did this morning.
 
 ## Open questions for the user
 
