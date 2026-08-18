@@ -43,12 +43,14 @@ import {
   parseTabId,
   parseWindowId,
 } from "../detect/ids.js";
+import { callMcpTool } from "../dispatcher.js";
 import { APP_VERSION, buildStamp } from "../meta.js";
 import { AnnotationStore } from "./annotations.js";
 import { bookmarks } from "./bookmarks.js";
 import { ContentCache } from "./content-cache.js";
 import { EngineLoop, pollMs } from "./engine-loop.js";
 import { history } from "./history.js";
+import { HttpServer, httpPort } from "./http-server.js";
 import { IpcServer } from "./ipc-server.js";
 import { JournalStore } from "./journal.js";
 import { buildSeedRecords, ingestExtEvent, ingestStoreEvent } from "./journal-ingest.js";
@@ -68,6 +70,7 @@ export interface DaemonHandle {
   journal: JournalStore;
   ipc: IpcServer;
   ext: ExtensionServer | null;
+  http: HttpServer | null;
   stop(): Promise<void>;
 }
 
@@ -761,6 +764,40 @@ export async function startDaemon(): Promise<DaemonHandle> {
   });
 
   await ipc.start();
+
+  // HTTP interface — OPT-IN. This is the first surface that accepts
+  // connections from anything but our own extension, so it stays off unless
+  // BROWSER_TAB_HTTP_PORT is set. Failure to bind degrades (the socket keeps
+  // working) rather than killing the daemon, exactly like the WS server.
+  let http: HttpServer | null = null;
+  const port = httpPort();
+  if (port > 0) {
+    http = new HttpServer({
+      port,
+      token: ensureToken(),
+      store,
+      // Dispatch through the SAME entry point the CLI and MCP host use, so an
+      // HTTP caller cannot get different behaviour from the same tool name.
+      // The tools reach this daemon back over its own unix socket, which is one
+      // extra local hop in exchange for exactly one dispatch path.
+      callTool: async (name, args) => {
+        const result = await callMcpTool(name, args);
+        if (result.isError) {
+          const first = result.content?.find((b: { type: string }) => b.type === "text");
+          const text = first && first.type === "text" ? (first as { text: string }).text : null;
+          throw new Error(text ?? "tool failed");
+        }
+        return result.structuredContent ?? {};
+      },
+    });
+    try {
+      await http.start();
+    } catch (err) {
+      info("http_disabled", { message: (err as Error).message, port });
+      http = null;
+    }
+  }
+
   loop.start();
 
   const stop = async (): Promise<void> => {
@@ -769,11 +806,12 @@ export async function startDaemon(): Promise<DaemonHandle> {
     writer.stop();
     journal.stop();
     await ext?.stop();
+    await http?.stop();
     await ipc.stop();
   };
   registerCleanup(stop);
 
-  return { store, loop, merger, journal, ipc, ext, stop };
+  return { store, loop, merger, journal, ipc, ext, http, stop };
 }
 
 /** Entry for `browser-tab daemon run` — never returns until shutdown. */
