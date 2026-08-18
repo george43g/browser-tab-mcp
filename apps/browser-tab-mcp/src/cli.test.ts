@@ -199,3 +199,86 @@ describe("isEntryPoint", () => {
     expect(isEntryPoint("")).toBe(false);
   });
 });
+
+describe("empty option values are rejected, not silently dropped", () => {
+  // The bug: every optional flag used `opts.x ? { k: opts.x } : {}`, which
+  // cannot tell "flag absent" from "flag given an empty string". `--browser ""`
+  // is falsy, so the key vanished and the query silently WIDENED to every
+  // browser — a filter quietly becoming its own opposite.
+  it('--browser "" fails instead of listing every browser', async () => {
+    await expect(run("list", "--browser", "")).rejects.toThrow(
+      /--browser was given an empty value/,
+    );
+    expect(calls, "nothing may reach the dispatcher").toHaveLength(0);
+  });
+
+  it('--window "" fails instead of listing every window', async () => {
+    await expect(run("list", "--window", "")).rejects.toThrow(/--window/);
+  });
+
+  it("whitespace counts as empty", async () => {
+    await expect(run("list", "--browser", "   ")).rejects.toThrow(/empty value/);
+  });
+
+  it("omitting the flag is still fine, and sends no key", async () => {
+    const [call] = await run("list");
+    expect(call?.args).not.toHaveProperty("browser");
+    expect(call?.args).not.toHaveProperty("windowId");
+  });
+
+  it("a real value still passes through, trimmed", async () => {
+    const [call] = await run("list", "--browser", " chrome ");
+    expect(call?.args).toMatchObject({ browser: "chrome" });
+  });
+
+  it("a numeric option rejects a non-number rather than sending NaN", async () => {
+    // `Number.parseInt("abc")` is NaN, which used to ride into the payload.
+    await expect(run("history", "--start", "abc")).rejects.toThrow(/--start expects a number/);
+  });
+
+  it("--tabs rejects an empty entry instead of acting on fewer tabs", async () => {
+    // Silently acting on two tabs when three were named is the same class of
+    // quiet wrong as the empty-string case.
+    await expect(run("group", "add", "--tabs", "t:chrome:x1,,t:chrome:x2")).rejects.toThrow(
+      /--tabs has an empty entry/,
+    );
+  });
+
+  // These two commands arrived from PRs developed in PARALLEL with this fix, so
+  // they were written against the old `opts.x ? {k:x} : {}` idiom and inherited
+  // the very bug this describe block exists for. `bookmark --query ""` silently
+  // dropped the filter and searched EVERYTHING, which is the filter-becomes-its-
+  // own-opposite failure, not a cosmetic inconsistency.
+  it('bookmark --query "" fails instead of searching every bookmark', async () => {
+    await expect(run("bookmark", "search", "--query", "")).rejects.toThrow(
+      /--query was given an empty value/,
+    );
+    expect(calls, "nothing may reach the dispatcher").toHaveLength(0);
+  });
+
+  it('bookmark --browser "" fails instead of querying every browser', async () => {
+    await expect(run("bookmark", "list", "--browser", "")).rejects.toThrow(/--browser/);
+  });
+
+  it('bookmark --title "" is still allowed — clearing a title is a real update', async () => {
+    // The one option here where empty is a VALUE, not a mistake.
+    const [call] = await run("bookmark", "update", "--id", "10", "--title", "");
+    expect(call?.args).toMatchObject({ title: "" });
+  });
+
+  it("logs --tail rejects a non-number rather than sending NaN", async () => {
+    await expect(run("logs", "--tail", "abc")).rejects.toThrow(/--tail expects a number/);
+  });
+
+  it("--tabs still splits and trims a well-formed list", async () => {
+    const [call] = await run(
+      "group",
+      "add",
+      "--tabs",
+      "t:chrome:x1, t:chrome:x2",
+      "--group",
+      "g:chrome:x1",
+    );
+    expect(call?.args).toMatchObject({ tabIds: ["t:chrome:x1", "t:chrome:x2"] });
+  });
+});

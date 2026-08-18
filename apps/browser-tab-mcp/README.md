@@ -210,6 +210,52 @@ hiding it from `--help`. Hiding never disabled anything, and a help text that
 changes with the environment would make the generated usage artifacts
 un-checkable.
 
+### Option values are validated, not coerced
+
+Every optional flag is either **absent** or a **real value**. An empty one is a
+usage error:
+
+```console
+$ browser-tab list --browser ""
+--browser was given an empty value — omit the flag to leave it unset.   # exit 1
+```
+
+This used to be silent, and silently *inverted*: the payload was built with
+`opts.browser ? { browser } : {}`, so an empty string was falsy, the key was
+dropped, and a query meant to narrow to one browser widened to all of them.
+Numeric flags reject non-numbers instead of forwarding `NaN`, and `--tabs`
+rejects an empty entry rather than acting on fewer tabs than you named.
+
+### What `doctor` reports
+
+The headline accounts for warnings, because it is the line that gets pasted
+somewhere on its own:
+
+```
+Doctor: 2 warnings — see below.       # was "Doctor: all clear." with ⚠ rows under it
+```
+
+Extension protocol/build staleness are report **items** now, not writes appended
+after the verdict — same glyphs, same ordering, and they count. `ok` still means
+"no errors", so warnings do not change the exit code; only an `✗` exits 1.
+
+`chromium` is polled by default alongside chrome/brave/safari. It is a
+first-class `BrowserId` everywhere else, and leaving it out of the defaults made
+it the one browser you had to name explicitly to see; a browser that is not
+installed costs one cheap probe and reports `running: false`.
+
+### Tab-group colour is visible
+
+`color` has been in the v2 contract from the start — mapped from Chrome,
+writable via `group_tabs --color` — and no renderer showed it. Now `list` prints
+`⊞<title>` painted in the group's colour (text stays plain so width maths is
+unaffected), and the TUI badge uses a coloured disc (🔵🟢🟡…), falling back to
+`⊞` for a colour the palette does not know.
+
+`journal` and `history` timestamps gain a `MM-DD` prefix on rows that are not
+from today — those lists routinely cross midnight, and a time-only column put
+`23:59:01` directly above `00:05:12`, which reads as mis-sorted.
+
 ## Focus & navigation journals
 
 The daemon records an event-sourced history of where the user has been —

@@ -57,6 +57,25 @@ describe("helpers", () => {
     expect(clockOf(Number.NaN)).toBe("--:--:--");
   });
 
+  it("clockOf shows the date once the row is not from today", () => {
+    // journal/history are reverse-chronological and routinely cross midnight.
+    // Time-only put 23:59:01 directly above 00:05:12, which reads as
+    // mis-sorted — the reader stops trusting the ordering, which is the one
+    // thing those views exist for.
+    const ts = new Date(2020, 0, 1, 5, 6, 7).getTime();
+    const sameDay = new Date(2020, 0, 1, 23, 0, 0);
+    const nextDay = new Date(2020, 0, 2, 0, 5, 0);
+    expect(clockOf(ts, sameDay)).toBe("05:06:07");
+    expect(clockOf(ts, nextDay)).toBe("01-01 05:06:07");
+  });
+
+  it("clockOf treats a different YEAR as a different day", () => {
+    // Same month and date, one year apart — a naive month/date comparison
+    // would call these the same day and hide the difference.
+    const ts = new Date(2020, 0, 1, 5, 6, 7).getTime();
+    expect(clockOf(ts, new Date(2021, 0, 1, 5, 6, 7))).toBe("01-01 05:06:07");
+  });
+
   it("shortDuration scales by magnitude", () => {
     expect(shortDuration(45)).toBe("45s");
     expect(shortDuration(120)).toBe("2m");
@@ -461,5 +480,63 @@ describe("renderForTool", () => {
     expect(renderForTool("focus_tab", { ok: true })).toBeUndefined();
     expect(renderForTool("list_tabs", null)).toBeUndefined();
     expect(renderForTool("list_tabs", "a string")).toBeUndefined();
+  });
+});
+
+describe("tab-group colour", () => {
+  // `color` has been in the v2 contract since the start — mapped from Chrome,
+  // writable via `group_tabs --color`, carried end to end in the snapshot — and
+  // no human surface ever showed it. The audit called this the cheapest win on
+  // the capability list; this is the guard that it stays won.
+  const snapWithGroup = (color: string, title = "Work") => ({
+    browsers: [
+      {
+        browser: "chrome",
+        running: true,
+        dataSource: "extension",
+        tabGroups: [{ groupId: "g:chrome:x1", title, color }],
+        windows: [
+          {
+            windowId: "w:chrome:x1",
+            cgWindowId: 1,
+            tabs: [
+              { tabId: "t:chrome:x1", title: "T", url: "https://e.com", groupId: "g:chrome:x1" },
+            ],
+          },
+        ],
+      },
+    ],
+  });
+
+  it("shows the group on the tab row", () => {
+    expect(renderSnapshot(snapWithGroup("blue"), 200)).toContain("⊞Work");
+  });
+
+  it("falls back to the colour name when the group is untitled", () => {
+    // An untitled group is still a group; printing nothing would make the
+    // grouping itself invisible.
+    expect(renderSnapshot(snapWithGroup("purple", ""), 200)).toContain("⊞purple");
+  });
+
+  it("prints nothing for an ungrouped tab", () => {
+    const snap = snapWithGroup("blue");
+    const tab = snap.browsers[0]?.windows[0]?.tabs[0] as { groupId?: string };
+    delete tab.groupId;
+    expect(renderSnapshot(snap, 200)).not.toContain("⊞");
+  });
+
+  it("survives a colour name the palette does not know", () => {
+    // Chrome could add a colour; an unknown one must degrade, not throw or
+    // emit a stray escape.
+    expect(renderSnapshot(snapWithGroup("chartreuse"), 200)).toContain("⊞Work");
+  });
+
+  it("never widens a row past the terminal", () => {
+    // The group cell is one more column on the row that has overflowed before.
+    for (const width of [40, 60, 80, 100]) {
+      for (const line of renderSnapshot(snapWithGroup("blue", "A".repeat(40)), width).split("\n")) {
+        expect(line.length, `width ${width}: "${line}"`).toBeLessThanOrEqual(width);
+      }
+    }
   });
 });
