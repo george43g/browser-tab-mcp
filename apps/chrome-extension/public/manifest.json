@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "browser-tab connector",
-  "version": "1.1.1",
+  "version": "1.2.0",
   "description": "Streams live tab/window state to the local browser-tab daemon (wm-stack) and executes state-preserving tab moves.",
   "author": "george43g",
   "homepage_url": "https://github.com/george43g/browser-tab-mcp",
@@ -14,10 +14,14 @@
     "scripting",
     "history"
   ],
-  "host_permissions": ["<all_urls>"],
+  "host_permissions": [
+    "<all_urls>"
+  ],
   "background": {
     "service_worker": "background.js",
-    "scripts": ["background.js"]
+    "scripts": [
+      "background.js"
+    ]
   },
   "options_page": "options.html",
   "action": {

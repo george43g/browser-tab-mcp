@@ -1,5 +1,17 @@
 # Changelog
 
+## [1.2.0](https://github.com/george43g/browser-tab-mcp/compare/v1.1.1...v1.2.0) (2026-08-18)
+
+
+### Features
+
+* **ext:** self-reload from the CLI, and say which build is running ([#54](https://github.com/george43g/browser-tab-mcp/issues/54)) ([7a15cf8](https://github.com/george43g/browser-tab-mcp/commit/7a15cf8d176b27c57fb98a44a4bb8d81bad1aeb9))
+
+
+### Bug Fixes
+
+* **release:** version every artifact from one release line, and verify the cut landed ([#55](https://github.com/george43g/browser-tab-mcp/issues/55)) ([d967540](https://github.com/george43g/browser-tab-mcp/commit/d967540bc36356bc4998033553d6c02fc485dd1a))
+
 ## [1.1.1](https://github.com/george43g/browser-tab-mcp/compare/v1.1.0...v1.1.1) (2026-08-17)
 
 
