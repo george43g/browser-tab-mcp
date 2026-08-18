@@ -459,7 +459,8 @@ npm publish explicitly deferred and cross-extension data access dropped.
 | `COVERAGE_GATE` ratchet · npm publish | **deferred by George** |
 | Extension self-reload (#54) | **merged**, `7a15cf8` |
 
-**Still genuinely open, and honestly small:**
+**Still genuinely open, and honestly small** (state re-verified 2026-08-18 at
+checkpoint — see PROGRESS-LOG § "sweep complete"):
 
 - **Two soak checks that need a real browser and wall-clock time**, so they
   cannot be automated here and have never been run: a 30-minute Safari
@@ -473,6 +474,12 @@ npm publish explicitly deferred and cross-extension data access dropped.
 - **Native module resolution for a tarball install** (queue item 4) — only
   matters the day the bin is installed from a registry rather than linked, which
   npm publish being deferred means is not today.
+- **Live deploy drift, not caused by any open PR.** The daemon is running a
+  DIRTY workspace build (`1.2.1+59.e93d17e.dirty`) picked up during the release
+  deploy, while both extensions are on the clean `1.2.0+57.5b686ee`. launchd
+  re-execs whatever `dist/cli.js` holds, so any `pnpm build` on a feature branch
+  can drift it again. Fix: `git switch main && pnpm build && browser-tab daemon
+  restart`, then reload the extensions — **user-gated**, so left undone.
 
 ## Open questions for the user
 
