@@ -43,13 +43,31 @@ describe("built manifest.json", () => {
     expect(manifest().manifest_version).toBe(3);
   });
 
-  it("version is semver and in lockstep with package.json (the bump-version invariant)", () => {
+  it("version is in lockstep with package.json and loadable by Chrome", () => {
+    // Both files are release-please `extra-files` (release-please-config.json),
+    // so they move together on every release and there is no manual bump to
+    // forget. Repo-wide coherence — including that they match the RELEASED
+    // version rather than merely each other, which is how the extension sat at
+    // 0.2.0 through seven releases — is asserted in
+    // apps/browser-tab-mcp/tests/release-versions.contract.test.ts. This test
+    // guards the BUILT artifact, which is the one a browser actually loads.
     const pkg = JSON.parse(readFileSync(join(APP, "package.json"), "utf8")) as { version: string };
     const manifestVersion = manifest().version;
-    expect(manifestVersion, "manifest.version must be X.Y.Z").toMatch(/^\d+\.\d+\.\d+$/);
+    // Chrome's grammar, not semver: 1-4 integer parts, 0..65535, no leading
+    // zeros, no `-rc` / `+build` suffix. A prerelease here does not degrade —
+    // Chrome refuses to load the extension at all.
+    expect(manifestVersion, "manifest.version must be 1-4 dot-separated integers").toMatch(
+      /^(0|[1-9]\d*)(\.(0|[1-9]\d*)){0,3}$/,
+    );
+    for (const part of manifestVersion.split(".")) {
+      expect(Number(part), `manifest.version part "${part}" must be <= 65535`).toBeLessThanOrEqual(
+        65535,
+      );
+    }
     expect(
       manifestVersion,
-      "manifest.json and package.json versions drifted — bump both via `run bump`",
+      "manifest.json and package.json versions drifted — both are release-please " +
+        "extra-files, so this means one was hand-edited",
     ).toBe(pkg.version);
   });
 

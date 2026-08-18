@@ -22,6 +22,7 @@
     "format": "biome format --write .",
     "typecheck": "turbo run typecheck",
     "stress": "BUILD_STAMP=$(node scripts/build-stamp.mjs --print) turbo run stress",
+    "release:check": "node scripts/verify-release.mjs",
     "verify": "pnpm lint && pnpm typecheck && pnpm test && pnpm build",
     "clean": "turbo run clean && rm -rf node_modules .turbo coverage"
   },

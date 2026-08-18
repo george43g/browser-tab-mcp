@@ -87,26 +87,39 @@ seeing the old baked-in `protocolVersion` and flags it stale.
 ## Versioning
 
 `public/manifest.json` `version` is the **only user-facing version** of this
-extension — Chrome/Safari show it in the extensions list. The app is `private`
-and never published to npm, so there is no package-registry version to track;
-`package.json` `version` is kept as a mirror purely so tooling has a consistent
-number. Bump both in lockstep with one command (manual — there is no auto-bump
-on merge):
+extension — Chrome and Safari both show it in the extensions list (Safari reads
+it for Settings › Extensions; the container app's `MARKETING_VERSION` is a
+different field and is stamped from this one).
 
-```bash
-pnpm --filter @george43g/chrome-extension run bump          # patch (default)
-pnpm --filter @george43g/chrome-extension run bump minor    # or major, or an explicit X.Y.Z
-```
+**It is not bumped by hand.** The manifest and this `package.json` are both
+release-please `extra-files` (`release-please-config.json`), so a release
+rewrites them in the same commit as the root version — one repo, one number.
+There used to be a `run bump` command here; it was deleted, because a version
+you have to remember to move is a version that stops moving. This one did: the
+extension sat at `0.2.0` across seven releases while the tool reached `1.1.1`,
+and Safari faithfully displayed the stale number the whole time.
 
-`tests/build-output.test.ts` fails CI if the two files ever drift. After a bump,
-**rebuild + reload** (a bumped file is not a reloaded extension — see above).
+Two tests hold it there:
 
-This is deliberately separate from two other versions: the wire
-`protocolVersion` (single-sourced as `WIRE_PROTOCOL_VERSION` in
-`@george43g/shared-types` — bump it when the daemon↔extension contract gains
-capabilities/commands, which is what the staleness check keys on), and the
-`browser-tab` bin's npm version (release automation is scaffolded but
-**deliberately off** — see `docs/agent-handoff/BACKLOG.md` item 6).
+- `tests/build-output.test.ts` — the BUILT `dist/manifest.json` matches
+  `package.json`, and is legal for Chrome (1–4 integer parts, ≤ 65535, no
+  `-rc` suffix — Chrome refuses to load an extension whose version is a
+  prerelease, so a prerelease cut would be a broken artifact, not a cosmetic
+  problem).
+- `apps/browser-tab-mcp/tests/release-versions.contract.test.ts` — every
+  version-carrying file in the repo is one release-please rewrites, and all of
+  them already hold the released version. This is the one that would have gone
+  red at `0.2.0`.
+
+A released file is still not a reloaded extension: **rebuild + reload** after a
+version moves (see above).
+
+This is deliberately separate from the wire `protocolVersion` (single-sourced as
+`WIRE_PROTOCOL_VERSION` in `@george43g/shared-types` — bump it when the
+daemon↔extension contract gains capabilities/commands, which is what the
+staleness check keys on) and from the build stamp
+(`<semver>+<count>.<sha>`, `scripts/build-stamp.mjs`), which answers *which
+build* rather than *which release*.
 
 ## Gotchas
 

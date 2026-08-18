@@ -3,10 +3,13 @@
 # WHAT THIS DOES
 #   1. On every push to `main` it opens/updates ONE rolling "release PR"
 #      (`chore(main): release X.Y.Z`) whose diff is: the version bump in
-#      `package.json` + `apps/browser-tab-mcp/package.json`, the generated
+#      `package.json` + the `extra-files` (the app package, and the connector
+#      extension's `package.json` + `public/manifest.json`), the generated
 #      `CHANGELOG.md`, and `.release-please-manifest.json`.
 #   2. When you merge that PR, the same job tags `vX.Y.Z` and creates the
 #      GitHub Release with the changelog body.
+#   3. A second job then asserts that actually happened — see WHY THERE IS A
+#      VERIFY JOB.
 #
 #   Nothing is released until a human merges the release PR. Config lives in
 #   `release-please-config.json` + `.release-please-manifest.json`; the flow is
@@ -22,8 +25,45 @@
 #   docs/RELEASE.md § "If npm publishing is ever wanted".
 #
 # WHY THIS NEVER RUNS ON A PULL REQUEST
-#   The only triggers are `push: branches: [main]` and manual dispatch. It is
-#   not part of the PR check set, so it cannot make a contributor's PR red.
+#   The triggers are `push: branches: [main]`, a schedule, and manual dispatch.
+#   It is not part of the PR check set, so it cannot make a contributor's PR red.
+#
+# ── THE THREE WAYS THIS HAS FAILED, AND WHAT EACH ONE BOUGHT ────────────────
+#
+#   A. A TRANSIENT API BLIP fails a single run. → the retry step below. One
+#      re-attempt after a pause; release-please is idempotent by construction
+#      (it recomputes state from the API every run), so re-running is always
+#      safe and is exactly what a human would do.
+#
+#   B. A SUSTAINED OUTAGE fails every run for hours. 2026-08-17: six consecutive
+#      red runs with `Resource not accessible by integration` on the Git
+#      Database API, while githubstatus.com showed API/Actions/PRs/Issues
+#      degraded. It cleared on its own and the next dispatch went green — but
+#      only because someone was watching and dispatched it. → the `schedule`
+#      trigger below. A push-only workflow has exactly one chance per commit;
+#      a repo that is quiet for a day after an outage stays un-released until
+#      someone notices. Six-hourly re-drives cost seconds (this job is API-only:
+#      no checkout, no install, no build) and make the outage self-healing.
+#      DO NOT "fix" an outage by changing `permissions:` — the block below
+#      already grants what is needed, and the repo-level
+#      `default_workflow_permissions` does not apply to a workflow that declares
+#      its own. That was tried, changed nothing, and was reverted.
+#
+#   C. A SILENT ABORT leaves the workflow GREEN with nothing released. v1.0.0:
+#      the release PR merged, the bump and CHANGELOG landed on `main`, and the
+#      cut aborted with "There are untagged, merged release PRs outstanding".
+#      No tag, no Release, no red build — it was cut by hand days later. → the
+#      `verify` job below.
+#
+# WHY THERE IS A VERIFY JOB
+#   Success of the release-please STEP is not evidence that a release HAPPENED.
+#   `scripts/verify-release.mjs` checks the standing invariant instead — the
+#   version in `.release-please-manifest.json` has a tag AND a published
+#   GitHub Release, and no merged release PR is still labelled
+#   `autorelease: pending`. That holds in the quiet state and after a cut, so it
+#   runs on every trigger and needs no knowledge of which one fired. Its
+#   decision table is unit-tested (apps/browser-tab-mcp/tests/release-verify.test.ts)
+#   and it runs locally as `pnpm release:check`.
 #
 # BUILD IDENTITY IS A SEPARATE AXIS
 #   `scripts/build-stamp.mjs` stamps every artifact with
@@ -36,6 +76,10 @@ name: Release
 on:
   push:
     branches: [main]
+  # Failure mode B: re-drive after an outage without waiting for the next push.
+  # Idempotent — a healthy repo produces a no-op run.
+  schedule:
+    - cron: "23 */6 * * *"
   workflow_dispatch:
 
 permissions:
@@ -58,6 +102,27 @@ jobs:
       # this same push).
       - name: Run release-please
         id: release
+        continue-on-error: true
+        uses: googleapis/release-please-action@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          config-file: release-please-config.json
+          manifest-file: .release-please-manifest.json
+
+      # Failure mode A. Long enough to outlast a rate-limit window or a blip,
+      # short enough that a genuinely broken run still goes red this minute
+      # rather than next. The retry step carries no `continue-on-error`, so if
+      # it fails too the job goes red — which is correct: two failures in a row
+      # is a signal, not noise.
+      - name: Pause before retry
+        if: steps.release.outcome == 'failure'
+        run: |
+          echo "First attempt failed. Retrying once — release-please is idempotent."
+          sleep 45
+
+      - name: Run release-please (retry)
+        id: retry
+        if: steps.release.outcome == 'failure'
         uses: googleapis/release-please-action@v4
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
@@ -67,6 +132,11 @@ jobs:
       # Visibility only: the step summary records whether this run opened a
       # release PR or cut a release, so the Actions tab answers "did anything
       # happen" without opening logs.
+      #
+      # `a || b` picks the first non-empty string, and a step that never ran has
+      # empty outputs — so this reads the retry's outputs exactly when the first
+      # attempt failed, and the first attempt's (including a literal "false")
+      # otherwise.
       #
       # NOTE — these output names are UN-PREFIXED only because the release line
       # is the root path ".". release-please-action namespaces per-path outputs
@@ -79,7 +149,32 @@ jobs:
           {
             echo "### release-please"
             echo ""
-            echo "- release cut: \`${{ steps.release.outputs.release_created || 'false' }}\`"
-            echo "- tag: \`${{ steps.release.outputs.tag_name || '(none)' }}\`"
-            echo "- release PR open/updated: \`${{ steps.release.outputs.prs_created || 'false' }}\`"
+            echo "- attempts: \`${{ steps.release.outcome == 'failure' && '2' || '1' }}\`"
+            echo "- release cut: \`${{ steps.release.outputs.release_created || steps.retry.outputs.release_created || 'false' }}\`"
+            echo "- tag: \`${{ steps.release.outputs.tag_name || steps.retry.outputs.tag_name || '(none)' }}\`"
+            echo "- release PR open/updated: \`${{ steps.release.outputs.prs_created || steps.retry.outputs.prs_created || 'false' }}\`"
           } >> "$GITHUB_STEP_SUMMARY"
+
+  # Failure mode C. Runs whatever release-please did — including when it failed,
+  # because "the run went red" and "the repo is in a broken release state" are
+  # different questions and the second one is the one that matters.
+  verify:
+    name: verify release state
+    needs: release-please
+    if: always() && github.repository == 'george43g/browser-tab-mcp'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      # No pnpm, no install: the script is dependency-free Node so this job
+      # stays seconds long and cannot be broken by a dependency problem.
+      - name: Setup Node
+        uses: actions/setup-node@v6
+        with:
+          node-version: "24"
+
+      - name: Verify the release actually landed
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: node scripts/verify-release.mjs --annotate
