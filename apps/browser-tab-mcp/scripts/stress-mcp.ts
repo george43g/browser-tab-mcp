@@ -30,7 +30,27 @@ import { fileURLToPath } from "node:url";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const ROOT = resolve(__dirname, "..");
-const TSX = resolve(ROOT, "../../node_modules/.bin/tsx");
+/**
+ * The `tsx` shim for THIS platform.
+ *
+ * `node_modules/.bin/tsx` is an extensionless shell script on POSIX and a
+ * `tsx.CMD` batch file on Windows — spawning the extensionless path there fails
+ * with ENOENT, which is how the whole stress harness died on the windows-latest
+ * leg before running a single case.
+ *
+ * Probing the filesystem rather than branching on `process.platform`, because
+ * what matters is which file actually exists — a package manager that changes
+ * its shim naming should not silently break this again.
+ */
+function resolveTsx(): string {
+  const base = resolve(ROOT, "../../node_modules/.bin/tsx");
+  for (const candidate of [base, `${base}.CMD`, `${base}.cmd`]) {
+    if (existsSync(candidate)) return candidate;
+  }
+  return base; // let spawn report the real error rather than inventing one
+}
+
+const TSX = resolveTsx();
 const ENTRY = resolve(ROOT, "src/index.ts");
 
 interface RpcRequest {
