@@ -79,7 +79,7 @@ below is not part of it.
   merges without status checks. Documented PAT escape hatch in
   `docs/RELEASE.md` if that ever matters.
 
-## Stress-test findings (2026-08-16) — 7 fixed, 2 open
+## Stress-test findings (2026-08-16) — ALL FIXED (last 5 on 2026-08-18)
 
 Two adversarial agents drove the TUI and the CLI/REPL in isolated tmux windows
 against the live daemon. Full evidence in PROGRESS-LOG 2026-08-16. **Fixed:**
@@ -91,9 +91,13 @@ upgrade (#43) — the REPL discarding a screenshot's structured result.
 order; each is based on the previous.** Detail below is kept as the record of
 what each one was, and the PROGRESS-LOG entry for 2026-08-17 has the evidence.
 
-Still open from the "also open, lower" list at the bottom: `doctor` prints "all
-clear" before its warnings, and `clockOf` prints no date. Everything else in
-this section has landed.
+~~Still open from the "also open, lower" list at the bottom~~ — **ALL FIXED
+2026-08-18 (PR #63)**: `doctor` now names warnings in its headline (and the
+extension checks are report items, so they count toward it); `clockOf` shows
+`MM-DD` on any row that is not from today; `chromium` joined `DEFAULT_BROWSERS`;
+and empty option values are rejected instead of silently WIDENING the query.
+Each was verified still-real in the code before being touched, and each has a
+sabotage-checked guard.
 
 - **S1. Colour is dead in the shipped binary.** VERIFIED: `vite.config.ts` has
   no `resolve` block, Vite's default `mainFields` leads with `browser`, and
@@ -150,16 +154,16 @@ and explicitly said: *check what exists, then triage, park, defer, prioritise.*
 | Mute / unmute | **EXISTS** | `tab_action` kinds `mute`/`unmute` (`tools.ts:183-184`) |
 | Sleep / wake | **EXISTS** | `discard` (`tools.ts:187`); wake = `reload`/focus |
 | Tab groups CRUD | **EXISTS** | `group_tabs` create/add/remove/update/move |
-| Tab-group **colour** | **READ+WRITE, NEVER DISPLAYED** | `color` is in `TabGroupSchema` (`contract.ts:43-45`), settable via `group_tabs` (`tools.ts:225-228`), mapped from Chrome (`extension-core/snapshot.ts:128`) — but **no renderer shows it**; the TUI prints only the group title (`⊞✅Claude`). Cheapest win on this list. |
-| Bookmark CRUD | **ABSENT** | zero matches repo-wide; manifest has no `bookmarks` permission |
-| Browser theme (dark/light) | **ABSENT, and likely NOT extension-reachable** | MV3 exposes no API to set Chrome's own theme. Needs research before promising anything. |
-| Read another extension's data | **IMPOSSIBLE from our extension** | `chrome.storage` is per-extension; our manifest has no `externally_connectable` and neither, in general, does a target. The user's own instinct is right: this belongs to the **daemon**, reading Chrome's on-disk `Local Extension Settings/<id>/` LevelDB. Risk: writing under a live Chrome. |
+| Tab-group **colour** | ~~READ+WRITE, NEVER DISPLAYED~~ **SHIPPED 2026-08-18 (PR #63)** — `list` paints `⊞<title>` in the group's colour; the TUI badge uses a coloured disc. | `color` is in `TabGroupSchema` (`contract.ts:43-45`), settable via `group_tabs` (`tools.ts:225-228`), mapped from Chrome (`extension-core/snapshot.ts:128`) — but **no renderer shows it**; the TUI prints only the group title (`⊞✅Claude`). Cheapest win on this list. |
+| Bookmark CRUD | ~~ABSENT~~ **SHIPPED 2026-08-18 (PR #66)** | `bookmarks` tool + `browser-tab bookmark` + extension command + runtime-probed capability. Extension-only and never merged across browsers — see the PR for why a merged write is the wrong default. |
+| Browser theme (dark/light) | **PARKED 2026-08-18 with evidence** (DECISIONS.md) — there is no `chrome.theme` namespace at all and no color-scheme API; the only route is `management.setEnabled` on an installed theme extension, which costs the broad `management` permission and is Chrome-only. | MV3 exposes no API to set Chrome's own theme. Needs research before promising anything. |
+| Read another extension's data | **DROPPED 2026-08-18 by George** ("dont worry about cross-extension data access"). Was: IMPOSSIBLE from our extension. | `chrome.storage` is per-extension; our manifest has no `externally_connectable` and neither, in general, does a target. The user's own instinct is right: this belongs to the **daemon**, reading Chrome's on-disk `Local Extension Settings/<id>/` LevelDB. Risk: writing under a live Chrome. |
 | SurfingKeys integration | **RESEARCHED 2026-08-16 — feasible, but via neither obvious route.** See the dedicated section below. | Source-verified against `brookhong/Surfingkeys@660d990` = v1.18.0 = the build installed here |
 | TUI interface | **EXISTS** | `browser-tab tui` |
 | MCP interface | **EXISTS** | `browser-tab mcp` |
 | Interactive console | **EXISTS** | `browser-tab repl` (alias `console`) |
-| **HTTP streaming interface** | **ABSENT** | transports today are a **unix socket** (`ipc-server.ts`, NDJSON + `subscribe`) and a localhost **WebSocket** for the extension only. No HTTP server anywhere. |
-| Static scriptable interface | **PARTIAL** | `browser-tab <cmd> --json` + the `snapshot.json`/`heartbeat.json` files cover scripting; there is no declarative script/config format. Needs a definition before it can be built — **ask the user what "static scriptable" means to them.** |
+| **HTTP streaming interface** | ~~ABSENT~~ **SHIPPED 2026-08-18 (PR #67)** — opt-in loopback server: `/snapshot`, `/events` (SSE), `POST /tools/:name`, token-gated. Decision recorded in DECISIONS.md. | transports today are a **unix socket** (`ipc-server.ts`, NDJSON + `subscribe`) and a localhost **WebSocket** for the extension only. No HTTP server anywhere. |
+| Static scriptable interface | **DEFINED AND MET 2026-08-18.** George: "the cli will accept commands and its api surface is similar to that of the mcp and TUI — most features should be available to all types of interfaces". Enforced by `tests/interface-parity.contract.test.ts` (PR #65), which walks the real commander tree. Was: PARTIAL. | `browser-tab <cmd> --json` + the `snapshot.json`/`heartbeat.json` files cover scripting; there is no declarative script/config format. Needs a definition before it can be built — **ask the user what "static scriptable" means to them.** |
 
 **Suggested triage** (mine, not the user's — confirm before acting):
 
@@ -410,7 +414,9 @@ control.
    only** — `docs/FOLLOWUPS.md` §2 (publish only the bin package; `NPM_TOKEN`
    secret; add a separate `publish` job gated on `release_created`).
 
-7. **Optional polish** (from `docs/HANDOFF.md`):
+7. **Optional polish** (from `docs/HANDOFF.md`) — **still open 2026-08-18; needs
+   a real browser and wall-clock time, so it cannot be automated here.** See
+   § Closed 2026-08-18 for why the risk is low.
    - Safari background-*page* 30-min idle soak — confirm it stays connected or
      reconnects (AppleScript fallback exists regardless).
    - Chrome SW-kill reconnect check (`chrome://serviceworker-internals`) —
@@ -435,19 +441,38 @@ control.
   Revisit only if 3+ interdependent tools need atomic cross-cutting changes;
   then prefer mise-as-orchestrator over Nx/Bazel.
 
-## Open — extension self-reload (2026-08-18)
+## Closed 2026-08-18 — the backlog sweep
 
-- **PR #54 is open and unmerged.** CI green 4/4 at `6755ed0`
-  (`gh pr checks 54`); held only by ground rule 1 (no merge without George's
-  per-PR word). Adds `browser-tab reload-extension` and the ext↔daemon build
-  comparison in `helloAck`.
-- **The Safari auto-adoption finding is 3 trials on ONE machine and ONE Safari
-  version** (26.x / macOS 15, 2026-08-18). It is a measurement, not a
-  guarantee. `rebuild.sh` keeps the manual toggle documented as the fallback;
-  if a future Safari stops auto-adopting, that is where to look first.
-- **`reload-extension` is Chrome-only in effect.** Safari acks
-  `chrome.runtime.reload()` and ignores it — the background page never drops
-  its socket. Verified live 2026-08-18. Not a bug to chase.
+George set one goal: *"clear the backlog/deffered"*, with coverage ratchet and
+npm publish explicitly deferred and cross-extension data access dropped.
+
+| Item | Outcome |
+|---|---|
+| 5 stress-test bugs (doctor / clockOf / chromium / empty options / group colour) | **fixed** — PR #63 |
+| Windows build target for the daemon | **shipped** — PR #64 |
+| "static scriptable interface" (defined as CLI↔MCP↔TUI parity) | **shipped + enforced** — PR #65 |
+| Bookmark CRUD | **shipped** — PR #66 |
+| HTTP streaming interface | **shipped, opt-in** — PR #67 |
+| Browser theme control | **parked with evidence** — DECISIONS.md |
+| SurfingKeys | **decided, not started** — mechanism A unblocked by #67; B needs one 10-second check first |
+| Cross-extension data access | **dropped by George** |
+| `COVERAGE_GATE` ratchet · npm publish | **deferred by George** |
+| Extension self-reload (#54) | **merged**, `7a15cf8` |
+
+**Still genuinely open, and honestly small:**
+
+- **Two soak checks that need a real browser and wall-clock time**, so they
+  cannot be automated here and have never been run: a 30-minute Safari
+  background-*page* idle soak (does it stay connected, or reconnect?), and a
+  Chrome service-worker kill via `chrome://serviceworker-internals` (should
+  reconnect within 30s via the alarms watchdog). The daemon half of both is
+  already covered by `tests/ws-heartbeat.test.ts`; what is untested is the
+  BROWSER half. Failure mode if they are wrong is visible and non-silent (the
+  browser shows as `extensionConnected:false` and reads degrade to AppleScript),
+  which is why this has stayed low.
+- **Native module resolution for a tarball install** (queue item 4) — only
+  matters the day the bin is installed from a registry rather than linked, which
+  npm publish being deferred means is not today.
 
 ## Open questions for the user
 
@@ -455,10 +480,12 @@ control.
   build; the global bin is linked, so native loads anyway (queue item 4).
 - ~~Install full Xcode for Safari packaging~~ — **answered 2026-07-29**: Xcode
   is installed, Safari extension is live (queue item 5).
-- When to start the COVERAGE_GATE ratchet (queue item 3)?
+- ~~When to start the COVERAGE_GATE ratchet (queue item 3)?~~ — **DEFERRED by
+  George, 2026-08-18** ("coverage ratchet - defer").
 - ~~Release automation~~ — **answered / shipped (PR-F)**: release-please, tags
   + releases + changelog, no npm publish. Remaining question is narrower: when
-  (if ever soon) to enable **npm publish** (queue item 6)?
+  (if ever soon) to enable **npm publish** (queue item 6)? — **DEFERRED by
+  George, 2026-08-18** ("npm publish - defer").
 - First release: the prediction of `0.1.0` was **wrong** — the live run
   proposes **`1.0.0`** (release-please's initial-release default; PR #31).
   Accept 1.0.0, or pin `"release-as": "0.1.0"` in `release-please-config.json`

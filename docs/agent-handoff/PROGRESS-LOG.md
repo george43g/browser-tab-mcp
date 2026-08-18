@@ -1141,3 +1141,93 @@ Nothing is mid-flight. The next action is a decision: merge #58 or don't. It is
 a pure guard — no behaviour outside `pnpm release:check` and the Release
 workflow's verify job — and the release it protects has already been recovered
 by hand, so nothing is blocked either way.
+
+---
+
+## 2026-08-18 (later) — the backlog sweep
+
+Where this entry and any conversation summary disagree, **this entry is
+correct**.
+
+### State
+
+The backlog is cleared to a decision or a PR. **Seven PRs open, none merged** —
+ground rule 1 stands. `main` is at v1.2.1 and green.
+
+### Constraints (George, verbatim)
+
+> "static scriptable interface just means that the cli will accept commands and
+> its api surface is similar to that of the mcp and TUI - the general rule is
+> that most features should be available to all types of interfaces or api
+> surfaces. dont worry about cross-extension data access. also add a windows
+> build target (for the daemon - the chrome extension installs on windows chrome
+> i already tested it). so the goal is to clear the backlog/deffered - go!
+> coverage ratchet - defer. npm publish - defer."
+
+### Done
+
+| PR | What |
+|---|---|
+| **#63** | the five stress bugs — doctor verdict, dated clocks, chromium default, empty-option rejection, tab-group colour |
+| **#64** | Windows daemon target — `platform.ts`, named pipe, Task Scheduler, portable build scripts, `windows-latest` in CI |
+| **#65** | interface parity — `logs` command, TUI action picker, parity guard |
+| **#66** | bookmark CRUD across MCP/CLI/extension |
+| **#67** | opt-in HTTP interface (`/snapshot`, `/events` SSE, `POST /tools/:name`) |
+| — | browser theme **parked with evidence**; SurfingKeys **decided, not started** (DECISIONS.md) |
+| — | issue #2 closed; BACKLOG capability audit reconciled |
+
+### Open
+
+- **Two soak checks needing a real browser and wall-clock time** — a 30-min
+  Safari background-page idle soak and a Chrome SW-kill reconnect. Never
+  attempted; not automatable here. The daemon half is covered by
+  `ws-heartbeat.test.ts`; the browser half is not.
+- **SurfingKeys mechanism B** — blocked on one 10-second console check
+  (does `CustomEvent.detail` structured-clone between two extensions' isolated
+  worlds?). The answer picks between two materially different designs, so
+  writing code first would be guessing.
+- **Native module resolution for a tarball install** — only matters once npm
+  publish is enabled, which George deferred.
+
+### Corrections
+
+- **The backlog overstated the parity gap.** It read as though the CLI was far
+  behind MCP; 18 of 19 tools already had a command. The real gaps were
+  `get_logs` and the TUI's action set.
+- **Browser theme is not "hard", it is ABSENT.** Checked the MV3 typings
+  directly: there is no `chrome.theme` namespace and no color-scheme API at all.
+  The only route is `management.setEnabled` on an installed theme extension.
+
+### Traps
+
+- **A sabotage check against a BUILT package silently no-ops.** All three
+  bookmark sabotages passed on the first round because the integration test
+  loads `extension-core`'s `dist` and I had edited `src`. Rebuild between
+  sabotage and run, or the guard is decorative and you will believe it works.
+- **Testing that a helper CLASSIFIES correctly is not testing that a caller
+  USES it.** `url-policy.test.ts` stayed green while the bookmarks tool's
+  allowlist check was removed. Boundaries need their own test.
+- **`git stash -u` while switching branches mixes uncommitted work across
+  them.** Two PRs' files ended up on one branch. Park files in the scratchpad
+  and copy them back explicitly.
+- **A platform gate can make a passing test platform-dependent.** The Linux CI
+  leg went red on window-capture tests that shim the binary; declaring
+  `BROWSER_TAB_PLATFORM=macos` in the suite is right, weakening the production
+  gate is not.
+- **POSIX shell shims (`#!/bin/sh`) cannot run on Windows** (`spawn EFTYPE`).
+  Three suites shim macOS-only binaries; they are skipped there rather than
+  made portable, because portability would mean teaching production code to
+  take an interpreter plus args to ship a fixture.
+
+### Tree
+
+`/Users/george/repos/browser-tab-mcp` · branch `docs/backlog-closeout` ·
+off `main` (v1.2.1, `cf66499`). Six other branches pushed, all with open PRs.
+Working tree clean at commit time. No other agent's work in the tree.
+
+### Resume
+
+Nothing is mid-flight. The next action is review and merge of #63–#67, in any
+order — they are all based on `main` and were verified to integrate. Deploy is
+unchanged and still on the released build; no PR here requires a redeploy
+except #66 (bookmarks needs the extension rebuilt for the new permission).
