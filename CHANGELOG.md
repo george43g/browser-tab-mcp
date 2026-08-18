@@ -1,5 +1,21 @@
 # Changelog
 
+## [1.3.0](https://github.com/george43g/browser-tab-mcp/compare/v1.2.1...v1.3.0) (2026-08-18)
+
+
+### Features
+
+* **bookmarks:** CRUD across MCP, CLI and the extension ([#66](https://github.com/george43g/browser-tab-mcp/issues/66)) ([dbdb8c3](https://github.com/george43g/browser-tab-mcp/commit/dbdb8c3c6071cdafa41c93e96dff13ff6bb48750))
+* **cli,tui:** one feature, every surface — logs command, TUI action picker, parity guard ([#65](https://github.com/george43g/browser-tab-mcp/issues/65)) ([c3fd5b7](https://github.com/george43g/browser-tab-mcp/commit/c3fd5b7cb26348e1fa01ed15668b3db450027b3d))
+* **daemon:** a Windows build target — extension-only mode, named pipe, Task Scheduler ([#64](https://github.com/george43g/browser-tab-mcp/issues/64)) ([f0e9999](https://github.com/george43g/browser-tab-mcp/commit/f0e9999d394e2c04dff61dd16023b1d4527a604d))
+* **daemon:** an opt-in HTTP interface — reads, SSE events, and tool dispatch ([#67](https://github.com/george43g/browser-tab-mcp/issues/67)) ([39c7ee0](https://github.com/george43g/browser-tab-mcp/commit/39c7ee08746b78e046c98f99a5ca985f505359f9))
+
+
+### Bug Fixes
+
+* **cli:** the five backlog bugs — honest doctor, dated clocks, chromium, empty options, group colour ([#63](https://github.com/george43g/browser-tab-mcp/issues/63)) ([3a1ec07](https://github.com/george43g/browser-tab-mcp/commit/3a1ec072b412a649b3cfb595cae2be9a61c037d9))
+* **release:** judge an untagged release by the tag, not by the label ([#61](https://github.com/george43g/browser-tab-mcp/issues/61)) ([cf66499](https://github.com/george43g/browser-tab-mcp/commit/cf66499358a0d29ee86f8f80c7feb0053d72eb79))
+
 ## [1.2.1](https://github.com/george43g/browser-tab-mcp/compare/v1.2.0...v1.2.1) (2026-08-18)
 
 
