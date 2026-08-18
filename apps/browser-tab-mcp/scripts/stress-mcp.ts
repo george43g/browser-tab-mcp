@@ -31,20 +31,24 @@ import { fileURLToPath } from "node:url";
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const ROOT = resolve(__dirname, "..");
 /**
- * The `tsx` shim for THIS platform.
+ * The `tsx` shim this platform can actually EXECUTE.
  *
- * `node_modules/.bin/tsx` is an extensionless shell script on POSIX and a
- * `tsx.CMD` batch file on Windows — spawning the extensionless path there fails
- * with ENOENT, which is how the whole stress harness died on the windows-latest
- * leg before running a single case.
+ * pnpm writes several shims side by side: an extensionless `tsx` (a POSIX shell
+ * script), plus `tsx.CMD` and `tsx.ps1` on Windows. All of them exist there, so
+ * "pick the first that exists" is not enough — Windows `CreateProcess` cannot
+ * run the extensionless shell script, and spawning it fails with ENOENT. That
+ * killed the stress harness on the windows-latest leg before a single one of
+ * its 34 cases ran, twice: once because the path had no extension, and again
+ * because the fix probed in the wrong ORDER.
  *
- * Probing the filesystem rather than branching on `process.platform`, because
- * what matters is which file actually exists — a package manager that changes
- * its shim naming should not silently break this again.
+ * So the platform decides the PREFERENCE ORDER (which is genuinely a platform
+ * question — what can this OS execute) and the filesystem decides the ANSWER.
  */
 function resolveTsx(): string {
   const base = resolve(ROOT, "../../node_modules/.bin/tsx");
-  for (const candidate of [base, `${base}.CMD`, `${base}.cmd`]) {
+  const candidates =
+    process.platform === "win32" ? [`${base}.CMD`, `${base}.cmd`, `${base}.exe`, base] : [base];
+  for (const candidate of candidates) {
     if (existsSync(candidate)) return candidate;
   }
   return base; // let spawn report the real error rather than inventing one
