@@ -13,6 +13,20 @@ import { makeBrowserState, makeContractWindow, makeSnapshot } from "@george43g/t
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { enrichWithCgWindowIds } from "../src/detect/correlate.js";
 
+/**
+ * WINDOWS: skipped, deliberately.
+ *
+ * This suite shims a macOS-only binary with a `#!/bin/sh` script, which Windows
+ * cannot execute (`spawn EFTYPE`). Making the shim portable would mean teaching
+ * the production code to accept an interpreter plus arguments rather than a
+ * binary path — real complexity added to ship a fixture.
+ *
+ * The subsystem under test is macOS-only anyway. The windows-latest CI leg
+ * exists to prove the DAEMON builds and runs there, not to re-test features
+ * that platform does not have.
+ */
+const onPosix = process.platform !== "win32";
+
 const PID = 28919;
 const TILED = { x: 40, y: 50, w: 1996, h: 1269 };
 
@@ -91,7 +105,7 @@ function tiledSnapshot(): Snapshot {
 
 const ids = (snap: Snapshot) => snap.browsers[0]?.windows.map((w) => w.cgWindowId);
 
-describe("enrichWithCgWindowIds (yabai tier)", () => {
+describe.skipIf(!onPosix)("enrichWithCgWindowIds (yabai tier)", () => {
   it("resolves identical-frame windows using the titles yabai reports", async () => {
     const shim = shimYabai([
       yabaiRow(542247, "Credits | OpenRouter - Google Chrome - George (Main G)"),
