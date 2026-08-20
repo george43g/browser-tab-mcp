@@ -1633,3 +1633,124 @@ re-examining their own reasoning. The routine that worked: report the raw
 disagreement early and plainly, even into a domain the other side knows
 better. When coordinating with resident agents on a shared machine, state
 what your evidence shows and let them reconcile it with theirs.
+
+---
+
+## 2026-08-21 — precompact checkpoint #2 (agent session 5a15fe80)
+
+Where this file and any conversation summary disagree, THIS FILE is correct —
+the summary optimises for narrative, this section for what is true now.
+
+## State
+
+v1.3.2 released and verified (`release:check` ok, baseline v1.3.2); zero open
+PRs; `main` = `c1e2cc7`; the Windows box runs the full stack live
+(read+write round-trip proven); the next-cycle BRIEF is written
+(BACKLOG.md § 2026-08-21 BRIEF) for a fresh agent to plan from.
+
+## Constraints
+
+- George, this session: "write a brief that includes everything, all your
+  ideas and motives and reasons and gotchas ... so the fresh agent can
+  benefit from all the context you have at the moment, and the plan can
+  benefit from the higher quality work of a focused fresh agent." → The
+  BRIEF section in BACKLOG.md is that deliverable; the NEXT agent writes the
+  plan, not this one.
+- Merge grants are per-set: "you have my permission to merge, go ahead"
+  covered #74–#79; a later explicit word covered #80+#81. Nothing standing.
+- Daemon on the Windows box stays CONSOLE-SCOPED (no ONLOGON) until George
+  resolves the headless question — his ruling this session.
+- All prior standing constraints (1Password signing, kit-defects-upstream,
+  user-gated deploys/extension loads, per-PR verification bar) unchanged.
+
+## Done (anchors)
+
+- v1.3.2: release PR #80 merged at `c1e2cc7`, tag + GitHub Release verified,
+  `pnpm release:check` ok. Contains #75 (tsx spawn), #76 (rustc guard), #77
+  (TUI move-mode), #78 (phantom pass + platform-honest cases), #81
+  (running-truth), #74/#79 docs.
+- Windows box end-to-end: stress 33/0, stress:tui pass (27 samples, 337MB),
+  daemon on `\\.\pipe\browser-tab-georg`, connector 1.3.1+79 connected after
+  token paste, `open`→list→`close` round-trip clean (PROGRESS-LOG Windows
+  entry above has the full record).
+- TUI feature drive: every key verified live; `m` unreachability found+fixed
+  (#77).
+- tui-kit design negotiation closed: primitives-only, Miller columns dead,
+  drop/collapse semantics contributed (msg ce081805); browser-tab is first
+  consumer when primitives land.
+- Next-cycle BRIEF written and pushed: BACKLOG.md § "2026-08-21 — BRIEF",
+  this branch.
+
+## Open
+
+- Everything in the BRIEF section (SK mechanisms A/B, Edge enum, cg
+  oscillation, TUI polish, manifest key + pairing, ONLOGON decision) — all
+  "never attempted", by design: the fresh agent plans first.
+- Mac daemon/extensions deployed at v1.3.1, one release behind — redeploy is
+  user-gated (`git switch main && pnpm build && browser-tab daemon restart`
+  + extension reloads).
+- Mechanism-B 10-second console check — never run; blocks B's design choice.
+- Windows box: `win-test` = main+#81 (now == main content); console daemon
+  alive only while tmux `bt-windows` lives; Edge experiment approved in
+  spirit, not executed.
+- ~45 stale remote branches — offer before deleting (unchanged).
+
+## Corrections
+
+- Earlier this session I told George "extensions none connected" meant the
+  paste hadn't worked; netstat showed the WS ESTABLISHED — the status had
+  simply not refreshed in my poll loop before I checked. The connector had
+  connected on his save, as designed.
+- elevated's monitoring timeline did NOT cover the real stress runs
+  (their window closed 03:35:46; runs started 03:35:53) — the WHEA verdict
+  rests on the persistent event log instead, which does cover them. Recorded
+  that way in the Windows entry; do not cite the 466-sample timeline as
+  covering the suites.
+
+## Traps (new this session, generalisable)
+
+- A monitor grepping for a completion marker matches the marker inside its
+  OWN echoed command line (wrapped lines defeat `^` anchors). Use unique
+  values and verify in-pane; happened twice tonight.
+- Merging post-squash main into a pre-squash integration branch conflicts by
+  construction — `git checkout -B <branch> origin/main` + re-merge open
+  fixes instead.
+- `git checkout <file>` as sabotage-restore: fails on untracked files
+  (silently skipping the next `&&` step) and restores the BRANCH version on
+  tracked ones (wiping the uncommitted fix). Verify file state after every
+  restore.
+- readme-check reads the PR title from the frozen event payload — a retitle
+  needs a fresh synchronize event (empty commit) to count.
+- RustDesk clipboard sync overrides the remote machine's clipboard with the
+  local one — load secrets into the clipboard of the machine the HUMAN is
+  typing from.
+- Full trap digest for the next cycle: BRIEF § 8.
+
+## Tree
+
+repo browser-tab-mcp, branch `docs/next-cycle-brief` (this checkpoint + the
+BRIEF), tracking origin, clean apart from this file after commit; `main` =
+`c1e2cc7` (v1.3.2), CI green. tmux: `bt-windows` (win-ssh %150 elevated
+interop PS / tui-drive %151 idle shell / win-daemon %152 RUNNING the console
+daemon — killing the session kills the Windows daemon); `bt-stress` old,
+safe to kill. Windows box clone at `C:\Users\georg\repos\browser-tab-mcp`
+on `win-test`, clean.
+
+## Blocked on you (George)
+
+- Merge word for THIS branch's PR (docs-only: brief + checkpoint).
+- The 10-second SK mechanism-B console check (DECISIONS has the line).
+- Confirm or correct my reading of your SK insight (SK as keyboard frontend
+  → BRIEF § 2).
+- Edge experiment: your ~90s in Edge on the box when wanted (BRIEF § 3).
+- Mac redeploy to v1.3.2 (user-gated); ONLOGON/headless ruling when ready.
+
+## Resume
+
+Next session begins with George running /compact, then: read
+`docs/agent-handoff/BACKLOG.md` § "2026-08-21 — BRIEF" END TO END before
+proposing anything; confirm with George WHICH workstream(s) the plan covers
+(the brief spans eight; he has not picked); then write the implementation
+plan as a fresh, focused artifact. No code before the plan. Mid-flight state:
+none — no uncommitted work, no running background tasks beyond the tmux
+sessions listed in Tree.
