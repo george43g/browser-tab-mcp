@@ -24,26 +24,24 @@ jobs:
         # Task Scheduler ONLOGON task, and the extension as its only data
         # source; without a runner, all three would be untested claims.
         #
-        # THERE IS DELIBERATELY NO macos-latest LEG — DO NOT RE-ADD ONE.
-        # GitHub bills macOS at 10x Linux ($0.08 vs $0.008 per minute) on a
-        # private repo. Measured 2026-08-18: 38 macOS jobs in one day = 131
-        # billable minutes = $10.48, which was 71% of that day's CI spend on
-        # 28% of its minutes. The jobs were healthy (3.2 min median, no
-        # stalls) — the cost was volume times the multiplier, not a hang.
+        # macos-latest IS CONDITIONAL ON THIS REPO BEING PUBLIC. Standard
+        # GitHub-hosted runners are free on public repos — macOS included, so
+        # today this leg costs $0 and earns its slot by compiling rust-accel's
+        # `#[cfg(target_os = "macos")]` CoreGraphics half, which no other
+        # runner can even type-check. On a PRIVATE repo the same leg bills at
+        # 10x Linux ($0.08/min): measured 2026-08-18, it was $10.48/day — 71%
+        # of CI spend on 28% of the minutes — with healthy 3.2-min-median jobs.
+        # The cost was volume times multiplier, not a stall. IF THIS REPO EVER
+        # GOES PRIVATE AGAIN, DELETE THIS LEG THE SAME DAY; `pnpm verify:macos`
+        # (.githooks/pre-push) already covers the gap, and more strictly —
+        # it loads and calls the built .node rather than just compiling it.
         #
-        # And it bought nothing Linux does not. Every platform gate in this
-        # suite is `process.platform !== "win32"` (POSIX), never
-        # `=== "darwin"`; the macOS-only production paths are driven from any
-        # runner via BROWSER_TAB_PLATFORM plus fakes. The single genuinely
-        # Darwin-only artifact is the CoreGraphics half of rust-accel
-        # (`#[cfg(target_os = "macos")]`, stubbed elsewhere) — and that is
-        # compiled by every `pnpm build` on the developer's own Mac.
-        #
-        # macOS is covered instead by `pnpm verify:macos`, run locally and
-        # enforced by .githooks/pre-push. That is STRICTER than this leg was:
-        # it builds the real CoreGraphics code and loads the native module,
-        # against a real Darwin, which macos-latest also did but $10/day.
-        os: [ubuntu-latest, windows-latest]
+        # Every OS runs ONLY what is platform-specific: install → build →
+        # test → stress. The OS-independent steps (lint, typecheck, coverage,
+        # no-native, npm-pack, artifact freshness) are gated to Linux below —
+        # running them per-OS was paying three times for one answer, which is
+        # how one day of normal development cost $14.80.
+        os: [ubuntu-latest, macos-latest, windows-latest]
         node: ["24"]
     steps:
       - name: Checkout
@@ -61,11 +59,11 @@ jobs:
           cache: pnpm
 
       - name: Setup Rust
-        # Linux only: rust-accel's real implementation is
-        # `#[cfg(target_os = "macos")]`, so every non-Darwin runner compiles
-        # the same stub. One of them is enough; Windows then builds TS-only,
-        # which is exactly the shape a Windows user installs.
-        if: runner.os == 'Linux'
+        # Linux compiles the stub half of rust-accel, macOS the real
+        # CoreGraphics half — the one artifact only a Darwin runner can
+        # type-check, and the reason the macOS leg exists at all. Windows
+        # builds TS-only, which is exactly the shape a Windows user installs.
+        if: runner.os != 'Windows'
         uses: dtolnay/rust-toolchain@stable
 
       - name: Install dependencies
