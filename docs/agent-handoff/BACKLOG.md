@@ -650,3 +650,17 @@ columns argued against for this consumer).
   worked-around twice by the resident agents). If a future session's
   interop PowerShell goes dead mid-run: not our load; repoint WSL_INTEROP at
   a live socket after checking its token elevation.
+
+### Extension identity is a filesystem path — add a manifest `key`
+
+Found during the Windows extension refresh (pc-server's catch, 2026-08-21):
+an unpacked extension with no `key` in its manifest derives its extension ID
+from the LOAD PATH. George's Windows copy lives at `D:\browser-tab-mcp\dist`
+→ id `djkldcilcdiibfgonhpgephihpfglfbk`; loading the identical files from the
+repo's dist dir would mint a DIFFERENT id and orphan the options-page state
+(token) and anything else keyed to the id. Fix: generate a keypair once,
+embed the public `key` in `public/manifest.json` so identity survives moves
+across machines and paths. Small deliberate PR — the manifest is
+release-please-rewritten and Biome-excluded, and a `key` also fixes the
+Chrome Web Store id story if the connector is ever published. Until then:
+always refresh the EXISTING directory in place, never repoint.
