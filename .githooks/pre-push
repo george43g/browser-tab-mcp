@@ -1,0 +1,15 @@
+#!/bin/sh
+# Runs the checks CI no longer can.
+#
+# ci.yml has no macos-latest leg (see the comment on its matrix: 10x billing,
+# 71% of spend, ~nothing Linux did not already cover). The one real gap is
+# rust-accel's `#[cfg(target_os = "macos")]` CoreGraphics code, which no
+# non-Darwin runner compiles. This hook closes that gap at the last moment
+# before the code leaves the machine.
+#
+# It is deliberately NOT the whole bar: lint, typecheck, stress, coverage and
+# the Windows leg all still run in CI, and duplicating them here would make
+# pushing slow enough that people reach for --no-verify by reflex.
+#
+# Escape hatch: `git push --no-verify`.
+exec node "$(git rev-parse --show-toplevel)/scripts/verify-macos.mjs"

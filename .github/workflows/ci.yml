@@ -23,6 +23,24 @@ jobs:
         # socket, none of which exist there. Windows now uses a named pipe, a
         # Task Scheduler ONLOGON task, and the extension as its only data
         # source; without a runner, all three would be untested claims.
+        #
+        # macos-latest IS CONDITIONAL ON THIS REPO BEING PUBLIC. Standard
+        # GitHub-hosted runners are free on public repos — macOS included, so
+        # today this leg costs $0 and earns its slot by compiling rust-accel's
+        # `#[cfg(target_os = "macos")]` CoreGraphics half, which no other
+        # runner can even type-check. On a PRIVATE repo the same leg bills at
+        # 10x Linux ($0.08/min): measured 2026-08-18, it was $10.48/day — 71%
+        # of CI spend on 28% of the minutes — with healthy 3.2-min-median jobs.
+        # The cost was volume times multiplier, not a stall. IF THIS REPO EVER
+        # GOES PRIVATE AGAIN, DELETE THIS LEG THE SAME DAY; `pnpm verify:macos`
+        # (.githooks/pre-push) already covers the gap, and more strictly —
+        # it loads and calls the built .node rather than just compiling it.
+        #
+        # Every OS runs ONLY what is platform-specific: install → build →
+        # test → stress. The OS-independent steps (lint, typecheck, coverage,
+        # no-native, npm-pack, artifact freshness) are gated to Linux below —
+        # running them per-OS was paying three times for one answer, which is
+        # how one day of normal development cost $14.80.
         os: [ubuntu-latest, macos-latest, windows-latest]
         node: ["24"]
     steps:
@@ -41,12 +59,20 @@ jobs:
           cache: pnpm
 
       - name: Setup Rust
+        # Linux compiles the stub half of rust-accel, macOS the real
+        # CoreGraphics half — the one artifact only a Darwin runner can
+        # type-check, and the reason the macOS leg exists at all. Windows
+        # builds TS-only, which is exactly the shape a Windows user installs.
+        if: runner.os != 'Windows'
         uses: dtolnay/rust-toolchain@stable
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
       - name: Lint
+        # Source-only check with an identical result on every OS — running it
+        # three times was paying three times for one answer.
+        if: runner.os == 'Linux'
         run: pnpm lint
 
       - name: Shellcheck (safari packaging scripts)
@@ -56,6 +82,7 @@ jobs:
         run: shellcheck apps/safari-extension/scripts/*.sh
 
       - name: Typecheck
+        if: runner.os == 'Linux'
         run: pnpm typecheck
 
       - name: Build (TS workspace + optional native)
@@ -65,6 +92,9 @@ jobs:
         run: pnpm test
 
       - name: Test (TS fallback path)
+        # Only meaningful where a native module actually exists to disable;
+        # Windows has no Rust toolchain here, so its default run IS this run.
+        if: runner.os == 'Linux'
         env:
           MCP_DISABLE_NATIVE: "1"
         run: pnpm test:no-native
@@ -77,6 +107,7 @@ jobs:
         # Set via `env:` rather than a `COVERAGE=1 pnpm test` prefix — that
         # prefix is POSIX-only and is a syntax error under cmd.exe on the
         # windows-latest leg.
+        if: runner.os == 'Linux'
         env:
           COVERAGE: "1"
         run: pnpm test
@@ -92,7 +123,7 @@ jobs:
       # (completions/, man/) are POSIX shell + manpages — regenerating them on
       # Windows would prove nothing.
       - name: Install usage(1) via mise
-        if: runner.os != 'Windows'
+        if: runner.os == 'Linux'
         # The freshness gate (next step) shells out to usage(1) to
         # regenerate completions + manpage + docs; mise pulls a pinned
         # binary so the check is reproducible across runners.
@@ -103,10 +134,11 @@ jobs:
         # since the last regen. Fix locally: `pnpm artifacts && git add
         # completions/ man/ docs/cli/`. Bypass: edit .usage.kdl + this
         # check together in the same PR.
-        if: runner.os != 'Windows'
+        if: runner.os == 'Linux'
         run: pnpm --filter "@george43g/*-mcp" check:usage
 
       - name: Verify npm tarball is publishable
+        if: runner.os == 'Linux'
         run: pnpm --filter "@george43g/*-mcp" exec npm pack --dry-run
 
       - name: Stress harness (10 cases · daemon + dispatch lifecycle)
