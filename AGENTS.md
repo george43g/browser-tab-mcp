@@ -223,13 +223,13 @@ Also in-memory ring buffer (last 500 lines). In dev mode (`MCP_DEV=1`), a `get_l
 4. unknown tool name is rejected
 5. malformed schema input returns a usable error
 6. `MCP_TOOL_TIMEOUT_FORCE_MS=1` triggers a clean timeout
-7. SIGTERM produces exit code 0 (handler intercepted)
+7. graceful shutdown exits 0 — SIGTERM on POSIX; stdin EOF on win32 (no catchable SIGTERM there)
 8. `MCP_MAX_RSS_MB=50` triggers a watchdog kill
 9. `list_tabs` with `BROWSER_TAB_FAKE_ADAPTER=1` returns a valid snapshot
 10. `journal` with `BROWSER_TAB_FAKE_ADAPTER=1` returns a valid empty result
 11. write-side tools under `BROWSER_TAB_FAKE_ADAPTER=1`: `tab_action navigate` / `open_window` / `close_window` return ok; `focus_tab` raises when `raiseWindow` is omitted (the Zod default surviving dispatch) and doesn't when it's `false`; `group_tabs` + an extension-only `tab_action` error cleanly
 12. content + screenshot + history tools under `BROWSER_TAB_FAKE_ADAPTER=1`: `get_page` / `annotate` / `screenshot` error cleanly (all daemon/extension-only), `screenshot` with neither/both ids is schema-rejected, and `history` returns a valid empty result (daemon-only read, degrades like `journal`) + rejects an out-of-range `maxResults`
-13. daemon lifecycle: socket serves 20 parallel getSnapshot; SIGTERM exits 0 and unlinks the socket
+13. daemon lifecycle: IPC answers (probed by connecting — a named pipe has no fs entry) and serves 20 parallel getSnapshot; POSIX adds SIGTERM-exits-0 + socket-unlink, win32 asserts prompt termination
 14. the two refusals that are security boundaries, over the real transport: `open_tab`/`open_window`/`tab_action navigate` reject `javascript:`/`file:`/`data:` and still accept `https:`; `get_logs` answers "Unknown tool name" without `MCP_DEV`
 
 Add a case whenever you ship something touching lifecycle, dispatch, error handling, or transport.

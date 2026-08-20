@@ -66,7 +66,12 @@ class McpClient {
   private child: ChildProcessWithoutNullStreams;
   private buffer = "";
   private nextId = 1;
-  private pending = new Map<number, (msg: RpcResponse) => void>();
+  private pending = new Map<
+    number,
+    { resolve: (msg: RpcResponse) => void; reject: (err: Error) => void }
+  >();
+  private exitReason: string | null = null;
+  private exitInfo: { code: number | null; signal: string | null } | null = null;
   public stderr = "";
 
   constructor(env: Record<string, string> = {}) {
@@ -77,6 +82,23 @@ class McpClient {
     this.child.stdout.on("data", (chunk: Buffer) => this.onStdout(chunk));
     this.child.stderr.on("data", (chunk: Buffer) => {
       this.stderr += chunk.toString("utf8");
+    });
+    // A write racing the child's death must not crash the harness with an
+    // unhandled stream error — the exit handler below reports the death.
+    this.child.stdin.on("error", () => {});
+    // A server that dies before answering must REJECT its callers, loudly and
+    // immediately. Without this, a pending request's only escape was its
+    // unref'd timeout timer — which does not keep the event loop alive, so a
+    // child that exited cleanly at import time (the Windows backslash bug in
+    // index.ts's entry guard) drained the loop and the whole harness exited 0
+    // after printing nothing but its header: a PHANTOM PASS, on CI included.
+    this.child.once("exit", (code, signal) => {
+      this.exitInfo = { code, signal };
+      this.exitReason = `server exited (code ${code}, signal ${signal}) before responding${
+        this.stderr ? ` — stderr: ${this.stderr.slice(0, 300)}` : ""
+      }`;
+      for (const [, entry] of this.pending) entry.reject(new Error(this.exitReason));
+      this.pending.clear();
     });
   }
 
@@ -94,10 +116,10 @@ class McpClient {
         continue;
       }
       if (typeof parsed.id === "number") {
-        const cb = this.pending.get(parsed.id);
-        if (cb) {
+        const entry = this.pending.get(parsed.id);
+        if (entry) {
           this.pending.delete(parsed.id);
-          cb(parsed);
+          entry.resolve(parsed);
         }
       }
     }
@@ -114,14 +136,24 @@ class McpClient {
   request(method: string, params?: unknown, timeoutMs = 8_000): Promise<RpcResponse> {
     const id = this.nextId++;
     return new Promise((resolveResp, reject) => {
+      if (this.exitReason) {
+        reject(new Error(`request ${method} refused: ${this.exitReason}`));
+        return;
+      }
       const timer = setTimeout(() => {
         this.pending.delete(id);
         reject(new Error(`request ${method} timed out after ${timeoutMs}ms`));
       }, timeoutMs);
       timer.unref();
-      this.pending.set(id, (msg) => {
-        clearTimeout(timer);
-        resolveResp(msg);
+      this.pending.set(id, {
+        resolve: (msg) => {
+          clearTimeout(timer);
+          resolveResp(msg);
+        },
+        reject: (err) => {
+          clearTimeout(timer);
+          reject(err);
+        },
       });
       this.send({ jsonrpc: "2.0", id, method, params });
     });
@@ -141,6 +173,10 @@ class McpClient {
   }
 
   async waitExit(timeoutMs = 5_000): Promise<{ code: number | null; signal: string | null }> {
+    // An already-dead child never fires "exit" again, and the timeout timer
+    // below is unref'd — so without this, waiting on a child that died before
+    // the wait began drained the event loop instead of resolving.
+    if (this.exitInfo) return this.exitInfo;
     return new Promise((resolveExit) => {
       const timer = setTimeout(() => {
         this.child.kill("SIGKILL");
@@ -156,6 +192,10 @@ class McpClient {
 
   kill(signal: NodeJS.Signals = "SIGTERM"): void {
     this.child.kill(signal);
+  }
+
+  endStdin(): void {
+    this.child.stdin.end();
   }
 }
 
@@ -272,13 +312,29 @@ async function caseSigTermClean(): Promise<void> {
   const c = new McpClient();
   try {
     await c.initialize();
-    c.kill("SIGTERM");
-    const exit = await c.waitExit(3_000);
-    record(
-      "SIGTERM produces clean exit code 0",
-      exit.code === 0 && exit.signal === null,
-      `code=${exit.code} signal=${exit.signal}`,
-    );
+    if (process.platform === "win32") {
+      // Windows cannot deliver a catchable SIGTERM: child.kill() is
+      // TerminateProcess, so the shutdown handler never runs and the exit is
+      // (code null, signal SIGTERM) BY DESIGN of the platform, not a bug.
+      // The graceful trigger the shutdown registry actually receives on
+      // Windows is stdin EOF ("MCP host died") — so that is what this case
+      // must exercise there. First real Windows run (2026-08-21) caught this.
+      c.endStdin();
+      const exit = await c.waitExit(3_000);
+      record(
+        "graceful shutdown exits 0 (win32: stdin EOF)",
+        exit.code === 0 && exit.signal === null,
+        `code=${exit.code} signal=${exit.signal}`,
+      );
+    } else {
+      c.kill("SIGTERM");
+      const exit = await c.waitExit(3_000);
+      record(
+        "SIGTERM produces clean exit code 0",
+        exit.code === 0 && exit.signal === null,
+        `code=${exit.code} signal=${exit.signal}`,
+      );
+    }
   } finally {
     c.kill("SIGKILL");
   }
@@ -547,8 +603,13 @@ async function caseRefusalsFakeAdapter(): Promise<void> {
 }
 
 async function caseDaemonLifecycle(): Promise<void> {
+  const isWin = process.platform === "win32";
   const tmp = mkdtempSync(join(tmpdir(), "browser-tab-stress-"));
-  const sock = join(tmp, "daemon.sock");
+  // Windows IPC is a NAMED PIPE (daemon/paths.ts isPipe()) — it has no
+  // ordinary filesystem entry, so a unix-style tmp path never "appears" and
+  // the old existsSync probe waited its full deadline and failed. First real
+  // Windows run (2026-08-21) caught this.
+  const sock = isWin ? `\\\\.\\pipe\\browser-tab-stress-${process.pid}` : join(tmp, "daemon.sock");
   const proc = spawn(NODE, [...TSX_ARGS, resolve(ROOT, "src/cli.ts"), "daemon", "run"], {
     env: {
       ...process.env,
@@ -561,13 +622,21 @@ async function caseDaemonLifecycle(): Promise<void> {
     stdio: ["pipe", "pipe", "pipe"],
   });
   try {
-    // Wait for the socket to appear.
+    // Probe by CONNECTING, not by existsSync: a named pipe never has a file
+    // entry, and even on POSIX "the socket file exists" is not "the daemon
+    // accepts". One successful getSnapshot is the honest readiness signal.
+    let answered = false;
     const deadline = Date.now() + 10_000;
-    while (!existsSync(sock) && Date.now() < deadline) {
-      await new Promise((r) => setTimeout(r, 100));
+    while (!answered && Date.now() < deadline) {
+      try {
+        const probe = (await ipcRequest(sock, "getSnapshot", 1_000)) as { ok?: boolean };
+        answered = probe.ok === true;
+      } catch {
+        await new Promise((r) => setTimeout(r, 100));
+      }
     }
-    record("daemon socket appears", existsSync(sock));
-    if (!existsSync(sock)) return;
+    record("daemon IPC answers", answered);
+    if (!answered) return;
 
     const results = await Promise.all(
       Array.from({ length: 20 }, () => ipcRequest(sock, "getSnapshot")),
@@ -596,8 +665,19 @@ async function caseDaemonLifecycle(): Promise<void> {
         });
       },
     );
-    record("daemon SIGTERM exits 0", exit.code === 0, `code=${exit.code} signal=${exit.signal}`);
-    record("daemon socket unlinked on shutdown", !existsSync(sock));
+    if (isWin) {
+      // TerminateProcess semantics: the daemon cannot intercept this kill, so
+      // "exited at all, promptly" is the testable contract here — and a pipe
+      // leaves no filesystem entry, so there is nothing to check for unlink.
+      record(
+        "daemon terminates on kill (win32: no catchable SIGTERM)",
+        exit.signal !== "TIMEOUT",
+        `code=${exit.code} signal=${exit.signal}`,
+      );
+    } else {
+      record("daemon SIGTERM exits 0", exit.code === 0, `code=${exit.code} signal=${exit.signal}`);
+      record("daemon socket unlinked on shutdown", !existsSync(sock));
+    }
   } finally {
     proc.kill("SIGKILL");
     rmSync(tmp, { recursive: true, force: true });
@@ -605,6 +685,16 @@ async function caseDaemonLifecycle(): Promise<void> {
 }
 
 async function main(): Promise<void> {
+  // FAILSAFE: only the summary path at the bottom may produce exit 0/1. If
+  // every pending promise is orphaned and the event loop drains mid-run (the
+  // phantom-pass this harness shipped with), node honours this exitCode — so
+  // a run that never reaches its own verdict can no longer read as success.
+  process.exitCode = 70;
+  process.on("beforeExit", () => {
+    console.error(
+      "stress harness: event loop drained before the summary — a case orphaned its promises; failing (exit 70)",
+    );
+  });
   console.log(`stress harness · entry ${ENTRY}`);
   await caseHandshake();
   await caseHealthCheckCanary();
