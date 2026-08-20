@@ -1453,3 +1453,71 @@ on a pooled-connection ECONNRESET (undici keep-alive vs server close).
 **Windows target next.** George has a real Windows PC for daemon stress
 testing — the named-pipe/Task-Scheduler path from #64 has never met real
 hardware. Coordinate with him for access when scheduled.
+
+---
+
+## 2026-08-21 (late) — Windows-PC deployment: two real-hardware catches, both suites green, daemon live on the pipe (session 5a15fe80)
+
+**State at close:** the real Windows box (g-home-server, WSL→interop PowerShell,
+repo at `C:\Users\georg\repos\browser-tab-mcp`, local branch `win-test` =
+main + PRs #75/#76/#78) is fully green: `pnpm stress` **33 passed / 0 failed**
+(03:39:24→03:39:38), `pnpm stress:tui` **pass** (27 samples, RSS 337.5MB, lag
+231ms, 03:40:13→03:40:44), daemon running console-scoped on
+`\\.\pipe\browser-tab-georg` (build `1.3.1+79.f077e29`), `doctor` all clear in
+extension-only mode. NO Task Scheduler registration — George ruled console-only
+after the box's other agent raised his standing headless goal. Remaining
+user-hands steps: point Windows Chrome's unpacked extension at
+`apps\chrome-extension\dist`, reload, paste the daemon token (printed in the
+tmux `bt-windows:win-ssh` pane) into the options page.
+
+**Catch 1 — rust-accel's build was unguarded (PR #76).** Root `pnpm build`
+hard-failed on the rustless box (`cargo metadata failed to run`): turbo runs
+`rust-accel#build` = raw `napi build` and the app-level optional wrapper never
+gets a say. Invisible in CI because EVERY GitHub runner image — linux, macos,
+windows — preinstalls Rust. Guard: `scripts/build-rust-optional.mjs` (skip
+without rustc, propagate real compile failures), pinned by PATH-manufactured
+tests, verified on the box: hard-fail → logged skip + 7/7 tasks.
+
+**Catch 2 — the Windows stress green was a PHANTOM (PR #78).** `pnpm stress`
+"passed" in 1.4s: header, zero cases, no summary, no report. Two bugs
+multiplied: `src/index.ts`'s direct-invocation guard had cli.ts's #64
+backslash bug (second home — the server exits 0 as "library" when invoked
+directly on Windows), and the harness converted child-death into exit 0 (the
+pending request's only escape was an UNREF'D timer, so the event loop drained
+mid-await). windows-latest CI stress has plausibly never executed a case.
+Fixes: normalized guard (`isDirectInvocation`, tested), child-exit rejects all
+pending with code+stderr, `waitExit` handles already-dead children, and
+`process.exitCode = 70` preset + `beforeExit` diagnostic so NO orphaned-promise
+bug can ever read as success again. Sabotage-verified on macOS (guard forced
+false → exit 2 with named cause), 34/34 locally. First real Windows run then
+failed 2/31 — both POSIX assumptions in the CASES (no catchable SIGTERM on
+win32 → test stdin-EOF graceful path there; named pipe has no fs entry →
+probe readiness by CONNECTING, which is honest on POSIX too).
+
+**The generalisable trap (from the box's own agent, kept):** "the harness is
+more provisioned than the target" — a CI image's preinstalled toolchain makes
+an unguarded step look conditional-free, and the guard is dead code until a
+real machine runs it. Now in AGENTS.md §Native.
+
+**TUI feature drive (same session, George's "test every feature"):** every
+documented key exercised live against the real daemon. Found `m` (move mode)
+UNREACHABLE since #45 — the guard consulted a memo that returned `[]` outside
+move mode, so it refused unconditionally; no test had ever pressed the key.
+Fixed + ink-stdin-driven regression tests (PR #77); verified live: cross-window
+move with 🔇 mute preserved. The cg oscillation and TUI polish items went to
+BACKLOG.
+
+**Peer coordination on the box:** two live agents (`elevated`, `pc-server`)
+were briefed before any machine-state change and answered structurally. Their
+WSL→Windows interop relays died during the session — twice-confirmed NOT
+caused by us (working sockets predate our login; relays die progressively,
+mechanism undiagnosed; fix = repoint WSL_INTEROP at a live socket AFTER
+checking its token elevation). WHEA count 5 → 5 across all runs per
+elevated's 466-sample governor timeline (caveat: their window closed 03:35:46,
+before brackets 4–6; behaviourally identical churn was sampled). Stress
+brackets delivered to them for the bookkeeping record.
+
+**Open PRs at close (ALL awaiting George's per-PR say-so):** #74 (precompact
+checkpoint, docs), #75 (stress-tui tsx spawn — CI green), #76 (native guard),
+#77 (TUI move), #78 (phantom pass + platform-honest cases). Note #76/#78 both
+touch what `win-test` on the box already runs.

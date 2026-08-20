@@ -591,3 +591,62 @@ Standing guidance: the soak's designed configuration (default scale) is the
 contract and passes end-to-end. Scaled-up runs need `STRESS_DURATION_S` raised
 AND the two artifacts above understood before a red run is believed. Repro
 harness: see PROGRESS-LOG 2026-08-21.
+
+## 2026-08-21 (late) — from the TUI feature drive + Windows deployment (session 5a15fe80)
+
+### OPEN BUG — cgWindowId oscillates on extension-fed Chrome windows
+
+Reproduced live during the key-by-key TUI drive (real daemon, v1.3.1+73):
+at TUI launch both Chrome windows showed `cg=279` / `cg=118154`; after two
+`window open` calls + `r` refresh, EVERY window read `cg:none` (Safari too);
+minutes later Safari re-resolved (`cg=392`) and later still Chrome window 1
+was back to `cg=279` — with no correlation-related code changing underneath.
+So the wm-stack join is LOST on refresh/window-churn and REPAIRED by later
+polls. This matches the pre-compaction systematic-debugging investigation
+("Chrome windows report cgWindowId: null while Safari resolves; tier native")
+that was never closed. Working hypothesis, unverified: the event-driven merge
+path runs `correlateSnapshot` before the yabai title borrow
+(`needsTitleTiebreak` gating), so churn windows resolve nothing and drop
+sibling claims; the next full poll repairs. Next session: instrument
+`correlate.ts` inputs on the event path vs the poll path. Consumer impact:
+any wm-stack read taken in the wrong window sees `null` joins exactly when
+windows are being rearranged — the tool's core use case.
+
+### TUI polish (small, found by the drive)
+
+- Stale status message re-surfaces when a mode exits: enter confirm-close
+  while "no other window…" is showing, cancel, and the old message is back.
+  Clear `message` on every setMode transition.
+- `^d`/`^u` don't retire the status message — `onMove`/`onTop`/`onBottom`
+  clear it, the half-page handlers don't, despite the comment claiming "any
+  motion retires".
+
+### BLOCKED on tui-kit — tab list detail pane + screenshot preview
+
+Per George's no-duplication ruling (routed via the mcp-cli-toolkit session,
+2026-08-21): the shared multi-column/tree navigator lands in
+`@george43g/tui-kit` FIRST; browser-tab then builds on it. Queued here, do
+NOT hand-roll: (1) scroll/position indicator on the tab list; (2) sticky
+right-hand detail column for the selected tab; (3) inline screenshot preview
+in that column (kitty/iTerm2/ghostty graphics, degrade elsewhere) — capture
+already ships as navEpoch-cached JPEGs (`daemon/shots.ts`), so this is
+rendering-only; (4) mouse-scroll zoom bounded by the column. Requirements
+input sent to the toolkit session (position: small core — selection reducer,
+windowing, scrollbar, width-budgeted rows, fully-controlled keys; Miller
+columns argued against for this consumer).
+
+### Windows follow-ups
+
+- Extension on the box: user steps only (load `apps\chrome-extension\dist`
+  unpacked, paste `daemon token` output into options, reload) — then
+  read/write goes live end-to-end on Windows.
+- ONLOGON install: deliberately NOT done (headless-goal conflict raised by
+  the box's `elevated` agent; George chose console-scoped `daemon run`).
+  Revisit only when George resolves the headless question for that machine.
+- After #78 merges: watch the FIRST honest windows-latest stress run — it has
+  plausibly never executed a case, so new Windows-only reds are possible and
+  expected to be case-assumption bugs first.
+- WSL interop relays on the box die progressively (mechanism undiagnosed,
+  worked-around twice by the resident agents). If a future session's
+  interop PowerShell goes dead mid-run: not our load; repoint WSL_INTEROP at
+  a live socket after checking its token elevation.
