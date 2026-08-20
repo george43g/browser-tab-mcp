@@ -1453,3 +1453,107 @@ on a pooled-connection ECONNRESET (undici keep-alive vs server close).
 **Windows target next.** George has a real Windows PC for daemon stress
 testing — the named-pipe/Task-Scheduler path from #64 has never met real
 hardware. Coordinate with him for access when scheduled.
+
+## 2026-08-21 — precompact checkpoint (agent session 5a15fe80)
+
+Where this entry and any conversation summary disagree, this entry is correct.
+
+## State
+
+v1.3.1 released and deployed on all three surfaces (`1.3.1+71.7b72707`,
+doctor all clear); zero open PRs; `main` green at `5dec777`.
+
+## Constraints
+
+Verbatim from George, this session, still standing:
+
+- Cross-repo scope: "you only touch your own repo - for the other repos,
+  message their agents with a full writeup brief of what happened and what
+  the solution we're building is" (2026-08-19).
+- CI shape: "PR 1 stops the macOS CI job, PR2 finds a way to run it locally,
+  and we'll decide if we send the jobs to a self hosted runner in future"
+  (2026-08-20) — later refined: "IF the macos are free just make the CI
+  efficient please" → the public-conditional policy now in ci.yml + AGENTS.md.
+- Windows: "we have a real windows PC that I'll want you to stress test it on
+  next" (2026-08-21).
+
+## Done
+
+- Dogfood five fixed, merged, released, deployed — #71 → v1.3.1 (`7b72707`);
+  live driver 44/44 PASS; details in the 2026-08-21 session-log entry above.
+- CI cost incident closed: #69 (efficient matrix), account brief sent to both
+  repo agents, both replied (A)-delete with evidence; mcp-cli-toolkit
+  green-lit, up-bank shipped their #22.
+- Session log #73 (`5dec777`), backlog closed out on #71's branch.
+
+## Open
+
+- **Windows-PC daemon stress test** — never attempted; needs machine access
+  from George.
+- **up-bank-mcp PR #22 signing** — their agent reported commits unsigned,
+  1Password needs George present (their message, 2026-08-20).
+- **GitHub ~$70 balance** — the $4 payment cleared the flag, not the debt;
+  Actions works today, expected to re-block on next authorization attempt.
+- **Two soaks never run** (Safari 30-min idle, Chrome SW-kill) and
+  **SurfingKeys mechanism B** (one console check, DECISIONS.md) — unchanged
+  from the 2026-08-18 checkpoint.
+- **`stress-tui.ts` spawns the tsx bin shim and signals it**
+  (`stress-tui.ts:29` + `:83`) — the 30ms-ack SIGKILL trap above. Fix: spawn
+  `process.execPath` with `--import tsx` like `stress-mcp.ts` does. Small,
+  not attempted this session (found at the compaction boundary).
+- **tmux session `bt-stress` deliberately left running** (tui/driver/soak)
+  for George to inspect; safe to kill anytime — nothing depends on it.
+
+## Corrections
+
+- **The soak's 143 mechanism is now KNOWN, and my earlier note is wrong.**
+  BACKLOG 2026-08-21 artifact #1 says the 143 is "the driver's SIGTERM losing
+  a race with the shutdown trap". The real mechanism (verified by the
+  mcp-cli-toolkit agent from tsx 4.23.1's shipped source, and confirmed
+  present here): `stress-tui.ts:29` spawns `node_modules/.bin/tsx`, whose CLI
+  runs the workload as a GRANDCHILD and relays signals with a **30ms IPC ack
+  window** — an event-loop-busy child misses the window and is SIGKILLed
+  untrappably (`relaySignalToChild` in tsx's cli.mjs). Default-scale loops
+  are idle enough to ack; 3×120 is not. Fix shape already exists IN-REPO:
+  `scripts/stress-mcp.ts` spawns `process.execPath` with `--import tsx`
+  (the #64 fix) — `stress-tui.ts` needs the same. Recorded as Open below.
+- BACKLOG 2026-08-21 says "Repro harness: see PROGRESS-LOG 2026-08-21" for
+  the soak-artifact investigation — the harness scripts themselves were
+  throwaway and are gone; the method (replay the workload's geometry cycle +
+  key sequence at 3×120 via ink-testing-library, count frame lines) is
+  reconstructible from `scripts/stress-tui-workload.tsx`, which is what the
+  reference should be read as.
+- The 2026-08-18 checkpoint's "live deploy drift" item is CLOSED — deploy is
+  current as of today (doctor all clear, stamps above).
+
+## Traps
+
+- A string-match sabotage must anchor on something unique: three identical
+  `void this.sendSnapshot();` lines existed and the sabotage hit the wrong one.
+- Rebuild built packages between sabotage and run — the trap was already
+  documented and still bit; the tell was source-mapped stack lines showing
+  the "removed" code executing.
+- `tmux send-keys` can drop leading characters of a long line (`BROWSER_` →
+  `SER_`); use short exported lines and unique completion markers, and grep
+  for `^MARKER=[0-9]` so scrollback from prior runs can't answer for the new one.
+- `cmd | tail; echo $?` reports tail's exit, not cmd's.
+
+## Tree
+
+`browser-tab-mcp`, branch `docs/precompact-2026-08-21` (this commit only),
+`main` = `5dec777` = origin/main, working tree otherwise clean, all of it mine.
+Scratchpad artifacts (driver script, repro dumps) are session-local and gone
+after compaction.
+
+## Blocked on you
+
+- Windows PC access + how to reach it (the declared next task).
+- up-bank #22 signing at the 1Password agent.
+- The $70 GitHub balance / whether to set the Actions spending limit to $0.
+
+## Resume
+
+Nothing mid-flight: no staged work, no running background task that matters
+(bt-stress tmux is display-only). Next action is the Windows-PC stress test,
+which starts with George providing access; until then there is nothing to do
+in this repo but respond to CI/peer messages.
