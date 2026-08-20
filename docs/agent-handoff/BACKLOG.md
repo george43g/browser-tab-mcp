@@ -565,3 +565,29 @@ userinfo in snapshots by default, env-escape if someone truly needs it.
 (move+group cross-window in one call), state preservation (discarded tabs
 stayed discarded through every move), cg-id stability across the whole
 reshuffle, `group_tabs update` rename/recolour, and parallel batched ops.
+
+
+## 2026-08-21 — TUI soak at 3×120 scale: overflow verdicts are a measurement artifact (probably)
+
+`stress:tui` at `BROWSER_TAB_FAKE_SCALE=3 BROWSER_TAB_FAKE_TABS=120` goes red
+two ways; neither is a product bug so far as could be established, and neither
+reproduces in isolation:
+
+1. **`workload exited 143`** — phase B renders until a deadline BEYOND the
+   driver's SIGTERM, so the kill always lands mid-work; at default scale the
+   robustness shutdown trap converts it to exit 0, at heavy scale (p99 lag
+   >500ms) the signal handling loses the race and the raw 143 surfaces. A
+   budget verdict conflated with a hang verdict.
+2. **Frame-height "violations" whose line counts fit NO geometry** (105 and
+   120 lines against a 60-row max). The same scale, geometry cycle, key
+   sequence and fold pattern was replayed in a controlled repro: **0 of 418
+   frames overflowed**, including 400 consecutive cycles. Steady-state frames
+   at 120 tabs/window are exactly clamped (verified 30/30 lines at 100x30).
+   Best hypothesis: ink-testing-library coalesces two erase/redraw writes into
+   one captured "frame" when the event loop is saturated for minutes — a
+   capture artifact, not an overprint a real terminal would show. NOT PROVEN.
+
+Standing guidance: the soak's designed configuration (default scale) is the
+contract and passes end-to-end. Scaled-up runs need `STRESS_DURATION_S` raised
+AND the two artifacts above understood before a red run is believed. Repro
+harness: see PROGRESS-LOG 2026-08-21.
