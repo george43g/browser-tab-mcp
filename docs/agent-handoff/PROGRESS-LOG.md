@@ -1521,3 +1521,12 @@ brackets delivered to them for the bookkeeping record.
 checkpoint, docs), #75 (stress-tui tsx spawn — CI green), #76 (native guard),
 #77 (TUI move), #78 (phantom pass + platform-honest cases). Note #76/#78 both
 touch what `win-test` on the box already runs.
+
+**Multi-agent lesson (elevated's closing observation, kept because it held
+three times tonight):** every wrong story this evening — the interop
+correlation, the token-handle "LUID", the sampling-window overclaim — was
+caught by the agent whose DATA it touched, never by the agent who made it
+re-examining their own reasoning. The routine that worked: report the raw
+disagreement early and plainly, even into a domain the other side knows
+better. When coordinating with resident agents on a shared machine, state
+what your evidence shows and let them reconcile it with theirs.
