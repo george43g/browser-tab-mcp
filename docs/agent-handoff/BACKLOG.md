@@ -664,3 +664,162 @@ across machines and paths. Small deliberate PR — the manifest is
 release-please-rewritten and Biome-excluded, and a `key` also fixes the
 Chrome Web Store id story if the connector is ever published. Until then:
 always refresh the EXISTING directory in place, never repoint.
+
+## 2026-08-21 — BRIEF for the next work cycle (written pre-compaction, full context; session 5a15fe80)
+
+Purpose, per George's instruction verbatim: "not a detailed implementation
+plan, but ... a brief that includes everything, all your ideas and motives and
+reasons and gotchas that you'd take into account when writing a plan, so the
+fresh agent can benefit from all the context you have at the moment, and the
+plan can benefit from the higher quality work of a focused fresh agent." The
+fresh agent writes the plan; this section is what I know that it won't.
+
+### 1. SurfingKeys mechanism A — serve the config from the daemon
+
+**Motive:** `~/dotfiles/surfingkeys/config.js` is a DEAD COPY drifting from
+the snippets string actually running in SK (verified; § SurfingKeys above).
+Serving it makes dotfiles the live source of truth with zero-restart reload
+(SK re-fetches on every content-script init).
+
+**Design reasoning already settled** (DECISIONS 2026-08-18): one
+`text/javascript` route on the #67 HTTP interface; parse-as-JS before serving
+(SK's error path covers fetch failure, NOT syntax errors — a bad write
+silently kills every mapping); `sk_config get|set|edit` tools; the one manual
+step (set "Load settings from" in SK options once) ships as a doctor
+instruction; doctor also probes the `chrome.userScripts` / Developer-mode
+gate (its silent failure presents as "my mappings vanished").
+
+**Gotcha the plan MUST solve, not in the docs yet:** the HTTP interface is
+token-auth, and SK's `localPath` fetch is a plain GET — SK cannot send an
+Authorization header. The route needs either a capability URL (token as a
+query param, e.g. `/sk/config?key=…` — the URL George pastes into SK options
+IS the secret) or an explicit auth exemption for that one read-only route.
+Capability-URL is my recommendation: same trust model, no interface-wide
+weakening. Also: SK appends `?nonce=<ms>` to http(s) URLs — the route must
+tolerate extra query params.
+
+### 2. SurfingKeys mechanism B — drive SK / SK as the keyboard frontend
+
+**Blocked on the 10-second check** (DECISIONS has the exact console line);
+the result PICKS THE DESIGN (CustomEvent bus direct vs MAIN-world shim +
+postMessage). Do not write code before it.
+
+**George's insight (my reading, UNCONFIRMED — the plan should confirm it
+with him):** the deep win is the reverse direction — SK keybindings
+dispatching browser-tab commands, i.e. SK as the keyboard frontend for tab
+management. Two transports exist once A ships: (a) mapkey handlers `fetch()`
+the daemon's HTTP interface directly from page context — Chrome treats
+`http://127.0.0.1` as potentially-trustworthy, so mixed-content from https
+pages is NOT blocked (verify once, but this is documented Chrome behaviour);
+the managed config region would embed the capability token, which is
+localhost-secret-in-a-dotfile — same exposure class as the token file, but
+now it syncs wherever dotfiles go: flag to George. (b) via our extension's
+CustomEvent listener (mechanism B proper), which keeps the token out of the
+page world entirely — safer, more moving parts. Fire-and-forget semantics
+either way (the bus ignores return values): commands, not queries.
+
+### 3. Edge as a first-class browser
+
+**Motive:** George wants Edge in the mix on the Windows box; interim
+pin-to-chromium works today (documented in the Windows follow-ups above) but
+mislabels. **Surface list for the enum change** (each is small, the list is
+the work): `BrowserName`/`BROWSERS` in shared-types (Zod) + `types.rs` serde
+mirror + drift test; `specFor` needs a bundleId (macOS Edge =
+`com.microsoft.edgemac`; Windows doesn't use it); `detectBrowserName()` gains
+a `edg/` UA check BEFORE the chrome fallback (Edge UA contains both);
+AppleScript adapter map (Edge is Chromium-scriptable on macOS — same adapter
+as chrome/brave, worth enabling while there); capabilities map;
+`BROWSER_TAB_BROWSERS` env parsing + CLI `--browser` choices; options-page
+dropdown; `.usage.kdl` + regenerate completions/man/docs (never hand-edit);
+`.env.example` if any default browser list is spelled there. Contract note:
+adding an enum member is ADDITIVE — v2 stays, no version bump (same rule as
+the enrichment fields).
+
+### 4. cgWindowId oscillation (macOS) — the open product bug
+
+Evidence in the entry above this one. **Hypothesis, unverified:** the
+event-driven merge path (`extFeedTtl`/`onSnapshot` → `merge()` →
+`enrichWithCgWindowIds`) runs correlation without the yabai title borrow
+(`needsTitleTiebreak` gate), so during window churn every same-bounds window
+is ambiguous → ids DROPPED; the next full poll repairs. **Plan shape:**
+instrument `correlateSnapshot` inputs (candidate count, title availability,
+which tier resolved) on BOTH paths for one churn cycle before changing
+anything — measurement over hypothesis is the session's proven lesson. Do
+NOT widen `BOUNDS_TOLERANCE_PX` (documented anti-fix). Consumer impact is
+real: the join nulls out exactly while windows are being rearranged, which
+is the wm-stack's moment of need.
+
+### 5. TUI — polish now, primitives soon
+
+Polish (small, unblocked): clear `message` on every setMode transition
+(stale-message re-surface, found in the drive); half-page motions don't
+retire the message (`onHalfPageDown/Up` lack the clear the comment claims);
+`list --fields summary` CLI header prints "0 tabs" — it counts tab ROWS
+(summary empties them by design) instead of summing `tabCount` (found in the
+Windows round-trip).
+
+Primitives (blocked on tui-kit, agreed 2026-08-21): Miller columns are DEAD
+(argued down jointly with EQStack); the kit ships `fitToWidth` (exact-width
+postcondition `=== n`), `lineWindow`, `scrollbarThumb`, `navReduce`,
+`allocateWidths` with `collapseTo: number | "drop"` — the drop/collapse
+discriminator is CONTEXT collapses, ELABORATION drops (my detail pane
+drops). Keys stay app-side (unanimous). browser-tab is FIRST CONSUMER when
+they land: port renderRow/viewport, add the scrollbar, then the sticky
+detail pane; screenshot-in-terminal stays a research spike behind that.
+
+### 6. Extension identity + pairing
+
+Manifest `key` (§ above): do it as its own small PR; the manifest is
+release-please-rewritten and Biome-excluded, so touch carefully. THEN the
+pairing flow: an options-page "fetch token from local daemon" button hitting
+a localhost route — kills the per-machine paste forever (tonight's Windows
+hookup needed clipboard gymnastics through RustDesk's clipboard sync, which
+OVERRIDES the remote clipboard from the local one — gotcha for anyone
+repeating it). Same capability-URL/auth question as SK mechanism A — solve
+them together with one pattern.
+
+### 7. Windows box — standing state and ops gotchas
+
+State: repo `C:\Users\georg\repos\browser-tab-mcp`, branch `win-test` (reset
+to main + open fixes as needed — REBUILD IT with `git checkout -B win-test
+origin/main` + merge, never merge post-squash main into the old integration
+branch: that conflicts by construction). Daemon console-scoped in tmux
+`bt-windows:win-daemon` (dies with the SSH; ONLOGON deliberately NOT
+registered — George's headless-goal decision pending). Extension loads from
+`D:\browser-tab-mcp\dist` (path IS its identity until the manifest key
+lands; refresh IN PLACE). Unpacked-extension records live in Chrome's
+`Secure Preferences`, NOT `Preferences`. Two resident agents (`elevated`,
+`pc-server`) — brief them before machine-state changes; never
+`wsl --shutdown` unwarned; WSL interop relay sockets die progressively
+(cause unknown) — repoint `WSL_INTEROP` at a live socket AFTER checking its
+token elevation (both directions of the hazard are silent).
+
+### 8. Cross-cutting gotchas any plan should inherit
+
+- "CI cannot falsify an assumption it also satisfies." Three bugs tonight
+  (#76 rustc preinstalled, #78 backslash+phantom, #81 poll-supplied
+  `running`) were all invisible because the CI environment supplied what the
+  target lacks. When a plan claims CI coverage, ask what the runner provides
+  for free.
+- Harnesses must be unable to exit 0 without reaching their own verdict
+  (exitCode preset + child-exit rejection, #78). Audit other harnesses for
+  the unref'd-timer drain shape before trusting their green.
+- Sabotage checks: unique anchors; rebuild built packages between sabotage
+  and run; `git checkout <file>` can't restore an UNTRACKED file and on a
+  branch restores the BRANCH version (wipes uncommitted fixes) — verify
+  file state after every restore.
+- tmux/shell: completion markers match their own command echo (grep `^X=` is
+  not enough on wrapped lines — use unique values, verify in-pane);
+  `cmd | tail; echo $?` reports tail's; zsh globs bare `==`/`:a`; PowerShell
+  `$LASTEXITCODE` only after NATIVE commands.
+- readme-check evaluates the PR title from the FROZEN event payload —
+  retitling needs a new synchronize event (empty commit) to take effect.
+- release-please force-updates the release branch on every main push; merge
+  fix PRs BEFORE the release PR so the release carries them.
+
+### Deferred, standing, unchanged
+Safari 30-min idle soak + Chrome SW-kill soak (need a human-adjacent
+browser); coverage ratchet + npm publish (George-deferred); ~45 stale remote
+branches (offer before deleting); mechanism-B console check (10s, George's
+Mac). Daemon/extension deployment on the MAC is now one release behind
+(v1.3.1 deployed, v1.3.2 cutting) — redeploy is user-gated as always.
