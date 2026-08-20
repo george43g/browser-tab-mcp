@@ -69,10 +69,20 @@ export async function runMcpServer(): Promise<void> {
 
 // Run when invoked directly (stress harness, manual node invocation).
 // The bin (dist/cli.js) goes through cli.ts and never trips this branch.
+//
+// THE SAME WINDOWS BUG cli.ts's isEntryPoint FIXED (#64), in its second home:
+// process.argv[1] uses backslashes on Windows, so an unnormalized
+// endsWith("/src/index.ts") was false there — the module loaded as a library
+// and exited 0 instead of serving. The stress harness's child died cleanly at
+// import time, which its phantom-pass bug (fixed alongside this) then hid.
+export function isDirectInvocation(argv1: string | undefined): boolean {
+  const arg = (argv1 ?? "").replace(/\\/g, "/");
+  return arg.endsWith("/dist/index.js") || arg.endsWith("/src/index.ts");
+}
+
 const isMain = (() => {
   try {
-    const arg = process.argv[1] ?? "";
-    return arg.endsWith("/dist/index.js") || arg.endsWith("/src/index.ts");
+    return isDirectInvocation(process.argv[1]);
   } catch {
     return false;
   }
