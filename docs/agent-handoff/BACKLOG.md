@@ -516,7 +516,17 @@ A full live cleanup (5→2 windows, 103→96 tabs, 11 groups created, 7 dupes
 closed, ~43 tool calls) using ONLY this tool. Everything below was hit in
 anger, not constructed.
 
-**Bugs, in severity order:**
+**ALL FIXED 2026-08-21 (PR #71 — fix(tabs): the dogfood five).** Every bug and
+friction item below shipped in one sweep: own-window grouping, per-id
+validation with `payload.skippedTabIds` (as handles) + daemon error
+translation of raw numeric ids, honest `move_tab` final index via a closing
+`tabs.get`, `redactUrlUserinfo` at every mapper (+`BROWSER_TAB_KEEP_URL_USERINFO`
+escape), `fields:"summary"` on MCP+CLI, immediate post-command snapshots (the
+staleness fix), and a Chrome-accurate `close_tab` description. Each guard was
+sabotage-checked — including one decorative first attempt caught by its own
+sabotage failing to fail (see PROGRESS-LOG 2026-08-21).
+
+**Bugs, in severity order (historical record):**
 
 1. **`group_tabs create` groups into the FOCUSED window, not the tabs' own
    window.** Creating groups from window-1 tabs silently relocated ~40 tabs
