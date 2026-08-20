@@ -1405,3 +1405,51 @@ session, and every server under `/tmp/*.sock` — those are life-stack work
 belonging to another agent, one of them mid-flight on an interactive
 password prompt. A tmux prompt showing a dirty branch is a STALE RENDER, not
 live state; the working tree is the authority.
+
+## 2026-08-21 — the dogfood sweep ships as v1.3.1, stress-verified live (agent session 5a15fe80)
+
+**State.** All five dogfood findings fixed, merged (#71), released (v1.3.1),
+and deployed: daemon + Chrome + Safari all report `1.3.1+71.7b72707`,
+`doctor` all clear. Verified three ways: unit/integration guards (each
+sabotage-checked red↔green), the full bar + `verify:macos`, and a live tmux
+driver against real Chrome — 44/44 checks across 11 iterations exercising
+own-window grouping, stale-handle skipping, honest move indices and the
+summary projection against the running daemon.
+
+**The sabotage discipline earned its keep against ME twice in one session:**
+
+1. A "passing" sabotage of the immediate-snapshot guard turned out to be the
+   sabotage script replacing the FIRST of three identical
+   `void this.sendSnapshot();` lines — the debounce wrapper's own body — while
+   the fix survived untouched. A sabotage that edits by string match must
+   anchor on something unique to the site under test.
+2. One layer down, two runs "confirmed" a fix that was not in the build: the
+   integration test loads BUILT extension-core, and I dropped the
+   rebuild-between-sabotage-and-run step mid-iteration — the exact trap
+   already written in AGENTS.md from the bookmarks sweep. Knowing a trap is
+   not the same as being immune to it; the stack trace (source-mapped line
+   numbers pointing at the fixed code) is what finally gave it away.
+
+**Debug method note.** The false-passing guard was resolved by measurement,
+not hypothesis: instrument `buildSnapshot` with `new Error().stack`, and the
+caller chain names the truth. Three rounds of theorising beforehand were
+wasted; the stack was one round.
+
+**Scaled soak red runs are artifacts, with evidence** — see BACKLOG
+2026-08-21. Product frames at 120 tabs/window are exactly clamped (0/418
+overflows in controlled repro; steady-state 30/30 at 100x30). The workload's
+143 is the driver's SIGTERM losing a race with the shutdown trap under load.
+
+**Deploy note.** `stress:tui`'s first tmux run silently lost characters from
+a long `tmux send-keys` line (`BROWSER_…` arrived as `SER_…`), turning an env
+var into a no-op. A tmux-driven run wants short exported lines and a unique
+completion marker (`SOAK90_EXIT=`) — grepping for a generic marker matched
+the previous run's scrollback and reported a stale verdict.
+
+**CI flakes hardened in passing:** the bookmarks socket test got a 15s
+timeout (5038ms on a cold runner), and the http wrong-token test retries once
+on a pooled-connection ECONNRESET (undici keep-alive vs server close).
+
+**Windows target next.** George has a real Windows PC for daemon stress
+testing — the named-pipe/Task-Scheduler path from #64 has never met real
+hardware. Coordinate with him for access when scheduled.
