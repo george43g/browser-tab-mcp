@@ -60,7 +60,13 @@ describe("authentication", () => {
   });
 
   it("refuses a wrong token", async () => {
-    const res = await fetch(`${base()}/health`, { headers: { authorization: "Bearer nope" } });
+    // One retry on a transport-level reset: undici's keep-alive pool can hand
+    // back a connection the server already closed (ECONNRESET on macos-latest,
+    // 2026-08-20 — "fetch failed" with zero HTTP status). A retried request is
+    // a NEW connection; the assertion under test is the 401, not the socket.
+    const res = await fetch(`${base()}/health`, {
+      headers: { authorization: "Bearer nope" },
+    }).catch(() => fetch(`${base()}/health`, { headers: { authorization: "Bearer nope" } }));
     expect(res.status).toBe(401);
   });
 

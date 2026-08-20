@@ -166,6 +166,23 @@ export function installFakeChrome(config: FakeChromeConfig = {}): FakeChrome {
   const windowPatches = new Map<number, Record<string, unknown>>();
 
   /**
+   * Accumulated relocations from `tabs.move` / `windows.create({tabId})`, so
+   * `tabs.get` reads POST-move state the way real Chrome does. Exists because
+   * move_tab now finishes with a final `tabs.get` to report where the tab
+   * actually ended up — a fake whose reads ignored its own writes would fail
+   * exactly the honest implementation.
+   */
+  const tabPatches = new Map<number, Record<string, unknown>>();
+  const tabById = (tabId: number): Record<string, unknown> | undefined => {
+    const seeded = flatTabs().find((t) => (t as { id?: number }).id === tabId);
+    if (!seeded && !tabPatches.has(tabId)) return undefined;
+    return {
+      ...((seeded as object | undefined) ?? { id: tabId }),
+      ...(tabPatches.get(tabId) ?? {}),
+    };
+  };
+
+  /**
    * A window as `windows.get` sees it, lowest precedence first:
    * defaults (with `initialWindowState`) < the seeded window < recorded updates.
    */
@@ -183,6 +200,16 @@ export function installFakeChrome(config: FakeChromeConfig = {}): FakeChrome {
       record("tabs.query", [queryInfo]);
       return Promise.resolve(flatTabs());
     },
+    // Modelled, not stubbed: resolves the SEEDED tab, and rejects with
+    // Chrome's exact wording for an unknown id — the per-id validation in
+    // group commands and the daemon's error translation both key off that
+    // message, so a softer fake would let both rot.
+    get: (tabId: number) => {
+      record("tabs.get", [tabId]);
+      const tab = tabById(tabId);
+      if (!tab) return Promise.reject(new Error(`No tab with id: ${tabId}.`));
+      return Promise.resolve(tab);
+    },
     create: (props: { url?: string; active?: boolean; windowId?: number }) => {
       record("tabs.create", [props]);
       return Promise.resolve({
@@ -193,6 +220,19 @@ export function installFakeChrome(config: FakeChromeConfig = {}): FakeChrome {
     },
     move: (tabId: number, moveProps: { windowId?: number; index?: number }) => {
       record("tabs.move", [tabId, moveProps]);
+      tabPatches.set(tabId, {
+        ...(tabPatches.get(tabId) ?? {}),
+        ...(moveProps.windowId !== undefined ? { windowId: moveProps.windowId } : {}),
+        // -1 means "append; the browser assigns the real index" — model that
+        // by NOT patching, so a follow-up tabs.get returns the seeded index
+        // rather than echoing the sentinel (which is the real-Chrome bug the
+        // final read exists to paper over).
+        ...(moveProps.index !== undefined && moveProps.index !== -1
+          ? { index: moveProps.index }
+          : {}),
+      });
+      // Deliberately echoes the REQUESTED index, sentinel and all — real
+      // Chrome has returned worse (indices past the end of the window).
       return Promise.resolve({ id: tabId, windowId: moveProps.windowId, index: moveProps.index });
     },
     // Resolves the SEEDED tab when there is one, so callers that read
@@ -264,7 +304,16 @@ export function installFakeChrome(config: FakeChromeConfig = {}): FakeChrome {
             ? [createData.url]
             : [];
         const tabs = urls.map((u, i) => ({ id: 8000 + i, url: u, index: i, active: i === 0 }));
-        return Promise.resolve({ id: nextWindowId++, tabs });
+        const id = nextWindowId++;
+        // Adopting a tab relocates it — tabs.get must see the NEW home.
+        if (createData?.tabId !== undefined) {
+          tabPatches.set(createData.tabId, {
+            ...(tabPatches.get(createData.tabId) ?? {}),
+            windowId: id,
+            index: 0,
+          });
+        }
+        return Promise.resolve({ id, tabs });
       },
       // Both `update` and `get` are modelled, not stubbed. `update` merges the
       // requested change into a per-window overlay that `get` reads back, so a

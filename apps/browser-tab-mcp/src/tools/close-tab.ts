@@ -12,7 +12,8 @@ export const closeTabTool: ToolDefinition<typeof CloseTabInputSchema, typeof Com
     name: "close_tab",
     description:
       "Closes the given tab. Destructive — the page (and any unsaved state) is gone. " +
-      "Use tabId handles from list_tabs; re-run list_tabs after closing (indices shift).",
+      "Use tabId handles from list_tabs. Chromium x-handles stay valid after a close; only " +
+      "Safari's index-based handles shift, so re-run list_tabs before further SAFARI calls.",
     input: CloseTabInputSchema,
     output: CommandResultSchema,
     annotations: {

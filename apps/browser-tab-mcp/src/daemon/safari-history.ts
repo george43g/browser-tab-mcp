@@ -21,6 +21,7 @@ import { basename, join } from "node:path";
 import { promisify } from "node:util";
 import { envBool } from "@george43g/robustness";
 import type { HistoryRow } from "@george43g/shared-types";
+import { snapshotUrl } from "../detect/url-hygiene.js";
 
 const execFileP = promisify(execFile);
 
@@ -168,7 +169,7 @@ function parseRows(stdout: string): HistoryRow[] {
   return raw.map((r) => {
     const title = r.title == null ? undefined : String(r.title);
     return {
-      url: String(r.url ?? ""),
+      url: snapshotUrl(String(r.url ?? "")),
       ...(title !== undefined ? { title } : {}),
       visitTime: cocoaToUnixMs(Number(r.visit_time ?? 0)),
       visitCount: Number(r.visit_count ?? 0) || 0,

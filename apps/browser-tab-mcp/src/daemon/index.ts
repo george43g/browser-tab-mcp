@@ -86,6 +86,58 @@ function parseHandle(id: string | undefined): ParsedTabId | ParsedWindowId {
   return parsed;
 }
 
+/**
+ * Numeric ids inside a command payload become handles before leaving the
+ * daemon. The first consumer is group_tabs' `skippedTabIds` (stale tabs the
+ * extension validated out and worked around): a caller holding `t:chrome:x…`
+ * handles cannot act on a bare `523242703`, and handing numerics back would
+ * reintroduce exactly the raw-id confusion the handle scheme exists to end.
+ */
+function mapPayloadHandles(browser: BrowserId, payload: unknown): unknown {
+  if (typeof payload !== "object" || payload === null) return payload;
+  const p = payload as Record<string, unknown>;
+  if (!Array.isArray(p.skippedTabIds)) return payload;
+  return {
+    ...p,
+    skippedTabIds: p.skippedTabIds.map((n) =>
+      typeof n === "number" ? makeExtTabId(browser, n) : n,
+    ),
+  };
+}
+
+/**
+ * `ext.sendCommand`, with Chrome's raw errors translated into this API's own
+ * vocabulary. Chrome says `No tab with id: 523242703` — a bare numeric in a
+ * system whose callers only ever hold `t:<browser>:x…` handles, with no hint
+ * which input it was or what to do. The regex rewrite names the handle and
+ * the recovery. Unrecognized errors pass through untouched.
+ */
+async function sendExtMapped(
+  ext: ExtensionServer,
+  browser: BrowserId,
+  kind: string,
+  args: Record<string, unknown>,
+): Promise<unknown> {
+  try {
+    return await ext.sendCommand(browser, kind, args);
+  } catch (err) {
+    const msg = (err as Error).message ?? String(err);
+    const rewritten = msg.replace(
+      /No (tab|window|group) with id:? (\d+)/g,
+      (_m, what: string, id: string) => {
+        const handle =
+          what === "tab"
+            ? makeExtTabId(browser, Number(id))
+            : what === "window"
+              ? makeExtWindowId(browser, Number(id))
+              : makeExtGroupId(browser, Number(id));
+        return `No ${what} ${handle} (it may have been closed — re-run list_tabs for fresh handles)`;
+      },
+    );
+    throw rewritten === msg ? err : new Error(rewritten);
+  }
+}
+
 /** Map a numeric extension command result into the opaque CommandResult shape. */
 function extResult(browser: BrowserId, command: string, raw: unknown): CommandResult {
   const r = (raw ?? {}) as {
@@ -109,7 +161,7 @@ function extResult(browser: BrowserId, command: string, raw: unknown): CommandRe
     ...(r.windowId !== undefined ? { windowId: makeExtWindowId(browser, r.windowId) } : {}),
     ...(r.groupId !== undefined ? { groupId: makeExtGroupId(browser, r.groupId) } : {}),
     ...(r.index !== undefined ? { index: r.index } : {}),
-    ...(r.payload !== undefined ? { payload: r.payload } : {}),
+    ...(r.payload !== undefined ? { payload: mapPayloadHandles(browser, r.payload) } : {}),
     ...(windowState.success ? { windowState: windowState.data } : {}),
     ...(r.wasMinimized !== undefined ? { wasMinimized: r.wasMinimized } : {}),
     ...(r.windowFocused !== undefined ? { windowFocused: r.windowFocused } : {}),
@@ -374,7 +426,11 @@ export async function executeCommand(
       for (const k of ["title", "color", "collapsed", "index"] as const) {
         if (params[k] !== undefined) args[k] = params[k];
       }
-      result = extResult(browser, "group_tabs", await ext.sendCommand(browser, "group_tabs", args));
+      result = extResult(
+        browser,
+        "group_tabs",
+        await sendExtMapped(ext, browser, "group_tabs", args),
+      );
       break;
     }
     case "open_window": {

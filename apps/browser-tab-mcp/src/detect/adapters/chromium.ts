@@ -28,6 +28,7 @@ import type {
 import { makeChromiumTabId, makeWindowId, parseTabId, parseWindowId } from "../ids.js";
 import { osaQuote, probeProcess, runOsa, runOsaRead } from "../osascript.js";
 import { parseRecordOutput } from "../parse.js";
+import { snapshotUrl } from "../url-hygiene.js";
 import { focusWindowState } from "./focus-state.js";
 import type { AdapterSpec, BrowserAdapter, FocusTabOptions } from "./types.js";
 
@@ -141,7 +142,7 @@ export function makeChromiumAdapter(spec: AdapterSpec): BrowserAdapter {
         tabs: w.tabs.map((t, ti) => ({
           tabId: makeChromiumTabId(spec.browser, t.nativeId),
           index: ti,
-          url: sanitize(t.url) ?? "",
+          url: snapshotUrl(t.url),
           title: sanitize(t.title) ?? "",
           active: ti === activeIdx0,
           pinned: false,

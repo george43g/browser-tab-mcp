@@ -90,11 +90,14 @@ export const ListTabsInputSchema = z.object({
       "Case-insensitive substring match against tab URLs. Windows with no match are dropped.",
     ),
   fields: z
-    .enum(["core", "full"])
+    .enum(["summary", "core", "full"])
     .default("core")
     .describe(
       "Projection. 'core' (default) trims enrichment fields, tab groups and capabilities for " +
-        "token economy; 'full' returns everything. The snapshot file + CLI always emit full.",
+        "token economy; 'full' returns everything; 'summary' returns the SHAPE only — windows " +
+        "(with tabCount + active tab) and tab groups (with tabCount), zero per-tab rows. Start " +
+        "with 'summary' on a big session: 100+ tabs of 'core' can exceed a client's token " +
+        "budget. The snapshot file + CLI always emit full.",
     ),
 });
 export type ListTabsInput = z.infer<typeof ListTabsInputSchema>;

@@ -156,6 +156,39 @@ async function tabActionOutcome(args: CommandArgs): Promise<CommandOutcome> {
   return { tabId, payload: { action } };
 }
 
+/**
+ * Split requested tab ids into live tabs and stale ids.
+ *
+ * Group operations take a LIST, and lists age: in a real cleanup run (103
+ * tabs, 2026-08-20) one already-closed tab out of twelve failed the whole
+ * call with Chrome's raw "No tab with id: …" — eleven perfectly good ids
+ * done in by a twelfth. So every list-taking group action validates per-id
+ * first, acts on what exists, and reports what it skipped. All-stale is
+ * still an error: acting on nothing must not read as success.
+ */
+async function partitionLiveTabs(
+  tabs: Tabs,
+  tabIds: number[],
+): Promise<{ live: chrome.tabs.Tab[]; skippedTabIds: number[] }> {
+  const looked = await Promise.all(
+    tabIds.map(async (id) => {
+      try {
+        return await tabs.get(id);
+      } catch {
+        return null;
+      }
+    }),
+  );
+  const live: chrome.tabs.Tab[] = [];
+  const skippedTabIds: number[] = [];
+  looked.forEach((t, i) => {
+    const id = tabIds[i] as number;
+    if (t) live.push(t);
+    else skippedTabIds.push(id);
+  });
+  return { live, skippedTabIds };
+}
+
 async function groupTabsOutcome(args: CommandArgs): Promise<CommandOutcome> {
   const action = args.action;
   const tabs = api.tabs as Tabs;
@@ -168,21 +201,58 @@ async function groupTabsOutcome(args: CommandArgs): Promise<CommandOutcome> {
   switch (action) {
     case "create": {
       if (!args.tabIds?.length) throw new Error("group create requires tabIds");
-      const groupId = await tabs.group({ tabIds: args.tabIds });
+      const { live, skippedTabIds } = await partitionLiveTabs(tabs, args.tabIds);
+      if (live.length === 0) {
+        throw new Error(
+          `none of the ${args.tabIds.length} tabs exist any more — re-run list_tabs for fresh handles`,
+        );
+      }
+      // createProperties.windowId is NOT optional in spirit: omitting it makes
+      // Chrome create the group in the CURRENT (focused) window and MOVE every
+      // tab there — so grouping window-1 tabs while window 2 was focused
+      // silently relocated ~40 tabs (dogfood run, 2026-08-20). Pinning to the
+      // first live tab's own window makes grouping a grouping.
+      const groupId = await tabs.group({
+        tabIds: live.map((t) => t.id as number),
+        createProperties: { windowId: (live[0] as chrome.tabs.Tab).windowId },
+      });
       const props = groupProps();
       if (Object.keys(props).length > 0) await tabGroups.update(groupId, props);
-      return { groupId, payload: { action } };
+      return {
+        groupId,
+        payload: { action, ...(skippedTabIds.length ? { skippedTabIds } : {}) },
+      };
     }
     case "add": {
       if (typeof args.groupId !== "number") throw new Error("group add requires groupId");
       if (!args.tabIds?.length) throw new Error("group add requires tabIds");
-      const groupId = await tabs.group({ tabIds: args.tabIds, groupId: args.groupId });
-      return { groupId, payload: { action } };
+      const { live, skippedTabIds } = await partitionLiveTabs(tabs, args.tabIds);
+      if (live.length === 0) {
+        throw new Error(
+          `none of the ${args.tabIds.length} tabs exist any more — re-run list_tabs for fresh handles`,
+        );
+      }
+      const groupId = await tabs.group({
+        tabIds: live.map((t) => t.id as number),
+        groupId: args.groupId,
+      });
+      return {
+        groupId,
+        payload: { action, ...(skippedTabIds.length ? { skippedTabIds } : {}) },
+      };
     }
     case "remove": {
       if (!args.tabIds?.length) throw new Error("group remove requires tabIds");
-      await tabs.ungroup(args.tabIds);
-      return { payload: { action } };
+      const { live, skippedTabIds } = await partitionLiveTabs(tabs, args.tabIds);
+      if (live.length === 0) {
+        throw new Error(
+          `none of the ${args.tabIds.length} tabs exist any more — re-run list_tabs for fresh handles`,
+        );
+      }
+      await tabs.ungroup(live.map((t) => t.id as number));
+      return {
+        payload: { action, ...(skippedTabIds.length ? { skippedTabIds } : {}) },
+      };
     }
     case "update": {
       if (typeof args.groupId !== "number") throw new Error("group update requires groupId");
@@ -408,6 +478,20 @@ export async function executeCommand(kind: string, args: CommandArgs): Promise<C
       if (typeof args.targetGroupId === "number") {
         await tabs.group({ tabIds: [tabId], groupId: args.targetGroupId });
         outcome.groupId = args.targetGroupId;
+      }
+      // Report where the tab ACTUALLY ended up, not what the intermediate
+      // calls claimed. `tabs.move` with index -1 has returned indices past the
+      // end of the window (80-85 in a 41-tab window, dogfood 2026-08-20), and
+      // the re-group above can shift the tab again — so any caller doing
+      // follow-up targetIndex math off the echoed value was being misled.
+      // One final read is the honest answer; degrade silently if it fails,
+      // because the move itself already succeeded.
+      try {
+        const settled = await tabs.get(tabId);
+        if (settled?.index !== undefined) outcome.index = settled.index;
+        if (settled?.windowId !== undefined) outcome.windowId = settled.windowId;
+      } catch {
+        // keep the intermediate values — better than failing a completed move
       }
       return outcome;
     }

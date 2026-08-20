@@ -34,6 +34,7 @@ import { type WebSocket, WebSocketServer } from "ws";
 import { conservativeCaps } from "../detect/capabilities.js";
 import { specFor } from "../detect/engine.js";
 import { makeExtGroupId, makeExtTabId, makeExtWindowId } from "../detect/ids.js";
+import { snapshotUrl } from "../detect/url-hygiene.js";
 import { buildStamp } from "../meta.js";
 import { tokenMatches } from "./token.js";
 
@@ -392,7 +393,7 @@ export function extSnapshotToBrowserState(
           return {
             tabId: makeExtTabId(browser, t.id),
             index: t.index,
-            url: sanitize(t.url) ?? "",
+            url: snapshotUrl(t.url),
             title: sanitize(t.title) ?? "",
             active: t.active,
             ...(t.groupId !== undefined && t.groupId >= 0

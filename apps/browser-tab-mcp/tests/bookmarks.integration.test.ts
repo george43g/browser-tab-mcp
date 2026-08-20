@@ -99,7 +99,9 @@ const call = (c: DaemonClient, params: Record<string, unknown>) =>
   c.request<BookmarksOutput>("bookmarks", params);
 
 describe("bookmarks over the real socket", () => {
-  it("searches title and url", async () => {
+  // 15s: this crossed vitest's 5s default at 5038ms on a cold ubuntu runner
+  // (2026-08-20) — socket setup cost, not product latency.
+  it("searches title and url", { timeout: 15_000 }, async () => {
     const c = await connected();
     const out = await call(c, { action: "search", query: "github" });
     expect(out.browser).toBe("chrome");
