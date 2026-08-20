@@ -66,6 +66,23 @@ describe("executeCommand", () => {
     expect(fc.calls["tabs.move"]?.[0]).toEqual([3, { windowId: 42, index: 1 }]);
   });
 
+  it("move_tab reports the tab's ACTUAL final index, not tabs.move's echo", async () => {
+    // The fake's tabs.move echoes the REQUESTED index — including -1 for
+    // "append", which is exactly the misleading value real Chrome has
+    // returned (indices 80-85 in a 41-tab window, dogfood 2026-08-20). The
+    // final tabs.get read is what makes the result honest.
+    fc = installFakeChrome({
+      windows: [{ id: 42, tabs: [{ id: 3, windowId: 42, index: 5 }] }],
+    });
+    const out = await executeCommand("move_tab", {
+      tabId: 3,
+      targetWindowId: 42,
+      targetIndex: -1,
+    });
+    expect(out.index).toBe(5); // from tabs.get, not the echoed -1
+    expect(out.windowId).toBe(42);
+  });
+
   it("move_tab without target or newWindow throws", async () => {
     await expect(executeCommand("move_tab", { tabId: 3 })).rejects.toThrow(
       /targetWindowId or newWindow/,
@@ -143,7 +160,29 @@ describe("tab_action", () => {
 });
 
 describe("group_tabs", () => {
-  it("create groups tabIds and applies title/color", async () => {
+  // Group commands validate per-id against real tabs, so these tests seed
+  // them. Tabs 1/2 live in window 40, tab 3 in window 50 — and window 50 is
+  // listed FIRST so any implementation that grouped into "the current
+  // window" instead of the tabs' own window would be caught by the
+  // windowId assertion below.
+  const seedTwoWindows = () => {
+    fc = installFakeChrome({
+      windows: [
+        { id: 50, focused: true, tabs: [{ id: 3, windowId: 50, index: 0 }] },
+        {
+          id: 40,
+          focused: false,
+          tabs: [
+            { id: 1, windowId: 40, index: 0 },
+            { id: 2, windowId: 40, index: 1 },
+          ],
+        },
+      ],
+    });
+  };
+
+  it("create groups tabIds IN THEIR OWN WINDOW and applies title/color", async () => {
+    seedTwoWindows();
     const out = await executeCommand("group_tabs", {
       action: "create",
       tabIds: [1, 2],
@@ -151,11 +190,37 @@ describe("group_tabs", () => {
       color: "blue",
     });
     expect(out).toEqual({ groupId: 700, payload: { action: "create" } });
-    expect(fc.calls["tabs.group"]?.[0]).toEqual([{ tabIds: [1, 2] }]);
+    // THE dogfood bug: without createProperties.windowId Chrome creates the
+    // group in the FOCUSED window (50 here) and moves the tabs into it — a
+    // grouping op silently became a mass cross-window move of ~40 tabs.
+    expect(fc.calls["tabs.group"]?.[0]).toEqual([
+      { tabIds: [1, 2], createProperties: { windowId: 40 } },
+    ]);
     expect(fc.calls["tabGroups.update"]?.[0]).toEqual([700, { title: "Work", color: "blue" }]);
   });
 
+  it("create skips stale ids, still groups the live ones, and says so", async () => {
+    seedTwoWindows();
+    const out = await executeCommand("group_tabs", {
+      action: "create",
+      tabIds: [1, 999, 2],
+    });
+    expect(out.payload).toEqual({ action: "create", skippedTabIds: [999] });
+    expect(fc.calls["tabs.group"]?.[0]).toEqual([
+      { tabIds: [1, 2], createProperties: { windowId: 40 } },
+    ]);
+  });
+
+  it("create with ONLY stale ids errors instead of succeeding at nothing", async () => {
+    seedTwoWindows();
+    await expect(
+      executeCommand("group_tabs", { action: "create", tabIds: [888, 999] }),
+    ).rejects.toThrow(/none of the 2 tabs exist/);
+    expect(fc.calls["tabs.group"]).toBeUndefined();
+  });
+
   it("add joins an existing group; remove ungroups", async () => {
+    seedTwoWindows();
     expect(await executeCommand("group_tabs", { action: "add", groupId: 77, tabIds: [3] })).toEqual(
       {
         groupId: 77,

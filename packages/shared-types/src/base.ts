@@ -59,3 +59,31 @@ export const CAPABILITY_KEYS = [
   "history",
 ] as const;
 export type CapabilityKey = (typeof CAPABILITY_KEYS)[number];
+
+/**
+ * Strip HTTP basic-auth userinfo (`user:pass@`) out of a URL.
+ *
+ * Tab URLs are recorded into snapshots, journals, history results and logs —
+ * and a URL like `http://admin:secret@192.168.1.1/` carries a live credential
+ * into every one of those places, including an agent's context window (found
+ * in the wild during the 2026-08-20 dogfood run: two router-admin tabs).
+ * Redaction happens AT THE MAPPERS, so the credential never exists in any
+ * stored or transmitted record; this helper is in shared-types because both
+ * the extension bundle and the daemon need the identical behaviour.
+ *
+ * Fast path first: URLs without "@" (approximately all of them) return
+ * unchanged without paying for URL parsing. Unparseable strings also return
+ * unchanged — a snapshot field is not the place to throw.
+ */
+export function redactUrlUserinfo(url: string): string {
+  if (!url.includes("@")) return url;
+  try {
+    const u = new URL(url);
+    if (u.username === "" && u.password === "") return url;
+    u.username = "";
+    u.password = "";
+    return u.toString();
+  } catch {
+    return url;
+  }
+}

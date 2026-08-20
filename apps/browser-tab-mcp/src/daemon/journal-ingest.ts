@@ -9,6 +9,7 @@
 
 import type { BrowserId, BrowserState, ExtEvent, FocusRecord } from "@george43g/shared-types";
 import { makeExtTabId, makeExtWindowId } from "../detect/ids.js";
+import { snapshotUrl } from "../detect/url-hygiene.js";
 import type { JournalStore } from "./journal.js";
 import type { DaemonEvent, StateStore } from "./state.js";
 
@@ -40,14 +41,18 @@ export function ingestExtEvent(
   }
   if (frame.kind === "nav") {
     if (frame.tabId === undefined || frame.url === undefined) return;
+    // Belt for OLD extension bundles: current ones redact userinfo at their
+    // own mapper, but the journal denormalizes URLs into durable ndjson, so
+    // the daemon re-applies hygiene rather than trusting the peer's version.
+    const url = snapshotUrl(frame.url);
     const tabId = makeExtTabId(browser, frame.tabId);
-    const navEpoch = journal.bumpNavEpoch(tabId, frame.url);
+    const navEpoch = journal.bumpNavEpoch(tabId, url);
     const info = lookupTab(store, tabId);
     journal.appendNav({
       ts,
       browser,
       tabId,
-      url: frame.url,
+      url,
       ...(info?.title ? { title: info.title } : {}),
       ...(frame.transition ? { transition: frame.transition } : {}),
       navEpoch,

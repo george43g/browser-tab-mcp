@@ -21,7 +21,7 @@ Filter tabs by URL substring
 
 ### `--fields [set]`
 
-Field set: core (trimmed) or full
+Field set: summary (no tab rows), core (trimmed) or full
 
 **Choices:**
 

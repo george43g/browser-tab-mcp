@@ -166,6 +166,36 @@ describe("DaemonSocket ↔ ExtensionServer", () => {
     }
   });
 
+  it("pushes a FRESH snapshot immediately after a command, not on the debounce", async () => {
+    // The dogfood staleness bug: runCommand used the DEBOUNCED sender, so a
+    // caller that wrote and then immediately read saw pre-write state. The
+    // fix sends the post-command snapshot at once. The 100ms ceiling below is
+    // the guard's teeth: it sits INSIDE the 150ms debounce window, so
+    // reverting to sendSnapshotDebounced() turns this red rather than slow.
+    connect();
+    const client = new DaemonClient();
+    try {
+      await pollChrome(client, (c) => c?.dataSource === "extension");
+      const before = fc?.calls["windows.getAll"]?.length ?? 0;
+      await client.request("command", {
+        kind: "tab_action",
+        tabId: "t:chrome:x4001",
+        action: "mute",
+      });
+      await vi.waitFor(
+        () => {
+          // buildSnapshot enumerates windows — a new getAll call IS the
+          // fresh snapshot being taken. The command round trip is ~2ms here,
+          // so a 100ms ceiling sits far inside the 150ms debounce window.
+          expect(fc?.calls["windows.getAll"]?.length ?? 0).toBeGreaterThan(before);
+        },
+        { timeout: 100, interval: 10 },
+      );
+    } finally {
+      client.close();
+    }
+  });
+
   it("falls back to AppleScript data when the socket stops", async () => {
     const s = connect();
     const client = new DaemonClient();

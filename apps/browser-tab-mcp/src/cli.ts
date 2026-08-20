@@ -366,8 +366,8 @@ export function buildProgram(): Command {
     // A ternary silently mapped every non-"core" value to "full", so
     // `--fields nonsense` looked like it worked. `.choices()` rejects it.
     .addOption(
-      new Option("--fields <set>", "Field set: core (trimmed) or full")
-        .choices(["core", "full"])
+      new Option("--fields <set>", "Field set: summary (no tab rows), core (trimmed) or full")
+        .choices(["summary", "core", "full"])
         .default("full"),
     )
     .action(async (opts: { browser?: string; window?: string; url?: string; fields?: string }) => {
@@ -376,7 +376,8 @@ export function buildProgram(): Command {
         ...str("browser", "--browser", opts.browser),
         ...str("windowId", "--window", opts.window),
         ...str("urlFilter", "--url", opts.url),
-        fields: opts.fields === "core" ? "core" : "full",
+        // .choices() already rejected anything else, so pass it through.
+        fields: opts.fields ?? "full",
       });
       await printResult(result, json, "list_tabs");
     });

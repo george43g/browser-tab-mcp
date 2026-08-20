@@ -44,6 +44,11 @@ export const TabGroupSchema = z.object({
     .string()
     .describe("Chrome tab-group color name (grey|blue|red|yellow|green|pink|purple|cyan|orange)."),
   collapsed: z.boolean().default(false).describe("True when the group is collapsed."),
+  tabCount: z
+    .number()
+    .int()
+    .optional()
+    .describe("Number of tabs in the group (filled by the fields:'summary' projection)."),
 });
 export type TabGroup = z.infer<typeof TabGroupSchema>;
 

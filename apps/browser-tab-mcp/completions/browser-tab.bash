@@ -96,7 +96,7 @@ cmd list help="List open browser windows and tabs (Chrome/Brave/Chromium/Safari)
     flag --url help="Filter tabs by URL substring" {
         arg <substring>
     }
-    flag --fields help="Field set: core (trimmed) or full" {
+    flag --fields help="Field set: summary (no tab rows), core (trimmed) or full" {
         arg "[set]" required=#false default=full {
             choices core full
         }

@@ -1,3 +1,4 @@
+import { redactUrlUserinfo } from "@george43g/shared-types";
 /**
  * Tab/window event wiring — every relevant event funnels into one
  * debounced onChange callback (the socket layer replies with a fresh full
@@ -81,7 +82,7 @@ function wireEventFrames(
     onEvent?.({
       kind: "nav",
       tabId: details.tabId,
-      url: details.url,
+      url: redactUrlUserinfo(details.url),
       ...(details.transitionType ? { transition: details.transitionType } : {}),
     });
   });

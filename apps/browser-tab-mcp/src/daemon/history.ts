@@ -20,6 +20,7 @@
 
 import { sanitize } from "@george43g/mcp-kit";
 import type { BrowserId, HistoryOutput, HistoryRow, HistorySource } from "@george43g/shared-types";
+import { snapshotUrl } from "../detect/url-hygiene.js";
 import { readSafariHistory, safariHistoryEnabled } from "./safari-history.js";
 import type { ExtensionServer } from "./ws-server.js";
 
@@ -128,7 +129,7 @@ function extRows(payload: unknown, browser: BrowserId): HistoryRow[] {
     const row = r as { url?: unknown; title?: unknown; visitTime?: unknown; visitCount?: unknown };
     const title = row.title == null ? undefined : String(row.title);
     return {
-      url: String(row.url ?? ""),
+      url: snapshotUrl(String(row.url ?? "")),
       ...(title !== undefined ? { title } : {}),
       visitTime: Math.round(Number(row.visitTime ?? 0)) || 0,
       visitCount: Number(row.visitCount ?? 0) || 0,

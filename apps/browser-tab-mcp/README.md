@@ -325,7 +325,36 @@ maintained here is the cache-busting key later capabilities reuse. Handles in
 results are for **correlation, not commands** — re-run `list` for live handles.
 See `docs/WM_STACK_CONTRACT.md` for the wire shape.
 
+## URL hygiene & big-session listing
+
+**Recorded URLs never carry credentials.** A tab URL like
+`http://admin:secret@192.168.1.1/` embeds a live password, and tab URLs are
+denormalized into snapshot files, journals, history results, logs and agent
+context. So basic-auth userinfo is stripped at every mapper: the extension
+redacts before a URL even reaches the wire, and the daemon re-applies the same
+`redactUrlUserinfo` to AppleScript/Safari/history sources (escape hatch:
+`BROWSER_TAB_KEEP_URL_USERINFO=1`, daemon side only — it cannot resurrect what
+a current extension already stripped).
+
+**`fields:"summary"`** (`list_tabs`, `browser-tab list --fields summary`)
+returns the SHAPE of a session — windows and tab groups with counts and the
+active tab, zero per-tab rows — and is the right first call on a big session:
+a real 103-tab cleanup found even the trimmed `core` projection exceeding an
+MCP client's token budget. Drill into one window afterwards with `windowId`
+plus `urlFilter`. Still a valid Snapshot (`tabs: []`, counts in `tabCount`).
+
 ## Write-side control
+
+**Group semantics that will surprise you if unstated:** `group_tabs create`
+groups tabs **in their own window** (the first live tab's) — Chrome's default
+would group into the *focused* window and move every tab there. List-taking
+group actions (`create`/`add`/`remove`) validate per-id: stale handles are
+skipped, acted around, and reported in `payload.skippedTabIds` (as handles);
+only an all-stale list errors. `move_tab` results report the tab's **actual**
+final `index`/`windowId` via a closing `tabs.get`, because `tabs.move`'s echo
+has returned indices past the end of the window. After any write, the
+extension pushes a fresh snapshot immediately, so a read that follows a write
+sees the write.
 
 Beyond reads + `focus`/`move`/`open`/`close`, the tool can drive tabs and
 windows imperatively:

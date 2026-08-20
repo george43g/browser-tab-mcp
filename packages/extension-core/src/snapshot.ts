@@ -9,7 +9,7 @@
  */
 
 import type { ExtSnapshot, ExtTab, ExtTabGroup, ExtWindow } from "@george43g/shared-types";
-import { pickEnrichment, sanitizeFavicon } from "@george43g/shared-types";
+import { pickEnrichment, redactUrlUserinfo, sanitizeFavicon } from "@george43g/shared-types";
 import { api } from "./runtime.js";
 
 export interface ChromeMutedInfoLike {
@@ -90,7 +90,10 @@ export function mapTab(tab: ChromeTabLike): ExtTab | null {
     id: tab.id,
     windowId: tab.windowId,
     index: tab.index,
-    url: tab.url ?? tab.pendingUrl ?? "",
+    // Basic-auth userinfo never leaves the browser: redacting at the mapper
+    // keeps credentials out of the WS frames, the daemon's snapshot files,
+    // journals, logs, and every agent context downstream.
+    url: redactUrlUserinfo(tab.url ?? tab.pendingUrl ?? ""),
     title: tab.title ?? "",
     active: tab.active,
     ...(typeof tab.groupId === "number" && tab.groupId >= 0 ? { groupId: tab.groupId } : {}),

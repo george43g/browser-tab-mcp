@@ -218,7 +218,13 @@ export class DaemonSocket {
     try {
       const result = await executeCommand(kind, args);
       this.ws?.send(JSON.stringify({ type: "commandResult", requestId, ok: true, result }));
-      this.sendSnapshotDebounced();
+      // IMMEDIATE, not debounced: a caller that just wrote reads next, and the
+      // debounce window made that read see pre-write state (dogfood run,
+      // 2026-08-20 — group moves followed by list_tabs showed the old layout).
+      // Commands are the one path where "fresh now" beats "coalesced later";
+      // ordinary tab events keep the debounce. buildSnapshot is one
+      // tabs.query, so per-command cost is negligible.
+      void this.sendSnapshot();
     } catch (err) {
       this.ws?.send(
         JSON.stringify({

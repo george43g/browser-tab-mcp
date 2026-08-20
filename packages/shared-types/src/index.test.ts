@@ -5,6 +5,7 @@ import {
   MIRRORED_SCHEMAS,
   NoopInputSchema,
   NoopOutputSchema,
+  redactUrlUserinfo,
 } from "./index.js";
 
 describe("schema round-trip", () => {
@@ -47,5 +48,29 @@ describe("MIRRORED_SCHEMAS registry", () => {
       expect(Array.isArray(m.fields)).toBe(true);
       expect(m.fields.length).toBeGreaterThan(0);
     }
+  });
+});
+
+describe("redactUrlUserinfo", () => {
+  it("strips user:pass@ and keeps the rest of the URL intact", () => {
+    expect(redactUrlUserinfo("http://admin:hunter2@192.168.1.225/net?wol=sent")).toBe(
+      "http://192.168.1.225/net?wol=sent",
+    );
+  });
+
+  it("strips a username-only userinfo", () => {
+    expect(redactUrlUserinfo("https://bob@example.com/x")).toBe("https://example.com/x");
+  });
+
+  it("leaves ordinary URLs untouched (fast path)", () => {
+    expect(redactUrlUserinfo("https://example.com/a?b=c#d")).toBe("https://example.com/a?b=c#d");
+  });
+
+  it("leaves an @ that is not userinfo alone", () => {
+    expect(redactUrlUserinfo("https://example.com/@profile")).toBe("https://example.com/@profile");
+  });
+
+  it("returns unparseable input unchanged rather than throwing", () => {
+    expect(redactUrlUserinfo("not a url @ all")).toBe("not a url @ all");
   });
 });

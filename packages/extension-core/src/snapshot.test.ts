@@ -137,3 +137,27 @@ describe("debounce", () => {
     expect(calls).toBe(1);
   });
 });
+
+describe("URL hygiene at the mapper", () => {
+  it("strips basic-auth userinfo before a tab URL leaves the browser", () => {
+    // Redaction MUST happen here, at the source: past this point the URL
+    // rides the WS frame into daemon snapshots, journals, logs and agent
+    // context. Two live router-admin tabs carried credentials in the
+    // 2026-08-20 dogfood run.
+    const mapped = mapWindow({
+      id: 1,
+      focused: true,
+      tabs: [
+        {
+          id: 10,
+          windowId: 1,
+          index: 0,
+          active: true,
+          url: "http://admin:hunter2@192.168.1.225/net",
+          title: "Router",
+        },
+      ],
+    });
+    expect(mapped?.tabs[0]?.url).toBe("http://192.168.1.225/net");
+  });
+});
