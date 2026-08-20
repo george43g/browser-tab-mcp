@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.3.1](https://github.com/george43g/browser-tab-mcp/compare/v1.3.0...v1.3.1) (2026-08-20)
+
+
+### Bug Fixes
+
+* **tabs:** the dogfood five — own-window grouping, partial-success lists, honest move index, credential-free URLs, summary projection ([#71](https://github.com/george43g/browser-tab-mcp/issues/71)) ([ce6cde5](https://github.com/george43g/browser-tab-mcp/commit/ce6cde5a59b87c4e1c711cb8b17d529bfc6a7988))
+
 ## [1.3.0](https://github.com/george43g/browser-tab-mcp/compare/v1.2.1...v1.3.0) (2026-08-18)
 
 
