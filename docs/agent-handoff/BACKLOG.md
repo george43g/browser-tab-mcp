@@ -508,3 +508,50 @@ checkpoint — see PROGRESS-LOG § "sweep complete"):
 - Does the `cgWindowId` tiebreaker (queue item 1) need to preserve *stable*
   ids across a re-tile, or is per-snapshot correctness enough? (Titles change
   as the user navigates; ids must stay right, not stay constant.)
+
+
+## 2026-08-20 — dogfood findings: a real 103-tab cleanup run (agent session 5a15fe80 fork)
+
+A full live cleanup (5→2 windows, 103→96 tabs, 11 groups created, 7 dupes
+closed, ~43 tool calls) using ONLY this tool. Everything below was hit in
+anger, not constructed.
+
+**Bugs, in severity order:**
+
+1. **`group_tabs create` groups into the FOCUSED window, not the tabs' own
+   window.** Creating groups from window-1 tabs silently relocated ~40 tabs
+   into window 2 — a grouping op became a mass cross-window move. Suspect:
+   `tabs.group`'s `createProperties.windowId` defaulting in extension-core
+   `commands.ts`; it should inherit the first tab's window. Workaround that
+   recovered it: `group_tabs move` back. THE serious one.
+2. **`group_tabs create` is all-or-nothing with an unmapped error.** One stale
+   id out of 12 failed the whole call with Chrome's raw
+   `No tab with id: 523242703` — numeric, not the `t:chrome:x…` handle
+   grammar, and no indication which input died. Wants per-id validation,
+   partial success + a `skipped` list, and handle-mapped errors (violates our
+   own "errors get an actionable hint" rule).
+3. **`move_tab` result `index` is wrong on append** — moving into a ~41-tab
+   window reported `index: 80–85`. Misleads any caller doing follow-up
+   `targetIndex` math. Cosmetic until someone chains on it.
+
+**Security (do before wider use):** tab URLs can carry basic-auth userinfo
+(`http://admin:<password>@192.168.1.225/net` — two live examples found) and
+`list_tabs` returns them VERBATIM into agent context and logs. Redact URL
+userinfo in snapshots by default, env-escape if someone truly needs it.
+
+**Friction:**
+
+- `list_tabs` at 103 tabs blows the MCP token cap (~52KB) even at
+  `fields:"core"` — every listing became save-to-file + jq. Wants a
+  `fields:"summary"` projection (windows + groups + counts, zero tab rows)
+  and/or pagination.
+- **Write→read staleness:** an immediate `list_tabs` after group moves showed
+  pre-move state; needed a settle pause. Write ops returning the fresh
+  affected sub-snapshot would remove the guesswork.
+- `close_tab`'s "re-run list_tabs, indices shift" warning is Safari-specific;
+  x-handles are stable, so it invites needless re-listing on Chrome.
+
+**Worked flawlessly, for the record:** `move_tab` + `targetGroupId`
+(move+group cross-window in one call), state preservation (discarded tabs
+stayed discarded through every move), cg-id stability across the whole
+reshuffle, `group_tabs update` rename/recolour, and parallel batched ops.
