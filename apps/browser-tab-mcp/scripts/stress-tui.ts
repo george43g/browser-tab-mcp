@@ -26,7 +26,17 @@ import { fileURLToPath } from "node:url";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const ROOT = resolve(__dirname, "..");
-const TSX = resolve(ROOT, "../../node_modules/.bin/tsx");
+/**
+ * Load tsx into node itself instead of spawning the `.bin/tsx` shim — see the
+ * full rationale in stress-mcp.ts. Beyond the Windows shim breakage documented
+ * there, the shim is a SIGNAL RELAY with a ~30ms IPC ack window: a workload
+ * busy enough to miss the ack gets SIGKILL, which tsx reports as exit 143 —
+ * and this driver reads that exit code as a verdict (line ~102). The heavy-
+ * scale soak failed on exactly that. Direct spawn = the signal lands on the
+ * workload itself, and a clean SIGTERM death maps to code null, not 143.
+ */
+const NODE = process.execPath;
+const TSX_ARGS = ["--import", "tsx"];
 const WORKLOAD = resolve(__dirname, "stress-tui-workload.tsx");
 
 const RSS_FAIL_MB = Number(process.env.STRESS_RSS_FAIL_MB ?? 800);
@@ -43,7 +53,7 @@ interface Sample {
 
 async function main(): Promise<void> {
   console.log(`stress-tui · workload ${WORKLOAD} · ${DURATION_S}s`);
-  const child = spawn(TSX, [WORKLOAD], {
+  const child = spawn(NODE, [...TSX_ARGS, WORKLOAD], {
     env: {
       ...process.env,
       // Keep the child alive slightly LONGER than we sample, so the last
