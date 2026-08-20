@@ -59,9 +59,17 @@ export class SourceMerger {
       if (feed && now - feed.receivedAt <= maxExtensionAgeMs) {
         return {
           ...feed.state,
-          // The poll knows process-level truth better than the extension.
+          // The poll knows the PID better than the extension. But it does NOT
+          // know `running` better: a live extension feed is a WebSocket from
+          // inside the browser process — proof of life by itself. On
+          // extension-only platforms (Windows/Linux, or macOS mid-TCC-hiccup)
+          // the "poll" is the unavailable adapter answering running:false,
+          // and copying that here made a connected browser render as "not
+          // running" while its windows sat right there in the state — the
+          // macOS poll agreeing with the socket is what hid this until the
+          // first real Windows deployment (2026-08-21).
           pid: polledState.pid ?? feed.state.pid,
-          running: polledState.running,
+          running: true,
           extensionConnected: true,
           dataSource: "extension" as const,
         };
