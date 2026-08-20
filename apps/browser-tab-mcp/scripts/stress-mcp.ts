@@ -193,6 +193,10 @@ class McpClient {
   kill(signal: NodeJS.Signals = "SIGTERM"): void {
     this.child.kill(signal);
   }
+
+  endStdin(): void {
+    this.child.stdin.end();
+  }
 }
 
 interface CaseResult {
@@ -308,13 +312,29 @@ async function caseSigTermClean(): Promise<void> {
   const c = new McpClient();
   try {
     await c.initialize();
-    c.kill("SIGTERM");
-    const exit = await c.waitExit(3_000);
-    record(
-      "SIGTERM produces clean exit code 0",
-      exit.code === 0 && exit.signal === null,
-      `code=${exit.code} signal=${exit.signal}`,
-    );
+    if (process.platform === "win32") {
+      // Windows cannot deliver a catchable SIGTERM: child.kill() is
+      // TerminateProcess, so the shutdown handler never runs and the exit is
+      // (code null, signal SIGTERM) BY DESIGN of the platform, not a bug.
+      // The graceful trigger the shutdown registry actually receives on
+      // Windows is stdin EOF ("MCP host died") — so that is what this case
+      // must exercise there. First real Windows run (2026-08-21) caught this.
+      c.endStdin();
+      const exit = await c.waitExit(3_000);
+      record(
+        "graceful shutdown exits 0 (win32: stdin EOF)",
+        exit.code === 0 && exit.signal === null,
+        `code=${exit.code} signal=${exit.signal}`,
+      );
+    } else {
+      c.kill("SIGTERM");
+      const exit = await c.waitExit(3_000);
+      record(
+        "SIGTERM produces clean exit code 0",
+        exit.code === 0 && exit.signal === null,
+        `code=${exit.code} signal=${exit.signal}`,
+      );
+    }
   } finally {
     c.kill("SIGKILL");
   }
@@ -583,8 +603,13 @@ async function caseRefusalsFakeAdapter(): Promise<void> {
 }
 
 async function caseDaemonLifecycle(): Promise<void> {
+  const isWin = process.platform === "win32";
   const tmp = mkdtempSync(join(tmpdir(), "browser-tab-stress-"));
-  const sock = join(tmp, "daemon.sock");
+  // Windows IPC is a NAMED PIPE (daemon/paths.ts isPipe()) — it has no
+  // ordinary filesystem entry, so a unix-style tmp path never "appears" and
+  // the old existsSync probe waited its full deadline and failed. First real
+  // Windows run (2026-08-21) caught this.
+  const sock = isWin ? `\\\\.\\pipe\\browser-tab-stress-${process.pid}` : join(tmp, "daemon.sock");
   const proc = spawn(NODE, [...TSX_ARGS, resolve(ROOT, "src/cli.ts"), "daemon", "run"], {
     env: {
       ...process.env,
@@ -597,13 +622,21 @@ async function caseDaemonLifecycle(): Promise<void> {
     stdio: ["pipe", "pipe", "pipe"],
   });
   try {
-    // Wait for the socket to appear.
+    // Probe by CONNECTING, not by existsSync: a named pipe never has a file
+    // entry, and even on POSIX "the socket file exists" is not "the daemon
+    // accepts". One successful getSnapshot is the honest readiness signal.
+    let answered = false;
     const deadline = Date.now() + 10_000;
-    while (!existsSync(sock) && Date.now() < deadline) {
-      await new Promise((r) => setTimeout(r, 100));
+    while (!answered && Date.now() < deadline) {
+      try {
+        const probe = (await ipcRequest(sock, "getSnapshot", 1_000)) as { ok?: boolean };
+        answered = probe.ok === true;
+      } catch {
+        await new Promise((r) => setTimeout(r, 100));
+      }
     }
-    record("daemon socket appears", existsSync(sock));
-    if (!existsSync(sock)) return;
+    record("daemon IPC answers", answered);
+    if (!answered) return;
 
     const results = await Promise.all(
       Array.from({ length: 20 }, () => ipcRequest(sock, "getSnapshot")),
@@ -632,8 +665,19 @@ async function caseDaemonLifecycle(): Promise<void> {
         });
       },
     );
-    record("daemon SIGTERM exits 0", exit.code === 0, `code=${exit.code} signal=${exit.signal}`);
-    record("daemon socket unlinked on shutdown", !existsSync(sock));
+    if (isWin) {
+      // TerminateProcess semantics: the daemon cannot intercept this kill, so
+      // "exited at all, promptly" is the testable contract here — and a pipe
+      // leaves no filesystem entry, so there is nothing to check for unlink.
+      record(
+        "daemon terminates on kill (win32: no catchable SIGTERM)",
+        exit.signal !== "TIMEOUT",
+        `code=${exit.code} signal=${exit.signal}`,
+      );
+    } else {
+      record("daemon SIGTERM exits 0", exit.code === 0, `code=${exit.code} signal=${exit.signal}`);
+      record("daemon socket unlinked on shutdown", !existsSync(sock));
+    }
   } finally {
     proc.kill("SIGKILL");
     rmSync(tmp, { recursive: true, force: true });
