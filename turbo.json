@@ -55,7 +55,8 @@
         "package.json",
         "Cargo.toml",
         "build.rs",
-        "$TURBO_ROOT$/scripts/build-stamp.mjs"
+        "$TURBO_ROOT$/scripts/build-stamp.mjs",
+        "$TURBO_ROOT$/scripts/build-rust-optional.mjs"
       ],
       "env": ["BUILD_STAMP"],
       "passThroughEnv": ["TURBO_HASH"]
