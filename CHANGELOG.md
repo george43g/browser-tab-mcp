@@ -1,5 +1,16 @@
 # Changelog
 
+## [1.3.2](https://github.com/george43g/browser-tab-mcp/compare/v1.3.1...v1.3.2) (2026-08-20)
+
+
+### Bug Fixes
+
+* **build:** guard rust-accel's build behind a rustc probe — rustless machines must skip, not fail ([#76](https://github.com/george43g/browser-tab-mcp/issues/76)) ([76e0e3e](https://github.com/george43g/browser-tab-mcp/commit/76e0e3e614d47cdfe19186c0d02c22d582b4fe41))
+* **daemon:** a live extension feed means running=true — the poll cannot outvote the socket [skip-readme] ([#81](https://github.com/george43g/browser-tab-mcp/issues/81)) ([2c12466](https://github.com/george43g/browser-tab-mcp/commit/2c1246682a065c1ef776567fc9aae56aaedfc847))
+* **stress:** kill the Windows phantom pass — entry guard backslashes + harness that could exit 0 without a verdict [skip-readme] ([#78](https://github.com/george43g/browser-tab-mcp/issues/78)) ([bf497c9](https://github.com/george43g/browser-tab-mcp/commit/bf497c94df250e19b72f9e6add8dcfd00559a8a1))
+* **stress:** spawn the TUI soak workload via node --import tsx, not the bin shim ([#75](https://github.com/george43g/browser-tab-mcp/issues/75)) ([300e1d5](https://github.com/george43g/browser-tab-mcp/commit/300e1d5482142951410a917d29cadb2c2ffd2677))
+* **tui:** make move mode reachable — the m-key guard read a memo that was empty outside move mode [skip-readme] ([#77](https://github.com/george43g/browser-tab-mcp/issues/77)) ([1a06608](https://github.com/george43g/browser-tab-mcp/commit/1a06608facad0a60f8e54d9926bf1ffa0180741a))
+
 ## [1.3.1](https://github.com/george43g/browser-tab-mcp/compare/v1.3.0...v1.3.1) (2026-08-20)
 
 
