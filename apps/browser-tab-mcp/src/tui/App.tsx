@@ -63,9 +63,17 @@ export function App() {
   // move is impossible, and offering one produced a confusing failure. The
   // tab's own window is excluded too: it was the default target, so pressing
   // m,Enter performed a no-op self-move.
+  //
+  // The source tab is the CURSOR's tab in browse mode and the MODE's tab once
+  // move mode is entered. Both are needed: the `m` handler consults this list
+  // BEFORE calling setMode, so an early-return of [] outside move mode made
+  // the "no other window" guard refuse unconditionally — `m` was unreachable
+  // from the day the guard shipped (#45) until a live key-by-key drive hit it.
   const moveTargets = useMemo(() => {
-    if (mode.kind !== "move") return [];
-    const source = rows.find((r) => r.kind === "tab" && r.tab.tabId === mode.tabId);
+    const source =
+      mode.kind === "move"
+        ? rows.find((r) => r.kind === "tab" && r.tab.tabId === mode.tabId)
+        : current;
     if (source?.kind !== "tab") return [];
     return rows.filter(
       (r) =>
@@ -73,7 +81,7 @@ export function App() {
         r.browser.browser === source.browser.browser &&
         r.window.windowId !== source.window.windowId,
     );
-  }, [mode, rows]);
+  }, [mode, rows, current]);
   const [targetIdx, setTargetIdx] = useState(0);
   const [actionIdx, setActionIdx] = useState(0);
 
