@@ -49,6 +49,31 @@ describe("SourceMerger liveness", () => {
     expect(chrome?.windows[0]?.tabs[0]?.tabId).toBe("t:chrome:x900");
   });
 
+  it("a live feed means running=true even when the poll says otherwise", async () => {
+    // THE WINDOWS DEPLOYMENT BUG THIS PINS (2026-08-21). On extension-only
+    // platforms the "poll" is the unavailable adapter reporting running:false,
+    // and the merge copied that over the extension's state — so the first
+    // real Windows connector authenticated, pushed its windows, and the CLI
+    // printed "chrome — not running" around a browser that was visibly open.
+    // A live extension socket IS process-level proof of life; the macOS poll
+    // agreeing with it is why no macOS run ever exposed the overwrite.
+    const merger = new SourceMerger();
+    merger.setExtensionState("chrome", extChrome());
+    const deadPoll = polled();
+    const chromeIdx = deadPoll.browsers.findIndex((b) => b.browser === "chrome");
+    deadPoll.browsers[chromeIdx] = {
+      ...(deadPoll.browsers[chromeIdx] as (typeof deadPoll.browsers)[number]),
+      running: false,
+      pid: null,
+      windows: [],
+    };
+    const merged = await merger.merge(deadPoll, 1_000);
+    const chrome = chromeOf(merged);
+    expect(chrome?.running).toBe(true);
+    expect(chrome?.dataSource).toBe("extension");
+    expect(chrome?.windows).toHaveLength(1);
+  });
+
   it("a feed with no liveness ages out back to AppleScript", async () => {
     const merger = new SourceMerger();
     merger.setExtensionState("chrome", extChrome());

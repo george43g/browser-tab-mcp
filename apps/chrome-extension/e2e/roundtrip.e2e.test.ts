@@ -65,6 +65,11 @@ test.describe("extension ↔ daemon round-trip", () => {
     expect(chrome, "chrome browser present in snapshot").toBeTruthy();
     expect(chrome?.dataSource).toBe("extension");
     expect(chrome?.extensionConnected).toBe(true);
+    // This job runs on Linux: no osascript, so the "poll" is the unavailable
+    // adapter reporting running:false — exactly an extension-only platform.
+    // The merge must let the live socket outrank that (the Windows deployment
+    // bug, 2026-08-21: a connected browser rendered as "not running").
+    expect(chrome?.running, "live extension feed must mean running=true").toBe(true);
     const windows = (chrome?.windows ?? []) as Array<Record<string, unknown>>;
     expect(String(windows[0]?.windowId)).toMatch(/^w:chrome:x\d+$/);
   });
