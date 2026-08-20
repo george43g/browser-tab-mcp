@@ -24,7 +24,7 @@
     ]
   },
   "scripts": {
-    "build": "napi build --platform --release",
+    "build": "node ../../scripts/build-rust-optional.mjs",
     "build:debug": "napi build --platform",
     "clean": "node ../../scripts/rimraf.mjs target index.js index.d.ts"
   },
