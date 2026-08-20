@@ -266,7 +266,8 @@ unguarded `napi build` hard-failed the whole build on a rustless machine);
 toolchain present but compile fails → the failure still propagates. Every
 GitHub runner image — linux, macos AND windows — ships a preinstalled Rust
 toolchain, so no CI leg ever exercises the skip path ("the harness is more
-provisioned than the target"); the first machine that could was George's real
+provisioned than the target" — CI cannot falsify an assumption it also
+satisfies); the first machine that could was George's real
 Windows box (2026-08-21). Both behaviours are pinned by
 `apps/browser-tab-mcp/tests/build-rust-optional.test.ts`, which manufactures
 both worlds via PATH. Turbo caveat: a cached skip replays until an input
