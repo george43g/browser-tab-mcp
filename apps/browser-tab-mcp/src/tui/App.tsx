@@ -98,6 +98,12 @@ export function App() {
     });
   };
 
+  const halfPage = (dir: 1 | -1) => {
+    if (mode.kind !== "browse") return; // modal lists are shorter than a page; ^d/^u steer nothing there
+    setMessage("");
+    setCursor((c) => Math.max(0, Math.min(rows.length - 1, c + dir * Math.floor(viewport / 2))));
+  };
+
   useVimKeys({
     onMove: (delta) => {
       if (mode.kind === "action") {
@@ -105,9 +111,9 @@ export function App() {
       } else if (mode.kind === "move") {
         setTargetIdx((i) => Math.max(0, Math.min(moveTargets.length - 1, i + delta)));
       } else {
-        // Any motion retires the last action's message. It used to persist for
-        // the rest of the session, permanently replacing the row-count/liveness
-        // indicator with a stale success string.
+        // Any browse-mode motion retires the last action's message. It used to
+        // persist for the rest of the session, permanently replacing the
+        // row-count/liveness indicator with a stale success string.
         setMessage("");
         setCursor((c) => Math.max(0, Math.min(rows.length - 1, c + delta)));
       }
@@ -120,10 +126,13 @@ export function App() {
       setMessage("");
       setCursor(Math.max(0, rows.length - 1));
     },
-    // floor(): an odd viewport would otherwise land the cursor on a .5 index,
-    // and rows[22.5] is undefined.
-    onHalfPageDown: () => setCursor((c) => Math.min(rows.length - 1, c + Math.floor(viewport / 2))),
-    onHalfPageUp: () => setCursor((c) => Math.max(0, c - Math.floor(viewport / 2))),
+    // Mirrors onMove's browse branch: modal lists (move/action) are steered by
+    // their own idx state, not the hidden browse cursor, and are short enough
+    // that a half-page jump has nothing to do there. floor(): an odd viewport
+    // would otherwise land the cursor on a .5 index, and rows[22.5] is
+    // undefined.
+    onHalfPageDown: () => halfPage(1),
+    onHalfPageUp: () => halfPage(-1),
     onUnhandled: () => {},
   });
 
