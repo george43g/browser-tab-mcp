@@ -230,3 +230,46 @@ jobs:
             apps/chrome-extension/playwright-report/
             apps/chrome-extension/test-results/
           if-no-files-found: ignore
+
+  # Branded-browser e2e: the SAME three tests against real Google Chrome and
+  # Microsoft Edge on Windows — both preinstalled on windows-latest, reached
+  # via Playwright's channel option, so there is no browser download at all.
+  # The msedge leg is the standing regression test for detectBrowserName's
+  # edg/-before-chrome ordering (Edge must not evict the Chrome WS session).
+  e2e-branded:
+    name: e2e (${{ matrix.channel }}, windows)
+    runs-on: windows-latest
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        channel: [chrome, msedge]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v6
+        with:
+          version: 10.29.3
+      - name: Setup Node
+        uses: actions/setup-node@v6
+        with:
+          node-version: "24"
+          cache: pnpm
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Build (extension bundle + daemon CLI)
+        run: pnpm build
+      - name: Run e2e against branded ${{ matrix.channel }}
+        run: pnpm --filter @george43g/chrome-extension test:e2e
+        env:
+          E2E_BROWSER_CHANNEL: ${{ matrix.channel }}
+      - name: Upload Playwright report on failure
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: playwright-report-${{ matrix.channel }}
+          path: |
+            apps/chrome-extension/playwright-report/
+            apps/chrome-extension/test-results/
+          if-no-files-found: ignore
