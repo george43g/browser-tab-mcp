@@ -39,7 +39,7 @@
 
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
-import { warn } from "@george43g/robustness";
+import { info, warn } from "@george43g/robustness";
 import type { BrowserId, CgWindowInfo, Snapshot } from "@george43g/shared-types";
 import { tryLoadNative } from "../native-bridge.js";
 import { listDisplays } from "./displays.js";
@@ -47,6 +47,16 @@ import { listDisplays } from "./displays.js";
 const execFileAsync = promisify(execFile);
 
 const BOUNDS_TOLERANCE_PX = 2;
+
+/**
+ * BROWSER_TAB_CG_DIAG=1 turns on the verbose `cg_correlate` / `cg_merge_trigger`
+ * lines even when nothing degraded — for chasing a live cgWindowId oscillation.
+ * Default off: steady-state stays quiet, the diag line only fires unconditionally
+ * on request. Defined once here; engine-loop.ts imports it (R-C1).
+ */
+export function cgDiagEnabled(): boolean {
+  return process.env.BROWSER_TAB_CG_DIAG === "1";
+}
 
 export type CorrelationTier = "native" | "yabai" | "none";
 
@@ -85,6 +95,7 @@ interface YabaiRead {
 
 async function readYabaiWindows(signal?: AbortSignal): Promise<YabaiRead | null> {
   for (const bin of yabaiCandidates()) {
+    const started = Date.now();
     try {
       const { stdout } = await execFileAsync(bin, ["-m", "query", "--windows"], {
         timeout: 2_000,
@@ -108,10 +119,17 @@ async function readYabaiWindows(signal?: AbortSignal): Promise<YabaiRead | null>
         })),
         titles,
       };
-    } catch {
-      // try next candidate
+    } catch (err) {
+      // A 2s timeout under churn (yabai itself busy retiling) now shows up as
+      // durMs≈2000 instead of vanishing — try next candidate either way.
+      warn("yabai_query_failed", {
+        bin,
+        message: (err as Error).message,
+        durMs: Date.now() - started,
+      });
     }
   }
+  warn("yabai_titles_unavailable", { candidates: yabaiCandidates().length });
   return null;
 }
 
@@ -479,17 +497,40 @@ export async function enrichWithCgWindowIds(
   // tests never spawn `yabai`/native (deterministic + fast, no timing flake).
   if (process.env.BROWSER_TAB_FAKE_ADAPTER === "1") return snapshot;
   try {
+    const cgStarted = Date.now();
     const cg = await readCgWindows(signal);
+    const cgReadMs = Date.now() - cgStarted;
     if (!cg) return snapshot;
     // The native tier has no titles of its own. Borrow yabai's, but only once
     // bounds have actually failed to resolve something — a clean poll must not
     // pay for a subprocess it cannot learn anything from.
     let titles = cg.titles;
+    let borrowedTitles = false;
+    let borrowMs = 0;
     if (!titles && needsTitleTiebreak(snapshot, cg.windows)) {
+      const borrowStarted = Date.now();
       titles = (await readYabaiWindows(signal))?.titles;
+      borrowMs = Date.now() - borrowStarted;
+      borrowedTitles = true;
     }
     const origins = [...new Set(listDisplays().map((d) => d.y))];
-    return correlateSnapshot(snapshot, cg.windows, cg.zOrdered, titles, origins);
+    const diag: CorrelationDiag = { browsers: [], titlesAvailable: false, originsCount: 0 };
+    const result = correlateSnapshot(snapshot, cg.windows, cg.zOrdered, titles, origins, diag);
+    // Fires whenever an id degraded (nulled/claim-collided) — the event under
+    // investigation — or unconditionally when BROWSER_TAB_CG_DIAG=1. Steady
+    // state (every id resolved, diag off) stays silent.
+    const nulled = diag.browsers.reduce((n, b) => n + b.nulled + b.claimCollisions, 0);
+    if (nulled > 0 || cgDiagEnabled()) {
+      info("cg_correlate", {
+        borrowed: borrowedTitles,
+        titlesAvailable: diag.titlesAvailable,
+        origins: diag.originsCount,
+        browsers: diag.browsers,
+        cgReadMs,
+        borrowMs,
+      });
+    }
+    return result;
   } catch (err) {
     warn("cg_correlation_failed", { message: (err as Error).message });
     return snapshot;

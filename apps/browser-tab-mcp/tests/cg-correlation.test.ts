@@ -10,8 +10,23 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { Snapshot } from "@george43g/shared-types";
 import { makeBrowserState, makeContractWindow, makeSnapshot } from "@george43g/test-kit";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+
+// Partial mock of @george43g/robustness: real everything, but `warn` is a spy
+// so we can assert the yabai-failure path actually logs instead of silently
+// swallowing the error. Hoisted so it exists before the mock factory runs.
+const warnSpy = vi.hoisted(() => vi.fn());
+vi.mock("@george43g/robustness", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@george43g/robustness")>()),
+  warn: warnSpy,
+}));
+
 import { enrichWithCgWindowIds } from "../src/detect/correlate.js";
+
+/** Calls captured on the `warn` spy so far, as [msg, data] tuples. */
+function captureWarns(): [string, Record<string, unknown> | undefined][] {
+  return warnSpy.mock.calls as [string, Record<string, unknown> | undefined][];
+}
 
 /**
  * WINDOWS: skipped, deliberately.
@@ -42,6 +57,7 @@ beforeEach(() => {
   // would read this machine's real windows. Neither is what we're testing.
   delete process.env.BROWSER_TAB_FAKE_ADAPTER;
   process.env.MCP_DISABLE_NATIVE = "1";
+  warnSpy.mockClear();
 });
 
 afterEach(() => {
@@ -152,5 +168,15 @@ describe.skipIf(!onPosix)("enrichWithCgWindowIds (yabai tier)", () => {
     process.env.BROWSER_TAB_YABAI_BIN = shim.bin;
     await enrichWithCgWindowIds(tiledSnapshot());
     expect(shim.calls()).toBe(0);
+  });
+
+  it("a failing yabai binary is logged, not swallowed", async () => {
+    const shim = shimYabai([], 1);
+    process.env.BROWSER_TAB_YABAI_BIN = shim.bin;
+    await enrichWithCgWindowIds(tiledSnapshot());
+    const warns = captureWarns();
+    expect(
+      warns.some(([msg, data]) => msg === "yabai_query_failed" && typeof data?.durMs === "number"),
+    ).toBe(true);
   });
 });
