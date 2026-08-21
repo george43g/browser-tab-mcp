@@ -141,7 +141,9 @@ async function main(): Promise<void> {
   );
   hangTimer.unref();
 
-  const workloadExit = await new Promise<number | null>((r) => child.once("exit", (code) => r(code)));
+  const workloadExit = await new Promise<number | null>((r) =>
+    child.once("exit", (code) => r(code)),
+  );
   clearTimeout(hangTimer);
   clearInterval(sampler);
 
