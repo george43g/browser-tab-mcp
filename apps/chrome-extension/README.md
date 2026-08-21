@@ -171,11 +171,11 @@ loopback (`dataSource:"extension"`, `x`-handles) → a daemon-driven cross-windo
 Requires `pnpm build` first (the harness spawns `dist/cli.js`). Runs as its own
 CI job (`e2e-chromium`); Safari stays manual-smoke only.
 
-**Branded channels (`E2E_BROWSER_CHANNEL`).** The same three tests also run
-against real, installed Google Chrome and Microsoft Edge — not Playwright's
-bundled Chromium — via Playwright's `channel` option. Set
-`E2E_BROWSER_CHANNEL=chrome` or `E2E_BROWSER_CHANNEL=msedge` before
-`test:e2e`, or use the convenience scripts:
+**Browser channels (`E2E_BROWSER_CHANNEL`).** The same three tests can also
+run against a real, installed browser channel — not Playwright's bundled
+Chromium — via Playwright's `channel` option: `chromium` (default, unset),
+`chrome`, or `msedge`. Set `E2E_BROWSER_CHANNEL=msedge` before `test:e2e`, or
+use the convenience scripts:
 
 ```bash
 pnpm --filter @george43g/chrome-extension test:e2e:chrome  # real Google Chrome
@@ -194,7 +194,31 @@ extension storage, so `detectBrowserName`'s real User-Agent sniffing
 `msedge` leg is the standing regression guard for the `edg/`-before-chrome
 ordering that keeps Edge from evicting the Chrome WS session.
 
-In CI this runs unconditionally as `e2e-branded` — a two-row
-`chrome`/`msedge` matrix on the Windows box (`windows-latest`), where both
-browsers are preinstalled, so there is no browser download step at all. All
-legs, branded or not, stay headless (`--headless=new`).
+**`chrome` is not usable for this suite on current Chrome.** Branded Google
+Chrome ≥137 removed `--load-extension` support entirely — confirmed both on a
+real Windows box and on a local macOS Chrome 151 install: the load test times
+out waiting for the background service worker, which never registers, because
+the extension never loads. `chrome` stays a **valid** `E2E_BROWSER_CHANNEL`
+value (for anyone on Chrome ≤136, or if the flag is ever reinstated) and its
+convenience script is kept for that reason, but it is not exercised in CI.
+Branded-Chrome coverage, where it still matters, is a real-profile GUI install
+smoke, not this automated suite.
+
+In CI this runs unconditionally as `e2e-branded` — a two-row matrix on the
+Windows box (`windows-latest`): `chromium` (Playwright's own bundled build,
+still supports `--load-extension`, one `playwright install chromium` step —
+this is the only CI coverage of the win32 daemon/named-pipe/e2e path) and
+`msedge` (real, preinstalled Windows Edge, no install step). All legs,
+Windows or not, stay headless (`--headless=new`).
+
+**Throwaway-daemon isolation on Windows.** `startDaemon()` pins the daemon's
+own IPC endpoint via `BROWSER_TAB_SOCKET_PATH` (`e2eIpcEndpoint()` in
+`fixtures.ts`, mirroring `defaultIpcEndpoint()` in
+`packages/test-kit/src/fakes/daemon-env.ts`). Without it, the daemon falls
+back to the per-user DEFAULT endpoint (`\\.\pipe\browser-tab-<user>` on
+Windows), and if a real daemon is already running under that same user — a
+dev's console session, a Task Scheduler instance — every `daemon.cli([...])`
+call in these tests silently talks to THAT daemon instead of the throwaway
+one. This was measured on a real Windows box: the extension connected to the
+throwaway daemon fine, but `daemon status` returned a different pid and a
+50-minute uptime, because the assertions were reading the console daemon.

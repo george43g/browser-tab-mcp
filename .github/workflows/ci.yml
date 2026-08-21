@@ -231,11 +231,23 @@ jobs:
             apps/chrome-extension/test-results/
           if-no-files-found: ignore
 
-  # Branded-browser e2e: the SAME three tests against real Google Chrome and
-  # Microsoft Edge on Windows — both preinstalled on windows-latest, reached
-  # via Playwright's channel option, so there is no browser download at all.
-  # The msedge leg is the standing regression test for detectBrowserName's
-  # edg/-before-chrome ordering (Edge must not evict the Chrome WS session).
+  # Windows e2e: the SAME three tests via Playwright's channel option on
+  # windows-latest. NOT a "chrome" row: branded Google Chrome >=137 removed
+  # `--load-extension` support entirely (confirmed both on a real Windows box
+  # and on this Mac's branded Chrome 151 — the load test times out waiting
+  # for the background service worker, which never registers). The two rows
+  # that remain each earn their slot for a different reason:
+  #   - chromium: Playwright's own bundled build (still supports
+  #     --load-extension) run ON WINDOWS — the win32 daemon/named-pipe/e2e
+  #     path (see fixtures.ts's e2eIpcEndpoint) has no other CI coverage,
+  #     since e2e-chromium above is ubuntu-only.
+  #   - msedge: real, preinstalled Microsoft Edge, which kept the flag. The
+  #     standing regression test for detectBrowserName's edg/-before-chrome
+  #     UA ordering (Edge must not evict the Chrome WS session).
+  # Branded Chrome coverage, where it still matters, is a real-profile GUI
+  # install smoke, not this job — `chrome` stays a VALID
+  # E2E_BROWSER_CHANNEL value in fixtures.ts for anyone on Chrome <=136 or a
+  # future re-enable of the flag; it is just not in this matrix.
   e2e-branded:
     name: e2e (${{ matrix.channel }}, windows)
     runs-on: windows-latest
@@ -243,7 +255,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        channel: [chrome, msedge]
+        channel: [chromium, msedge]
     steps:
       - name: Checkout
         uses: actions/checkout@v6
@@ -260,7 +272,14 @@ jobs:
         run: pnpm install --frozen-lockfile
       - name: Build (extension bundle + daemon CLI)
         run: pnpm build
-      - name: Run e2e against branded ${{ matrix.channel }}
+      - name: Install Playwright chromium
+        # msedge is real, preinstalled Windows Edge — no install needed. The
+        # chromium row needs Playwright's own bundled browser; no --with-deps
+        # (that's an apt-only concept) and no retry wrapper (that's working
+        # around a flaky apt mirror on ubuntu, not a concern on windows-latest).
+        if: matrix.channel == 'chromium'
+        run: pnpm --filter @george43g/chrome-extension exec playwright install chromium
+      - name: Run e2e against ${{ matrix.channel }}
         run: pnpm --filter @george43g/chrome-extension test:e2e
         env:
           E2E_BROWSER_CHANNEL: ${{ matrix.channel }}
