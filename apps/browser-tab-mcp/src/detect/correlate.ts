@@ -39,7 +39,7 @@
 
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
-import { warn } from "@george43g/robustness";
+import { info, warn } from "@george43g/robustness";
 import type { BrowserId, CgWindowInfo, Snapshot } from "@george43g/shared-types";
 import { tryLoadNative } from "../native-bridge.js";
 import { listDisplays } from "./displays.js";
@@ -47,6 +47,16 @@ import { listDisplays } from "./displays.js";
 const execFileAsync = promisify(execFile);
 
 const BOUNDS_TOLERANCE_PX = 2;
+
+/**
+ * BROWSER_TAB_CG_DIAG=1 turns on the verbose `cg_correlate` / `cg_merge_trigger`
+ * lines even when nothing degraded — for chasing a live cgWindowId oscillation.
+ * Default off: steady-state stays quiet, the diag line only fires unconditionally
+ * on request. Defined once here; engine-loop.ts imports it (R-C1).
+ */
+export function cgDiagEnabled(): boolean {
+  return process.env.BROWSER_TAB_CG_DIAG === "1";
+}
 
 export type CorrelationTier = "native" | "yabai" | "none";
 
@@ -84,7 +94,16 @@ interface YabaiRead {
 }
 
 async function readYabaiWindows(signal?: AbortSignal): Promise<YabaiRead | null> {
-  for (const bin of yabaiCandidates()) {
+  const candidates = yabaiCandidates();
+  // This is ALSO readCgWindows's tier-2 fallback, so it runs on every merge
+  // when the native module is absent — on a yabai-less machine every
+  // candidate path fails ENOENT, every merge, forever. That's "not
+  // installed", not a query failure, so it must not warn; track whether any
+  // candidate failed for a REAL reason (timeout/non-zero-exit/bad JSON) and
+  // only warn `yabai_titles_unavailable` when that happened (or diag is on).
+  let hadNonEnoentFailure = false;
+  for (const bin of candidates) {
+    const started = Date.now();
     try {
       const { stdout } = await execFileAsync(bin, ["-m", "query", "--windows"], {
         timeout: 2_000,
@@ -108,9 +127,20 @@ async function readYabaiWindows(signal?: AbortSignal): Promise<YabaiRead | null>
         })),
         titles,
       };
-    } catch {
-      // try next candidate
+    } catch (err) {
+      if ((err as NodeJS.ErrnoException).code === "ENOENT") continue;
+      hadNonEnoentFailure = true;
+      // A 2s timeout under churn (yabai itself busy retiling) now shows up as
+      // durMs≈2000 instead of vanishing — try next candidate either way.
+      warn("yabai_query_failed", {
+        bin,
+        message: (err as Error).message,
+        durMs: Date.now() - started,
+      });
     }
+  }
+  if (hadNonEnoentFailure || cgDiagEnabled()) {
+    warn("yabai_titles_unavailable", { candidates: candidates.length });
   }
   return null;
 }
@@ -238,6 +268,36 @@ function byId(windowId: number | null, pool: CgWindowInfo[]): CgWindowInfo | nul
 }
 
 /**
+ * The GEOMETRY tier that produced a pick's candidate set, for diagnostics
+ * tallying: "exact" = resolved from the exact-bounds candidate set (whether
+ * a single unique match or a title-tiebreak among several exact-bounds
+ * ties); "shifted" = same, but from the display-origin-shifted set; "title"
+ * = the last-resort tier, meaning geometry matched ZERO candidates and a
+ * unique title alone rescued it; "none" = unresolved (the tiebreak — or the
+ * absence of a title map — didn't produce a unique winner at whichever tier
+ * was reached). `tiebroken` on `PickResult` is the orthogonal axis: did
+ * resolving this window need a title tiebreak at all, independent of which
+ * geometry tier it happened at. On a tiling WM, EVERY healthy resolution
+ * ties within the exact tier and needs a tiebreak — so `tier` alone must
+ * still read "exact" there, or a healthy run becomes indistinguishable from
+ * the stale-bounds failure mode (geometry matches nothing, title rescues).
+ */
+type PickTier = "exact" | "shifted" | "title" | "none";
+
+interface PickResult {
+  cg: CgWindowInfo | null;
+  tier: PickTier;
+  /**
+   * True when a title tiebreak was invoked to reach this result, resolved
+   * or not — `cg` may still be null here. The diag tally's `tiebroken`
+   * counter is narrower: `correlateSnapshot` only increments it for windows
+   * that actually RESOLVED (cg non-null, no claim collision); an
+   * unresolved tiebreak is folded into `nulled` there instead.
+   */
+  tiebroken: boolean;
+}
+
+/**
  * The CG window for one browser window. Three tiers, strictest first:
  * exact bounds → the same bounds shifted by a display origin → title alone.
  * Each tier tiebreaks by title when it matches more than one candidate, and
@@ -249,20 +309,35 @@ function pickCgWindow(
   candidates: CgWindowInfo[],
   titles: TitleMap | undefined,
   origins: DisplayOrigins,
-): CgWindowInfo | null {
+): PickResult {
   const exact = candidates.filter((cg) => boundsMatch(bounds, cg));
-  const only = exact[0];
-  if (exact.length === 1 && only !== undefined) return only;
-  if (exact.length > 1) return byId(tiebreakByTitle(windowTitle, exact, titles), exact);
+  const onlyExact = exact[0];
+  if (exact.length === 1 && onlyExact !== undefined)
+    return { cg: onlyExact, tier: "exact", tiebroken: false };
+  if (exact.length > 1) {
+    const resolved = byId(tiebreakByTitle(windowTitle, exact, titles), exact);
+    return resolved
+      ? { cg: resolved, tier: "exact", tiebroken: true }
+      : { cg: null, tier: "none", tiebroken: true };
+  }
 
   const shifted = offsetCandidates(bounds, candidates, origins);
   const onlyShifted = shifted[0];
-  if (shifted.length === 1 && onlyShifted !== undefined) return onlyShifted;
-  if (shifted.length > 1) return byId(tiebreakByTitle(windowTitle, shifted, titles), shifted);
+  if (shifted.length === 1 && onlyShifted !== undefined)
+    return { cg: onlyShifted, tier: "shifted", tiebroken: false };
+  if (shifted.length > 1) {
+    const resolved = byId(tiebreakByTitle(windowTitle, shifted, titles), shifted);
+    return resolved
+      ? { cg: resolved, tier: "shifted", tiebroken: true }
+      : { cg: null, tier: "none", tiebroken: true };
+  }
 
   // No geometry agreed at all — the title is the only evidence left. Still
   // requires a unique match, so a nameless or duplicated title stays null.
-  return byId(tiebreakByTitle(windowTitle, candidates, titles), candidates);
+  const resolved = byId(tiebreakByTitle(windowTitle, candidates, titles), candidates);
+  return resolved
+    ? { cg: resolved, tier: "title", tiebroken: true }
+    : { cg: null, tier: "none", tiebroken: true };
 }
 
 /**
@@ -307,12 +382,68 @@ export function frontmostBrowser(
 }
 
 /**
+ * Per-browser tally of how `correlateSnapshot` resolved each window, for
+ * root-causing cgWindowId oscillation without adding logging/I/O to the
+ * matching core itself. Purely additive bookkeeping written into the
+ * caller-supplied `diag` out-param — never read back, never affects the
+ * returned Snapshot.
+ */
+export interface BrowserCorrelationDiag {
+  browser: string;
+  /**
+   * Windows with bounds — eligible to correlate whether or not any CG
+   * candidates existed for this pid. Set even when `candidates` is 0, so a
+   * browser that early-returns for lack of candidates still shows up here
+   * instead of reading as an untouched/unpolled browser.
+   */
+  windows: number;
+  /** CG windows for this pid at layer 0. */
+  candidates: number;
+  /** Resolved from the exact-bounds candidate set — a single unique match, or a title tiebreak among exact-bounds ties. */
+  exact: number;
+  /** Resolved from the display-origin-shifted candidate set — a single unique match, or a title tiebreak among shifted ties. */
+  shifted: number;
+  /** Resolved at the last-resort tier: geometry matched ZERO candidates and a unique title alone rescued it. */
+  titleOnly: number;
+  /** Resolutions (any geometry tier) that needed a title tiebreak to pick a winner — orthogonal to `tier`: "were titles load-bearing?" */
+  tiebroken: number;
+  /** Ended null: tiebreak was needed but couldn't uniquely resolve (tier exhaustion). */
+  nulled: number;
+  /** Dropped because two windows both claimed the same CG id — counted separately from `nulled`. */
+  claimCollisions: number;
+}
+
+export interface CorrelationDiag {
+  browsers: BrowserCorrelationDiag[];
+  titlesAvailable: boolean;
+  originsCount: number;
+}
+
+function emptyBrowserDiag(browser: string): BrowserCorrelationDiag {
+  return {
+    browser,
+    windows: 0,
+    candidates: 0,
+    exact: 0,
+    shifted: 0,
+    titleOnly: 0,
+    tiebroken: 0,
+    nulled: 0,
+    claimCollisions: 0,
+  };
+}
+
+/**
  * Pure matching core (unit-testable): for each browser window, find the CG
  * window owned by the browser's pid whose bounds match within tolerance.
  * Multiple candidates fall through to the title tiebreaker when `titles` is
  * supplied, else → null. No pid → null. A CG window claimed by two browser
  * windows was never decisive evidence, so both sides go back to null. When
  * `zOrdered`, also stamps `focusedBrowser` from the CG z-order.
+ *
+ * `diag`, when supplied, is populated with a pure tally of tier resolution —
+ * it never changes the returned Snapshot (see the diagnostics test asserting
+ * output identity with/without it).
  */
 export function correlateSnapshot(
   snapshot: Snapshot,
@@ -320,28 +451,57 @@ export function correlateSnapshot(
   zOrdered = false,
   titles?: TitleMap,
   displayOrigins: DisplayOrigins = [],
+  diag?: CorrelationDiag,
 ): Snapshot {
+  if (diag) {
+    diag.titlesAvailable = titles !== undefined;
+    diag.originsCount = displayOrigins.length;
+  }
   const correlated: Snapshot = {
     ...snapshot,
     browsers: snapshot.browsers.map((b) => {
+      const browserDiag = diag ? emptyBrowserDiag(b.browser) : undefined;
+      if (browserDiag) diag?.browsers.push(browserDiag);
       if (b.pid === null || b.windows.length === 0) return b;
       const candidates = cgWindows.filter((cg) => cg.ownerPid === b.pid && cg.layer === 0);
+      if (browserDiag) {
+        browserDiag.candidates = candidates.length;
+        // Set here (not after the candidates===0 return below) so a browser
+        // that early-returns for lack of candidates still records how many
+        // windows were degraded by it — otherwise it reads identically to a
+        // browser with nothing to correlate at all.
+        browserDiag.windows = b.windows.filter((w) => w.bounds).length;
+      }
       if (candidates.length === 0) return b;
       // undefined = window has no bounds, leave its id untouched.
-      const picked = b.windows.map((w) =>
+      const picks = b.windows.map((w) =>
         w.bounds ? pickCgWindow(w.bounds, w.title, candidates, titles, displayOrigins) : undefined,
       );
       const claims = new Map<number, number>();
-      for (const cg of picked) {
-        if (cg !== null && cg !== undefined)
-          claims.set(cg.windowId, (claims.get(cg.windowId) ?? 0) + 1);
+      for (const pick of picks) {
+        if (pick !== undefined && pick.cg !== null)
+          claims.set(pick.cg.windowId, (claims.get(pick.cg.windowId) ?? 0) + 1);
       }
       return {
         ...b,
         windows: b.windows.map((w, i) => {
-          const cg = picked[i];
-          if (cg === undefined) return w;
-          if (cg === null || claims.get(cg.windowId) !== 1) return { ...w, cgWindowId: null };
+          const pick = picks[i];
+          if (pick === undefined) return w;
+          const { cg, tier, tiebroken } = pick;
+          if (cg === null) {
+            if (browserDiag) browserDiag.nulled++;
+            return { ...w, cgWindowId: null };
+          }
+          if (claims.get(cg.windowId) !== 1) {
+            if (browserDiag) browserDiag.claimCollisions++;
+            return { ...w, cgWindowId: null };
+          }
+          if (browserDiag) {
+            if (tier === "exact") browserDiag.exact++;
+            else if (tier === "shifted") browserDiag.shifted++;
+            else if (tier === "title") browserDiag.titleOnly++;
+            if (tiebroken) browserDiag.tiebroken++;
+          }
           // CG corroborated this window, so its frame is the truth. Adopting it
           // repairs a source that reported display-local coordinates; for a
           // source that was already right this is a no-op within tolerance.
@@ -366,17 +526,44 @@ export async function enrichWithCgWindowIds(
   // tests never spawn `yabai`/native (deterministic + fast, no timing flake).
   if (process.env.BROWSER_TAB_FAKE_ADAPTER === "1") return snapshot;
   try {
+    const cgStarted = Date.now();
     const cg = await readCgWindows(signal);
+    const cgReadMs = Date.now() - cgStarted;
     if (!cg) return snapshot;
     // The native tier has no titles of its own. Borrow yabai's, but only once
     // bounds have actually failed to resolve something — a clean poll must not
     // pay for a subprocess it cannot learn anything from.
     let titles = cg.titles;
+    let borrowedTitles = false;
+    let borrowMs = 0;
     if (!titles && needsTitleTiebreak(snapshot, cg.windows)) {
+      const borrowStarted = Date.now();
       titles = (await readYabaiWindows(signal))?.titles;
+      borrowMs = Date.now() - borrowStarted;
+      borrowedTitles = true;
     }
     const origins = [...new Set(listDisplays().map((d) => d.y))];
-    return correlateSnapshot(snapshot, cg.windows, cg.zOrdered, titles, origins);
+    const diag: CorrelationDiag = { browsers: [], titlesAvailable: false, originsCount: 0 };
+    const result = correlateSnapshot(snapshot, cg.windows, cg.zOrdered, titles, origins, diag);
+    // Fires whenever an id degraded — nulled/claim-collided, OR a browser had
+    // windows but zero CG candidates for its pid (every one of its ids was
+    // never even in the running to resolve, which is degradation just as
+    // real as a failed tiebreak) — or unconditionally when
+    // BROWSER_TAB_CG_DIAG=1. Steady state (every id resolved, diag off)
+    // stays silent.
+    const nulled = diag.browsers.reduce((n, b) => n + b.nulled + b.claimCollisions, 0);
+    const candidatesZero = diag.browsers.some((b) => b.candidates === 0 && b.windows > 0);
+    if (nulled > 0 || candidatesZero || cgDiagEnabled()) {
+      info("cg_correlate", {
+        borrowed: borrowedTitles,
+        titlesAvailable: diag.titlesAvailable,
+        origins: diag.originsCount,
+        browsers: diag.browsers,
+        cgReadMs,
+        borrowMs,
+      });
+    }
+    return result;
   } catch (err) {
     warn("cg_correlation_failed", { message: (err as Error).message });
     return snapshot;

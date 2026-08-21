@@ -5,6 +5,7 @@
 import type { CgWindowInfo, Snapshot } from "@george43g/shared-types";
 import { makeBrowserState, makeContractWindow, makeSnapshot } from "@george43g/test-kit";
 import { describe, expect, it } from "vitest";
+import type { CorrelationDiag } from "../src/detect/correlate.js";
 import { correlateSnapshot, needsTitleTiebreak } from "../src/detect/correlate.js";
 
 function snapshotWith(
@@ -408,5 +409,96 @@ describe("correlateSnapshot display-origin offset (Safari display-local y)", () 
     const out = correlateSnapshot(snap, [cg(555, 878, 1, 2, 3, 4)], false, titles, ORIGINS);
     expect(out.browsers[0]?.windows[0]?.cgWindowId).toBe(555);
     expect(out.browsers[0]?.windows[0]?.bounds).toEqual({ x: 1, y: 2, w: 3, h: 4 });
+  });
+});
+
+/**
+ * Diagnostics out-param: a pure tally of tier resolution per browser, for
+ * root-causing cgWindowId oscillation without adding logging/I/O to the
+ * matching core. Reuses the tiled fixture shape from :147-160 verbatim.
+ */
+describe("correlation diagnostics", () => {
+  const TILED = { x: 40, y: 50, w: 1996, h: 1269 };
+  const tiledSnapshot = () =>
+    snapshotWith([
+      { windowId: "w:chrome:x1", bounds: TILED, title: "Extensions" },
+      { windowId: "w:chrome:x2", bounds: TILED, title: "Credits | OpenRouter" },
+      { windowId: "w:chrome:x3", bounds: TILED, title: "Harness engineering | OpenAI" },
+    ]);
+  const tiledCg = [
+    cg(542247, 878, 40, 50, 1996, 1269),
+    cg(349035, 878, 40, 50, 1996, 1269),
+    cg(382150, 878, 40, 50, 1996, 1269),
+  ];
+  // yabai appends " - Google Chrome - <profile>" to the tab title.
+  const titles = new Map([
+    [349035, "Extensions - Google Chrome - George (Main G)"],
+    [542247, "Credits | OpenRouter - Google Chrome - George (Main G)"],
+    [382150, "Harness engineering | OpenAI - Google Chrome - George (Main G)"],
+  ]);
+
+  function emptyDiag(): CorrelationDiag {
+    return { browsers: [], titlesAvailable: false, originsCount: 0 };
+  }
+
+  // Two snapshot windows, one CG candidate both must claim (the :249 drop case).
+  const twoWindowsOneCg = () =>
+    snapshotWith([
+      { windowId: "w:chrome:x1", bounds: TILED, title: "Extensions" },
+      { windowId: "w:chrome:x2", bounds: TILED, title: "Extensions" },
+    ]);
+  const oneCg = [cg(349035, 878, 40, 50, 1996, 1269)];
+
+  it("counts tier resolution per browser (tiled: every window ties within the exact-bounds tier)", () => {
+    // On a tiling WM this IS the healthy case — bounds tie 3-for-3 and the
+    // title tiebreak resolves each one, but the geometry that produced the
+    // ambiguous set was still the exact tier, so `tier` must read "exact"
+    // here or a healthy run reads identically to the stale-bounds failure
+    // mode this instrumentation exists to distinguish.
+    const diag: CorrelationDiag = emptyDiag();
+    correlateSnapshot(tiledSnapshot(), tiledCg, false, titles, [], diag);
+    expect(diag.browsers[0]).toMatchObject({
+      windows: 3,
+      candidates: 3,
+      exact: 3,
+      shifted: 0,
+      titleOnly: 0,
+      tiebroken: 3,
+      nulled: 0,
+    });
+    expect(diag.titlesAvailable).toBe(true);
+  });
+
+  it("counts claim collisions as collisions, not plain nulls", () => {
+    const diag = emptyDiag();
+    correlateSnapshot(twoWindowsOneCg(), oneCg, false, undefined, [], diag);
+    expect(diag.browsers[0]).toMatchObject({ claimCollisions: 2, nulled: 0 });
+  });
+
+  it("nulled counts tier exhaustion (no title map, so no tiebreak ever succeeds)", () => {
+    const diag = emptyDiag();
+    correlateSnapshot(tiledSnapshot(), tiledCg, false, undefined, [], diag); // no titles → all ambiguous
+    expect(diag.browsers[0]).toMatchObject({ nulled: 3, claimCollisions: 0, tiebroken: 0 });
+  });
+
+  it("titleOnly counts only the genuine last-resort tier — geometry matched zero candidates", () => {
+    // Same fixture shape as "falls back to title alone when no display origin
+    // explains the gap" above: the CG candidate's bounds share nothing with
+    // the reported bounds under any offset, so only the title rescues it.
+    const REPORTED = { x: 2096, y: 50, w: 1860, h: 1020 };
+    const ORIGINS = [0, -842, 238, 249];
+    const snap = snapshotWith([
+      { windowId: "w:safari:x1", bounds: REPORTED, title: "Hacker News" },
+    ]);
+    const lastResortTitles = new Map([[555, "Personal — Hacker News"]]);
+    const diag = emptyDiag();
+    correlateSnapshot(snap, [cg(555, 878, 1, 2, 3, 4)], false, lastResortTitles, ORIGINS, diag);
+    expect(diag.browsers[0]).toMatchObject({ exact: 0, shifted: 0, titleOnly: 1, tiebroken: 1 });
+  });
+
+  it("produces an output snapshot identical with or without the diag param", () => {
+    const withDiag = correlateSnapshot(tiledSnapshot(), tiledCg, false, titles, [], emptyDiag());
+    const withoutDiag = correlateSnapshot(tiledSnapshot(), tiledCg, false, titles, []);
+    expect(withDiag).toEqual(withoutDiag);
   });
 });
