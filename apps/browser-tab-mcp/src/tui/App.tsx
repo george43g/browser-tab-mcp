@@ -17,6 +17,7 @@ import {
   type NavState,
   navReduce,
   StatusBar,
+  scrollbarThumb,
   truncateToWidth,
   useTerminalSize,
   useTheme,
@@ -315,44 +316,70 @@ export function App() {
   const { start: visibleStart, end: visibleEnd } = visibleWindow(focusRow, rows.length, viewport);
   const visible = rows.slice(visibleStart, visibleEnd);
 
-  const renderRow = (row: Row, idx: number) => {
+  // Scroll position indicator: a 1-column track at the right edge of the
+  // list, shown ONLY when there's something to scroll (`thumbRows === 0`
+  // means "everything fits" — no track at all, rows keep full width, no
+  // reserved dead column). `trackRows` is the VIEWPORT, not `visible.length`:
+  // when the list overflows, `visibleWindow` already sizes the shown slice to
+  // exactly `viewport` rows, so a 0-based index into `visible` maps 1:1 onto
+  // a row of the track. When the list fits, thumbRows is 0 and no row ever
+  // consults the mapping.
+  const thumb = scrollbarThumb(
+    { start: visibleStart, end: visibleEnd, total: rows.length },
+    viewport,
+  );
+  const showBar = thumb.thumbRows > 0;
+  const rowCols = showBar ? usableCols - 2 : usableCols;
+
+  const renderRow = (row: Row, idx: number, barChar: string) => {
     const isCursor = idx === nav.cursor;
     const highlightTarget =
       mode.kind === "move" && row.kind === "window" && moveTargets[targetIdx]?.key === row.key;
     // Row text is composed and width-guaranteed entirely by layoutRowText —
     // this closure keeps only the color/highlight decision, not the layout.
     let text = layoutRowText(row, {
-      cols: usableCols,
+      cols: rowCols,
       moveTarget: highlightTarget,
       folded: row.kind === "window" ? folded.has(row.window.windowId) : undefined,
     });
     // Belt-and-braces: layoutRowText already guarantees visualWidth(text) ===
-    // usableCols, so this is redundant today. Kept for one release in case a
+    // rowCols, so this is redundant today. Kept for one release in case a
     // future edit composes a row outside that guarantee.
-    text = truncateToWidth(text, usableCols);
+    text = truncateToWidth(text, rowCols);
+    // Composed OUTSIDE the row's own color wrapper — same principle as the
+    // cursor highlight above: the bar is track chrome, not row content, so it
+    // never inherits the row's background/foreground color. `null` when the
+    // bar is hidden keeps the line at exactly `rowCols` (=== usableCols)
+    // cells, matching the no-bar width budget.
+    const bar = showBar ? (
+      <>
+        <Text> </Text>
+        <Text color={barChar === "█" ? theme.palette.accent : theme.palette.fgDim}>{barChar}</Text>
+      </>
+    ) : null;
     if (isCursor || highlightTarget) {
       return (
-        <Text
-          key={row.key}
-          wrap="truncate"
-          color={theme.palette.bg}
-          backgroundColor={theme.palette.accent}
-        >
-          {text}
-        </Text>
+        <Box key={row.key}>
+          <Text wrap="truncate" color={theme.palette.bg} backgroundColor={theme.palette.accent}>
+            {text}
+          </Text>
+          {bar}
+        </Box>
       );
     }
     return (
-      <Text
-        key={row.key}
-        // Belt-and-braces with the truncation above: even if a future edit
-        // composes a row past the budget, Ink clips instead of wrapping.
-        wrap="truncate"
-        color={row.kind === "tab" ? theme.palette.fg : theme.palette.accent}
-        dimColor={row.kind === "tab" && !row.tab.active}
-      >
-        {text}
-      </Text>
+      <Box key={row.key}>
+        <Text
+          // Belt-and-braces with the truncation above: even if a future edit
+          // composes a row past the budget, Ink clips instead of wrapping.
+          wrap="truncate"
+          color={row.kind === "tab" ? theme.palette.fg : theme.palette.accent}
+          dimColor={row.kind === "tab" && !row.tab.active}
+        >
+          {text}
+        </Text>
+        {bar}
+      </Box>
     );
   };
 
@@ -401,7 +428,13 @@ export function App() {
               {snapshot ? "No browser windows detected." : "Scanning browsers…"}
             </Text>
           ) : (
-            visible.map((row, i) => renderRow(row, visibleStart + i))
+            visible.map((row, i) =>
+              renderRow(
+                row,
+                visibleStart + i,
+                i >= thumb.thumbStart && i < thumb.thumbStart + thumb.thumbRows ? "█" : "│",
+              ),
+            )
           )}
         </Box>
         {showStats ? (
