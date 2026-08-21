@@ -823,3 +823,82 @@ browser); coverage ratchet + npm publish (George-deferred); ~45 stale remote
 branches (offer before deleting); mechanism-B console check (10s, George's
 Mac). Daemon/extension deployment on the MAC is now one release behind
 (v1.3.1 deployed, v1.3.2 cutting) — redeploy is user-gated as always.
+
+## 2026-08-21 — PARKED: tab selection & arrange DSL (its own project, George's call)
+
+George, verbatim: "all the ideas you had regarding the selection features -
+park and defer them - because that's a project in and of itself". Designed in
+session 5a15fe80 (post-compact), presented, then parked BEFORE planning. What
+follows is the full design so unparking restarts from here, not from zero.
+
+**Origin request (George, condensed from his message):** confirm/build tab
+swapping, group tab targeting, window targeting; move relative (±N) and
+absolute (negative = offset from far end); selections relative ("X and Y tabs
+left, Z right"), absolute ("first X of window Y"), arbitrary id lists across
+windows, and combinations of prior selections; transformations and
+info-requests applicable to any selection; and an end-state mode where an AI
+declares the final arrangement and the tool computes+applies the moves itself.
+**He had one more addressing/selection/movement mode he forgot** — never
+identified. When unparking, re-present the set below and let him check it
+again ("scatter/distribute across N windows" was offered and not confirmed).
+
+**What exists today (verified 2026-08-21):** cross-window absolute move only
+(`move_tab {targetWindowId, targetIndex}`); same-window reorder throws without
+an explicit targetWindowId (`extension-core/src/commands.ts:475`); no relative
+move, no negative index (`MoveTabInputSchema` targetIndex `min(0)`,
+`shared-types/src/tools.ts:130`), no swap, no multi-tab actions (`tab_action`
+is single-tab), no selections beyond explicit id lists in `group_tabs`.
+
+**Design spine:** selections and destinations share the same addressing
+families — identity, absolute position, relative position — as recursive
+Zod-validated JSON (no string parser). Selector families (6): identity
+(handle lists / window / group), absolute (window slices, Python semantics,
+negatives from end), relative (anchor ±left/right, `between`, `@active`
+sugar), predicate (url/domain/title glob, pinned/audible/muted/discarded/
+grouped, browser), time (lastAccessed bounds, journal MRU rank), set algebra
+(union/intersect/subtract/complement-within; selections ORDERED, document
+order default, `orderBy: mru|domain|title`). Transformations (7): move
+(destination `{by:±N}` | `{to:i}` | `{window,at}` | `{newWindow}` |
+relational `{beside: tab, side}`; multi-tab lands as contiguous block in
+selection order), swap (pairwise/block), sort-in-place (domain/title/
+recency/pinned-first), group/ungroup (lifts group_tabs), act (fan any
+TabAction with per-id skip reporting), query (selection → list_tabs rows),
+arrange (end-state: `windows: [{window: w|"new", tabs: [final order],
+groups}]`, LIS-based minimal-move solver, unlisted tabs stay put,
+`strict:true` for full coverage, `dryRun:true` returns the op list unapplied).
+
+**Tool surface:** two new tools — `select_tabs {selector}` (read) and
+`arrange_tabs {selector, transform} | {endState}` (one transform per call;
+composition lives in the selector algebra). Single-tab tools untouched except
+`move_tab` gaining same-window / negative-index / `by:±N`.
+
+**Executor gotchas (why it's daemon work):** ops computed against a pinned
+resolve-snapshot then translated to live indices in a non-invalidating order;
+`tabs.move` index echo lies (final `tabs.get` is the honest answer,
+`commands.ts:482-491`); pinned tabs are a separate index space that clamps;
+moving a grouped tab silently ungroups; group spans contiguous; no
+transactions — report per-op results + actual final state; extension-only
+(x-handles), AppleScript errors actionably, capabilities-gated; per-id
+validation + immediate post-command snapshot, per group_tabs precedent.
+
+## 2026-08-21 — corrections to the BRIEF (found while planning; session 5a15fe80 post-compact)
+
+Code exploration for the implementation plans (docs/agent-handoff/plans/) falsified
+two BRIEF claims — recorded here so nobody re-inherits them:
+
+- **BRIEF §3 (Edge), `types.rs` mirror:** WRONG. `apps/rust-accel/src/types.rs`
+  holds only four `#[napi(object)]` structs, no browser enum, and the drift test
+  regexes `pub struct` only. Adding `"edge"` to `BrowserIdSchema` needs zero
+  Rust work. Also `makeAdapter` (dispatch is `!== "safari"`) and
+  `applescriptCaps` (derived fn) need zero edits.
+- **BRIEF §4 (cg oscillation), the working hypothesis:** CONTRADICTED as
+  worded. There is no borrow asymmetry between paths — `correlateSnapshot` has
+  ONE caller (`correlate.ts:379`, inside `enrichWithCgWindowIds`) and both the
+  poll tick and the extension-event remerge reach it via `merge.ts:80` with the
+  title-borrow gate intact; the poll's extra correlation (`engine.ts:115`) is
+  discarded for extension-fed browsers. Surviving mechanisms (M1 stale
+  lastPolled bounds vs fresh CG read on remerge — strongest, explains Safari
+  nulling on Chrome events; M2 silent yabai failure — bare catch at
+  `correlate.ts:111-113`, zero logs; M3 sibling-claim cascade at
+  `correlate.ts:344`; M4 empty display origins) are encoded as the decision
+  table in `plans/2026-08-21-cg-oscillation-instrumentation.md`.
