@@ -46,7 +46,7 @@ import {
 } from "@george43g/robustness";
 import type { Snapshot } from "@george43g/shared-types";
 import { makeTmpDir, withDaemonEnv } from "@george43g/test-kit";
-import { ThemeProvider, viewportRows, visibleWindow } from "@george43g/tui-kit";
+import { ThemeProvider, viewportRows, visibleWindow, visualWidth } from "@george43g/tui-kit";
 import { render } from "ink-testing-library";
 import { type DaemonHandle, startDaemon } from "../src/daemon/index.js";
 import { App } from "../src/tui/App.js";
@@ -248,7 +248,7 @@ async function phaseRender(deadline: number): Promise<{ frames: number }> {
           note("render", `${columns}x${termRows}: frame emitted ${lines.length} lines`);
         }
         for (const line of lines) {
-          const width = strip(line).length;
+          const width = visualWidth(strip(line));
           if (width > columns) {
             note(
               "render",
