@@ -11,14 +11,36 @@
  * layout test, and the feed has its own coverage.
  */
 
+// The scrollbar thumb/track are distinguished from the row's own text ONLY by
+// an ANSI color wrapper (thumb accent vs track dim, composed as a SIBLING
+// `<Text>` outside the row's own color wrapper — see App.tsx). Under color
+// level 0 (`ink-testing-library`'s fake stdout default, an untouched
+// non-TTY), chalk strips all color, so the glyph still prints but with no
+// escape bytes around it — a strip() regex could be flat wrong and every
+// assertion below would still pass, for the wrong reason. FORCE_COLOR must be
+// set BEFORE ink/chalk are ever imported: chalk's level is resolved once at
+// module-evaluation time, and native ESM `import` statements are hoisted
+// above any statement in the importing module regardless of textual
+// position — so a static `import "ink-testing-library"` anywhere in this
+// file would already have chalk cached before this line ran (verified
+// empirically in App.halfpage.test.tsx). `render` is therefore a dynamic
+// import too, alongside `App`/`ThemeProvider` below.
+process.env.FORCE_COLOR = "3";
+
 import type { Snapshot } from "@george43g/shared-types";
-import { render } from "ink-testing-library";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 const TAB_COUNT = 30;
 
-/** Strip SGR/ANSI so glyph/width checks measure the printed cell, not escape bytes. */
-const ANSI = /\[[0-9;]*m/g;
+/**
+ * Strip REAL SGR/ANSI escapes — `\x1b[` + digits/semicolons + `m` — so
+ * glyph/width checks measure the printed cell, not escape bytes. The ESC
+ * byte (`\x1b`) is part of the sequence; a regex missing it (`/\[[0-9;]*m/`)
+ * only matches a literal `[...m` substring that never occurs in real ANSI
+ * output, so it is a no-op strip — harmless under color level 0 (nothing to
+ * strip either way) but silently wrong the moment real color is on.
+ */
+const ANSI = /\x1b\[[0-9;]*m/g;
 const strip = (s: string) => s.replace(ANSI, "");
 
 // Mutable so a single test can flip the tab count between an overflowing and
@@ -71,8 +93,9 @@ vi.mock("./useSnapshot.js", () => ({
   useSnapshot: () => ({ snapshot: makeSnapshot(), live: true, refresh: () => {} }),
 }));
 
+const { render } = await import("ink-testing-library");
 const { App } = await import("./App.js");
-const { ThemeProvider } = await import("@george43g/tui-kit");
+const { ThemeProvider, visualWidth } = await import("@george43g/tui-kit");
 
 const tick = () => new Promise((r) => setTimeout(r, 0));
 
@@ -175,7 +198,7 @@ describe("scrollbar", () => {
     const { lines, unmount } = await renderAt(100, 24);
     cleanup = unmount;
     for (const line of lines) {
-      expect(strip(line).length, JSON.stringify(line)).toBeLessThanOrEqual(100);
+      expect(visualWidth(strip(line)), JSON.stringify(line)).toBeLessThanOrEqual(100);
     }
   });
 });

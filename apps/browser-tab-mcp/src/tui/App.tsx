@@ -432,7 +432,13 @@ export function App() {
               renderRow(
                 row,
                 visibleStart + i,
-                i >= thumb.thumbStart && i < thumb.thumbStart + thumb.thumbRows ? "█" : "│",
+                // Guarded behind showBar: renderRow ignores barChar entirely
+                // when the bar is hidden, so there's nothing to compute.
+                !showBar
+                  ? ""
+                  : i >= thumb.thumbStart && i < thumb.thumbStart + thumb.thumbRows
+                    ? "█"
+                    : "│",
               ),
             )
           )}
