@@ -11,6 +11,8 @@
     "test:no-native": "vitest run",
     "test:watch": "vitest",
     "test:e2e": "playwright test",
+    "test:e2e:chrome": "node scripts/e2e-channel.mjs chrome",
+    "test:e2e:edge": "node scripts/e2e-channel.mjs msedge",
     "clean": "node ../../scripts/rimraf.mjs dist coverage"
   },
   "dependencies": {
