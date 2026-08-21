@@ -170,3 +170,31 @@ loopback (`dataSource:"extension"`, `x`-handles) → a daemon-driven cross-windo
 `move` preserves the page's scroll (the `chrome.tabs.move` win vs close+reopen).
 Requires `pnpm build` first (the harness spawns `dist/cli.js`). Runs as its own
 CI job (`e2e-chromium`); Safari stays manual-smoke only.
+
+**Branded channels (`E2E_BROWSER_CHANNEL`).** The same three tests also run
+against real, installed Google Chrome and Microsoft Edge — not Playwright's
+bundled Chromium — via Playwright's `channel` option. Set
+`E2E_BROWSER_CHANNEL=chrome` or `E2E_BROWSER_CHANNEL=msedge` before
+`test:e2e`, or use the convenience scripts:
+
+```bash
+pnpm --filter @george43g/chrome-extension test:e2e:chrome  # real Google Chrome
+pnpm --filter @george43g/chrome-extension test:e2e:edge    # real Microsoft Edge
+```
+
+Both scripts shell out through `scripts/e2e-channel.mjs` — a tiny Node wrapper
+instead of a bare `"playwright test"` script, because a plain env-var prefix
+(`E2E_BROWSER_CHANNEL=chrome playwright test`) is a POSIX-shell idiom that
+doesn't carry the variable into the process on cmd.exe, and `cross-env` wasn't
+already a dependency worth adding for two scripts. The env var is unset by
+default, which resolves to Playwright's own `chromium` channel — today's
+behavior, unchanged. `seedConfig` deliberately never writes a `browser` key to
+extension storage, so `detectBrowserName`'s real User-Agent sniffing
+(`packages/extension-core/src/runtime.ts`) is what each channel exercises; the
+`msedge` leg is the standing regression guard for the `edg/`-before-chrome
+ordering that keeps Edge from evicting the Chrome WS session.
+
+In CI this runs unconditionally as `e2e-branded` — a two-row
+`chrome`/`msedge` matrix on the Windows box (`windows-latest`), where both
+browsers are preinstalled, so there is no browser download step at all. All
+legs, branded or not, stay headless (`--headless=new`).
