@@ -94,7 +94,15 @@ interface YabaiRead {
 }
 
 async function readYabaiWindows(signal?: AbortSignal): Promise<YabaiRead | null> {
-  for (const bin of yabaiCandidates()) {
+  const candidates = yabaiCandidates();
+  // This is ALSO readCgWindows's tier-2 fallback, so it runs on every merge
+  // when the native module is absent — on a yabai-less machine every
+  // candidate path fails ENOENT, every merge, forever. That's "not
+  // installed", not a query failure, so it must not warn; track whether any
+  // candidate failed for a REAL reason (timeout/non-zero-exit/bad JSON) and
+  // only warn `yabai_titles_unavailable` when that happened (or diag is on).
+  let hadNonEnoentFailure = false;
+  for (const bin of candidates) {
     const started = Date.now();
     try {
       const { stdout } = await execFileAsync(bin, ["-m", "query", "--windows"], {
@@ -120,6 +128,8 @@ async function readYabaiWindows(signal?: AbortSignal): Promise<YabaiRead | null>
         titles,
       };
     } catch (err) {
+      if ((err as NodeJS.ErrnoException).code === "ENOENT") continue;
+      hadNonEnoentFailure = true;
       // A 2s timeout under churn (yabai itself busy retiling) now shows up as
       // durMs≈2000 instead of vanishing — try next candidate either way.
       warn("yabai_query_failed", {
@@ -129,7 +139,9 @@ async function readYabaiWindows(signal?: AbortSignal): Promise<YabaiRead | null>
       });
     }
   }
-  warn("yabai_titles_unavailable", { candidates: yabaiCandidates().length });
+  if (hadNonEnoentFailure || cgDiagEnabled()) {
+    warn("yabai_titles_unavailable", { candidates: candidates.length });
+  }
   return null;
 }
 
@@ -275,7 +287,13 @@ type PickTier = "exact" | "shifted" | "title" | "none";
 interface PickResult {
   cg: CgWindowInfo | null;
   tier: PickTier;
-  /** True when a title tiebreak was invoked to reach this result (success or not). */
+  /**
+   * True when a title tiebreak was invoked to reach this result, resolved
+   * or not — `cg` may still be null here. The diag tally's `tiebroken`
+   * counter is narrower: `correlateSnapshot` only increments it for windows
+   * that actually RESOLVED (cg non-null, no claim collision); an
+   * unresolved tiebreak is folded into `nulled` there instead.
+   */
   tiebroken: boolean;
 }
 
@@ -372,7 +390,12 @@ export function frontmostBrowser(
  */
 export interface BrowserCorrelationDiag {
   browser: string;
-  /** Windows with bounds that entered correlation (candidates.length > 0). */
+  /**
+   * Windows with bounds — eligible to correlate whether or not any CG
+   * candidates existed for this pid. Set even when `candidates` is 0, so a
+   * browser that early-returns for lack of candidates still shows up here
+   * instead of reading as an untouched/unpolled browser.
+   */
   windows: number;
   /** CG windows for this pid at layer 0. */
   candidates: number;
@@ -441,13 +464,19 @@ export function correlateSnapshot(
       if (browserDiag) diag?.browsers.push(browserDiag);
       if (b.pid === null || b.windows.length === 0) return b;
       const candidates = cgWindows.filter((cg) => cg.ownerPid === b.pid && cg.layer === 0);
-      if (browserDiag) browserDiag.candidates = candidates.length;
+      if (browserDiag) {
+        browserDiag.candidates = candidates.length;
+        // Set here (not after the candidates===0 return below) so a browser
+        // that early-returns for lack of candidates still records how many
+        // windows were degraded by it — otherwise it reads identically to a
+        // browser with nothing to correlate at all.
+        browserDiag.windows = b.windows.filter((w) => w.bounds).length;
+      }
       if (candidates.length === 0) return b;
       // undefined = window has no bounds, leave its id untouched.
       const picks = b.windows.map((w) =>
         w.bounds ? pickCgWindow(w.bounds, w.title, candidates, titles, displayOrigins) : undefined,
       );
-      if (browserDiag) browserDiag.windows = picks.filter((p) => p !== undefined).length;
       const claims = new Map<number, number>();
       for (const pick of picks) {
         if (pick !== undefined && pick.cg !== null)
@@ -516,11 +545,15 @@ export async function enrichWithCgWindowIds(
     const origins = [...new Set(listDisplays().map((d) => d.y))];
     const diag: CorrelationDiag = { browsers: [], titlesAvailable: false, originsCount: 0 };
     const result = correlateSnapshot(snapshot, cg.windows, cg.zOrdered, titles, origins, diag);
-    // Fires whenever an id degraded (nulled/claim-collided) — the event under
-    // investigation — or unconditionally when BROWSER_TAB_CG_DIAG=1. Steady
-    // state (every id resolved, diag off) stays silent.
+    // Fires whenever an id degraded — nulled/claim-collided, OR a browser had
+    // windows but zero CG candidates for its pid (every one of its ids was
+    // never even in the running to resolve, which is degradation just as
+    // real as a failed tiebreak) — or unconditionally when
+    // BROWSER_TAB_CG_DIAG=1. Steady state (every id resolved, diag off)
+    // stays silent.
     const nulled = diag.browsers.reduce((n, b) => n + b.nulled + b.claimCollisions, 0);
-    if (nulled > 0 || cgDiagEnabled()) {
+    const candidatesZero = diag.browsers.some((b) => b.candidates === 0 && b.windows > 0);
+    if (nulled > 0 || candidatesZero || cgDiagEnabled()) {
       info("cg_correlate", {
         borrowed: borrowedTitles,
         titlesAvailable: diag.titlesAvailable,

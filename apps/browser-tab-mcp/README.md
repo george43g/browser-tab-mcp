@@ -104,7 +104,8 @@ proved ambiguous, so an unambiguous poll never pays for the extra subprocess.
 `shifted`, `titleOnly`, `tiebroken`, `nulled`, `claimCollisions`). Set
 `BROWSER_TAB_CG_DIAG=1` to log every correlation pass plus `cg_merge_trigger`
 staleness lines. yabai query failures log as `yabai_query_failed` or
-`yabai_titles_unavailable` lines. All diagnostics are info-level.
+`yabai_titles_unavailable` — both warn-level; `cg_correlate`/`cg_merge_trigger`
+are info-level.
 
 Env: `BROWSER_TAB_CG_DIAG` (0).
 
