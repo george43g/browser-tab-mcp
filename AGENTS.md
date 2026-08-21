@@ -11,7 +11,7 @@ This repo was generated from `mcp-cli-starter-template` via `mcp-scaffold init`.
 
 ## What This Repo Is
 
-macOS browser-tab detection & management for the yabai/Hammerspoon wm-stack (`~/dotfiles/wm-stack`): which tabs are open in which browser windows (Chrome, Brave, Chromium, Safari), joined to yabai window ids via `cgWindowId` (== CGWindowID), plus tab commands — including true state-preserving cross-window moves via the connector browser extension. The consumer contract lives in `docs/WM_STACK_CONTRACT.md`.
+macOS browser-tab detection & management for the yabai/Hammerspoon wm-stack (`~/dotfiles/wm-stack`): which tabs are open in which browser windows (Chrome, Brave, Chromium, Edge, Safari), joined to yabai window ids via `cgWindowId` (== CGWindowID), plus tab commands — including true state-preserving cross-window moves via the connector browser extension. The consumer contract lives in `docs/WM_STACK_CONTRACT.md`.
 
 A Turborepo monorepo shipping a **single bin** (`browser-tab`):
 

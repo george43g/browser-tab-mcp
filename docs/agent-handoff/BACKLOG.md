@@ -902,3 +902,7 @@ two BRIEF claims — recorded here so nobody re-inherits them:
   `correlate.ts:111-113`, zero logs; M3 sibling-claim cascade at
   `correlate.ts:344`; M4 empty display origins) are encoded as the decision
   table in `plans/2026-08-21-cg-oscillation-instrumentation.md`.
+
+## 2026-08-22 — BRIEF §3 (Edge) SHIPPED on feat/edge-first-class
+
+The brief's claim that `types.rs` held a browser enum was incorrect — `apps/rust-accel/src/types.rs` contains only four `#[napi(object)]` structs; the drift test regexes `pub struct` only. Adding edge to `BrowserIdSchema` required zero Rust work. Also, `makeAdapter` (dispatch is `!== "safari"`) and `applescriptCaps` (derived function) needed zero edits — Edge inherited the correct capability path from its enum membership without code.

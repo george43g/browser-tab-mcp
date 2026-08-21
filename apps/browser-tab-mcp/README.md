@@ -122,7 +122,7 @@ A **single** bin, `browser-tab`, with subcommands (run `browser-tab --help`):
 | | macOS | Windows | Linux |
 |---|---|---|---|
 | Daemon (IPC, WS, snapshot, journal, history, page, tab-1 screenshots) | ✅ | ✅ | ✅ |
-| Connector extension (Chrome/Brave/Chromium) | ✅ | ✅ | ✅ |
+| Connector extension (Chrome/Brave/Chromium/Edge) | ✅ | ✅ | ✅ |
 | AppleScript fallback — works with NO extension installed | ✅ | — | — |
 | `cgWindowId` correlation (the wm-stack join key) | ✅ | — | — |
 | Tier-2 window capture (`screencapture -l`) | ✅ | — | — |
@@ -240,7 +240,7 @@ Extension protocol/build staleness are report **items** now, not writes appended
 after the verdict — same glyphs, same ordering, and they count. `ok` still means
 "no errors", so warnings do not change the exit code; only an `✗` exits 1.
 
-`chromium` is polled by default alongside chrome/brave/safari. It is a
+`chromium` is polled by default alongside chrome/brave/edge/safari. It is a
 first-class `BrowserId` everywhere else, and leaving it out of the defaults made
 it the one browser you had to name explicitly to see; a browser that is not
 installed costs one cheap probe and reports `running: false`.
@@ -496,8 +496,9 @@ query lists one line per source it considered, whether or not it ran:
 $ browser-tab history --query zzz-no-such-url
 history - no rows
   sources
-    chrome    extension   ok           0 rows
     brave     extension   unavailable  the browser-tab extension is not connected
+    chrome    extension   ok           0 rows
+    edge      extension   unavailable  the browser-tab extension is not connected
     safari    safari-db   unavailable  Safari history is disabled - set BROWSER_TAB_SAFARI_HISTORY=1
 ```
 
