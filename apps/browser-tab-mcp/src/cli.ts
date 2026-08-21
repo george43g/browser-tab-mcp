@@ -359,7 +359,7 @@ export function buildProgram(): Command {
 
   program
     .command("list")
-    .description("List open browser windows and tabs (Chrome/Brave/Chromium/Safari)")
+    .description("List open browser windows and tabs (Chrome/Brave/Chromium/Edge/Safari)")
     .option("--browser <name>", "Restrict to one browser: chrome|chromium|brave|edge|safari")
     .option("--window <id>", "Restrict to one window (opaque windowId from a previous list)")
     .option("--url <substring>", "Filter tabs by URL substring (drops non-matching windows)")

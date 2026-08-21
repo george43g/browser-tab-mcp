@@ -720,6 +720,8 @@ either way (the bus ignores return values): commands, not queries.
 
 ### 3. Edge as a first-class browser
 
+**SHIPPED 2026-08-22** on feat/edge-first-class — see the dated close-out note at the end of this file.
+
 **Motive:** George wants Edge in the mix on the Windows box; interim
 pin-to-chromium works today (documented in the Windows follow-ups above) but
 mislabels. **Surface list for the enum change** (each is small, the list is
