@@ -99,6 +99,15 @@ The native tier carries no titles of its own (`kCGWindowName` needs Screen
 Recording consent), so it borrows yabai's — but only after bounds have actually
 proved ambiguous, so an unambiguous poll never pays for the extra subprocess.
 
+**Correlation observability.** When correlation degrades (window ids drop to
+`null`), the daemon logs a `cg_correlate` line with per-tier counts (`exact`,
+`shifted`, `titleOnly`, `tiebroken`, `nulled`, `claimCollisions`). Set
+`BROWSER_TAB_CG_DIAG=1` to log every correlation pass plus `cg_merge_trigger`
+staleness lines. yabai query failures log as `yabai_query_failed` or
+`yabai_titles_unavailable` lines. All diagnostics are info-level.
+
+Env: `BROWSER_TAB_CG_DIAG` (0).
+
 ## Bin
 
 A **single** bin, `browser-tab`, with subcommands (run `browser-tab --help`):
