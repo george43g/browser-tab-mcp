@@ -238,18 +238,27 @@ function byId(windowId: number | null, pool: CgWindowInfo[]): CgWindowInfo | nul
 }
 
 /**
- * The tier that actually resolved a pick, for diagnostics tallying:
- * "exact"/"shifted" mean a single candidate matched geometry alone (no
- * tiebreak needed); "title" means a title tiebreak was needed to pick a
- * winner out of an ambiguous set — regardless of which geometry tier
- * produced that ambiguous set; "none" means the tiebreak (or the absence of
- * a title map) left it unresolved.
+ * The GEOMETRY tier that produced a pick's candidate set, for diagnostics
+ * tallying: "exact" = resolved from the exact-bounds candidate set (whether
+ * a single unique match or a title-tiebreak among several exact-bounds
+ * ties); "shifted" = same, but from the display-origin-shifted set; "title"
+ * = the last-resort tier, meaning geometry matched ZERO candidates and a
+ * unique title alone rescued it; "none" = unresolved (the tiebreak — or the
+ * absence of a title map — didn't produce a unique winner at whichever tier
+ * was reached). `tiebroken` on `PickResult` is the orthogonal axis: did
+ * resolving this window need a title tiebreak at all, independent of which
+ * geometry tier it happened at. On a tiling WM, EVERY healthy resolution
+ * ties within the exact tier and needs a tiebreak — so `tier` alone must
+ * still read "exact" there, or a healthy run becomes indistinguishable from
+ * the stale-bounds failure mode (geometry matches nothing, title rescues).
  */
 type PickTier = "exact" | "shifted" | "title" | "none";
 
 interface PickResult {
   cg: CgWindowInfo | null;
   tier: PickTier;
+  /** True when a title tiebreak was invoked to reach this result (success or not). */
+  tiebroken: boolean;
 }
 
 /**
@@ -267,25 +276,32 @@ function pickCgWindow(
 ): PickResult {
   const exact = candidates.filter((cg) => boundsMatch(bounds, cg));
   const onlyExact = exact[0];
-  if (exact.length === 1 && onlyExact !== undefined) return { cg: onlyExact, tier: "exact" };
+  if (exact.length === 1 && onlyExact !== undefined)
+    return { cg: onlyExact, tier: "exact", tiebroken: false };
   if (exact.length > 1) {
     const resolved = byId(tiebreakByTitle(windowTitle, exact, titles), exact);
-    return resolved ? { cg: resolved, tier: "title" } : { cg: null, tier: "none" };
+    return resolved
+      ? { cg: resolved, tier: "exact", tiebroken: true }
+      : { cg: null, tier: "none", tiebroken: true };
   }
 
   const shifted = offsetCandidates(bounds, candidates, origins);
   const onlyShifted = shifted[0];
   if (shifted.length === 1 && onlyShifted !== undefined)
-    return { cg: onlyShifted, tier: "shifted" };
+    return { cg: onlyShifted, tier: "shifted", tiebroken: false };
   if (shifted.length > 1) {
     const resolved = byId(tiebreakByTitle(windowTitle, shifted, titles), shifted);
-    return resolved ? { cg: resolved, tier: "title" } : { cg: null, tier: "none" };
+    return resolved
+      ? { cg: resolved, tier: "shifted", tiebroken: true }
+      : { cg: null, tier: "none", tiebroken: true };
   }
 
   // No geometry agreed at all — the title is the only evidence left. Still
   // requires a unique match, so a nameless or duplicated title stays null.
   const resolved = byId(tiebreakByTitle(windowTitle, candidates, titles), candidates);
-  return resolved ? { cg: resolved, tier: "title" } : { cg: null, tier: "none" };
+  return resolved
+    ? { cg: resolved, tier: "title", tiebroken: true }
+    : { cg: null, tier: "none", tiebroken: true };
 }
 
 /**
@@ -342,12 +358,14 @@ export interface BrowserCorrelationDiag {
   windows: number;
   /** CG windows for this pid at layer 0. */
   candidates: number;
-  /** Resolved by a single unique exact-bounds match — no tiebreak needed. */
+  /** Resolved from the exact-bounds candidate set — a single unique match, or a title tiebreak among exact-bounds ties. */
   exact: number;
-  /** Resolved by a single unique display-origin-shifted match — no tiebreak needed. */
+  /** Resolved from the display-origin-shifted candidate set — a single unique match, or a title tiebreak among shifted ties. */
   shifted: number;
-  /** Resolved by a title tiebreak (whichever geometry tier produced the ambiguous set). */
+  /** Resolved at the last-resort tier: geometry matched ZERO candidates and a unique title alone rescued it. */
   titleOnly: number;
+  /** Resolutions (any geometry tier) that needed a title tiebreak to pick a winner — orthogonal to `tier`: "were titles load-bearing?" */
+  tiebroken: number;
   /** Ended null: tiebreak was needed but couldn't uniquely resolve (tier exhaustion). */
   nulled: number;
   /** Dropped because two windows both claimed the same CG id — counted separately from `nulled`. */
@@ -368,6 +386,7 @@ function emptyBrowserDiag(browser: string): BrowserCorrelationDiag {
     exact: 0,
     shifted: 0,
     titleOnly: 0,
+    tiebroken: 0,
     nulled: 0,
     claimCollisions: 0,
   };
@@ -421,7 +440,7 @@ export function correlateSnapshot(
         windows: b.windows.map((w, i) => {
           const pick = picks[i];
           if (pick === undefined) return w;
-          const { cg, tier } = pick;
+          const { cg, tier, tiebroken } = pick;
           if (cg === null) {
             if (browserDiag) browserDiag.nulled++;
             return { ...w, cgWindowId: null };
@@ -434,6 +453,7 @@ export function correlateSnapshot(
             if (tier === "exact") browserDiag.exact++;
             else if (tier === "shifted") browserDiag.shifted++;
             else if (tier === "title") browserDiag.titleOnly++;
+            if (tiebroken) browserDiag.tiebroken++;
           }
           // CG corroborated this window, so its frame is the truth. Adopting it
           // repairs a source that reported display-local coordinates; for a
