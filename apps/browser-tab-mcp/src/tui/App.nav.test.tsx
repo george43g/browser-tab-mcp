@@ -178,6 +178,27 @@ describe("cursor ↔ action agreement", () => {
   });
 });
 
+describe("same-tick key bursts (useVimKeys fan-out)", () => {
+  it('a single "jj" chunk moves the cursor by 2, not 1', async () => {
+    state.extraWindow = false;
+    const inst = await renderApp();
+    cleanup = inst.unmount;
+    // rows: browser(0) → window(1) → tab0(2)="Tab 0" → target-tab(3).
+    //
+    // ONE write call, not two: useVimKeys fans a chunk it owns out across
+    // multiple synchronous handleKey calls (see useVimKeys.ts) — "jj" as a
+    // single chunk calls onMove(1) TWICE before ink/React gets a chance to
+    // re-render between them. This pins the fix that computes the `set`
+    // intent's target index from `s.cursor` INSIDE the setNav updater: a
+    // version that instead reads the outer `nav.cursor` closure computes the
+    // SAME stale target for both calls and collapses the burst into one net
+    // move (cursor lands on the window row, not "Tab 0").
+    inst.stdin.write("jj");
+    await tick();
+    expect(highlightedRow(inst)).toContain("Tab 0");
+  });
+});
+
 describe("cursor follows its row across a snapshot shape change", () => {
   it("stays on the same tab when a window opens ABOVE the cursor", async () => {
     state.extraWindow = false;
