@@ -238,6 +238,21 @@ function byId(windowId: number | null, pool: CgWindowInfo[]): CgWindowInfo | nul
 }
 
 /**
+ * The tier that actually resolved a pick, for diagnostics tallying:
+ * "exact"/"shifted" mean a single candidate matched geometry alone (no
+ * tiebreak needed); "title" means a title tiebreak was needed to pick a
+ * winner out of an ambiguous set — regardless of which geometry tier
+ * produced that ambiguous set; "none" means the tiebreak (or the absence of
+ * a title map) left it unresolved.
+ */
+type PickTier = "exact" | "shifted" | "title" | "none";
+
+interface PickResult {
+  cg: CgWindowInfo | null;
+  tier: PickTier;
+}
+
+/**
  * The CG window for one browser window. Three tiers, strictest first:
  * exact bounds → the same bounds shifted by a display origin → title alone.
  * Each tier tiebreaks by title when it matches more than one candidate, and
@@ -249,20 +264,28 @@ function pickCgWindow(
   candidates: CgWindowInfo[],
   titles: TitleMap | undefined,
   origins: DisplayOrigins,
-): CgWindowInfo | null {
+): PickResult {
   const exact = candidates.filter((cg) => boundsMatch(bounds, cg));
-  const only = exact[0];
-  if (exact.length === 1 && only !== undefined) return only;
-  if (exact.length > 1) return byId(tiebreakByTitle(windowTitle, exact, titles), exact);
+  const onlyExact = exact[0];
+  if (exact.length === 1 && onlyExact !== undefined) return { cg: onlyExact, tier: "exact" };
+  if (exact.length > 1) {
+    const resolved = byId(tiebreakByTitle(windowTitle, exact, titles), exact);
+    return resolved ? { cg: resolved, tier: "title" } : { cg: null, tier: "none" };
+  }
 
   const shifted = offsetCandidates(bounds, candidates, origins);
   const onlyShifted = shifted[0];
-  if (shifted.length === 1 && onlyShifted !== undefined) return onlyShifted;
-  if (shifted.length > 1) return byId(tiebreakByTitle(windowTitle, shifted, titles), shifted);
+  if (shifted.length === 1 && onlyShifted !== undefined)
+    return { cg: onlyShifted, tier: "shifted" };
+  if (shifted.length > 1) {
+    const resolved = byId(tiebreakByTitle(windowTitle, shifted, titles), shifted);
+    return resolved ? { cg: resolved, tier: "title" } : { cg: null, tier: "none" };
+  }
 
   // No geometry agreed at all — the title is the only evidence left. Still
   // requires a unique match, so a nameless or duplicated title stays null.
-  return byId(tiebreakByTitle(windowTitle, candidates, titles), candidates);
+  const resolved = byId(tiebreakByTitle(windowTitle, candidates, titles), candidates);
+  return resolved ? { cg: resolved, tier: "title" } : { cg: null, tier: "none" };
 }
 
 /**
@@ -307,12 +330,60 @@ export function frontmostBrowser(
 }
 
 /**
+ * Per-browser tally of how `correlateSnapshot` resolved each window, for
+ * root-causing cgWindowId oscillation without adding logging/I/O to the
+ * matching core itself. Purely additive bookkeeping written into the
+ * caller-supplied `diag` out-param — never read back, never affects the
+ * returned Snapshot.
+ */
+export interface BrowserCorrelationDiag {
+  browser: string;
+  /** Windows with bounds that entered correlation (candidates.length > 0). */
+  windows: number;
+  /** CG windows for this pid at layer 0. */
+  candidates: number;
+  /** Resolved by a single unique exact-bounds match — no tiebreak needed. */
+  exact: number;
+  /** Resolved by a single unique display-origin-shifted match — no tiebreak needed. */
+  shifted: number;
+  /** Resolved by a title tiebreak (whichever geometry tier produced the ambiguous set). */
+  titleOnly: number;
+  /** Ended null: tiebreak was needed but couldn't uniquely resolve (tier exhaustion). */
+  nulled: number;
+  /** Dropped because two windows both claimed the same CG id — counted separately from `nulled`. */
+  claimCollisions: number;
+}
+
+export interface CorrelationDiag {
+  browsers: BrowserCorrelationDiag[];
+  titlesAvailable: boolean;
+  originsCount: number;
+}
+
+function emptyBrowserDiag(browser: string): BrowserCorrelationDiag {
+  return {
+    browser,
+    windows: 0,
+    candidates: 0,
+    exact: 0,
+    shifted: 0,
+    titleOnly: 0,
+    nulled: 0,
+    claimCollisions: 0,
+  };
+}
+
+/**
  * Pure matching core (unit-testable): for each browser window, find the CG
  * window owned by the browser's pid whose bounds match within tolerance.
  * Multiple candidates fall through to the title tiebreaker when `titles` is
  * supplied, else → null. No pid → null. A CG window claimed by two browser
  * windows was never decisive evidence, so both sides go back to null. When
  * `zOrdered`, also stamps `focusedBrowser` from the CG z-order.
+ *
+ * `diag`, when supplied, is populated with a pure tally of tier resolution —
+ * it never changes the returned Snapshot (see the diagnostics test asserting
+ * output identity with/without it).
  */
 export function correlateSnapshot(
   snapshot: Snapshot,
@@ -320,28 +391,50 @@ export function correlateSnapshot(
   zOrdered = false,
   titles?: TitleMap,
   displayOrigins: DisplayOrigins = [],
+  diag?: CorrelationDiag,
 ): Snapshot {
+  if (diag) {
+    diag.titlesAvailable = titles !== undefined;
+    diag.originsCount = displayOrigins.length;
+  }
   const correlated: Snapshot = {
     ...snapshot,
     browsers: snapshot.browsers.map((b) => {
+      const browserDiag = diag ? emptyBrowserDiag(b.browser) : undefined;
+      if (browserDiag) diag?.browsers.push(browserDiag);
       if (b.pid === null || b.windows.length === 0) return b;
       const candidates = cgWindows.filter((cg) => cg.ownerPid === b.pid && cg.layer === 0);
+      if (browserDiag) browserDiag.candidates = candidates.length;
       if (candidates.length === 0) return b;
       // undefined = window has no bounds, leave its id untouched.
-      const picked = b.windows.map((w) =>
+      const picks = b.windows.map((w) =>
         w.bounds ? pickCgWindow(w.bounds, w.title, candidates, titles, displayOrigins) : undefined,
       );
+      if (browserDiag) browserDiag.windows = picks.filter((p) => p !== undefined).length;
       const claims = new Map<number, number>();
-      for (const cg of picked) {
-        if (cg !== null && cg !== undefined)
-          claims.set(cg.windowId, (claims.get(cg.windowId) ?? 0) + 1);
+      for (const pick of picks) {
+        if (pick !== undefined && pick.cg !== null)
+          claims.set(pick.cg.windowId, (claims.get(pick.cg.windowId) ?? 0) + 1);
       }
       return {
         ...b,
         windows: b.windows.map((w, i) => {
-          const cg = picked[i];
-          if (cg === undefined) return w;
-          if (cg === null || claims.get(cg.windowId) !== 1) return { ...w, cgWindowId: null };
+          const pick = picks[i];
+          if (pick === undefined) return w;
+          const { cg, tier } = pick;
+          if (cg === null) {
+            if (browserDiag) browserDiag.nulled++;
+            return { ...w, cgWindowId: null };
+          }
+          if (claims.get(cg.windowId) !== 1) {
+            if (browserDiag) browserDiag.claimCollisions++;
+            return { ...w, cgWindowId: null };
+          }
+          if (browserDiag) {
+            if (tier === "exact") browserDiag.exact++;
+            else if (tier === "shifted") browserDiag.shifted++;
+            else if (tier === "title") browserDiag.titleOnly++;
+          }
           // CG corroborated this window, so its frame is the truth. Adopting it
           // repairs a source that reported display-local coordinates; for a
           // source that was already right this is a no-op within tolerance.
