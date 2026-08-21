@@ -131,6 +131,26 @@ describe("half-page motions", () => {
     await tick();
     expect(inst.lastFrame()).toBe(before); // byte-identical frame: nothing moved
   });
+
+  // Same defect class as ^d above, mirrored onto onTop/onBottom: `gg`/`G`
+  // steer the hidden browse cursor unless they're guarded behind
+  // `mode.kind !== "browse"` too. Copies the ^d-in-move-mode test's shape.
+  it("G in move mode does not move the hidden browse cursor", async () => {
+    state.windowCount = 2;
+    const inst = await renderApp();
+    cleanup = inst.unmount;
+    // rows: browser(0) → window1(1) → tab(2); land on the first tab, then m.
+    inst.stdin.write("j");
+    await tick();
+    inst.stdin.write("j");
+    await tick();
+    inst.stdin.write("m");
+    await tick(); // enter move mode (fixture: 2 windows)
+    const before = inst.lastFrame();
+    inst.stdin.write("G");
+    await tick();
+    expect(inst.lastFrame()).toBe(before); // byte-identical frame: nothing moved
+  });
 });
 
 describe("message hygiene", () => {

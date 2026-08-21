@@ -202,3 +202,47 @@ describe("scrollbar", () => {
     }
   });
 });
+
+describe("dev stats panel", () => {
+  it("joins the width negotiation instead of squeezing to zero — d at 200x30", async () => {
+    // Before this fix the stats Box had no width reservation of its own
+    // (default flexShrink, no explicit width) and shared the SAME
+    // negotiation as list/detail without ever entering it — it just lost
+    // every squeeze to their fixed widths and collapsed toward zero, at
+    // which point its own text wrapped across as many rows as it had
+    // characters, ballooning this row's height and pushing the status/help
+    // bars off-screen. `renderAt` doesn't expose `stdin`, so this test
+    // drives the render directly rather than through that helper.
+    const inst = render(
+      <ThemeProvider preset="safe" accent="#1982FC">
+        <App />
+      </ThemeProvider>,
+    );
+    cleanup = inst.unmount;
+    Object.defineProperty(inst.stdout, "columns", { value: 200, configurable: true });
+    Object.defineProperty(inst.stdout, "rows", { value: 30, configurable: true });
+    inst.stdout.emit("resize");
+    await tick();
+    inst.stdin.write("d");
+    await tick();
+    const frame = inst.lastFrame() ?? "";
+    const lines = frame.split("\n");
+
+    // (a) stats content is actually present — "dev stats"/"pid"/"rss" are
+    // stable labels straight from tui-kit's DevStatsPanel (see its source
+    // under node_modules), not fixture- or theme-dependent values.
+    expect(frame, "dev stats panel missing").toContain("dev stats");
+    expect(frame, "pid line missing").toMatch(/pid \d+/);
+    expect(frame, "rss line missing").toContain("rss");
+
+    // (b) the frame still fits the terminal — the help bar must not be
+    // displaced.
+    expect(lines.length, "frame rows").toBeLessThanOrEqual(30);
+    expect(frame, "help bar missing (displaced?)").toContain("quit");
+
+    // (c) no printed line exceeds the terminal width.
+    for (const line of lines) {
+      expect(visualWidth(strip(line)), JSON.stringify(line)).toBeLessThanOrEqual(200);
+    }
+  });
+});

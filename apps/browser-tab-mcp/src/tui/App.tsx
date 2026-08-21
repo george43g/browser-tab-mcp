@@ -43,6 +43,16 @@ type Mode =
   | { kind: "move"; tabId: string; title: string }
   | { kind: "action"; tabId: string; title: string; choices: TabActionChoice[] };
 
+// Fixed footprint reserved for the `d` dev-stats panel — see the `d` handler
+// below, which has carried this "~38 columns" figure since before the
+// list/detail negotiation existed. R-T3: the panel must come OFF THE TOP of
+// the budget the list/detail negotiation runs over, not compete inside it —
+// a bare default-flexShrink Box sharing that negotiation lost every squeeze
+// to the list/detail floors and collapsed to zero width (dogfood: it also
+// displaced the help-bar row, since the panel's own text then wrapped across
+// as many rows as it had characters).
+const STATS_W = 38;
+
 export function App() {
   const theme = useTheme();
   const { exit } = useApp();
@@ -55,6 +65,11 @@ export function App() {
   // chrome (status bar, help bar) is overprinted. That was reproducible below
   // ~156 columns with real data. Container has paddingX={1}.
   const usableCols = Math.max(20, (termColumns || 80) - 2);
+  // Declared ahead of the list/detail negotiation below — R-T3 needs its
+  // value BEFORE allocateWidths runs, since the stats panel's reservation
+  // has to come off the budget the negotiation itself sees, not compete
+  // inside it.
+  const [showStats, setShowStats] = useState(false);
   // Horizontal negotiation between the list and the sticky detail pane — the
   // design (and the "elaboration drops, context breadcrumbs" rule it comes
   // from) is recorded verbatim in tui-kit's width-alloc.d.ts. The list is
@@ -66,12 +81,39 @@ export function App() {
   // drops once `usableCols` (== termColumns-2) falls below 72 — i.e.
   // terminal columns below 74, not the 72 you'd get by forgetting the outer
   // paddingX={1}.
-  const alloc = allocateWidths(usableCols, [
-    { id: "list", min: 44, preferred: Math.ceil(usableCols * 0.65), priority: 1, collapse: "min" },
+  //
+  // R-T3: when the dev-stats panel is up it is a FIXED off-budget
+  // reservation, not a third thing the negotiation shrinks — `negotiableCols`
+  // is `usableCols` with `STATS_W` already taken off the top, so list/detail
+  // never see (and can never lose a squeeze over) the columns the stats
+  // panel owns. The panel's own Box gets the matching fixed width +
+  // `flexShrink={0}` below, so the two reservations can't overlap.
+  //
+  // `statsShown` gates the reservation on the LIST's own 44-col floor, not
+  // on the generic `usableCols`-style `Math.max(20, …)` floor above — that
+  // floor exists to keep `allocateWidths` fed a sane minimum at
+  // near-unusable widths, but reusing it here would let `negotiableCols`
+  // sit ABOVE the true remainder (`usableCols - STATS_W`) once that
+  // remainder drops under 20, and `listW` is only ever clamped to
+  // `negotiableCols` — so the fixed `STATS_W` reservation plus that
+  // inflated `listW` silently exceeded `usableCols` (measured: real column
+  // overflow at 40x12 and 46x15). Below the list's floor the panel drops,
+  // the same way the detail pane already drops below ITS floor, rather than
+  // force a width-budget violation to keep it on screen.
+  const statsShown = showStats && usableCols - STATS_W >= 44;
+  const negotiableCols = statsShown ? usableCols - STATS_W : usableCols;
+  const alloc = allocateWidths(negotiableCols, [
+    {
+      id: "list",
+      min: 44,
+      preferred: Math.ceil(negotiableCols * 0.65),
+      priority: 1,
+      collapse: "min",
+    },
     {
       id: "detail",
       min: 28,
-      preferred: Math.floor(usableCols * 0.35),
+      preferred: Math.floor(negotiableCols * 0.35),
       priority: 0,
       collapse: "drop",
     },
@@ -79,17 +121,16 @@ export function App() {
   // "min" columns are pinned at their floor even when the floor itself
   // exceeds the budget — allocateWidths' own contract (width-alloc.js:
   // "every remaining column is pinned, and the caller's renderer clips").
-  // Below terminal ~46 cols (usableCols < list's 44-floor, with detail
-  // already shed) that returns a list width LARGER than usableCols — and
+  // Below terminal ~46 cols (negotiableCols < list's 44-floor, with detail
+  // already shed) that returns a list width LARGER than negotiableCols — and
   // this app's rows are `fitToWidth`-exact, not shrink-to-fit, so an
   // unclamped width doesn't degrade gracefully, it overflows the terminal
   // (measured: 45 printed cells on a 40-column screen). We are that
   // caller, so we clip here rather than trust the allocator's floor.
-  const listW = Math.min(alloc.widths.list ?? usableCols, usableCols);
+  const listW = Math.min(alloc.widths.list ?? negotiableCols, negotiableCols);
   const detailW = alloc.widths.detail ?? 0; // absent = dropped
   const [folded, setFolded] = useState<ReadonlySet<string>>(new Set());
   const [mode, setMode] = useState<Mode>({ kind: "browse" });
-  const [showStats, setShowStats] = useState(false);
   const [message, setMessage] = useState("");
 
   const rows = useMemo(() => buildRows(snapshot, folded), [snapshot, folded]);
@@ -212,10 +253,12 @@ export function App() {
       }
     },
     onTop: () => {
+      if (mode.kind !== "browse") return; // same guard as halfPage: gg has nothing to do in a modal list
       setMessage("");
       dispatchNav({ kind: "top" });
     },
     onBottom: () => {
+      if (mode.kind !== "browse") return; // same guard as halfPage: G has nothing to do in a modal list
       setMessage("");
       dispatchNav({ kind: "bottom" });
     },
@@ -386,8 +429,9 @@ export function App() {
     // Composed OUTSIDE the row's own color wrapper — same principle as the
     // cursor highlight above: the bar is track chrome, not row content, so it
     // never inherits the row's background/foreground color. `null` when the
-    // bar is hidden keeps the line at exactly `rowCols` (=== usableCols)
-    // cells, matching the no-bar width budget.
+    // bar is hidden keeps the line at exactly `rowCols` (== `listW`, which is
+    // usableCols only once the detail pane — and now the stats panel — have
+    // both been shed) cells, matching the no-bar width budget.
     const bar = showBar ? (
       <>
         <Text> </Text>
@@ -493,8 +537,21 @@ export function App() {
             <DetailPane row={current} cols={detailW - 2} viewport={viewport} />
           </Box>
         ) : null}
-        {showStats ? (
-          <Box marginLeft={2}>
+        {/* R-T3: joins the width negotiation as a fixed off-budget
+            reservation (STATS_W, subtracted from negotiableCols above) —
+            `flexShrink={0}` + an explicit `width` so it gets the SAME
+            treatment as `listW`/`detailW` instead of the bare default
+            (flexShrink 1, no width) that used to lose every squeeze to the
+            list/detail floors and collapse to zero. `paddingLeft` (not
+            `marginLeft`) keeps the old 2-column gap INSIDE the reserved
+            width rather than adding to it — a margin sits outside a box's
+            declared width, so it would silently blow the STATS_W budget by
+            2 columns every time the panel is shown. Gated on `statsShown`,
+            not `showStats` directly, so the panel and its reservation agree:
+            below the list's floor it drops rather than render at a width
+            nothing budgeted for. */}
+        {statsShown ? (
+          <Box width={STATS_W} flexShrink={0} paddingLeft={2} overflow="hidden">
             <DevStatsPanel visible engine={engineLabel()} />
           </Box>
         ) : null}

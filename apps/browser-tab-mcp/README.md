@@ -624,8 +624,10 @@ other rows shift above or below it.
 
 Half-page motions (`^d` down, `^u` up) are disabled in modal modes (move/action
 pickers, close confirmation), since modal lists are shorter than a full page and
-the motion keys would scroll an empty or misaligned view. The browse-mode
-motions (`j`/`k`, `gg`, `G`) work normally in all modes.
+the motion keys would scroll an empty or misaligned view. `gg`/`G` (jump to
+top/bottom) are disabled there for the same reason. `j`/`k` stay active in
+every mode, but in move/action mode they steer the modal's own selection (the
+move target, the action list) rather than the hidden browse cursor.
 
 ### Soak-testing the TUI (`pnpm stress:tui`)
 

@@ -71,7 +71,7 @@ const TABS = Number(process.env.WORKLOAD_TABS ?? 60);
 const REPORT_PATH = process.env.WORKLOAD_REPORT_PATH;
 
 /** Strip SGR so width maths measures glyphs, not escape bytes. */
-const SGR = /\[[0-9;]*m/g;
+const SGR = /\x1b\[[0-9;]*m/g;
 const strip = (s: string) => s.replace(SGR, "");
 
 const tick = () => new Promise((r) => setTimeout(r, 0));
