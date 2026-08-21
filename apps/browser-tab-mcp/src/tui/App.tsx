@@ -212,6 +212,7 @@ export function App() {
       runCommand("focus_tab", { tabId: current.tab.tabId }, "focus");
     }
     if (input === "x" && current?.kind === "tab") {
+      setMessage("");
       setMode({ kind: "confirm-close", tabId: current.tab.tabId, title: current.tab.title });
     }
     if (input === "a" && current?.kind === "tab") {

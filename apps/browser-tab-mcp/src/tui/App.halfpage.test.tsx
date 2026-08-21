@@ -132,3 +132,32 @@ describe("half-page motions", () => {
     expect(inst.lastFrame()).toBe(before); // byte-identical frame: nothing moved
   });
 });
+
+describe("message hygiene", () => {
+  it("entering confirm-close retires the stale message (no resurface on exit)", async () => {
+    state.windowCount = 2;
+    const inst = await renderApp();
+    cleanup = inst.unmount;
+    inst.stdin.write("r");
+    await tick(); // sets "refreshed"
+    expect(inst.lastFrame()).toContain("refreshed");
+    // seekToTabRow: rows: browser(0) → window1(1) → tab(2)
+    inst.stdin.write("j");
+    await tick();
+    inst.stdin.write("j");
+    await tick();
+    // Re-set message to simulate a stale message that survives navigation
+    // (e.g., from an earlier command that completed). The j/k handlers clear
+    // messages, but entering confirm-close should ALSO clear it so it doesn't
+    // resurface on exit.
+    inst.stdin.write("r");
+    await tick(); // sets "refreshed" again
+    expect(inst.lastFrame()).toContain("refreshed");
+    inst.stdin.write("x");
+    await tick();
+    expect(inst.lastFrame()).toContain("press y to confirm");
+    inst.stdin.write("n");
+    await tick(); // any non-y exits
+    expect(inst.lastFrame()).not.toContain("refreshed");
+  });
+});
