@@ -27,7 +27,7 @@
     "clean": "node ../../scripts/rimraf.mjs dist coverage"
   },
   "dependencies": {
-    "@george43g/robustness": "^0.7.0",
+    "@george43g/robustness": "^0.10.0",
     "@modelcontextprotocol/sdk": "^1.29.0",
     "zod": "^3.23.0",
     "zod-to-json-schema": "^3.25.0"
