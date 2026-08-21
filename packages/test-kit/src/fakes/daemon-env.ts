@@ -54,8 +54,20 @@ export function randomWsPort(base = 18790, span = 500): number {
  * fail to start with an unrelated-looking error. The pipe name is derived from
  * the temp dir so parallel tests stay isolated, exactly as the temp socket file
  * does on macOS and Linux.
+ *
+ * The failure mode this exists to prevent: leave `BROWSER_TAB_SOCKET_PATH`
+ * unset and the daemon falls back to its per-user DEFAULT endpoint
+ * (`\\.\pipe\browser-tab-<user>` on Windows). If a real daemon is already
+ * running under that same user — a dev's console session, a launchd/Task
+ * Scheduler instance — it silently absorbs the test's CLI calls instead of
+ * the throwaway one: a client can still connect and even get sane-looking
+ * output, just from the WRONG daemon, which is a much harder bug to notice
+ * than a clean failure to start. Exported for callers that build their own
+ * env block instead of going through `withDaemonEnv` (e.g.
+ * `apps/chrome-extension/e2e/fixtures.ts`, which needs the endpoint but not
+ * the rest of the fake-adapter env shape).
  */
-function defaultIpcEndpoint(tmp: string): string {
+export function defaultIpcEndpoint(tmp: string): string {
   if (process.platform !== "win32") return join(tmp, "daemon.sock");
   const unique = tmp.replace(/[^A-Za-z0-9]/g, "").slice(-24);
   return `\\\\.\\pipe\\browser-tab-test-${unique}`;

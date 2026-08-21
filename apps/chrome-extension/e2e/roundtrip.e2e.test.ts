@@ -70,7 +70,7 @@ test.describe("extension ↔ daemon round-trip", () => {
     const chrome = (snap.browsers as Array<Record<string, unknown>>).find(
       (b) => b.browser === EXPECTED_BROWSER,
     );
-    expect(chrome, "chrome browser present in snapshot").toBeTruthy();
+    expect(chrome, `${EXPECTED_BROWSER} browser present in snapshot`).toBeTruthy();
     expect(chrome?.dataSource).toBe("extension");
     expect(chrome?.extensionConnected).toBe(true);
     // This job runs on Linux: no osascript, so the "poll" is the unavailable

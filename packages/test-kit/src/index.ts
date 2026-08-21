@@ -31,6 +31,7 @@ export {
 export { type FakeChrome, type FakeChromeConfig, installFakeChrome } from "./fakes/chrome.js";
 export {
   type DaemonEnvOptions,
+  defaultIpcEndpoint,
   makeTmpDir,
   randomWsPort,
   withDaemonEnv,

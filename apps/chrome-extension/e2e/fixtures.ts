@@ -15,6 +15,7 @@ import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { promisify } from "node:util";
+import { defaultIpcEndpoint } from "@george43g/test-kit";
 import { type BrowserContext, test as base, chromium, type Worker } from "@playwright/test";
 
 const execFileP = promisify(execFile);
@@ -55,38 +56,29 @@ function ephemeralPort(): number {
   return 24_500 + (process.pid % 2000);
 }
 
-/**
- * A per-daemon IPC endpoint for the throwaway daemon to bind and every
- * `cli()` call to target. WITHOUT this, `BROWSER_TAB_SOCKET_PATH` is unset
- * and the daemon falls back to its per-user DEFAULT endpoint —
- * `\\.\pipe\browser-tab-<user>` on Windows — so if a real daemon (a dev's
- * console session, a launchd/Task Scheduler instance) is already running
- * under that same user, EVERY `daemon.cli([...])` call below silently talks
- * to THAT daemon instead of the throwaway one: the extension still connects
- * to the throwaway fine, but the assertions read a different daemon's state.
- * Measured on the Windows box (2026-08-22): `daemon status` returned a
- * different pid, ws 8790, uptime 50min — the console daemon, not this one —
- * which is why the msedge roundtrip failed there. Mirrors (does not import —
- * e2e fixtures intentionally don't depend on test-kit) `defaultIpcEndpoint()`
- * in `packages/test-kit/src/fakes/daemon-env.ts`.
- */
-function e2eIpcEndpoint(dir: string): string {
-  if (process.platform !== "win32") return join(dir, "daemon.sock");
-  const unique = dir.replace(/[^A-Za-z0-9]/g, "").slice(-24);
-  return `\\\\.\\pipe\\browser-tab-e2e-${unique}`;
-}
-
 export async function startDaemon(): Promise<Daemon> {
   const dir = mkdtempSync(join(tmpdir(), "bt-e2e-"));
   const wsPort = ephemeralPort();
   // Shared isolation: state/cache/log dirs + WS port + IPC endpoint, never
-  // the real ~/.browser-tab and never the per-user default pipe/socket.
+  // the real ~/.browser-tab and never the per-user default pipe/socket. The
+  // socket path matters most on Windows: leaving it unset falls back to the
+  // per-user default named pipe, and a real daemon already running under
+  // that same user (a dev's console session) silently absorbs every
+  // `daemon.cli([...])` call below instead of the throwaway one — the
+  // extension still connects to the throwaway fine, but the assertions read
+  // the wrong daemon's state. Measured on the Windows box (2026-08-22):
+  // `daemon status` returned a different pid, ws 8790, uptime 50min — which
+  // is why the msedge roundtrip failed there. `defaultIpcEndpoint()` is
+  // imported from `@george43g/test-kit` (an existing devDependency here,
+  // same as the vitest unit tests use) rather than duplicated — see its doc
+  // comment in `packages/test-kit/src/fakes/daemon-env.ts` for the full
+  // rationale.
   const shared: NodeJS.ProcessEnv = {
     ...process.env,
     BROWSER_TAB_STATE_DIR: join(dir, "state"),
     BROWSER_TAB_CACHE_DIR: join(dir, "cache"),
     BROWSER_TAB_WS_PORT: String(wsPort),
-    BROWSER_TAB_SOCKET_PATH: e2eIpcEndpoint(dir),
+    BROWSER_TAB_SOCKET_PATH: defaultIpcEndpoint(dir),
     MCP_LOG_DIR: join(dir, "logs"),
   };
   // The DAEMON runs the fake AppleScript adapter (so it never shells osascript);
