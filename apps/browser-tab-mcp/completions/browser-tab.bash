@@ -86,8 +86,8 @@ cmd logs help="Show recent daemon/server log lines (dev-only: needs MCP_DEV=1)" 
         arg <n>
     }
 }
-cmd list help="List open browser windows and tabs (Chrome/Brave/Chromium/Safari)" {
-    flag --browser help="Restrict to one browser: chrome|chromium|brave|safari" {
+cmd list help="List open browser windows and tabs (Chrome/Brave/Chromium/Edge/Safari)" {
+    flag --browser help="Restrict to one browser: chrome|chromium|brave|edge|safari" {
         arg <name>
     }
     flag --window help="Restrict to one window (opaque windowId)" {
@@ -105,7 +105,7 @@ cmd list help="List open browser windows and tabs (Chrome/Brave/Chromium/Safari)
 cmd reload-extension help="Restart a browser's connector extension from disk (dev deploy loop)" {
     flag --browser help="Which browser's extension to reload" {
         arg "[name]" required=#false default=chrome {
-            choices chrome chromium brave safari
+            choices chrome chromium brave edge safari
         }
     }
 }
@@ -175,7 +175,7 @@ cmd close help="Close a tab" {
     arg <tabId>
 }
 cmd open help="Open an http(s) URL in a new tab" {
-    flag --browser help=chrome|chromium|brave|safari {
+    flag --browser help=chrome|chromium|brave|edge|safari {
         arg <name>
     }
     flag --window help="Open in a specific window (opaque windowId)" {
@@ -209,7 +209,7 @@ cmd group help="Manage Chrome tab groups (create|add|remove|update|move)" {
     flag --group help="Group handle (add/remove/update/move)" {
         arg <id>
     }
-    flag --browser help=chrome|chromium|brave {
+    flag --browser help=chrome|chromium|brave|edge {
         arg <name>
     }
     flag --title help="Group title (create/update)" {
@@ -229,7 +229,7 @@ cmd group help="Manage Chrome tab groups (create|add|remove|update|move)" {
 }
 cmd window help="Window operations: open | set | close" {
     cmd open help="Open a new window with one or more URLs" {
-        flag --browser help=chrome|chromium|brave|safari {
+        flag --browser help=chrome|chromium|brave|edge|safari {
             arg <name>
         }
         flag --bounds help="Global-coordinate frame x,y,w,h" {

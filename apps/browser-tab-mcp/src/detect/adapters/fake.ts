@@ -27,6 +27,7 @@ const FAKE_BUNDLES: Record<BrowserId, string> = {
   chrome: "com.google.Chrome",
   brave: "com.brave.Browser",
   chromium: "org.chromium.Chromium",
+  edge: "com.microsoft.edgemac",
   safari: "com.apple.Safari",
 };
 

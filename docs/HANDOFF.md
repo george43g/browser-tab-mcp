@@ -14,7 +14,7 @@ with true state-preserving moves.** The one substantial remaining task is the
 | Piece | State | Verified how |
 |---|---|---|
 | HTTP transport removal | done | `pnpm verify`, stress 13/13 |
-| osascript engine (chrome/brave/chromium/safari adapters) | done | real-machine parity vs old `~/dotfiles/wm-stack/scripts/browser_tabs.sh` (2 windows/33 tabs identical) |
+| osascript engine (chrome/brave/chromium/edge/safari adapters) | done | real-machine parity vs old `~/dotfiles/wm-stack/scripts/browser_tabs.sh` (2 windows/33 tabs identical) |
 | cgWindowId correlation (rust-accel CGWindowList) | done | ids match `yabai -m query --windows` exactly, incl. windows on other Spaces |
 | Daemon (poll loop, merge, unix IPC, snapshot cache, launchd) | done, **installed & running** on this machine | real focus_tab flipped Chrome's active tab; SIGTERM unlinks socket; launchd KeepAlive verified |
 | Chrome MV3 extension + WS protocol + `move_tab` routing | **loaded & verified in real Chrome (2026-07-20)** | live: auth, snapshot push, `open_tab`/`close_tab` over the socket returned `x` handles; survived a daemon restart (reconnect ~6s) + 10.5h uptime |
@@ -98,7 +98,7 @@ Safari packaging automation all landed; see the DONE table and gotchas.
   `t:chrome:x123` (different native id spaces; no cross-mapping by design).
   Commands route by generation; stale-generation → "re-run list_tabs" error.
   Safari AppleScript ids are synthetic `t:safari:w<win>:i<index1>`.
-- **`browsers[]` is sorted alphabetically** (brave < chrome < safari) after
+- **`browsers[]` is sorted alphabetically** (brave < chrome < edge < safari) after
   the poll merge — don't index `[0]` expecting chrome.
 - Safari AppleScript `move` reloads the page → gated behind `allowReload`;
   Safari `targetIndex` unsupported (append-only) via AppleScript.

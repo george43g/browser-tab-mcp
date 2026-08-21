@@ -24,7 +24,7 @@ import { snapshotUrl } from "../detect/url-hygiene.js";
 import { readSafariHistory, safariHistoryEnabled } from "./safari-history.js";
 import type { ExtensionServer } from "./ws-server.js";
 
-const CHROME_FAMILY: readonly BrowserId[] = ["chrome", "chromium", "brave"];
+const CHROME_FAMILY: readonly BrowserId[] = ["chrome", "chromium", "brave", "edge"];
 
 type ReadSafari = (opts: {
   query?: string;

@@ -720,6 +720,8 @@ either way (the bus ignores return values): commands, not queries.
 
 ### 3. Edge as a first-class browser
 
+**SHIPPED 2026-08-22** on feat/edge-first-class — see the dated close-out note at the end of this file.
+
 **Motive:** George wants Edge in the mix on the Windows box; interim
 pin-to-chromium works today (documented in the Windows follow-ups above) but
 mislabels. **Surface list for the enum change** (each is small, the list is
@@ -902,3 +904,7 @@ two BRIEF claims — recorded here so nobody re-inherits them:
   `correlate.ts:111-113`, zero logs; M3 sibling-claim cascade at
   `correlate.ts:344`; M4 empty display origins) are encoded as the decision
   table in `plans/2026-08-21-cg-oscillation-instrumentation.md`.
+
+## 2026-08-22 — BRIEF §3 (Edge) SHIPPED on feat/edge-first-class
+
+The brief's claim that `types.rs` held a browser enum was incorrect — `apps/rust-accel/src/types.rs` contains only four `#[napi(object)]` structs; the drift test regexes `pub struct` only. Adding edge to `BrowserIdSchema` required zero Rust work. Also, `makeAdapter` (dispatch is `!== "safari"`) and `applescriptCaps` (derived function) needed zero edits — Edge inherited the correct capability path from its enum membership without code.

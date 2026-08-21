@@ -65,6 +65,12 @@ export const CHROMIUM_SPECS: readonly AdapterSpec[] = [
     bundleId: "org.chromium.Chromium",
     processName: "Chromium",
   },
+  {
+    browser: "edge",
+    appName: "Microsoft Edge",
+    bundleId: "com.microsoft.edgemac",
+    processName: "Microsoft Edge",
+  },
 ];
 
 const RS_EXPR = `(character id 30)`;

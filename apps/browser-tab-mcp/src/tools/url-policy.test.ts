@@ -58,6 +58,7 @@ describe("what the tool documents keeps working", () => {
     "chrome://extensions",
     "chrome-extension://abcdefghijklmnop/options.html",
     "brave://settings",
+    "edge://settings",
   ]) {
     it(`accepts ${url}`, () => {
       expect(checkUrl(url).ok).toBe(true);

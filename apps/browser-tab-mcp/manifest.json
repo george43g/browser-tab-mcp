@@ -3,7 +3,7 @@
   "name": "browser-tab-mcp",
   "display_name": "browser-tab",
   "version": "0.0.0",
-  "description": "browser-tab — macOS browser-tab detection & management (Chrome/Brave/Chromium/Safari): list tabs with yabai-joinable window ids, focus/move/open/close tabs, daemon + extension for live events and true tab moves.",
+  "description": "browser-tab — macOS browser-tab detection & management (Chrome/Brave/Chromium/Edge/Safari): list tabs with yabai-joinable window ids, focus/move/open/close tabs, daemon + extension for live events and true tab moves.",
   "author": {
     "name": "George G"
   },

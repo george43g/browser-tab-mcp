@@ -6,8 +6,8 @@
  * (M4) wraps the same adapters in a polling loop and serves merged
  * extension+AppleScript state.
  *
- * Env: BROWSER_TAB_BROWSERS — comma list of chrome|chromium|brave|safari
- *      (default "chrome,brave,safari").
+ * Env: BROWSER_TAB_BROWSERS — comma list of chrome|chromium|brave|edge|safari
+ *      (default "chrome,chromium,brave,edge,safari").
  *      BROWSER_TAB_FAKE_ADAPTER=1 — fixture adapters for tests/stress.
  */
 
@@ -31,7 +31,13 @@ import { enrichWithCgWindowIds } from "./correlate.js";
  * not installed costs one cheap `probeProcess` and reports `running: false`,
  * so the default is inclusive rather than guessing what is on the machine.
  */
-export const DEFAULT_BROWSERS: readonly BrowserId[] = ["chrome", "chromium", "brave", "safari"];
+export const DEFAULT_BROWSERS: readonly BrowserId[] = [
+  "chrome",
+  "chromium",
+  "brave",
+  "edge",
+  "safari",
+];
 
 const ALL_SPECS: readonly AdapterSpec[] = [...CHROMIUM_SPECS, SAFARI_SPEC];
 

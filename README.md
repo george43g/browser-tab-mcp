@@ -17,7 +17,7 @@
 
 ---
 
-Knows which tabs are open in which browser windows (Chrome, Brave, Chromium, Safari), joins them to yabai window ids (`cgWindowId` == CGWindowID), and executes tab commands — including **true state-preserving cross-window moves** via the bundled browser extension (`chrome.tabs.move`; AppleScript can't do that). Built for [wm-stack](https://github.com/george43g) but generally useful: a launchd daemon polls via AppleScript, extensions push live events over a localhost WebSocket, and MCP/CLI/TUI/unix-socket clients all consume the same merged snapshot. See [`docs/WM_STACK_CONTRACT.md`](docs/WM_STACK_CONTRACT.md) for the consumer contract.
+Knows which tabs are open in which browser windows (Chrome, Brave, Chromium, Edge, Safari), joins them to yabai window ids (`cgWindowId` == CGWindowID), and executes tab commands — including **true state-preserving cross-window moves** via the bundled browser extension (`chrome.tabs.move`; AppleScript can't do that). Built for [wm-stack](https://github.com/george43g) but generally useful: a launchd daemon polls via AppleScript, extensions push live events over a localhost WebSocket, and MCP/CLI/TUI/unix-socket clients all consume the same merged snapshot. See [`docs/WM_STACK_CONTRACT.md`](docs/WM_STACK_CONTRACT.md) for the consumer contract.
 
 ## Install
 
@@ -87,7 +87,7 @@ Every MCP tool is also a CLI subcommand and a REPL command (one in-process dispa
 
 | Tool | Description | Annotations |
 |---|---|---|
-| `list_tabs` | Windows + tabs across Chrome/Brave/Chromium/Safari with opaque handles, bounds, and `cgWindowId` (yabai join key). Filters: `browser`, `windowId`, `urlFilter`. | read-only, idempotent |
+| `list_tabs` | Windows + tabs across Chrome/Brave/Chromium/Edge/Safari with opaque handles, bounds, and `cgWindowId` (yabai join key). Filters: `browser`, `windowId`, `urlFilter`. | read-only, idempotent |
 | `focus_tab` | Activate a tab and — unless `raiseWindow:false` — un-minimize and raise its window. Returns the window's post-state for a window manager to act on. | |
 | `move_tab` | Move a tab across windows. True state-preserving move via the extension; Safari AppleScript fallback with `allowReload:true`. | |
 | `open_tab` | Open an http(s) URL, optionally in a specific window/browser or in the background. | open-world |

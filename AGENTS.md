@@ -11,7 +11,7 @@ This repo was generated from `mcp-cli-starter-template` via `mcp-scaffold init`.
 
 ## What This Repo Is
 
-macOS browser-tab detection & management for the yabai/Hammerspoon wm-stack (`~/dotfiles/wm-stack`): which tabs are open in which browser windows (Chrome, Brave, Chromium, Safari), joined to yabai window ids via `cgWindowId` (== CGWindowID), plus tab commands — including true state-preserving cross-window moves via the connector browser extension. The consumer contract lives in `docs/WM_STACK_CONTRACT.md`.
+macOS browser-tab detection & management for the yabai/Hammerspoon wm-stack (`~/dotfiles/wm-stack`): which tabs are open in which browser windows (Chrome, Brave, Chromium, Edge, Safari), joined to yabai window ids via `cgWindowId` (== CGWindowID), plus tab commands — including true state-preserving cross-window moves via the connector browser extension. The consumer contract lives in `docs/WM_STACK_CONTRACT.md`.
 
 A Turborepo monorepo shipping a **single bin** (`browser-tab`):
 
@@ -145,7 +145,7 @@ State/paths at runtime: socket `~/.browser-tab/daemon.sock`, extension token `~/
 
 ## Connector extension (Chrome + Safari)
 
-One bundle (`apps/chrome-extension`, built from `packages/extension-core`) serves Chrome/Brave/Chromium and — packaged via `apps/safari-extension` — Safari. Full details in `apps/chrome-extension/README.md`. Non-obvious constraints that WILL bite:
+One bundle (`apps/chrome-extension`, built from `packages/extension-core`) serves Chrome/Brave/Chromium/Edge and — packaged via `apps/safari-extension` — Safari. Full details in `apps/chrome-extension/README.md`. Non-obvious constraints that WILL bite:
 
 - **Self-contained IIFE build, not ES modules.** Safari doesn't support `background.type:"module"` and loads the background as a *classic* script that can't `import`. `vite.config.ts` builds each entry (`background`/`options`/`popup`) fully inlined (`format:"iife"`, `inlineDynamicImports`, one pass per `EXT_ENTRY`). Page `<script>` tags are classic. Don't reintroduce module syntax or shared chunks.
 - **Dual background keys.** Manifest ships `background.service_worker` (Chrome) **and** `background.scripts` (Safari/Firefox background page). Safari's MV3 service worker is unreliable (idles out, never lists in *Develop → Web Extension Backgrounds*, unmessageable); the `scripts` background page is persistent and works. Chrome uses the service worker and may warn about `scripts` — harmless.

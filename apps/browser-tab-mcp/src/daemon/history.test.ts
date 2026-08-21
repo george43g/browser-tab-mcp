@@ -110,6 +110,7 @@ describe("history — per-source reporting", () => {
       "brave",
       "chrome",
       "chromium",
+      "edge",
       "safari",
     ]);
     expect(out.sources.every((s) => s.status === "unavailable" && s.rows === 0)).toBe(true);
@@ -140,6 +141,7 @@ describe("history — per-source reporting", () => {
       chrome: "ok",
       chromium: "unavailable",
       brave: "unavailable",
+      edge: "unavailable",
       safari: "unavailable",
     });
     expect(out.sources.find((s) => s.browser === "safari")?.reason).toMatch(
