@@ -158,7 +158,7 @@ function applyFilters(
 export const listTabsTool: ToolDefinition<typeof ListTabsInputSchema, typeof SnapshotSchema> = {
   name: "list_tabs",
   description:
-    "Lists open browser windows and their tabs (Chrome, Brave, Chromium, Safari) with URLs, " +
+    "Lists open browser windows and their tabs (Chrome, Brave, Chromium, Edge, Safari) with URLs, " +
     "titles, window bounds and opaque tabId/windowId handles for focus_tab/move_tab/close_tab. " +
     "cgWindowId (when present) equals the yabai/CoreGraphics window id. Pass fields:'full' for " +
     "audio/mute/sleep/group/capability detail (default 'core' trims them for token economy); " +

@@ -16,4 +16,5 @@ Which browser's extension to reload
 - `chrome`
 - `chromium`
 - `brave`
+- `edge`
 - `safari`

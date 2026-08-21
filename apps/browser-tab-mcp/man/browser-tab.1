@@ -79,7 +79,7 @@ Read or edit bookmarks (search|list|create|update|remove) — needs daemon + ext
 Show recent daemon/server log lines (dev\-only: needs MCP_DEV=1)
 .TP
 \fBlist\fR
-List open browser windows and tabs (Chrome/Brave/Chromium/Safari)
+List open browser windows and tabs (Chrome/Brave/Chromium/Edge/Safari)
 .TP
 \fBreload\-extension\fR
 Restart a browser's connector extension from disk (dev deploy loop)
@@ -208,7 +208,7 @@ memory (ring buffer) | file (NDJSON on disk) | all
 \fB\-\-tail\fR \fI<n>\fR
 How many lines (1\-500)
 .SH "BROWSER-TAB LIST"
-List open browser windows and tabs (Chrome/Brave/Chromium/Safari)
+List open browser windows and tabs (Chrome/Brave/Chromium/Edge/Safari)
 .PP
 \fBUsage:\fR browser\-tab list [OPTIONS]
 .PP
@@ -216,7 +216,7 @@ List open browser windows and tabs (Chrome/Brave/Chromium/Safari)
 .PP
 .TP
 \fB\-\-browser\fR \fI<name>\fR
-Restrict to one browser: chrome|chromium|brave|safari
+Restrict to one browser: chrome|chromium|brave|edge|safari
 .TP
 \fB\-\-window\fR \fI<id>\fR
 Restrict to one window (opaque windowId)
@@ -341,7 +341,7 @@ Open an http(s) URL in a new tab
 .PP
 .TP
 \fB\-\-browser\fR \fI<name>\fR
-chrome|chromium|brave|safari
+chrome|chromium|brave|edge|safari
 .TP
 \fB\-\-window\fR \fI<id>\fR
 Open in a specific window (opaque windowId)
@@ -392,7 +392,7 @@ Comma\-separated tab handles (create/add/remove)
 Group handle (add/remove/update/move)
 .TP
 \fB\-\-browser\fR \fI<name>\fR
-chrome|chromium|brave
+chrome|chromium|brave|edge
 .TP
 \fB\-\-title\fR \fI<title>\fR
 Group title (create/update)
@@ -417,7 +417,7 @@ Open a new window with one or more URLs
 .PP
 .TP
 \fB\-\-browser\fR \fI<name>\fR
-chrome|chromium|brave|safari
+chrome|chromium|brave|edge|safari
 .TP
 \fB\-\-bounds\fR \fI<bounds>\fR
 Global\-coordinate frame x,y,w,h
