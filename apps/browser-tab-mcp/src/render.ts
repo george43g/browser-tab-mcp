@@ -173,6 +173,7 @@ interface WindowLike {
   incognito?: boolean;
   bounds?: { x: number; y: number; w: number; h: number };
   tabs?: TabLike[];
+  tabCount?: number;
 }
 
 interface TabGroupLike {
@@ -264,7 +265,10 @@ export function renderSnapshot(snap: SnapshotLike, width = DEFAULT_WIDTH): strin
       continue;
     }
     const windows = b.windows ?? [];
-    const tabCount = windows.reduce((n, w) => n + (w.tabs?.length ?? 0), 0);
+    const tabCount = windows.reduce(
+      (n, w) => n + (w.tabs?.length ? w.tabs.length : (w.tabCount ?? 0)),
+      0,
+    );
     const src = b.dataSource ?? "?";
     out.push(
       layoutRow(
