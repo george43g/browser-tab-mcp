@@ -140,6 +140,36 @@ describe("renderSnapshot", () => {
     expect(tab.match(/^ */)?.[0].length).toBe(4);
   });
 
+  it("summary projection counts tabCount, not the emptied rows", () => {
+    const summarySnap = {
+      browsers: [
+        {
+          browser: "chrome",
+          running: true,
+          dataSource: "extension",
+          focusedBrowser: "chrome",
+          windows: [
+            {
+              windowId: "w:chrome:x1",
+              cgWindowId: 71018,
+              state: "normal",
+              focused: true,
+              tabs: [],
+              tabCount: 2,
+            },
+          ],
+        },
+        {
+          browser: "brave",
+          running: false,
+        },
+      ],
+    };
+    const out = renderSnapshot(summarySnap, 120);
+    expect(out).toContain("1 window · 2 tabs");
+    expect(out).not.toContain("0 tabs");
+  });
+
   it("marks the active tab and surfaces state badges", () => {
     const out = renderSnapshot(SNAP);
     const active = out.split("\n").find((l) => l.includes("t:chrome:x11")) ?? "";

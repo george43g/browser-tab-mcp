@@ -615,6 +615,31 @@ badge-worthy tab state:
 The leading `●`/`·` marks the window's active tab; `lastAccessed` drives sort/MRU
 (see `journal`) rather than a per-row glyph.
 
+A **scroll position indicator** (a 1-column track) appears at the right edge of
+the list only when its content overflows the terminal height — below that
+threshold, the list keeps full width. The track shows a filled block (█) for
+the visible portion and a vertical bar (│) for scrolled-past content, updated
+in real time as you navigate.
+
+The **sticky detail pane** appears alongside the list when the terminal is wide
+enough (≥74 columns). It shows elaboration on the current selection — full URL,
+tab state, group membership, last-access time (for tabs), or window bounds and
+capability summary (for browsers/windows). Below 74 columns the pane drops
+entirely rather than squeezing into a half-legible truncated column, trading
+width for readability where it matters most.
+
+Navigation preserves context across snapshot updates: when the browser state
+changes (a window opens, tabs reload), the cursor follows the *row* by identity
+rather than numeric index, so focus stays on the tab you were browsing even if
+other rows shift above or below it.
+
+Half-page motions (`^d` down, `^u` up) are disabled in modal modes (move/action
+pickers, close confirmation), since modal lists are shorter than a full page and
+the motion keys would scroll an empty or misaligned view. `gg`/`G` (jump to
+top/bottom) are disabled there for the same reason. `j`/`k` stay active in
+every mode, but in move/action mode they steer the modal's own selection (the
+move target, the action list) rather than the hidden browse cursor.
+
 ### Soak-testing the TUI (`pnpm stress:tui`)
 
 Two verdicts, deliberately separate. The **workload** owns correctness: it
