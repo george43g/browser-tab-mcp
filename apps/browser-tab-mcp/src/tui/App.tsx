@@ -11,6 +11,7 @@
  */
 
 import {
+  allocateWidths,
   DevStatsPanel,
   HelpBar,
   type NavIntent,
@@ -31,6 +32,7 @@ import { callMcpTool } from "../dispatcher.js";
 import { APP_NAME, buildStamp } from "../meta.js";
 import { engineLabel } from "../native-bridge.js";
 import { availableActions, type TabActionChoice, visibleHints } from "./actions.js";
+import { DetailPane } from "./DetailPane.js";
 import { layoutRowText } from "./row-layout.js";
 import { buildRows, type Row } from "./rows.js";
 import { useSnapshot } from "./useSnapshot.js";
@@ -53,6 +55,38 @@ export function App() {
   // chrome (status bar, help bar) is overprinted. That was reproducible below
   // ~156 columns with real data. Container has paddingX={1}.
   const usableCols = Math.max(20, (termColumns || 80) - 2);
+  // Horizontal negotiation between the list and the sticky detail pane — the
+  // design (and the "elaboration drops, context breadcrumbs" rule it comes
+  // from) is recorded verbatim in tui-kit's width-alloc.d.ts. The list is
+  // "min": it can shrink but never disappears, since it IS the thing being
+  // browsed. The detail pane is "drop": every field it shows already has a
+  // truncated cousin in the list row, so under a narrow terminal its
+  // degraded form is ABSENCE, not a squeezed, half-legible copy. Real
+  // allocateWidths sheds purely on `min` floors (44+28=72), so the pane
+  // drops once `usableCols` (== termColumns-2) falls below 72 — i.e.
+  // terminal columns below 74, not the 72 you'd get by forgetting the outer
+  // paddingX={1}.
+  const alloc = allocateWidths(usableCols, [
+    { id: "list", min: 44, preferred: Math.ceil(usableCols * 0.65), priority: 1, collapse: "min" },
+    {
+      id: "detail",
+      min: 28,
+      preferred: Math.floor(usableCols * 0.35),
+      priority: 0,
+      collapse: "drop",
+    },
+  ]);
+  // "min" columns are pinned at their floor even when the floor itself
+  // exceeds the budget — allocateWidths' own contract (width-alloc.js:
+  // "every remaining column is pinned, and the caller's renderer clips").
+  // Below terminal ~46 cols (usableCols < list's 44-floor, with detail
+  // already shed) that returns a list width LARGER than usableCols — and
+  // this app's rows are `fitToWidth`-exact, not shrink-to-fit, so an
+  // unclamped width doesn't degrade gracefully, it overflows the terminal
+  // (measured: 45 printed cells on a 40-column screen). We are that
+  // caller, so we clip here rather than trust the allocator's floor.
+  const listW = Math.min(alloc.widths.list ?? usableCols, usableCols);
+  const detailW = alloc.widths.detail ?? 0; // absent = dropped
   const [folded, setFolded] = useState<ReadonlySet<string>>(new Set());
   const [mode, setMode] = useState<Mode>({ kind: "browse" });
   const [showStats, setShowStats] = useState(false);
@@ -329,7 +363,10 @@ export function App() {
     viewport,
   );
   const showBar = thumb.thumbRows > 0;
-  const rowCols = showBar ? usableCols - 2 : usableCols;
+  // rowCols now derives from the LIST column's allocated width, not the full
+  // usable width — the scrollbar (and every row it decorates) lives entirely
+  // inside `listW` once the detail pane claims the rest.
+  const rowCols = showBar ? listW - 2 : listW;
 
   const renderRow = (row: Row, idx: number, barChar: string) => {
     const isCursor = idx === nav.cursor;
@@ -422,7 +459,7 @@ export function App() {
       </Box>
 
       <Box flexDirection="row" flexGrow={1} paddingX={1} overflow="hidden">
-        <Box flexDirection="column" flexGrow={1} overflow="hidden">
+        <Box flexDirection="column" width={listW} flexShrink={0} overflow="hidden">
           {visible.length === 0 ? (
             <Text color={theme.palette.fgDim}>
               {snapshot ? "No browser windows detected." : "Scanning browsers…"}
@@ -443,6 +480,19 @@ export function App() {
             )
           )}
         </Box>
+        {/* Sticky detail pane (Task 9) — ELABORATION, so it DROPS rather than
+            squeezes below the width floor; `detailW` is absent (0) exactly
+            when allocateWidths shed it. 2 of its allocated columns are
+            reserved for the "┃ " separator+gap so the printed row never
+            exceeds `listW + detailW` (== usableCols, the allocator's own
+            budget) — the pane's own content therefore renders at exactly
+            `detailW - 2` columns. */}
+        {detailW > 0 ? (
+          <Box flexDirection="row" width={detailW} flexShrink={0} overflow="hidden">
+            <Text dimColor>{"┃ "}</Text>
+            <DetailPane row={current} cols={detailW - 2} viewport={viewport} />
+          </Box>
+        ) : null}
         {showStats ? (
           <Box marginLeft={2}>
             <DevStatsPanel visible engine={engineLabel()} />
