@@ -26,7 +26,17 @@ export function makeTmpDir(prefix = "browser-tab-test-"): string {
   return mkdtempSync(join(tmpdir(), prefix));
 }
 
-/** An ephemeral, high WS port dispersed enough to avoid parallel-test clashes. */
+/**
+ * An ephemeral, high WS port. NOT collision-proof across files: every file
+ * drawing from the same band under parallel vitest forks is a birthday
+ * problem, and a lost draw is silent (a swallowed EADDRINUSE degrades the
+ * extension feed to null, or a fetch lands on a foreign WS server and gets
+ * "Upgrade Required"). Measured red ~1 in 10 CI runs with six files on the
+ * default band (2026-08-21, three distinct test files failing that way in
+ * one evening). Every new integration file MUST claim its own disjoint
+ * `(base, span)` — the taken bands are greppable: `randomWsPort(` across
+ * `apps/browser-tab-mcp/tests/`.
+ */
 export function randomWsPort(base = 18790, span = 500): number {
   return base + Math.floor(Math.random() * span);
 }

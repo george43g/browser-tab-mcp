@@ -30,6 +30,10 @@ Exactly two kinds of exports, nothing else:
      test seeded no windows).
    - `fakes/daemon-env.ts` — `withDaemonEnv(tmp)`: sets/teardowns the 6-key
      `BROWSER_TAB_*` env block; plus `makeTmpDir()` and `randomWsPort()`.
+     `randomWsPort` is not collision-proof across files — every integration
+     file must claim its own disjoint `(base, span)` band (grep
+     `randomWsPort(` under `apps/browser-tab-mcp/tests/` for the taken ones);
+     files sharing a band red CI ~1 in 10 runs via swallowed-EADDRINUSE.
    - `fakes/websocket.ts` (the `./node` subpath) — `installNodeWebSocket()`:
      `globalThis.WebSocket = ws.WebSocket`.
 

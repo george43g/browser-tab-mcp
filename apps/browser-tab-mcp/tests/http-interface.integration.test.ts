@@ -25,7 +25,7 @@ const auth = () => ({ authorization: `Bearer ${token}` });
 
 beforeEach(async () => {
   tmp = makeTmpDir("browser-tab-http-");
-  port = randomWsPort();
+  port = randomWsPort(22500, 400);
   env = withDaemonEnv(tmp, { browsers: "chrome" });
   process.env.BROWSER_TAB_HTTP_PORT = String(port);
   token = ensureToken();
