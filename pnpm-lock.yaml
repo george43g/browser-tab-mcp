@@ -64,8 +64,8 @@ importers:
         specifier: workspace:*
         version: link:../../packages/mcp-kit
       '@george43g/robustness':
-        specifier: ^0.7.0
-        version: 0.7.0
+        specifier: ^0.11.0
+        version: 0.11.0
       '@george43g/shared-types':
         specifier: workspace:*
         version: link:../../packages/shared-types
@@ -77,7 +77,7 @@ importers:
         version: link:../../packages/tsconfig
       '@george43g/tui-kit':
         specifier: ^0.5.1
-        version: 0.5.1(@george43g/robustness@0.7.0)(@types/react@19.2.17)(ink@7.1.1(@types/react@19.2.17)(react@19.2.8))(react@19.2.8)
+        version: 0.5.1(@george43g/robustness@0.11.0)(@types/react@19.2.17)(ink@7.1.1(@types/react@19.2.17)(react@19.2.8))(react@19.2.8)
       '@george43g/vitest-config':
         specifier: workspace:*
         version: link:../../packages/vitest-config
@@ -211,8 +211,8 @@ importers:
   packages/mcp-kit:
     dependencies:
       '@george43g/robustness':
-        specifier: ^0.7.0
-        version: 0.7.0
+        specifier: ^0.11.0
+        version: 0.11.0
       '@modelcontextprotocol/sdk':
         specifier: ^1.29.0
         version: 1.29.0(zod@3.25.76)
@@ -715,8 +715,8 @@ packages:
     peerDependencies:
       commander: ^14.0.0
 
-  '@george43g/robustness@0.7.0':
-    resolution: {integrity: sha512-dTdN/tGRPzIgyjtcPzIVpNjzPFNoUdyx6DJ3V0CW/KO62Pqie/u0W/wLBmmEp9kE66j2RD+DE6Y1jTwz4XCVqA==}
+  '@george43g/robustness@0.11.0':
+    resolution: {integrity: sha512-2AArHPvT7Vj2gbtH897w3TIg7DaFwOuwPcXuNAZcuUBqUUYZOpVcSU4XT6hoeWFDLlLBlwbHHmc1WKoL+ytBDQ==}
     engines: {node: '>=24'}
 
   '@george43g/tui-kit@0.5.1':
@@ -2859,11 +2859,11 @@ snapshots:
       commander: 14.0.3
       picocolors: 1.1.1
 
-  '@george43g/robustness@0.7.0': {}
+  '@george43g/robustness@0.11.0': {}
 
-  '@george43g/tui-kit@0.5.1(@george43g/robustness@0.7.0)(@types/react@19.2.17)(ink@7.1.1(@types/react@19.2.17)(react@19.2.8))(react@19.2.8)':
+  '@george43g/tui-kit@0.5.1(@george43g/robustness@0.11.0)(@types/react@19.2.17)(ink@7.1.1(@types/react@19.2.17)(react@19.2.8))(react@19.2.8)':
     dependencies:
-      '@george43g/robustness': 0.7.0
+      '@george43g/robustness': 0.11.0
       fullscreen-ink: 0.1.0(@types/react@19.2.17)
       ink: 7.1.1(@types/react@19.2.17)(react@19.2.8)
       react: 19.2.8
