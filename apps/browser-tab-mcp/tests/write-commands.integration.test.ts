@@ -24,7 +24,7 @@ import { DaemonClient } from "../src/client/daemon-client.js";
 import { type DaemonHandle, startDaemon } from "../src/daemon/index.js";
 import { ensureToken } from "../src/daemon/token.js";
 
-const WS_PORT = randomWsPort();
+const WS_PORT = randomWsPort(23500, 400);
 let tmp: string;
 let daemon: DaemonHandle | null = null;
 let env: { restore(): void } | null = null;
