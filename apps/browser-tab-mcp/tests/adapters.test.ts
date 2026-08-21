@@ -133,6 +133,24 @@ describe("opaque ids", () => {
     });
   });
 
+  it("round-trips edge handles through the id grammar", async () => {
+    const { makeExtTabId, makeExtGroupId, parseGroupId } = await import("../src/detect/ids.js");
+    expect(parseTabId(makeExtTabId("edge", 123))).toEqual({
+      browser: "edge",
+      nativeId: "123",
+      ext: true,
+    });
+    expect(parseWindowId(makeWindowId("edge", 42))).toEqual({
+      browser: "edge",
+      nativeId: "42",
+      ext: false,
+    });
+    expect(parseGroupId(makeExtGroupId("edge", 7))).toEqual({
+      browser: "edge",
+      nativeId: "7",
+    });
+  });
+
   it("rejects bare numeric safari tab ids (only synthetic or ext forms exist)", () => {
     expect(parseTabId("t:safari:12")).toBeNull();
   });
