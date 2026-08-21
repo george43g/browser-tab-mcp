@@ -1,5 +1,19 @@
 # Changelog
 
+## [1.4.0](https://github.com/george43g/browser-tab-mcp/compare/v1.3.2...v1.4.0) (2026-08-21)
+
+
+### Features
+
+* **daemon:** cgWindowId correlation observability ([#85](https://github.com/george43g/browser-tab-mcp/issues/85)) ([e681666](https://github.com/george43g/browser-tab-mcp/commit/e68166681eb93af2ea448552a4078927de3550c7))
+* Microsoft Edge as a first-class browser ([#84](https://github.com/george43g/browser-tab-mcp/issues/84)) ([500384d](https://github.com/george43g/browser-tab-mcp/commit/500384da02893c72a433c2c2179d4ce3dc218cbb))
+* **tui:** port to tui-kit 0.5 primitives — scrollbar, detail pane, nav reducer + polish ([#87](https://github.com/george43g/browser-tab-mcp/issues/87)) ([9eed30b](https://github.com/george43g/browser-tab-mcp/commit/9eed30bac8ecd748aa33e8d2c2d50251750f6e82))
+
+
+### Bug Fixes
+
+* **tests:** disjoint port bands per integration file — kill the swallowed-EADDRINUSE flake ([#90](https://github.com/george43g/browser-tab-mcp/issues/90)) ([6ece79e](https://github.com/george43g/browser-tab-mcp/commit/6ece79e9be81b81a2ba942b252a337bc5db7d766))
+
 ## [1.3.2](https://github.com/george43g/browser-tab-mcp/compare/v1.3.1...v1.3.2) (2026-08-20)
 
 
