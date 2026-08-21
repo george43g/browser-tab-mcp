@@ -66,7 +66,7 @@
     "@george43g/shared-types": "workspace:*",
     "@george43g/test-kit": "workspace:*",
     "@george43g/tsconfig": "workspace:*",
-    "@george43g/tui-kit": "^0.4.1",
+    "@george43g/tui-kit": "^0.5.0",
     "@george43g/vitest-config": "workspace:*",
     "@types/node": "^24.13.3",
     "@types/react": "^19.2.17",
