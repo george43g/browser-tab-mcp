@@ -20,7 +20,6 @@ import {
   useVimKeys,
   viewportRows,
   visibleWindow,
-  visualWidth,
 } from "@george43g/tui-kit";
 import { Box, Text, useApp, useInput } from "ink";
 import { useMemo, useState } from "react";
@@ -28,7 +27,8 @@ import { callMcpTool } from "../dispatcher.js";
 import { APP_NAME, buildStamp } from "../meta.js";
 import { engineLabel } from "../native-bridge.js";
 import { availableActions, type TabActionChoice, visibleHints } from "./actions.js";
-import { buildRows, type Row, tabBadges } from "./rows.js";
+import { layoutRowText } from "./row-layout.js";
+import { buildRows, type Row } from "./rows.js";
 import { useSnapshot } from "./useSnapshot.js";
 
 type Mode =
@@ -259,39 +259,19 @@ export function App() {
 
   const renderRow = (row: Row, idx: number) => {
     const isCursor = idx === clampedCursor;
-    let text: string;
-    if (row.kind === "browser") {
-      const tabs = row.browser.windows.reduce((a, w) => a + w.tabCount, 0);
-      const src = row.browser.extensionConnected ? "extension" : "applescript";
-      text = `▸ ${row.browser.browser} — ${row.browser.windows.length} windows, ${tabs} tabs [${src}]${row.browser.error ? " ⚠" : ""}`;
-    } else if (row.kind === "window") {
-      const fold = folded.has(row.window.windowId) ? "▸" : "▾";
-      // A null cgWindowId is the wm-stack join failing — the thing this tool
-      // exists to surface. Say so rather than rendering an absence.
-      const cg = row.window.cgWindowId !== null ? ` cg=${row.window.cgWindowId}` : " cg:none";
-      const isTarget =
-        mode.kind === "move" && moveTargets[targetIdx]?.key === row.key ? " ◀ move here" : "";
-      const fixed = `  ${fold}  — ${row.window.tabCount} tabs${cg}${isTarget}`;
-      const titleW = Math.max(8, usableCols - visualWidth(fixed));
-      text = `  ${fold} ${truncateToWidth(row.window.title || "(untitled)", titleW)} — ${row.window.tabCount} tabs${cg}${isTarget}`;
-    } else {
-      const marker = row.tab.active ? "●" : "·";
-      const badges = tabBadges(row.tab, row.browser.tabGroups);
-      const suffix = badges ? `  ${badges}` : "";
-      // Split the remaining cells between title and url rather than chopping
-      // either at a fixed length — at 100 cols the old fixed budgets alone
-      // needed 122, so the row wrapped before a single badge was added.
-      const budget = Math.max(10, usableCols - visualWidth(`      ${marker}   ${suffix}`));
-      const titleW = Math.max(8, Math.min(50, Math.floor(budget * 0.55)));
-      const urlW = Math.max(0, Math.min(60, budget - titleW));
-      const title = truncateToWidth(row.tab.title || "(untitled)", titleW);
-      const url = urlW > 0 ? `  ${truncateToWidth(row.tab.url, urlW)}` : "";
-      text = `      ${marker} ${title}${url}${suffix}`;
-    }
-    // Single guarantee, whatever the branch composed above: one row, one line.
-    text = truncateToWidth(text, usableCols);
     const highlightTarget =
       mode.kind === "move" && row.kind === "window" && moveTargets[targetIdx]?.key === row.key;
+    // Row text is composed and width-guaranteed entirely by layoutRowText —
+    // this closure keeps only the color/highlight decision, not the layout.
+    let text = layoutRowText(row, {
+      cols: usableCols,
+      moveTarget: highlightTarget,
+      folded: row.kind === "window" ? folded.has(row.window.windowId) : undefined,
+    });
+    // Belt-and-braces: layoutRowText already guarantees visualWidth(text) ===
+    // usableCols, so this is redundant today. Kept for one release in case a
+    // future edit composes a row outside that guarantee.
+    text = truncateToWidth(text, usableCols);
     if (isCursor || highlightTarget) {
       return (
         <Text
