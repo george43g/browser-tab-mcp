@@ -13,7 +13,7 @@ Open a new window with one or more URLs
 
 ### `--browser <name>`
 
-chrome|chromium|brave|safari
+chrome|chromium|brave|edge|safari
 
 ### `--bounds <bounds>`
 

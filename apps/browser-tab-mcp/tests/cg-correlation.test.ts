@@ -10,8 +10,32 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { Snapshot } from "@george43g/shared-types";
 import { makeBrowserState, makeContractWindow, makeSnapshot } from "@george43g/test-kit";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+
+// Partial mock of @george43g/robustness: real everything, but `warn`/`info`
+// are spies so we can assert both the yabai-failure path actually logs
+// instead of silently swallowing the error, AND that a clean run under the
+// default (diag-off) env stays silent. Hoisted so they exist before the mock
+// factory runs.
+const warnSpy = vi.hoisted(() => vi.fn());
+const infoSpy = vi.hoisted(() => vi.fn());
+vi.mock("@george43g/robustness", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@george43g/robustness")>()),
+  warn: warnSpy,
+  info: infoSpy,
+}));
+
 import { enrichWithCgWindowIds } from "../src/detect/correlate.js";
+
+/** Calls captured on the `warn` spy so far, as [msg, data] tuples. */
+function captureWarns(): [string, Record<string, unknown> | undefined][] {
+  return warnSpy.mock.calls as [string, Record<string, unknown> | undefined][];
+}
+
+/** Calls captured on the `info` spy so far, as [msg, data] tuples. */
+function captureInfos(): [string, Record<string, unknown> | undefined][] {
+  return infoSpy.mock.calls as [string, Record<string, unknown> | undefined][];
+}
 
 /**
  * WINDOWS: skipped, deliberately.
@@ -33,15 +57,22 @@ const TILED = { x: 40, y: 50, w: 1996, h: 1269 };
 let dir: string;
 let prevFake: string | undefined;
 let prevNative: string | undefined;
+let prevCgDiag: string | undefined;
 
 beforeEach(() => {
   dir = mkdtempSync(join(tmpdir(), "bt-cgcorr-"));
   prevFake = process.env.BROWSER_TAB_FAKE_ADAPTER;
   prevNative = process.env.MCP_DISABLE_NATIVE;
+  prevCgDiag = process.env.BROWSER_TAB_CG_DIAG;
   // Fake-adapter mode short-circuits correlation entirely; the native tier
   // would read this machine's real windows. Neither is what we're testing.
   delete process.env.BROWSER_TAB_FAKE_ADAPTER;
   process.env.MCP_DISABLE_NATIVE = "1";
+  // The knob-off silence test needs this genuinely unset, not just whatever
+  // the ambient shell/CI env happens to carry.
+  delete process.env.BROWSER_TAB_CG_DIAG;
+  warnSpy.mockClear();
+  infoSpy.mockClear();
 });
 
 afterEach(() => {
@@ -49,6 +80,8 @@ afterEach(() => {
   delete process.env.BROWSER_TAB_YABAI_BIN;
   if (prevFake === undefined) delete process.env.BROWSER_TAB_FAKE_ADAPTER;
   else process.env.BROWSER_TAB_FAKE_ADAPTER = prevFake;
+  if (prevCgDiag === undefined) delete process.env.BROWSER_TAB_CG_DIAG;
+  else process.env.BROWSER_TAB_CG_DIAG = prevCgDiag;
   if (prevNative === undefined) delete process.env.MCP_DISABLE_NATIVE;
   else process.env.MCP_DISABLE_NATIVE = prevNative;
 });
@@ -152,5 +185,39 @@ describe.skipIf(!onPosix)("enrichWithCgWindowIds (yabai tier)", () => {
     process.env.BROWSER_TAB_YABAI_BIN = shim.bin;
     await enrichWithCgWindowIds(tiledSnapshot());
     expect(shim.calls()).toBe(0);
+  });
+
+  it("a failing yabai binary is logged, not swallowed", async () => {
+    const shim = shimYabai([], 1);
+    process.env.BROWSER_TAB_YABAI_BIN = shim.bin;
+    await enrichWithCgWindowIds(tiledSnapshot());
+    const warns = captureWarns();
+    expect(
+      warns.some(([msg, data]) => msg === "yabai_query_failed" && typeof data?.durMs === "number"),
+    ).toBe(true);
+  });
+
+  it("an ENOENT-only yabai pass is quiet — a missing binary is not a query failure", async () => {
+    // A path that doesn't exist reproduces exactly what a yabai-less machine
+    // sees on every candidate: execFile throws ENOENT, not a real failure.
+    process.env.BROWSER_TAB_YABAI_BIN = join(dir, "does-not-exist");
+    await enrichWithCgWindowIds(tiledSnapshot());
+    const warns = captureWarns();
+    expect(warns.some(([msg]) => msg === "yabai_query_failed")).toBe(false);
+  });
+
+  it("a clean correlation run under the default (diag-off) env logs no cg_correlate", async () => {
+    const shim = shimYabai([
+      yabaiRow(542247, "Credits | OpenRouter - Google Chrome - George (Main G)"),
+      yabaiRow(349035, "Extensions - Google Chrome - George (Main G)"),
+      yabaiRow(382150, "Harness engineering | OpenAI - Google Chrome - George (Main G)"),
+    ]);
+    process.env.BROWSER_TAB_YABAI_BIN = shim.bin;
+    const out = await enrichWithCgWindowIds(tiledSnapshot());
+    // Sanity: this really is the clean/fully-resolved case, not an
+    // accidental degradation that would legitimately fire the line.
+    expect(ids(out)).toEqual([349035, 542247, 382150]);
+    const infos = captureInfos();
+    expect(infos.some(([msg]) => msg === "cg_correlate")).toBe(false);
   });
 });

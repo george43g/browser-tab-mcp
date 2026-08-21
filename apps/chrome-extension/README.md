@@ -3,7 +3,7 @@
 The connector extension for the `browser-tab` daemon. It streams live
 tab/window state to the daemon over a localhost WebSocket and executes **true
 state-preserving tab moves** (`chrome.tabs.move`) — the thing AppleScript
-can't do. One bundle serves Chrome, Brave, Chromium, and (packaged via
+can't do. One bundle serves Chrome, Brave, Chromium, Edge, and (packaged via
 `apps/safari-extension`) Safari.
 
 ## What it does

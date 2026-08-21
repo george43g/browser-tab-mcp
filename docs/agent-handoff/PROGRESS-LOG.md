@@ -1754,3 +1754,76 @@ proposing anything; confirm with George WHICH workstream(s) the plan covers
 plan as a fresh, focused artifact. No code before the plan. Mid-flight state:
 none — no uncommitted work, no running background tasks beyond the tmux
 sessions listed in Tree.
+
+## 2026-08-22 — precompact checkpoint #3 (session 5a15fe80; subagent-driven execution of the three plans)
+
+Where this file and any post-compaction summary disagree, THIS FILE is correct.
+
+## State
+
+Two of three plan branches are shipped as PRs awaiting George's word (#84 Edge, #85 cg-observability); the TUI branch is one fix-wave + re-review + push away from its PR — the fix-wave subagent is RUNNING at checkpoint time.
+
+## Constraints
+
+- George, 2026-08-22, verbatim: "subagent driven - and go parrallel where possible to speed up development. yoou have my approval to merge #83." Merge approval was #83 ONLY; #84/#85/TUI-PR each need his word (standing per-PR rule).
+- Pushes + PR-opens for plan branches are pre-authorized by the merged plans (#83); merges are not.
+- Execution mode: superpowers subagent-driven-development — fresh implementer per task, task review, scoped re-review per fix round, final whole-branch review per branch (fable), ONE fix wave after final review.
+
+## Done
+
+- Edge branch complete: PR #84 (feat/edge-first-class, head 19ed38f; 5 tasks + final-review fix wave; 618/618, stress 34/34, check:usage green, verify:macos at push).
+- cg branch complete: PR #85 (feat/cg-observability, head 7113790; PR-1 tasks 1-3 + fix wave; 624/624, stress 34/34). Task 4 (measurement) is George-gated by design.
+- TUI branch tasks 1-10 all complete with reviews (branch feat/tui-primitives-port at 1ce310a + in-flight fix wave; worktree /Users/george/repos/bt-wt-tui). 636/636 at T9; stress:tui verdict-honest since T5.
+- BACKLOG carries the Edge close-out + SHIPPED marker (on the #84 branch) — merges will land them.
+
+## Open
+
+- TUI final-review fix wave (Important-1 dev-stats zero-width; Important-2 gg/G guard + README sentence; 2 riders) — subagent running at checkpoint; its commit does not exist yet (`git -C /Users/george/repos/bt-wt-tui log --oneline -1` shows 1ce310a until it lands).
+- TUI: scoped re-review of the fix wave, then push + PR — never attempted (blocked on the wave).
+- Worktrees bt-wt-{tui,edge,cg} + SDD workspaces (.superpowers/sdd/* — GITIGNORED, local-only ledgers with full per-task detail) — keep until each PR merges, then delete per skill.
+- ~45 stale remote branches; Safari/Chrome soaks; coverage ratchet; npm publish — standing, untouched this session.
+
+## Corrections
+
+- The TUI plan's Task 5 sabotage sketch (lines[0]) and its assumption of a working stress:tui verdict were both wrong — the driver COULD NEVER go red on a workload violation (SIGTERM before deadline + kit exit-0). Fixed on the branch (R-T1); AGENTS.md updated there.
+- The cg plan's Task 2 unconditional-yabai-warn sketch was a plan defect (4 warns/merge on yabai-less configs) — fixed on the branch (R-C3, ENOENT-suppressed).
+
+## Rulings (ledgers are gitignored — this list is the durable record; each = what/why, cost-if-wrong in the ledger)
+
+- R-E1: BrowserName union stays hand-duplicated from BrowserIdSchema (pre-existing architecture; both edited + sync comment).
+- Edge-T4: .usage.kdl:140 "Chrome-family" left unchanged — term of art covers Edge.
+- R-C1: cgDiagEnabled() defined once in correlate.ts; engine-loop imports.
+- R-C2: diag tier counters track GEOMETRY tiers; separate `tiebroken` counter (the plan's test sketch would have erased the M1 fingerprint on tiled setups).
+- R-C3: ENOENT is not a yabai query failure — warns suppressed; titles_unavailable gated on non-ENOENT or the diag knob (plan defect; zero-noise invariant wins).
+- R-C4: candidates-zero (pid set, windows>0, 0 CG candidates) joins the cg_correlate always-on trigger — plausible fifth mechanism; the "fires when ids degrade" claim must be true.
+- R-T1: stress:tui driver derives the correctness verdict from the workload report file, waits out the workload deadline + STRESS_GRACE_MS, fails on premature death; kit SIGTERM-exit-0 is correct behavior, driver misuse was the bug (nothing upstream). Env rule outranked the two-scripts scope line (STRESS_GRACE_MS/WORKLOAD_REPORT_PATH documented in .env.example).
+- R-T2: move-target marker is CONTEXT — survives via suffix degradation ladder (cg → tab-count → marker-alone; title floor may yield at pathological widths); badge clipping <41 cols is ACCEPTED elaboration loss.
+- R-T3 (fix wave in flight): stats column joins the width negotiation (allocate over usableCols - STATS_W when showStats; pane yields first); gg/G get the modal guard + README sentence fixed.
+- Controller-side: packages/tui-kit residue deleted from the main checkout only (untracked junk; fresh worktrees never had it).
+
+## Traps (new this session)
+
+- A reviewer that only checks WIDTH invariants passes silent CONTENT loss — end-truncation ate the move-target marker with every width assertion green. Pair width tests with content-at-narrow-width assertions.
+- ink-testing-library emits ZERO ANSI without FORCE_COLOR, so ESC-less strip regexes pass by accident; FORCE_COLOR must be set before ink/chalk are EVER imported (static imports hoist). Pattern now in 4 test files; App.width.test.tsx:28 still carries the old regex (triaged: defer, fails-safe).
+- allocateWidths pins a "min" column at its floor even when total < floorSum — the CALLER clips (documented kit contract; overflowed 40×12 by 5 cols until clamped).
+- Fixed-width flex children (flexShrink=0 summing to full width) silently zero out any sibling with default shrink — the dev-stats panel vanished with no test pressing `d`.
+- An SDD implementer's report file path can drift to the WORKTREE's .superpowers copy — harmless (gitignored) but check both when a report seems missing.
+
+## Tree
+
+- main checkout /Users/george/repos/browser-tab-mcp: this branch (docs/checkpoint-3), clean otherwise.
+- bt-wt-edge: feat/edge-first-class @19ed38f, pushed, PR #84. bt-wt-cg: feat/cg-observability @7113790, pushed, PR #85. bt-wt-tui: feat/tui-primitives-port @1ce310a + FIX-WAVE SUBAGENT WORKING (tree may be mid-edit).
+- Cross-branch merge order: any; reviewer-verified .env.example/README hunks are disjoint (Edge↔cg); TUI touches README/AGENTS.md differently from Edge — expect small rebases, no semantic conflicts.
+
+## Blocked on you (George)
+
+- Merge word: #84, #85, and the TUI PR once open.
+- TUI pre-merge 2-min live drive (`pnpm --filter browser-tab-mcp tui`): j/k/^d/^u/gg/G, m-flow, x-cancel, resize below ~74 cols, AND press `d` at a wide width (the final review's catch).
+- Windows box Edge verify (~90s, PR #84 body has steps); Mac redeploy (v1.3.2 + cg instrumentation) then the BROWSER_TAB_CG_DIAG=1 churn measurement (PR #85 body; decision table in the cg plan).
+
+## Resume
+
+1. Await the TUI fix-wave subagent (it commits `fix(tui): dev-stats column joins the width negotiation; gg/G modal guard; harness ANSI strip` in bt-wt-tui; gates incl. stress:tui quoted in its report at .superpowers/sdd/2026-08-21-tui-primitives-port/task-10-report.md).
+2. Scoped re-review of 1ce310a..<fixhead> (re-review-prompt, haiku/sonnet), verdict all-addressed.
+3. Push feat/tui-primitives-port (verify:macos hook), open the PR: title `feat(tui): port to tui-kit 0.5.0 primitives — scrollbar, detail pane, nav reducer + polish`; body enumerates user-visible deltas (full-width highlight, scrollbar-on-overflow, pane ≥74 cols, row-following cursor, modal-guarded motions incl. gg/G, summary-header fix, stress:tui verdict contract) + the no-bar-branch unit-only disclosure + George's live-drive ask.
+4. Then: relay ALL the rulings above to George in the final message (the SDD skill's "Rulings I made" contract), and stop — merges are his.

@@ -21,7 +21,7 @@
 
 import type { BrowserId } from "@george43g/shared-types";
 
-const BROWSERS: readonly string[] = ["chrome", "chromium", "brave", "safari"];
+const BROWSERS: readonly string[] = ["chrome", "chromium", "brave", "edge", "safari"];
 
 export function makeWindowId(browser: BrowserId, nativeId: string | number): string {
   return `w:${browser}:${nativeId}`;
@@ -95,7 +95,7 @@ export function parseTabId(id: string): ParsedTabId | null {
       safari: { nativeWindowId: safari[1], index1: Number.parseInt(safari[2], 10) },
     };
   }
-  const generic = /^t:(chrome|chromium|brave|safari):(x?)(\d+)$/.exec(id);
+  const generic = /^t:(chrome|chromium|brave|edge|safari):(x?)(\d+)$/.exec(id);
   if (generic?.[1] && generic[3]) {
     const ext = generic[2] === "x";
     // Non-ext numeric safari tab ids don't exist (synthetic form above).

@@ -104,7 +104,7 @@ time and will bite again. Append new ones as you hit them.
   Automation permission attributes to the *binary path* under launchd — node
   upgrades or a bin-path change silently re-prompt (error `-1743`);
   `browser-tab doctor` surfaces it. (This is the PR-D §2 trap.)
-- `browsers[]` in the snapshot is sorted alphabetically (brave < chrome <
+- `browsers[]` in the snapshot is sorted alphabetically (brave < chrome < edge <
   safari) — never index `[0]` expecting chrome.
 - **A rebuilt extension is NOT a reloaded extension.** Unpacked Chrome
   extensions don't hot-reload on file change, and Safari won't load a rebuilt

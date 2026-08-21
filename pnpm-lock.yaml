@@ -76,8 +76,8 @@ importers:
         specifier: workspace:*
         version: link:../../packages/tsconfig
       '@george43g/tui-kit':
-        specifier: ^0.4.1
-        version: 0.4.1(@george43g/robustness@0.10.0)(@types/react@19.2.17)(ink@7.1.1(@types/react@19.2.17)(react@19.2.8))(react@19.2.8)
+        specifier: ^0.5.1
+        version: 0.5.1(@george43g/robustness@0.10.0)(@types/react@19.2.17)(ink@7.1.1(@types/react@19.2.17)(react@19.2.8))(react@19.2.8)
       '@george43g/vitest-config':
         specifier: workspace:*
         version: link:../../packages/vitest-config
@@ -719,8 +719,8 @@ packages:
     resolution: {integrity: sha512-m98Eeq7nwo11eJ35i4D61uc7JEc4rIzH/OgLdd+4rw2wwlSLFFe7sxYcUTW1wDE7R0VXfZeJjtxPqWBsAIPzvg==}
     engines: {node: '>=24'}
 
-  '@george43g/tui-kit@0.4.1':
-    resolution: {integrity: sha512-Ye6caSGBajxgaXeclrQ/biUKioGSuQIgY3ivuW/WMhs18SXzds25fb9ZT4FsAZVf8yntet6UFvsSsmAv6hr/Ng==}
+  '@george43g/tui-kit@0.5.1':
+    resolution: {integrity: sha512-O+QntIt37wONjtjmsEnFSSOC0j0ym//4F7tXkZTTabwPSDPltJbCkfR3gOB9YAvdbq/5RY+1BI5hP8b4mDHPfQ==}
     engines: {node: '>=24'}
     peerDependencies:
       '@george43g/robustness': '>=0.1.1 <1'
@@ -2861,7 +2861,7 @@ snapshots:
 
   '@george43g/robustness@0.10.0': {}
 
-  '@george43g/tui-kit@0.4.1(@george43g/robustness@0.10.0)(@types/react@19.2.17)(ink@7.1.1(@types/react@19.2.17)(react@19.2.8))(react@19.2.8)':
+  '@george43g/tui-kit@0.5.1(@george43g/robustness@0.10.0)(@types/react@19.2.17)(ink@7.1.1(@types/react@19.2.17)(react@19.2.8))(react@19.2.8)':
     dependencies:
       '@george43g/robustness': 0.10.0
       fullscreen-ink: 0.1.0(@types/react@19.2.17)

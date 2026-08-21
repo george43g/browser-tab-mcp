@@ -99,6 +99,16 @@ The native tier carries no titles of its own (`kCGWindowName` needs Screen
 Recording consent), so it borrows yabai's — but only after bounds have actually
 proved ambiguous, so an unambiguous poll never pays for the extra subprocess.
 
+**Correlation observability.** When correlation degrades (window ids drop to
+`null`), the daemon logs a `cg_correlate` line with per-tier counts (`exact`,
+`shifted`, `titleOnly`, `tiebroken`, `nulled`, `claimCollisions`). Set
+`BROWSER_TAB_CG_DIAG=1` to log every correlation pass plus `cg_merge_trigger`
+staleness lines. yabai query failures log as `yabai_query_failed` or
+`yabai_titles_unavailable` — both warn-level; `cg_correlate`/`cg_merge_trigger`
+are info-level.
+
+Env: `BROWSER_TAB_CG_DIAG` (0).
+
 ## Bin
 
 A **single** bin, `browser-tab`, with subcommands (run `browser-tab --help`):
@@ -122,7 +132,7 @@ A **single** bin, `browser-tab`, with subcommands (run `browser-tab --help`):
 | | macOS | Windows | Linux |
 |---|---|---|---|
 | Daemon (IPC, WS, snapshot, journal, history, page, tab-1 screenshots) | ✅ | ✅ | ✅ |
-| Connector extension (Chrome/Brave/Chromium) | ✅ | ✅ | ✅ |
+| Connector extension (Chrome/Brave/Chromium/Edge) | ✅ | ✅ | ✅ |
 | AppleScript fallback — works with NO extension installed | ✅ | — | — |
 | `cgWindowId` correlation (the wm-stack join key) | ✅ | — | — |
 | Tier-2 window capture (`screencapture -l`) | ✅ | — | — |
@@ -240,7 +250,7 @@ Extension protocol/build staleness are report **items** now, not writes appended
 after the verdict — same glyphs, same ordering, and they count. `ok` still means
 "no errors", so warnings do not change the exit code; only an `✗` exits 1.
 
-`chromium` is polled by default alongside chrome/brave/safari. It is a
+`chromium` is polled by default alongside chrome/brave/edge/safari. It is a
 first-class `BrowserId` everywhere else, and leaving it out of the defaults made
 it the one browser you had to name explicitly to see; a browser that is not
 installed costs one cheap probe and reports `running: false`.
@@ -496,8 +506,9 @@ query lists one line per source it considered, whether or not it ran:
 $ browser-tab history --query zzz-no-such-url
 history - no rows
   sources
-    chrome    extension   ok           0 rows
     brave     extension   unavailable  the browser-tab extension is not connected
+    chrome    extension   ok           0 rows
+    edge      extension   unavailable  the browser-tab extension is not connected
     safari    safari-db   unavailable  Safari history is disabled - set BROWSER_TAB_SAFARI_HISTORY=1
 ```
 
@@ -603,6 +614,31 @@ badge-worthy tab state:
 
 The leading `●`/`·` marks the window's active tab; `lastAccessed` drives sort/MRU
 (see `journal`) rather than a per-row glyph.
+
+A **scroll position indicator** (a 1-column track) appears at the right edge of
+the list only when its content overflows the terminal height — below that
+threshold, the list keeps full width. The track shows a filled block (█) for
+the visible portion and a vertical bar (│) for scrolled-past content, updated
+in real time as you navigate.
+
+The **sticky detail pane** appears alongside the list when the terminal is wide
+enough (≥74 columns). It shows elaboration on the current selection — full URL,
+tab state, group membership, last-access time (for tabs), or window bounds and
+capability summary (for browsers/windows). Below 74 columns the pane drops
+entirely rather than squeezing into a half-legible truncated column, trading
+width for readability where it matters most.
+
+Navigation preserves context across snapshot updates: when the browser state
+changes (a window opens, tabs reload), the cursor follows the *row* by identity
+rather than numeric index, so focus stays on the tab you were browsing even if
+other rows shift above or below it.
+
+Half-page motions (`^d` down, `^u` up) are disabled in modal modes (move/action
+pickers, close confirmation), since modal lists are shorter than a full page and
+the motion keys would scroll an empty or misaligned view. `gg`/`G` (jump to
+top/bottom) are disabled there for the same reason. `j`/`k` stay active in
+every mode, but in move/action mode they steer the modal's own selection (the
+move target, the action list) rather than the hidden browse cursor.
 
 ### Soak-testing the TUI (`pnpm stress:tui`)
 

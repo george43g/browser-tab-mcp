@@ -35,9 +35,21 @@
  *   WORKLOAD_BROWSERS     synthetic browsers in phase A (default 3)
  *   WORKLOAD_WINDOWS      windows per browser           (default 8)
  *   WORKLOAD_TABS         tabs per window               (default 60)
+ *   WORKLOAD_REPORT_PATH  side-channel verdict file (optional — set by
+ *                         stress-tui.ts). The exit code alone cannot carry
+ *                         the correctness verdict: robustness's SIGTERM
+ *                         handler hardcodes exit 0 for a clean signal death
+ *                         (correct kit behavior), so a driver that force-
+ *                         kills this process would read violations as a
+ *                         pass. When set, this file gets the same
+ *                         pass/violations verdict written reliably at the
+ *                         very end of `main()`, before the process would
+ *                         otherwise exit — a driver that never sees this
+ *                         file written (hang, crash, forced kill) must treat
+ *                         that absence as a failure, never as "no violations".
  */
 
-import { rmSync } from "node:fs";
+import { rmSync, writeFileSync } from "node:fs";
 import {
   installShutdownHandlers,
   installWatchdog,
@@ -46,7 +58,7 @@ import {
 } from "@george43g/robustness";
 import type { Snapshot } from "@george43g/shared-types";
 import { makeTmpDir, withDaemonEnv } from "@george43g/test-kit";
-import { ThemeProvider, viewportRows, visibleWindow } from "@george43g/tui-kit";
+import { ThemeProvider, viewportRows, visibleWindow, visualWidth } from "@george43g/tui-kit";
 import { render } from "ink-testing-library";
 import { type DaemonHandle, startDaemon } from "../src/daemon/index.js";
 import { App } from "../src/tui/App.js";
@@ -56,9 +68,10 @@ const DURATION_S = Number(process.env.WORKLOAD_DURATION_S ?? 60);
 const BROWSERS = Number(process.env.WORKLOAD_BROWSERS ?? 3);
 const WINDOWS = Number(process.env.WORKLOAD_WINDOWS ?? 8);
 const TABS = Number(process.env.WORKLOAD_TABS ?? 60);
+const REPORT_PATH = process.env.WORKLOAD_REPORT_PATH;
 
 /** Strip SGR so width maths measures glyphs, not escape bytes. */
-const SGR = /\[[0-9;]*m/g;
+const SGR = /\x1b\[[0-9;]*m/g;
 const strip = (s: string) => s.replace(SGR, "");
 
 const tick = () => new Promise((r) => setTimeout(r, 0));
@@ -248,7 +261,7 @@ async function phaseRender(deadline: number): Promise<{ frames: number }> {
           note("render", `${columns}x${termRows}: frame emitted ${lines.length} lines`);
         }
         for (const line of lines) {
-          const width = strip(line).length;
+          const width = visualWidth(strip(line));
           if (width > columns) {
             note(
               "render",
@@ -291,7 +304,36 @@ async function main(): Promise<void> {
     `phase B · render path · ${render_.frames} frames across ${GEOMETRIES.length} geometries`,
   );
 
-  if (violations.length > 0) {
+  const pass = violations.length === 0;
+  // Side-channel verdict, written reliably BEFORE this function returns (and
+  // therefore before the process would otherwise exit) — see the env-doc
+  // comment at the top of this file for why the exit code alone can't carry
+  // this. Best-effort: a write failure here still falls through to the
+  // console + exit-code reporting below, it just leaves the driver unable to
+  // see the detail (which itself surfaces as a "missing report" failure).
+  if (REPORT_PATH) {
+    try {
+      writeFileSync(
+        REPORT_PATH,
+        JSON.stringify(
+          {
+            pass,
+            violations,
+            frames: render_.frames,
+            dataIters: data.iters,
+            dataRows: data.rows,
+            completedAt: Date.now(),
+          },
+          null,
+          2,
+        ),
+      );
+    } catch (err) {
+      console.error(`failed to write workload report to ${REPORT_PATH}:`, err);
+    }
+  }
+
+  if (!pass) {
     console.error(`\n${violations.length} invariant violation(s):`);
     for (const v of violations) console.error(`  [${v.phase}] ${v.detail}`);
     process.exitCode = 1;

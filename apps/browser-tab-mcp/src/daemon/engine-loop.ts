@@ -11,8 +11,9 @@
  * (every EXT_VERIFY_EVERY_TICKS ticks) — events already flow push-style.
  */
 
-import { envNum, error as logError, noteActivity } from "@george43g/robustness";
+import { envNum, info, error as logError, noteActivity } from "@george43g/robustness";
 import type { BrowserId, Snapshot } from "@george43g/shared-types";
+import { cgDiagEnabled } from "../detect/correlate.js";
 import { enabledBrowsers, readSnapshot } from "../detect/engine.js";
 import type { SourceMerger } from "./merge.js";
 import type { StateStore } from "./state.js";
@@ -42,6 +43,8 @@ export class EngineLoop {
   private queue: Promise<void> = Promise.resolve();
   private lastScanDurationMs = 0;
   private lastPolled: Snapshot | null = null;
+  /** When `lastPolled` was last (re)assigned — the staleness clock `cg_merge_trigger` reports. */
+  private lastPolledAt = 0;
   private onTick: (() => void) | null = null;
 
   constructor(
@@ -96,6 +99,15 @@ export class EngineLoop {
     this.queue = this.queue
       .then(async () => {
         if (!this.lastPolled) return;
+        // Gated: this fires on every extension event, so unconditional logging
+        // would be noisy. M1's fingerprint is trigger:"event" with a large
+        // lastPolledAgeMs alongside exact:0 in the adjacent cg_correlate line.
+        if (cgDiagEnabled()) {
+          info("cg_merge_trigger", {
+            trigger: "event",
+            lastPolledAgeMs: Date.now() - this.lastPolledAt,
+          });
+        }
         const merged = await this.merger.merge(this.lastPolled, extFeedTtlMs());
         this.store.update(merged);
       })
@@ -119,8 +131,18 @@ export class EngineLoop {
       if (browsers.length > 0) {
         const polled = await readSnapshot({ browsers });
         this.lastPolled = this.mergePolled(this.lastPolled, polled);
+        this.lastPolledAt = Date.now();
       }
       if (this.lastPolled) {
+        // Note: browsersToPoll skips extension-connected browsers most ticks
+        // (verified every EXT_VERIFY_EVERY_TICKS), so ages up to ~30s here are
+        // normal — the diagnostic question is whether nulls correlate with age.
+        if (cgDiagEnabled()) {
+          info("cg_merge_trigger", {
+            trigger: "poll",
+            lastPolledAgeMs: Date.now() - this.lastPolledAt,
+          });
+        }
         const merged = await this.merger.merge(this.lastPolled, extFeedTtlMs());
         this.store.update(merged);
       }

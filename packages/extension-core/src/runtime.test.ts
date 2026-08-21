@@ -41,6 +41,14 @@ describe("detectBrowserName", () => {
     expect(detectBrowserName()).toBe("chrome");
   });
 
+  it("returns edge for an Edge UA (edg/ outranks the chrome fallback)", () => {
+    vi.stubGlobal("navigator", {
+      userAgent:
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36 Edg/126.0.2592.87",
+    });
+    expect(detectBrowserName()).toBe("edge");
+  });
+
   it("returns chrome when navigator is absent", () => {
     vi.stubGlobal("navigator", undefined);
     expect(detectBrowserName()).toBe("chrome");

@@ -21,7 +21,7 @@ Group handle (add/remove/update/move)
 
 ### `--browser <name>`
 
-chrome|chromium|brave
+chrome|chromium|brave|edge
 
 ### `--title <title>`
 

@@ -23,7 +23,9 @@ export const api: typeof chrome = new Proxy({} as typeof chrome, {
   },
 });
 
-export type BrowserName = "chrome" | "chromium" | "brave" | "safari";
+// Hand-duplicates BrowserIdSchema (in shared-types) ON PURPOSE — extension-core
+// bundles standalone and must not import it. Keep the two in sync manually.
+export type BrowserName = "chrome" | "chromium" | "brave" | "edge" | "safari";
 
 /** Best-effort self-identification, overridable from the options page. */
 export function detectBrowserName(): BrowserName {
@@ -31,6 +33,10 @@ export function detectBrowserName(): BrowserName {
   if (ua.includes("safari") && !ua.includes("chrome") && !ua.includes("chromium")) {
     return "safari";
   }
+  // Edge UA carries BOTH "Chrome/…" and "Edg/…" — check edg/ before the
+  // chrome fallback or Edge self-reports as chrome and evicts the real
+  // Chrome session in the daemon (one WS session per BrowserId).
+  if (ua.includes("edg/")) return "edge";
   // Brave/Chromium are not reliably distinguishable from the UA; the
   // options page lets the user pin the name when it matters.
   return "chrome";
