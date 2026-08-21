@@ -13,6 +13,9 @@
 import {
   DevStatsPanel,
   HelpBar,
+  type NavIntent,
+  type NavState,
+  navReduce,
   StatusBar,
   truncateToWidth,
   useTerminalSize,
@@ -22,7 +25,7 @@ import {
   visibleWindow,
 } from "@george43g/tui-kit";
 import { Box, Text, useApp, useInput } from "ink";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { callMcpTool } from "../dispatcher.js";
 import { APP_NAME, buildStamp } from "../meta.js";
 import { engineLabel } from "../native-bridge.js";
@@ -49,15 +52,56 @@ export function App() {
   // chrome (status bar, help bar) is overprinted. That was reproducible below
   // ~156 columns with real data. Container has paddingX={1}.
   const usableCols = Math.max(20, (termColumns || 80) - 2);
-  const [cursor, setCursor] = useState(0);
   const [folded, setFolded] = useState<ReadonlySet<string>>(new Set());
   const [mode, setMode] = useState<Mode>({ kind: "browse" });
   const [showStats, setShowStats] = useState(false);
   const [message, setMessage] = useState("");
 
   const rows = useMemo(() => buildRows(snapshot, folded), [snapshot, folded]);
-  const clampedCursor = Math.min(cursor, Math.max(0, rows.length - 1));
-  const current: Row | undefined = rows[clampedCursor];
+
+  const [nav, setNav] = useState<NavState>({ cursor: 0, count: null, touched: false });
+  const navCtx = { itemCount: rows.length, pageSize: Math.floor(viewport / 2) };
+  const dispatchNav = (intent: NavIntent) => setNav((s) => navReduce(s, intent, navCtx));
+
+  // The cursor follows its ROW, by key, across a snapshot change — not the
+  // numeric index, which would otherwise land on whatever row happens to
+  // shift into the old slot (a window opening ABOVE the cursor used to jump
+  // the highlight to an unrelated row).
+  //
+  // Guards on row CONTENT (key sequence), not `rows` array identity, before
+  // dispatching. `rows` is a fresh array every render in this app's own test
+  // fixtures (the mocked `useSnapshot` rebuilds the whole snapshot on every
+  // call, so `useMemo`'s `[snapshot, folded]` deps never hit a cache) — and
+  // `itemsReplaced` always returns a new state object, so an unguarded
+  // dispatch on every render becomes an infinite render loop the instant
+  // `rows`'s reference churns without its content changing. In real usage
+  // `useSnapshot`'s `snapshot` state is stable across renders that don't
+  // touch it, so this only ever fires on a genuine shape change there too —
+  // the guard is a no-op in production and a correctness fix under test.
+  const prevRowsRef = useRef(rows);
+  useEffect(() => {
+    const prev = prevRowsRef.current;
+    if (prev === rows) return;
+    const shapeChanged = prev.length !== rows.length || prev.some((r, i) => r.key !== rows[i]?.key);
+    prevRowsRef.current = rows;
+    if (!shapeChanged) return;
+    setNav((s) =>
+      navReduce(
+        s,
+        {
+          kind: "itemsReplaced",
+          remap: (old) => {
+            const key = prev[old]?.key;
+            const idx = key ? rows.findIndex((r) => r.key === key) : -1;
+            return idx >= 0 ? idx : Math.min(old, Math.max(0, rows.length - 1));
+          },
+        },
+        { itemCount: rows.length, pageSize: Math.floor(viewport / 2) },
+      ),
+    );
+  }, [rows, viewport]);
+
+  const current: Row | undefined = rows[nav.cursor];
 
   // Only windows of the SAME browser are legal move targets — a cross-browser
   // move is impossible, and offering one produced a confusing failure. The
@@ -101,7 +145,7 @@ export function App() {
   const halfPage = (dir: 1 | -1) => {
     if (mode.kind !== "browse") return; // modal lists are shorter than a page; ^d/^u steer nothing there
     setMessage("");
-    setCursor((c) => Math.max(0, Math.min(rows.length - 1, c + dir * Math.floor(viewport / 2))));
+    dispatchNav({ kind: dir === 1 ? "pageDown" : "pageUp" });
   };
 
   useVimKeys({
@@ -114,17 +158,31 @@ export function App() {
         // Any browse-mode motion retires the last action's message. It used to
         // persist for the rest of the session, permanently replacing the
         // row-count/liveness indicator with a stale success string.
+        //
+        // useVimKeys already resolves the vim count prefix (`5j` → a single
+        // `onMove(5)` call) before this fires, so the delta here is already
+        // the final repeat-multiplied step — this dispatches an absolute `set`
+        // rather than feeding a `down`/`up` intent, so navReduce's OWN count
+        // machinery (the `digit` intent, `state.count`) is never touched and
+        // the two count models can't double-apply a repeat.
+        //
+        // The target index is computed from `s.cursor` INSIDE the setState
+        // updater, not from the outer `nav.cursor` closure: useVimKeys fans a
+        // single stdin chunk out across multiple synchronous `onMove` calls
+        // (a fast "jj" burst or a paste), all before React re-renders. Reading
+        // the closure would compute the same stale target for every call in
+        // the burst and collapse them into one net move.
         setMessage("");
-        setCursor((c) => Math.max(0, Math.min(rows.length - 1, c + delta)));
+        setNav((s) => navReduce(s, { kind: "set", index: s.cursor + delta }, navCtx));
       }
     },
     onTop: () => {
       setMessage("");
-      setCursor(0);
+      dispatchNav({ kind: "top" });
     },
     onBottom: () => {
       setMessage("");
-      setCursor(Math.max(0, rows.length - 1));
+      dispatchNav({ kind: "bottom" });
     },
     // Mirrors onMove's browse branch: modal lists (move/action) are steered by
     // their own idx state, not the hidden browse cursor, and are short enough
@@ -253,12 +311,12 @@ export function App() {
           0,
           rows.findIndex((r) => r.key === moveTargets[targetIdx]?.key),
         )
-      : clampedCursor;
+      : nav.cursor;
   const { start: visibleStart, end: visibleEnd } = visibleWindow(focusRow, rows.length, viewport);
   const visible = rows.slice(visibleStart, visibleEnd);
 
   const renderRow = (row: Row, idx: number) => {
-    const isCursor = idx === clampedCursor;
+    const isCursor = idx === nav.cursor;
     const highlightTarget =
       mode.kind === "move" && row.kind === "window" && moveTargets[targetIdx]?.key === row.key;
     // Row text is composed and width-guaranteed entirely by layoutRowText —
