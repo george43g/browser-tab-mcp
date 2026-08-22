@@ -2,10 +2,12 @@
 
 > `CLAUDE.md` and `.cursorrules` are symlinks to this file. Edit `AGENTS.md`; the others follow.
 
-> **⚡ ACTIVE HANDOFF:** work is mid-flight. Current status, the next task (PR-D
-> deploy), backlog, decisions, and operational gotchas live in
+> **⚡ ACTIVE HANDOFF:** work is mid-flight. Current status, the open backlog,
+> decisions, and operational gotchas live in
 > **`docs/agent-handoff/README.md`** — read it BEFORE starting any work, and
 > append to `docs/agent-handoff/PROGRESS-LOG.md` every working session.
+> (This pointer used to name "the next task (PR-D deploy)"; PR-D was EXECUTED
+> 2026-07-29 and its runbook is a historical record now.)
 
 This repo was generated from `mcp-cli-starter-template` via `mcp-scaffold init`.
 

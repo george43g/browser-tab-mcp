@@ -500,11 +500,11 @@ checkpoint — see PROGRESS-LOG § "sweep complete"):
   + releases + changelog, no npm publish. Remaining question is narrower: when
   (if ever soon) to enable **npm publish** (queue item 6)? — **DEFERRED by
   George, 2026-08-18** ("npm publish - defer").
-- First release: the prediction of `0.1.0` was **wrong** — the live run
-  proposes **`1.0.0`** (release-please's initial-release default; PR #31).
-  Accept 1.0.0, or pin `"release-as": "0.1.0"` in `release-please-config.json`
-  for one cycle? Changelog spans full history either way unless
-  `bootstrap-sha` narrows it (`docs/RELEASE.md` § "First release").
+- ~~First release: accept `1.0.0`, or pin `"release-as": "0.1.0"` for one
+  cycle?~~ — **RESOLVED BY EVENTS, closed 2026-08-22.** 1.0.0 was accepted
+  implicitly and the project has since shipped through **v1.4.0**. There is no
+  decision left to make; recorded here rather than deleted so the question's
+  history stays visible.
 - Does the `cgWindowId` tiebreaker (queue item 1) need to preserve *stable*
   ids across a re-tile, or is per-snapshot correctness enough? (Titles change
   as the user navigates; ids must stay right, not stay constant.)
@@ -945,3 +945,116 @@ Verified against the published tarball (0.1.0, `npm pack`, 2026-08-22 — do NOT
 **Their finding, which is the evidence for D:** the template's own generated app `apps/example-repo-mcp` filters `tools/list` (`src/index.ts:41,55`) but does **not** pass `devOnlyEnabled` (`src/dispatcher.ts:26-31`) — so `get_logs` ships hidden-but-callable-by-name into every scaffolded repo. They are fixing that one-liner as its own change, ahead of the de-vendor.
 
 **Why that matters here:** THIS repo has both layers and always has — `src/index.ts:48` (list filter) + `src/dispatcher.ts:36` (dispatch gate) + `src/tools/registry.ts:59-61` (`devModeEnabled`) — proven by `scripts/stress-mcp.ts:596-597` on all three CI legs. The mcp-kit-side option was upstreamed; the app-side wiring was not. Two sibling repos disagreed on a shared invariant and nothing in either tree could surface it. **Do not let this repo's second layer be "simplified away" during the de-vendor** — the list filter alone is exactly the gap `devOnlyEnabled` exists to close.
+
+
+## 2026-08-22 (late) — folded in from the command-sweep research + three re-verifications
+
+Everything below was MEASURED this session. The full evidence lives in
+`plans/2026-08-22-command-sweep-research-brief.md` and
+`research/2026-08-22-command-sweep/R1…R9.md`; these are the register rows so the
+findings don't live only in a brief.
+
+### B5. `env-loader` reports 0% coverage while fully tested — ROOT-CAUSED, not fixed
+`packages/vitest-config/vitest.shared.ts:37` excludes `src/**/index.ts` as a
+barrel-file heuristic. That is correct for four packages (their `index.ts` is
+6–11 re-export lines) and **wrong for `env-loader`, whose `index.ts` is a
+102-line implementation with zero re-exports and is the package's only source
+file.** It has 12 passing tests and reports 0/0/0/0.
+**Blast radius:** anything arming `COVERAGE_GATE` must fix this FIRST, or the
+gate blocks a fully tested package — and the instinct under gate pressure is to
+write tests that already exist. Every real coverage gap inside that package is
+also invisible today.
+**Two fixes, neither applied:** (a) narrow the heuristic to exclude actual
+barrels rather than the filename — more correct, touches everyone; (b) a
+per-package override in `packages/env-loader/vitest.config.ts` (today
+`export default shared`, byte-identical to mcp-kit's) — one file, no risk to
+others. Take (b) now, (a) only if the gate is ever armed.
+
+### B6. `e2e/**` is typechecked NOWHERE in the repo
+Not merely excluded from one config: `apps/chrome-extension/tsconfig.json` has
+`include: ["src/**/*.ts", "vite.config.ts"]`, and `tsc --listFiles` on the real
+typecheck run lists **zero** files under `e2e/`. Playwright transpiles specs via
+esbuild and never invokes `tsc`. **A type error in a fixture cannot fail CI
+today.** Fix is one line in the tsconfig include, but it will surface whatever
+type errors are currently hiding — budget for that, don't assume it's free.
+
+### B7. `discard` needs its OWN e2e spec — and the id-swap is now CONFIRMED
+Three runs against real Windows Edge: `chrome.tabs.discard(id)` returns a tab
+whose id **differs** from the one passed in (`239550782`→`239550786`,
+`229934170`→`229934174`, `263071999`→`263072002`). First hard evidence of the
+id-swap anywhere in this project, and exactly what a fake adapter cannot model.
+Afterwards the Playwright context dies (`EVT::context-closed`, `pages=0`, worker
+gone). **The obvious explanation was tested and REFUTED** — a keep-alive page
+did not save it, so it is not a last-page teardown artifact.
+**NOT a product defect:** discard against George's real, non-automated Edge
+leaves the browser alive; the teardown appears only under a Playwright/CDP-driven
+headless context. Do not report it as "our command crashes browsers."
+**Consequence:** discard IS testable — assert the RETURN VALUE, which arrives
+before the teardown — but only in its own spec whose fixture expects
+termination. Never in a shared-context describe block, or it takes the siblings
+down and the failure looks like theirs. macOS's bundled Chromium behaves
+differently again (hard `SEGV_ACCERR`, no return value), so any acceptance
+criteria must name their environment.
+
+### B8. The AppleScript path has ZERO real-browser exercise, anywhere
+`osascript` is mocked or fixture-substituted at every layer, for list, focus,
+tab_action, open_tab, open_window, set_window and doctor's TCC probe. A
+Playwright/Chromium suite **cannot reach this path at all**. So "the testing
+gap" is two gaps: (a) the extension path, which a sweep suite can close, and
+(b) the AppleScript path, macOS-only, which it cannot. Any plan must say which
+it is closing and must not imply it closed both. No strategy exists for (b) yet.
+
+### B9. back/forward is a BEHAVIOUR TO PIN, not a bug to fix
+Verified working in both directions on George's real gestured Edge history. The
+apparent no-op is Chromium's history-manipulation intervention skipping
+gestureless entries — which the tool's own `navigate` creates. A test must build
+history with a **real Playwright click** (over local HTTP; `data:` URLs do not
+work), and should ALSO pin the gestureless case so the intervention is documented
+in CI rather than rediscovered. Proven feasible — see R2/E2.
+
+### Re-verifications of three items that had gone stale (2026-08-22)
+- **tui-kit `StatusBar` gap — STILL OPEN.** Re-read at **0.5.1**: the component
+  is `justifyContent: "space-between"` with **no** margin or gap between the
+  message `Text` and the hint `Text`, so a long message still abuts the hint.
+  Upstream fix, do not patch locally.
+- **cli-kit REPL `Ctrl-C` — STILL OPEN.** Re-read at **2.0.1**: `repl.js`
+  registers **no** `rl.on("SIGINT")` handler, so Ctrl-C falls through to
+  readline's default and kills the session instead of cancelling the line.
+  Upstream fix, do not patch locally.
+- **TUI message-clear — HALF FIXED.** The half-page half SHIPPED in the
+  primitives port: `halfPage` clears at `apps/browser-tab-mcp/src/tui/App.tsx:223`
+  (and `gg`/`G` clear likewise). **The mode-EXIT half is still open** — the
+  `setMode({kind:"browse"})` returns at `App.tsx:280, 285, 301, 308, 316` do not
+  clear `message`, while the mode-ENTRY paths at `:351, 363, 376` do. Whether
+  that fully explains the originally-reported "stale message re-surfaces after
+  confirm-close cancel" is **unconfirmed from code alone** — entry already
+  clears, so the reported trigger may differ. Needs one live TUI check.
+
+### B10. Pointer: the selection-DSL + deep-control-architecture work is UNTRACKED and USER-GATED
+Recorded here because BACKLOG.md did not mention it at all, so it was invisible
+to any register built from this file. **This is another agent's work — a Codex
+session, 2026-08-22 — and this row is a POINTER, not a restatement; do not edit
+their documents or their PROGRESS-LOG entry.**
+
+Three artifacts sit **untracked** in the working tree:
+- `docs/tab-selection-transformation-language-spec.md` — the canonical spec
+  (~1524 lines), with appended §23–27 on whole/multi-window selection, same-kind
+  composition, structural projection, preflight blocking of multi-domain live
+  movement, schema-version vs snapshot-revision, a smaller effect IR with a
+  `setOrder` escape hatch, and a phased risk-coherent MCP surface.
+- `tab-selection-transformation-language-spec.md` (repo root) — an OLDER
+  DUPLICATE, deliberately left unchanged by its author. Do not "reconcile" the
+  two without asking; the `docs/` copy is canonical.
+- `docs/deep-application-control-platform-architecture.md` — companion
+  architecture proposal: one monorepo while concepts evolve, separate
+  MCP/CLI/TUI products per coherent domain family, exactly one generic
+  `control-language` package first, no universal mutation MCP, optional
+  federation/supervisor only after measured demand.
+
+**Status: USER-GATED, explicitly.** Its author's stated next step is that George
+reviews the reduced transform set, the phased five-tool MCP surface, the
+`control-language` naming, and the browser/tmux product boundary — and that **no
+implementation plan or code should start until those choices are accepted or
+revised.** Also note the untracked PROGRESS-LOG entry describing it was still
+uncommitted as of 2026-08-22; if it is still uncommitted when you read this, it
+is at risk, but it is not yours to commit.
