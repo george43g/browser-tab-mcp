@@ -1234,3 +1234,44 @@ Two traps this leaves for the next reader, both worth more than the fact itself:
 - **Three sessions reasoned about "the redactor" while consuming three different
   versions of it.** Always name the tree: this row is the published dist at
   0.11.0, verified by reading the whole file, not a grep.
+
+**The redactor difference is VERSION SKEW, not tree confusion — and it is
+actionable (2026-08-23).** Raised by `mcp-cli-toolkit`, verified here rather than
+relayed:
+
+```
+$ npm view @george43g/robustness version
+0.12.0
+$ grep -A2 "'@george43g/robustness'" pnpm-lock.yaml
+      '@george43g/robustness':
+        specifier: ^0.11.0
+        version: 0.11.0
+```
+
+**Email redaction (`EMAIL_RE` + a `RedactOptions.emails` opt-in) shipped in
+0.12.0.** We resolve 0.11.0, and `^0.11.0` on a `0.x` package expands to
+`>=0.11.0 <0.12.0` — so this is not "hasn't updated yet", it **structurally
+cannot** resolve 0.12.0. No `pnpm install` will produce it. This is shape #1 of
+the kit dep-starvation trap (caret-locked minor), caught again by an outside
+session rather than by us.
+
+**Not done, deliberately.** A 0.x *minor* is semver's breaking slot, so this is a
+`chore(deps)` bump needing `pnpm install` + a lockfile commit + a full `verify`
+run — not a line edit, and not something to fold into a docs PR. **George's
+word.** The command is `^0.11.0` → `^0.12.0` in
+`apps/browser-tab-mcp/package.json` and `packages/mcp-kit/package.json`, then
+`pnpm install`, then confirm with `--frozen-lockfile`.
+
+Whether to then turn email redaction ON is a **separate** call and the default is
+off for a measured reason: against realistic log lines most matches of an
+unanchored email pattern are not addresses (`git@github.com:`,
+`lodash@4.17.21`, `postgres://svc@db…`). For a browsing tool, few true positives
+are expected — "bump, leave it off, have the option" is the recommendation. The
+bump is worth making either way so the choice exists.
+
+**Anchor warning, because someone will try to 'fix' it:**
+`packages/mcp-kit/src/dispatch.ts:149-152` is correct **for this repo** —
+verified again just now. `mcp-cli-toolkit` reported the same site at `:158-160`;
+that is their mcp-kit source, not ours. Third instance in one thread of two
+sessions being locally right about different trees. Do not renumber this anchor
+from an outside report without reading our file.
