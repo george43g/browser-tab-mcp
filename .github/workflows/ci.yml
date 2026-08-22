@@ -141,7 +141,7 @@ jobs:
         if: runner.os == 'Linux'
         run: pnpm --filter "@george43g/*-mcp" exec npm pack --dry-run
 
-      - name: Stress harness (10 cases · daemon + dispatch lifecycle)
+      - name: Stress harness (14 cases · daemon + dispatch lifecycle)
         run: pnpm --filter "@george43g/*-mcp" stress
       - name: Upload stress report
         if: always()
