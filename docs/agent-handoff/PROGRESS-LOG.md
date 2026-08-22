@@ -1865,3 +1865,70 @@ George's directive: manually test EVERY feature of the CLI/MCP/every reachable A
 **BUG (both browsers, reproducible): `act back`/`forward` return ok but never navigate.** commands.ts:134-139 is textbook goBack/goForward(tabId). Leading hypothesis: Chromium history-manipulation intervention — gestureless (tabs.update-driven) history entries are marked skippable and goBack skips them; every test history was synthetic. NEXT: 15s gestured-history test with George; if confirmed, this is a documentation/expectation fix (back works on human history) + maybe a payload warning; if back also fails on gestured history, it's a real command-path bug. Either way the fake-adapter/e2e never exercise real session history — a coverage gap to note.
 
 **Small finds:** discard swaps the tab id (Chrome semantics — result echoes the OLD id, snapshot shows the new one; docs note); tier-2 disabled-error wording is macOS-flavored on Windows (mentions Screen Recording); Windows snapshot echoes the macOS bundleId (com.microsoft.edgemac); doctor's stamp-drift hint says "reload the extension" even when the DAEMON is the stale side; noop requires --input; logs' line-count flag isn't --limit. Operator traps: PowerShell splits unquoted comma lists into arrays (breaks --tabs a,b — quote it); PS group/bookmark JSON shapes: create returns nodes[], tabs nest under windows.
+
+## 2026-08-22 — precompact checkpoint #4 (session 5a15fe80; post-sweep, pre-next-cycle)
+
+Where this file and any post-compaction summary disagree, THIS FILE is correct.
+
+## State
+
+Cycle complete and closed out: v1.4.0 released, all PRs merged (#84–#93, zero open), Windows box deployed at 1.4.0 with George's real Chrome + real Edge verified by a full manual CLI/MCP/HTTP sweep; the next cycle has not been picked — George asked three assessment questions (CI duplication, testing gap, e2e structure) and they were answered in chat, not yet written as a plan.
+
+## Constraints
+
+- George, 2026-08-22, verbatim: "merge word for all five - #84, #85, #86, #87, #88, you choose the order" → later "merge 92", "you're good to merge #93". Every one is consumed; the per-PR merge-word rule stands for anything new.
+- George, 2026-08-22, verbatim: "now manually test all the features of the cli (and mcp and every api surface youre able to access) against both chrome and edge, and check/verify each command after you execute it" — DONE (entry above); the standing expectation is per-command verification on real browsers, not fake-adapter assertions.
+- George, 2026-08-22 (plan answers): box scope = "Automated + walk me through real profiles"; he wants subagent-driven parallel execution and a plan before code ("plan it out first").
+- Box guardrails unchanged (see 2026-08-21 late entry): console-scoped daemon only, never touch pc-server's credential dirs / docker / powercfg, never `wsl --shutdown` unwarned.
+
+## Done
+
+- Merge train in chosen order #86→#84→#85→#87→#88 (#88 bumped to robustness ^0.11.0 mid-flight); v1.4.0 cut via #89, tag verified (`gh release view v1.4.0`); #90 port bands, #91/#93 logs, #92 branded e2e (squashed as `test(e2e):` deliberately — no shipped-bin delta, avoids spurious v1.5.0). main = 3264605.
+- Box: main @ v1.4.0, stress 33/33 (win32 count), daemon `1.4.0+91.6bbe796` on `\\.\pipe\browser-tab-georg`, both real extensions connected, doctor ZERO warnings at close (previous entry). D:\browser-tab-mcp\dist deploy copy refreshed to +91.
+- Full manual sweep, both browsers, every surface — results in the "later still" entry above (verified list + bug + small finds).
+- e2e isolation fix + branded matrix live in CI (#92 green on first run: msedge-windows 1m57s, chromium-windows 2m43s).
+- Memory updated (build-state, gotchas: three dep-starvation shapes, D:\ deploy copy, box SSH auto-attach, tmux marker trap, PS piped-JSON mode).
+
+## Open
+
+- `act back`/`forward`: no-op on BOTH real browsers against synthetic (tabs.update-built) history — commands.ts:134-139 is textbook goBack/goForward. Hypothesis: Chromium history-manipulation intervention skips gestureless entries. UNVERIFIED — the 15-second gestured-history test with George was offered, never run. Evidence it is open: no commit touches commands.ts or docs since the sweep; BACKLOG not yet updated with it.
+- CI residual duplication: `e2e-branded` matrix rows each install+build (Windows builds 3×/PR). Left as-is deliberately pending George's preference (minutes vs wall-clock); stress step label still says "10 cases" (14 real). Evidence: ci.yml:251-290 unchanged since #92.
+- Testing gap assessment + proposed command-sweep e2e structure (dual-truth assertions: daemon snapshot AND Playwright-side browser state; `back` via a Playwright-clicked link; transport tests from the probe scripts; e2e/** added to chrome-extension tsconfig include) — answered in chat only; no plan doc exists (`ls docs/agent-handoff/plans/` shows none dated after 2026-08-22-branded-e2e).
+- Parked from #92 review: POSIX sockaddr length guard in test-kit, AGENTS.md layer-table wording.
+- Standing George-gated: Mac redeploy to v1.4.0 + `BROWSER_TAB_CG_DIAG=1` churn measurement (cg plan Task 4 → PR-2), ONLOGON/headless ruling, Safari/Chrome soaks, coverage ratchet, npm publish, ~45 stale remote branches, selection DSL + SK mechanism A (parked by George).
+
+## Corrections
+
+- Earlier chat claim "CI de-duplicated, no duplication" is now partially void: the core matrix IS de-duplicated (Linux-only gates verified at ci.yml:66-141), but the `e2e-branded` job added in #92 reintroduced 2 redundant install+builds on Windows.
+- "Branded Chrome e2e in CI" from the approved plan is VOID by measurement: Chrome ≥137 removed `--load-extension` (fails at load on Win + mac Chrome 151); matrix is [chromium, msedge].
+- The n=6 differential that implicated robustness 0.10.0 in the CI flake was noise; root cause was the shared port band (fixed #90). Do not re-suspect the kit.
+
+## Traps
+
+- A completion marker typed INTO a tmux command echoes and false-matches the poll — split the literal (`('BT-'+'DONE')`).
+- PowerShell: unquoted `a,b` is an ARRAY (breaks `--tabs a,b`); piped `daemon status` emits JSON (tty-detect), unpiped human; `Select-Object -Last N` on a pipe silently discards everything else — redirect to a file for diagnostics.
+- `$b:apps/...` in zsh applies the `:a` modifier — quote `"$b:apps/..."`.
+- `find node_modules/.pnpm -path "*pkg@ver*"` matches OTHER packages' dirs via peer-dep suffixes — scope to the package's own dist.
+- Box SSH auto-attaches to the other agents' remote tmux `main` — detach (C-b, then d) before anything else.
+- A `--load-extension` e2e on branded Chrome can never pass post-137; the GUI unpacked path still works.
+- Untracked `docs/tab-selection-transformation-language-spec.md` appeared on main during this session — NOT mine, left untouched (likely George's spec for the parked selection DSL).
+
+## Tree
+
+repo browser-tab-mcp, main = 3264605 (#93), clean except untracked `docs/tab-selection-transformation-language-spec.md` (not mine). This checkpoint on branch `docs/checkpoint-4`. No worktrees, no SDD workspaces (all deleted after merges). Box: C:\Users\georg\repos\browser-tab-mcp on main @ 3264605-1 (pulled before #93), console daemon RUNNING in tmux `bt-windows:win-daemon` (%152; win-ssh %150 has the `bt` alias function defined for this PS session only). Open PRs: none besides this checkpoint's.
+
+## Blocked on you (George)
+
+- 15-second gestured-history `back` test (click links in any tab, name the tab) — classifies the one bug found.
+- Pick the next cycle's workstreams (BACKLOG § BRIEF list + the proposed command-sweep e2e suite); say whether CI minutes or wall-clock matter for the e2e-branded matrix.
+- Mac redeploy + CG_DIAG measurement; ONLOGON/headless ruling.
+
+## Resume
+
+Next session: read this entry, then BACKLOG § "2026-08-21 — BRIEF" end to end; present George the workstream list WITH the command-sweep e2e proposal as a first-class option (the sweep entry above is its spec); no code before a plan doc + his pick. Mid-flight state: none — no running subagents, no background tasks, no uncommitted work of mine; the box daemon is live and needs nothing.
+
+### 2026-08-22 — checkpoint #4 addendum: the `back` item is CLOSED
+Gestured-history test run on George's real Edge tab (t:edge:x1490804971, on github.com/george43g/better-firebase-functions): `act back` ×2 → github.com/george43g → github.com/george43g/browser-tab-mcp#tools, exactly as he predicted. `act back`/`forward` are NOT broken — Chromium's history-manipulation intervention marks gestureless (tabs.update / `navigate`-built) entries skippable and goBack honours it. Consequences: (1) docs note on `tab_action back/forward` — entries created by the tool's own `navigate` are skippable by design; (2) the command-sweep e2e must build history with a real gesture (Playwright click), never with `navigate`. Remove this from any bug list; it is an expectation, not a defect.
+
+### 2026-08-22 — addendum cont.: `forward` verified too (the symmetric half)
+Same tab, immediately after the two back hops: `act forward` → `browser-tab-mcp#tools` → `github.com/george43g`, i.e. it walked back up the chain the two `back` hops had just reversed. So BOTH directions are confirmed working on real gestured history; the earlier "returns ok but never navigates" observation was measured entirely against tool-built (gestureless) entries for both directions. Nothing further to test on this item — closed for good.
