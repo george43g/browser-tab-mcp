@@ -1199,3 +1199,38 @@ Anchor note: line numbers cited in this row are the **published artifact**,
 `pruneLogs` 245-263, `_resetForTests` 520-522. The template repo's own records
 cite its `packages/robustness/src/logger.ts` source lines for the same things.
 Both are correct; they are different trees.
+
+**Correction to the paragraph above, and it is a correction to MY OWN text
+(2026-08-23).** I wrote that the redactor's rule set is "phones, secret-shaped
+tokens, and emails-if-opted-in". **That describes the template's source tree, not
+the artifact this repo consumes.** Verified by reading the published file end to
+end — `@george43g/robustness@0.11.0` `dist/redact.js` is **57 lines** and holds
+exactly **two** rules:
+
+```js
+12:const PHONE_RE = /\+\d[\d\s\-().]{5,17}\d/g;
+14:const SECRET_RE = /\b(sk-[A-Za-z0-9-]{10,}|github_pat_[A-Za-z0-9_]{10,}|gh[pousr]_[A-Za-z0-9]{10,}|SK[a-f0-9]{32}|AC[a-f0-9]{32})\b/g;
+20:export function redactString(input) {
+21:    return input.replace(PHONE_RE, (m) => `…${lastFour(m)}`).replace(SECRET_RE, "[redacted]");
+22: }
+```
+
+No email rule, no `options` parameter — `redactString` takes one argument. So the
+version browser-tab actually runs redacts **less** than the description said, and
+there is no email opt-in to reach for. **The conclusion is unchanged and is if
+anything stronger: no URL rule of any kind, so a URL in an `err.stack` reaches
+the file untouched.**
+
+Two traps this leaves for the next reader, both worth more than the fact itself:
+
+- **Grepping the redactor for `url` returns hits in the template's source — from
+  a comment explaining why there is NO url rule.** Its docblock lists
+  `postgres://svc@db.internal.corp/main` and `git@github.com:…` as examples of
+  what an unanchored *email* pattern matches **wrongly** — the argument for
+  keeping email redaction default-off. A `dotfiles` session read those lines as a
+  credential-URL rule and was about to record the opposite of the truth;
+  `mcp-cli-toolkit` caught it. Anyone reaching for "redaction covers it" to close
+  the `mcp-kit` guard will grep, find those strings, and stop.
+- **Three sessions reasoned about "the redactor" while consuming three different
+  versions of it.** Always name the tree: this row is the published dist at
+  0.11.0, verified by reading the whole file, not a grep.
