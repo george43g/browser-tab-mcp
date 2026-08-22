@@ -2,10 +2,12 @@
 
 > `CLAUDE.md` and `.cursorrules` are symlinks to this file. Edit `AGENTS.md`; the others follow.
 
-> **⚡ ACTIVE HANDOFF:** work is mid-flight. Current status, the next task (PR-D
-> deploy), backlog, decisions, and operational gotchas live in
+> **⚡ ACTIVE HANDOFF:** work is mid-flight. Current status, the open backlog,
+> decisions, and operational gotchas live in
 > **`docs/agent-handoff/README.md`** — read it BEFORE starting any work, and
 > append to `docs/agent-handoff/PROGRESS-LOG.md` every working session.
+> (This pointer used to name "the next task (PR-D deploy)"; PR-D was EXECUTED
+> 2026-07-29 and its runbook is a historical record now.)
 
 This repo was generated from `mcp-cli-starter-template` via `mcp-scaffold init`.
 
@@ -90,7 +92,9 @@ packages/
 (logger/watchdog/shutdown/withTimeout/health/retry/rate-limit), `@george43g/cli-kit`
 (commander helpers, tty/color/output, env↔flag binder, REPL) and `@george43g/tui-kit`
 (ink theme system, hooks incl. `useTerminalSize`, viewport helpers, components) are
-published from `mcp-cli-starter-template` and consumed at `^0.7.0`/`^2.0.1`/`^0.4.1`.
+published from `mcp-cli-starter-template` and consumed at `^0.11.0`/`^2.0.1`/`^0.5.1`
+(verified 2026-08-23 against the workspace manifests; this line has already gone
+stale once, so re-read the manifests before quoting it).
 The frozen workspace copies (and the unused `secrets` copy — published as
 `secret-store`, no consumer here) were deleted when the published kits caught up.
 **A kit defect is fixed upstream, never by re-vendoring** — write it into

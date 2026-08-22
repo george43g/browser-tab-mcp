@@ -18,7 +18,7 @@
 |---|---|---|
 | `README.md` (this) | Status + ground rules + doc map | Keep the Status section current as things land |
 | `PROGRESS-LOG.md` | Append-only work journal | **Append an entry every working session** — what you did, how you verified it, what's next / blocked on |
-| `PRD-DEPLOY-RUNBOOK.md` | The next task (PR-D deploy), step-by-step | Check boxes / note results inline as steps complete |
+| `PRD-DEPLOY-RUNBOOK.md` | **Historical**: the PR-D deploy runbook, EXECUTED 2026-07-29 | Read-only record — not the next task |
 | `BACKLOG.md` | Deferred tasks, parked ideas, open questions for the user | Add / strike items as they land or get answered |
 | `DECISIONS.md` | Decision log — what was chosen and why | Append new decisions; never rewrite old ones |
 | `GOTCHAS.md` | Operational traps (this machine + this repo's CI) | Append when you hit a new one |
@@ -46,7 +46,41 @@ here.** Nothing about this work may live only in an agent's private memory.
 6. **No AI inside the tool.** browser-tab serves data/actuation; the consumer
    AI interprets. (`annotate` is a cache substrate, never intelligence.)
 
-## Status (2026-08-16) — v1.1.0 released · 3 stress-test fixes merged · release HELD
+## Status (2026-08-22) — v1.4.0 released · Windows+Edge live-verified · zero open PRs
+
+`main` = **`4bd864b`**. Working tree clean apart from two UNTRACKED specs that
+are not this session's (`docs/tab-selection-transformation-language-spec.md` and
+a root-level copy) — left in place deliberately.
+
+**Released:** v1.4.0 (2026-08-22), cut unattended by release-please as usual.
+
+**Landed this cycle:** Edge as a first-class browser (#84) · cg observability
+PR-1 (#85) · TUI port onto tui-kit 0.5 primitives (#87) · `robustness@^0.11.0`
+caret-starvation fix (#88) · disjoint integration-test port bands, which
+root-caused a 3-red CI flake to a shared band, not the dep (#90) ·
+branded-browser e2e — real Windows Edge + Windows Chromium in CI (#92) ·
+checkpoint + backlog (#94) · stress step relabelled 14 cases (#95) ·
+the real-browser-effect research brief (#96).
+
+**Deployment:** the Windows box (`g-home-server`) is at v1.4.0 with George's
+REAL Chrome and REAL Edge both connected as separate extension sessions, Edge
+auto-detected via its `edg/` UA. **His browsers load from the
+`D:\browser-tab-mcp\dist` DEPLOY COPY — refresh that after any rebuild or his
+reload silently picks up a stale bundle.** The **Mac** deployment is still
+behind and is user-gated (see BACKLOG).
+
+**Testing posture, measured 2026-08-22:** 2 of 31 command surfaces are
+effect-verified against a real browser; 21 are dispatch-only. The evidence and
+the experiments behind that number are in
+`plans/2026-08-22-command-sweep-research-brief.md` +
+`research/2026-08-22-command-sweep/`. Read the brief before planning test work.
+
+**Blocked on the user right now:** Mac redeploy + the `BROWSER_TAB_CG_DIAG=1`
+churn measurement (which in turn blocks the cgWindowId oscillation bug) · the
+Windows ONLOGON/headless ruling · picking the next work cycle (the command-sweep
+e2e suite is a first-class candidate) · the `@george43g/mcp-kit` de-vendor.
+
+## Historical status (2026-08-16) — v1.1.0 released · 3 stress-test fixes merged · release HELD
 
 `main` = **`e95f6d8`**. Working tree clean. Daemon runs the merged build.
 
@@ -62,7 +96,7 @@ in `BACKLOG.md`):**
 | **#43** `2edcc63` | Kit upgrade: `robustness@^0.7.0` / `cli-kit@^2.0.1` / `tui-kit@^0.4.1`. **Both app shims deleted** — `ShotBucket` and the REPL image adapter. |
 | **#45** `e95f6d8` | TUI width safety — rows and chrome both clamped to the terminal. Two causes; see PROGRESS-LOG. |
 
-**OPEN AND DELIBERATELY HELD: PR #44 `chore(main): release 1.1.1`.** The user
+**[RESOLVED — superseded; the release was later cut and the project is past v1.4.0 as of 2026-08-22. Kept verbatim as the record of the decision at the time.]** **OPEN AND DELIBERATELY HELD: PR #44 `chore(main): release 1.1.1`.** The user
 chose "merge #45 only, hold the release" (2026-08-16) so more stress-test fixes
 can batch into one version. Merging it cuts the release; it will re-title itself
 as more lands. **Do not merge it without asking.**
@@ -73,7 +107,7 @@ as more lands. **Do not merge it without asking.**
 docs-only commit's prose spelled a breaking-change token and cut a spurious
 major). A relayed number is a cache with no invalidation.
 
-**Available, NOT adopted:** `@george43g/robustness@0.8.1` (shutdown-cause
+**[SUPERSEDED — robustness is at `^0.11.0` since #88 (2026-08-22).]** **Available, NOT adopted:** `@george43g/robustness@0.8.1` (shutdown-cause
 reporting, `WatchdogState.memorySampled`, live memory read before the first
 sample). Adds two new diagnostics — `stdin_eof` and `orphaned` — that previously
 emitted nothing; harmless for us (no `onDiagnostic` sink matches on names).

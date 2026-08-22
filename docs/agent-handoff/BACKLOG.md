@@ -500,11 +500,11 @@ checkpoint — see PROGRESS-LOG § "sweep complete"):
   + releases + changelog, no npm publish. Remaining question is narrower: when
   (if ever soon) to enable **npm publish** (queue item 6)? — **DEFERRED by
   George, 2026-08-18** ("npm publish - defer").
-- First release: the prediction of `0.1.0` was **wrong** — the live run
-  proposes **`1.0.0`** (release-please's initial-release default; PR #31).
-  Accept 1.0.0, or pin `"release-as": "0.1.0"` in `release-please-config.json`
-  for one cycle? Changelog spans full history either way unless
-  `bootstrap-sha` narrows it (`docs/RELEASE.md` § "First release").
+- ~~First release: accept `1.0.0`, or pin `"release-as": "0.1.0"` for one
+  cycle?~~ — **RESOLVED BY EVENTS, closed 2026-08-22.** 1.0.0 was accepted
+  implicitly and the project has since shipped through **v1.4.0**. There is no
+  decision left to make; recorded here rather than deleted so the question's
+  history stays visible.
 - Does the `cgWindowId` tiebreaker (queue item 1) need to preserve *stable*
   ids across a re-tile, or is per-snapshot correctness enough? (Titles change
   as the user navigates; ids must stay right, not stay constant.)
@@ -945,3 +945,333 @@ Verified against the published tarball (0.1.0, `npm pack`, 2026-08-22 — do NOT
 **Their finding, which is the evidence for D:** the template's own generated app `apps/example-repo-mcp` filters `tools/list` (`src/index.ts:41,55`) but does **not** pass `devOnlyEnabled` (`src/dispatcher.ts:26-31`) — so `get_logs` ships hidden-but-callable-by-name into every scaffolded repo. They are fixing that one-liner as its own change, ahead of the de-vendor.
 
 **Why that matters here:** THIS repo has both layers and always has — `src/index.ts:48` (list filter) + `src/dispatcher.ts:36` (dispatch gate) + `src/tools/registry.ts:59-61` (`devModeEnabled`) — proven by `scripts/stress-mcp.ts:596-597` on all three CI legs. The mcp-kit-side option was upstreamed; the app-side wiring was not. Two sibling repos disagreed on a shared invariant and nothing in either tree could surface it. **Do not let this repo's second layer be "simplified away" during the de-vendor** — the list filter alone is exactly the gap `devOnlyEnabled` exists to close.
+
+
+## 2026-08-22 (late) — folded in from the command-sweep research + three re-verifications
+
+Everything below was MEASURED this session. The full evidence lives in
+`plans/2026-08-22-command-sweep-research-brief.md` and
+`research/2026-08-22-command-sweep/R1…R9.md`; these are the register rows so the
+findings don't live only in a brief.
+
+### B5. `env-loader` reports 0% coverage while fully tested — ROOT-CAUSED, not fixed
+`packages/vitest-config/vitest.shared.ts:37` excludes `src/**/index.ts` as a
+barrel-file heuristic. That is correct for four packages (their `index.ts` is
+6–11 re-export lines) and **wrong for `env-loader`, whose `index.ts` is a
+102-line implementation with zero re-exports and is the package's only source
+file.** It has 12 passing tests and reports 0/0/0/0.
+**Blast radius:** anything arming `COVERAGE_GATE` must fix this FIRST, or the
+gate blocks a fully tested package — and the instinct under gate pressure is to
+write tests that already exist. Every real coverage gap inside that package is
+also invisible today.
+**Two fixes, neither applied:** (a) narrow the heuristic to exclude actual
+barrels rather than the filename — more correct, touches everyone; (b) a
+per-package override in `packages/env-loader/vitest.config.ts` (today
+`export default shared`, byte-identical to mcp-kit's) — one file, no risk to
+others. Take (b) now, (a) only if the gate is ever armed.
+
+### B6. `e2e/**` is typechecked NOWHERE in the repo
+Not merely excluded from one config: `apps/chrome-extension/tsconfig.json` has
+`include: ["src/**/*.ts", "vite.config.ts"]`, and `tsc --listFiles` on the real
+typecheck run lists **zero** files under `e2e/`. Playwright transpiles specs via
+esbuild and never invokes `tsc`. **A type error in a fixture cannot fail CI
+today.** Fix is one line in the tsconfig include, but it will surface whatever
+type errors are currently hiding — budget for that, don't assume it's free.
+
+### B7. `discard` needs its OWN e2e spec — and the id-swap is now CONFIRMED
+Three runs against real Windows Edge: `chrome.tabs.discard(id)` returns a tab
+whose id **differs** from the one passed in (`239550782`→`239550786`,
+`229934170`→`229934174`, `263071999`→`263072002`). First hard evidence of the
+id-swap anywhere in this project, and exactly what a fake adapter cannot model.
+Afterwards the Playwright context dies (`EVT::context-closed`, `pages=0`, worker
+gone). **The obvious explanation was tested and REFUTED** — a keep-alive page
+did not save it, so it is not a last-page teardown artifact.
+**NOT a product defect:** discard against George's real, non-automated Edge
+leaves the browser alive; the teardown appears only under a Playwright/CDP-driven
+headless context. Do not report it as "our command crashes browsers."
+**Consequence:** discard IS testable — assert the RETURN VALUE, which arrives
+before the teardown — but only in its own spec whose fixture expects
+termination. Never in a shared-context describe block, or it takes the siblings
+down and the failure looks like theirs. macOS's bundled Chromium behaves
+differently again (hard `SEGV_ACCERR`, no return value), so any acceptance
+criteria must name their environment.
+
+### B8. The AppleScript path has ZERO real-browser exercise, anywhere
+`osascript` is mocked or fixture-substituted at every layer, for list, focus,
+tab_action, open_tab, open_window, set_window and doctor's TCC probe. A
+Playwright/Chromium suite **cannot reach this path at all**. So "the testing
+gap" is two gaps: (a) the extension path, which a sweep suite can close, and
+(b) the AppleScript path, macOS-only, which it cannot. Any plan must say which
+it is closing and must not imply it closed both. No strategy exists for (b) yet.
+
+### B9. back/forward is a BEHAVIOUR TO PIN, not a bug to fix
+Verified working in both directions on George's real gestured Edge history. The
+apparent no-op is Chromium's history-manipulation intervention skipping
+gestureless entries — which the tool's own `navigate` creates. A test must build
+history with a **real Playwright click** (over local HTTP; `data:` URLs do not
+work), and should ALSO pin the gestureless case so the intervention is documented
+in CI rather than rediscovered. Proven feasible — see R2/E2.
+
+### Re-verifications of three items that had gone stale (2026-08-22)
+- **tui-kit `StatusBar` gap — STILL OPEN.** Re-read at **0.5.1**: the component
+  is `justifyContent: "space-between"` with **no** margin or gap between the
+  message `Text` and the hint `Text`, so a long message still abuts the hint.
+  Upstream fix, do not patch locally.
+- **cli-kit REPL `Ctrl-C` — STILL OPEN.** Re-read at **2.0.1**: `repl.js`
+  registers **no** `rl.on("SIGINT")` handler, so Ctrl-C falls through to
+  readline's default and kills the session instead of cancelling the line.
+  Upstream fix, do not patch locally.
+- **TUI message-clear — HALF FIXED.** The half-page half SHIPPED in the
+  primitives port: `halfPage` clears at `apps/browser-tab-mcp/src/tui/App.tsx:223`
+  (and `gg`/`G` clear likewise). **The mode-EXIT half is still open** — the
+  `setMode({kind:"browse"})` returns at `App.tsx:280, 285, 301, 308, 316` do not
+  clear `message`, while the mode-ENTRY paths at `:351, 363, 376` do. Whether
+  that fully explains the originally-reported "stale message re-surfaces after
+  confirm-close cancel" is **unconfirmed from code alone** — entry already
+  clears, so the reported trigger may differ. Needs one live TUI check.
+
+### B10. Pointer: the selection-DSL + deep-control-architecture work is UNTRACKED and USER-GATED
+Recorded here because BACKLOG.md did not mention it at all, so it was invisible
+to any register built from this file. **This is another agent's work — a Codex
+session, 2026-08-22 — and this row is a POINTER, not a restatement; do not edit
+their documents or their PROGRESS-LOG entry.**
+
+Three artifacts sit **untracked** in the working tree:
+- `docs/tab-selection-transformation-language-spec.md` — the canonical spec
+  (~1524 lines), with appended §23–27 on whole/multi-window selection, same-kind
+  composition, structural projection, preflight blocking of multi-domain live
+  movement, schema-version vs snapshot-revision, a smaller effect IR with a
+  `setOrder` escape hatch, and a phased risk-coherent MCP surface.
+- `tab-selection-transformation-language-spec.md` (repo root) — an OLDER
+  DUPLICATE, deliberately left unchanged by its author. Do not "reconcile" the
+  two without asking; the `docs/` copy is canonical.
+- `docs/deep-application-control-platform-architecture.md` — companion
+  architecture proposal: one monorepo while concepts evolve, separate
+  MCP/CLI/TUI products per coherent domain family, exactly one generic
+  `control-language` package first, no universal mutation MCP, optional
+  federation/supervisor only after measured demand.
+
+**Status: USER-GATED, explicitly.** Its author's stated next step is that George
+reviews the reduced transform set, the phased five-tool MCP surface, the
+`control-language` naming, and the browser/tmux product boundary — and that **no
+implementation plan or code should start until those choices are accepted or
+revised.** Also note the untracked PROGRESS-LOG entry describing it was still
+uncommitted as of 2026-08-22; if it is still uncommitted when you read this, it
+is at risk, but it is not yours to commit.
+
+### B11. The CLI never brands its log prefix — its NDJSON lands in a SHARED `$TMPDIR/mcp/` bucket
+Surfaced 2026-08-23 answering a cross-session query from the `dotfiles` session,
+which is building a Vector collector that ships MCP NDJSON logs to g-home-server
+off an **explicit prefix list**. It had found two prefixes; there are three.
+
+`setLogFilePrefix` has exactly three call sites (`src/index.ts:36` and
+`src/tui/index.tsx:27`, both `APP_NAME` minus scope → `browser-tab-mcp`;
+`src/daemon/index.ts:875` → `browser-tab-daemon`). **`src/cli.ts` never calls
+it**, so every dispatcher-routed CLI subcommand falls through to robustness's
+default — `logFilePrefix() => envStr(key("LOG_PREFIX"), "mcp")` and
+`getLogDir() => envStr(key("LOG_DIR"), join(tmpdir(), logFilePrefix()))`
+(`@george43g/robustness@0.11.0` `dist/logger.js:80,171`).
+
+Reproduced with an isolated `TMPDIR` against the built bin: `list --json`,
+`journal` and `history` each create `$TMPDIR/mcp/` holding one
+`{"level":"perf","msg":"dispatch.<tool>"}` line. `doctor` and `daemon status`
+create nothing — they do not route the dispatcher.
+
+Why it matters beyond tidiness: `$TMPDIR/mcp/` is **shared**. On George's Mac it
+is currently dominated by `"entrypoint":"@george43g/example-repo-mcp"`, and our
+own **vitest runs write there too** (reproduced — `ws_disabled`/`ws_listening`
+lines under an isolated `TMPDIR`). So an observability collector cannot take our
+CLI stream without also taking another tool's logs and our test output. Our two
+branded prefixes are clean by contrast: `withDaemonEnv`
+(`packages/test-kit/src/fakes/daemon-env.ts:76-90`) redirects only
+`BROWSER_TAB_CACHE_DIR`, never the logger.
+
+**Fix is one line** — call `setLogFilePrefix` in `src/cli.ts` with the same slug
+`src/index.ts:35` computes (or a distinct `browser-tab-cli`). **The durable fix
+is the guard**: a test asserting every process entry point brands its prefix.
+`cli.ts` drifted silently and nothing failed; the next entry point will too.
+
+Related, checked in the same pass and all clean: no production config sets an
+absolute `MCP_LOG_DIR` (`.mcp.json` carries only `MCP_DEV*`; the LaunchAgent
+plist has **no `EnvironmentVariables` key**; no `.env*` exists but the committed
+`.env.example`). The one setter is `apps/chrome-extension/e2e/fixtures.ts:82`,
+scoped to a spawned-process env object. Two traps for anyone auditing this:
+`BROWSER_TAB_LOG_DIR` (`daemon/paths.ts:117`) is a **different stream** — the
+launchd stdio redirect at `~/Library/Logs/browser-tab` — and `MCP_LOG_PREFIX`
+renames the whole **directory**, not just the filename.
+
+Also settled in that pass, for anyone who wondered: the launchd daemon sees the
+**same `$TMPDIR` as an interactive shell**. `launchctl list` → pid 27327;
+`ps eww -p 27327` → `TMPDIR=/var/folders/2m/…/T/`, identical to the shell's, no
+log override in its env; and `$TMPDIR/browser-tab-daemon/browser-tab-daemon-27327-*.ndjson`
+is the pid-matched anchor. Scope limits: that is the per-user **LaunchAgent**
+case (a system-scope LaunchDaemon would not inherit it — we ship none, and
+cannot), and **Windows is unrelated** (Task Scheduler task, `localAppData()`).
+
+**Amendments, 2026-08-23, after two more rounds with the `dotfiles` and
+`mcp-cli-toolkit` sessions:**
+
+- **Slug decided: `browser-tab-cli`, distinct — not the `browser-tab-mcp` slug.**
+  The reason is retention, not naming. `pruneLogs`
+  (`@george43g/robustness@0.11.0` `dist/logger.js:245-263`) keeps N files **per
+  directory**, default 5 (`keepLogFiles`, line 66), and protects only a live
+  process's *newest* file. The MCP server is long-lived and one-file-per-session;
+  the CLI is one file per invocation. Share a directory and a handful of
+  `browser-tab list` calls evict the MCP server's prior sessions. Separate
+  prefixes give each stream its own budget.
+- **The mis-prefixed burst in the live `$TMPDIR/mcp/` was our own test suite** —
+  identified, not inferred: `pnpm --filter browser-tab-mcp test`, 2026-08-22
+  23:57:48 AEST (67 files / 648 tests), six vitest workers whose records all fall
+  in 13:57:48–13:57:54.5Z. The `EADDRINUSE on 127.0.0.1:8790` in them is workers
+  racing the real launchd daemon for the extension WS port. Two distinct paths
+  reach that bucket: tests (never enter `runMcpServer`/`runTui`/`runDaemon`, so no
+  prefix is ever set) and **real CLI invocations** — which are operational data
+  with no duplicate anywhere else.
+- **Our NDJSON carries no URLs or page titles — verified negative.** 0 lines
+  matching `https\?://` across `browser-tab-daemon/`, `browser-tab-mcp/` and
+  `mcp/`; the daemon's 224KB file is `heartbeat` ×998, `event_loop_lag` ×104,
+  `cg_correlate` ×102 plus lifecycle records. No log call site in
+  `apps/browser-tab-mcp/src` or `packages/mcp-kit/src` references url/title/href.
+  The one plausible vector was chased: `logError(\`dispatch_error: ${name}\`,
+  { message, stack })` (`packages/mcp-kit/src/dispatch.ts:149-152`) copies
+  `err.message`/`err.stack` verbatim, but the four URL-refusal throws that could
+  echo a URL interpolate only the **scheme**
+  (`detect/adapters/{safari,chromium}.ts:44,256`). **Scope: current corpus plus
+  present-day call sites — not a guarantee about future records.** A
+  `dispatch_error` is one thrown URL away from carrying one, so this wants a test
+  rather than a standing measurement. Matters because a Vector collector is being
+  wired to ship these logs to g-home-server; **whether browser-tab is collected at
+  all is George's call, not the collector's.**
+- **Argued against a runtime warning as the class fix.** `mcp-cli-toolkit`
+  proposed that the logger warn when it opens under the default prefix. That
+  warning is written into the very file that is mis-located — here, into
+  `$TMPDIR/mcp/`, the directory nobody collects, and for the six test-worker files
+  into processes with no `startup` record at all, so it would not have fired.
+  A test-time assertion over the entry-point set fails on a developer's machine
+  before the artifact ships. That is the shape to build.
+
+**Two late corrections to the amendments above (2026-08-23), both raised in the
+peer thread and both changing where the fix belongs:**
+
+- **The "assert every entry point brands its prefix" test was MY proposal and it
+  is the weaker shape — do not build it.** It inherits the exact defect of the
+  prefix list it replaces: enumerating entry points is a judgement call, and it
+  would have caught `cli.ts` only if someone had thought to list `cli.ts`, which
+  is what nobody did. **Build the behavioural version instead:** spawn every
+  subcommand the bin dispatches, under an isolated `TMPDIR`, and assert no
+  default-prefix directory appears. The subcommand set comes from commander's own
+  registered-command table, not a hand-written list, so a new subcommand is
+  covered the day it is registered; and it asserts the observable outcome, so it
+  catches both known mechanisms (a missing call, and a call that runs after the
+  first write fixes `logFilePath`) without needing to distinguish them. Residual
+  gap, stated rather than hidden: it covers what the bin dispatches, NOT library
+  entry points imported in-process — which is the vitest case. Test workers are
+  not a shipped surface, so that gap is accepted.
+- **The URL-leak guard belongs in `@george43g/mcp-kit`, not here.**
+  `packages/mcp-kit/src/dispatch.ts:149-152` — the `logError` that copies
+  `err.message`/`err.stack` verbatim — is kit code, so the leak path is
+  structural and every consumer of the dispatcher has it. The guard goes beside
+  it and everyone inherits it; ours reduces to a thin check that our own throws
+  interpolate only `url.protocol`. Raised by the `mcp-cli-toolkit` session.
+
+Also worth recording because it changes the argument for a template-level fix:
+**`apps/example-repo-mcp/src/cli.ts` has the identical hole** — `grep -c
+'setLogFilePrefix('` → 0, reproduced there against its built bin under an
+isolated `TMPDIR` (`mcp/mcp-97487-…ndjson` holding one `dispatch.health_check`
+span). Two independent instances in two repos generated from the same scaffold:
+this is a template defect handing every new repo the same hole, not two local
+bugs.
+
+**Why the URL guard is needed at all — do not close it as "redaction covers
+it".** Measured by the `mcp-cli-toolkit` session 2026-08-23: the logger DOES
+redact before writing (`redactString` over `msg`, `redactValue` over the payload,
+when `redactionEnabled()`), but **redaction has no URL rule** — phones,
+secret-shaped tokens, and emails-if-opted-in, that is the whole set. So a URL in
+an `err.stack` passes straight through the redaction layer to the file. That
+turns B11's URL finding from a measurement into an argument: the reason a
+*future* throw would not be caught is that nothing between the throw and the
+file is looking for a URL. "Redaction covers it" is the sentence someone would
+reach for to close the `mcp-kit` guard as unnecessary, and it is false.
+
+Anchor note: line numbers cited in this row are the **published artifact**,
+`@george43g/robustness@0.11.0` `dist/logger.js` — `setLogFilePrefix` 77-79,
+`logFilePath` declaration 166, `writeStderrLine` 156, `ensureLogFile` 264,
+`pruneLogs` 245-263, `_resetForTests` 520-522. The template repo's own records
+cite its `packages/robustness/src/logger.ts` source lines for the same things.
+Both are correct; they are different trees.
+
+**Correction to the paragraph above, and it is a correction to MY OWN text
+(2026-08-23).** I wrote that the redactor's rule set is "phones, secret-shaped
+tokens, and emails-if-opted-in". **That describes the template's source tree, not
+the artifact this repo consumes.** Verified by reading the published file end to
+end — `@george43g/robustness@0.11.0` `dist/redact.js` is **57 lines** and holds
+exactly **two** rules:
+
+```js
+12:const PHONE_RE = /\+\d[\d\s\-().]{5,17}\d/g;
+14:const SECRET_RE = /\b(sk-[A-Za-z0-9-]{10,}|github_pat_[A-Za-z0-9_]{10,}|gh[pousr]_[A-Za-z0-9]{10,}|SK[a-f0-9]{32}|AC[a-f0-9]{32})\b/g;
+20:export function redactString(input) {
+21:    return input.replace(PHONE_RE, (m) => `…${lastFour(m)}`).replace(SECRET_RE, "[redacted]");
+22: }
+```
+
+No email rule, no `options` parameter — `redactString` takes one argument. So the
+version browser-tab actually runs redacts **less** than the description said, and
+there is no email opt-in to reach for. **The conclusion is unchanged and is if
+anything stronger: no URL rule of any kind, so a URL in an `err.stack` reaches
+the file untouched.**
+
+Two traps this leaves for the next reader, both worth more than the fact itself:
+
+- **Grepping the redactor for `url` returns hits in the template's source — from
+  a comment explaining why there is NO url rule.** Its docblock lists
+  `postgres://svc@db.internal.corp/main` and `git@github.com:…` as examples of
+  what an unanchored *email* pattern matches **wrongly** — the argument for
+  keeping email redaction default-off. A `dotfiles` session read those lines as a
+  credential-URL rule and was about to record the opposite of the truth;
+  `mcp-cli-toolkit` caught it. Anyone reaching for "redaction covers it" to close
+  the `mcp-kit` guard will grep, find those strings, and stop.
+- **Three sessions reasoned about "the redactor" while consuming three different
+  versions of it.** Always name the tree: this row is the published dist at
+  0.11.0, verified by reading the whole file, not a grep.
+
+**The redactor difference is VERSION SKEW, not tree confusion — and it is
+actionable (2026-08-23).** Raised by `mcp-cli-toolkit`, verified here rather than
+relayed:
+
+```
+$ npm view @george43g/robustness version
+0.12.0
+$ grep -A2 "'@george43g/robustness'" pnpm-lock.yaml
+      '@george43g/robustness':
+        specifier: ^0.11.0
+        version: 0.11.0
+```
+
+**Email redaction (`EMAIL_RE` + a `RedactOptions.emails` opt-in) shipped in
+0.12.0.** We resolve 0.11.0, and `^0.11.0` on a `0.x` package expands to
+`>=0.11.0 <0.12.0` — so this is not "hasn't updated yet", it **structurally
+cannot** resolve 0.12.0. No `pnpm install` will produce it. This is shape #1 of
+the kit dep-starvation trap (caret-locked minor), caught again by an outside
+session rather than by us.
+
+**Not done, deliberately.** A 0.x *minor* is semver's breaking slot, so this is a
+`chore(deps)` bump needing `pnpm install` + a lockfile commit + a full `verify`
+run — not a line edit, and not something to fold into a docs PR. **George's
+word.** The command is `^0.11.0` → `^0.12.0` in
+`apps/browser-tab-mcp/package.json` and `packages/mcp-kit/package.json`, then
+`pnpm install`, then confirm with `--frozen-lockfile`.
+
+Whether to then turn email redaction ON is a **separate** call and the default is
+off for a measured reason: against realistic log lines most matches of an
+unanchored email pattern are not addresses (`git@github.com:`,
+`lodash@4.17.21`, `postgres://svc@db…`). For a browsing tool, few true positives
+are expected — "bump, leave it off, have the option" is the recommendation. The
+bump is worth making either way so the choice exists.
+
+**Anchor warning, because someone will try to 'fix' it:**
+`packages/mcp-kit/src/dispatch.ts:149-152` is correct **for this repo** —
+verified again just now. `mcp-cli-toolkit` reported the same site at `:158-160`;
+that is their mcp-kit source, not ours. Third instance in one thread of two
+sessions being locally right about different trees. Do not renumber this anchor
+from an outside report without reading our file.
