@@ -1837,3 +1837,21 @@ Upstream (mcp-cli-toolkit session) exchange, verified per-package before acting:
 CI flake ROOT-CAUSED (was: 3 ubuntu reds in one evening on #88, three DIFFERENT integration files): six integration files drew ports from the same default 500-port band under parallel forks; a lost draw is silent (swallowed EADDRINUSE → "timeout; last dataSource=applescript", or a fetch answered by a foreign WS server → HTTP 426 "Upgrade Required"). robustness 0.10/0.11 CLEARED by mechanism reading (all changed modules additive/inert for sockets) + prior 0.7.0-tree occurrences. Fix: disjoint 400-wide bands per file — **PR #90, awaiting merge word** (pre-fix 2/6 targeted parallel runs failed locally; post-fix 8/8; full suite 648/648).
 
 Still George-gated: #89 (cuts v1.4.0), #90, TUI live drive (now post-merge, before next deploy: scroll/resize/modal gg/G/^d + `d` at wide AND narrow widths), Windows Edge verify (#84 body), Mac redeploy with BROWSER_TAB_CG_DIAG=1 (cg plan Task 4). Trap for the next rebuild: stale `packages/shared-types/dist` after pulling Edge made engine.test.ts red under bare vitest — `pnpm --filter @george43g/shared-types build` (or full `pnpm build`) after any pull that touches shared-types src.
+
+## 2026-08-22 (later) — Windows/Edge live verification + branded e2e in CI (session 5a15fe80 cont.)
+
+George's directive executed end-to-end (plan `~/.claude/plans/optimized-toasting-lynx.md`, approved): box to v1.4.0, real-browser verification, branded e2e in CI. All merged: #90, #89 (v1.4.0 tag verified), #91, #92 (`test(e2e):` squash — deliberately NOT `feat:`, no shipped-bin delta, avoids a spurious v1.5.0).
+
+**Box (g-home-server):** main @ v1.4.0, suite green, stress 33/33 (win32 count; real durations), console daemon `1.4.0+90.7d05dda` on the pipe. George's REAL Chrome and REAL Edge both connected as separate sessions (`chrome 1.4.0+91.6bbe796 · edge 1.4.0+91.6bbe796`), Edge auto-detected via `edg/` UA, chrome session survived edge joining (same window id before/after — the #84 eviction fix proven on his actual profiles).
+
+**Two measured platform facts:** (1) branded Google Chrome ≥137 removed `--load-extension` — CLI extension loading is impossible (fails at load on Win + mac Chrome 151); GUI unpacked install still works and is the branded-Chrome coverage. (2) branded Edge KEPT the flag, headless included — real Edge e2e passed 3/3 twice on the box and now runs in CI.
+
+**The real find (#92): e2e throwaway daemons were never IPC-isolated.** Fixtures set state/cache/ws-port but not `BROWSER_TAB_SOCKET_PATH`; on win32 the default per-user global pipe meant every `cli()` assertion talked to whichever daemon owned it (measured: the test's `daemon status` returned the console daemon). Fixed via test-kit's `defaultIpcEndpoint` (newly exported; review caught the hand-copy and the fix wave deduplicated it). CI could never expose this — no runner has a second daemon.
+
+**CI:** `e2e-branded` (windows-latest, matrix [chromium, msedge]) green on first attempt — real Edge now gates every PR.
+
+**Ops gotchas ledgered to memory:** browsers load the extension from the `D:\browser-tab-mcp\dist` deploy copy (refresh after rebuilds — a reload otherwise picks up the stale bundle, bit today); box SSH now auto-attaches to the box agents' tmux (detach C-b,d immediately); pnpm via mise (re-trust after pulls); piped `daemon status` emits JSON (tty-detect); split tmux completion markers so the command echo can't false-match.
+
+**Deferred/parked from #92's review:** POSIX sockaddr length guard (test-kit hardening), `e2e/**` outside chrome-extension tsconfig include (typecheck gap, compensated manually), AGENTS.md layer-table wording.
+
+**Still George-gated:** Mac redeploy to v1.4.0 + `BROWSER_TAB_CG_DIAG=1` churn measurement (cg Task 4), ONLOGON/headless ruling, soaks, coverage ratchet, npm publish, stale remote branches. **Next: next-cycle scope from BACKLOG § BRIEF — George picks workstreams.**
