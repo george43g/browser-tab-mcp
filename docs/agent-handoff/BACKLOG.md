@@ -1149,3 +1149,35 @@ cannot), and **Windows is unrelated** (Task Scheduler task, `localAppData()`).
   into processes with no `startup` record at all, so it would not have fired.
   A test-time assertion over the entry-point set fails on a developer's machine
   before the artifact ships. That is the shape to build.
+
+**Two late corrections to the amendments above (2026-08-23), both raised in the
+peer thread and both changing where the fix belongs:**
+
+- **The "assert every entry point brands its prefix" test was MY proposal and it
+  is the weaker shape — do not build it.** It inherits the exact defect of the
+  prefix list it replaces: enumerating entry points is a judgement call, and it
+  would have caught `cli.ts` only if someone had thought to list `cli.ts`, which
+  is what nobody did. **Build the behavioural version instead:** spawn every
+  subcommand the bin dispatches, under an isolated `TMPDIR`, and assert no
+  default-prefix directory appears. The subcommand set comes from commander's own
+  registered-command table, not a hand-written list, so a new subcommand is
+  covered the day it is registered; and it asserts the observable outcome, so it
+  catches both known mechanisms (a missing call, and a call that runs after the
+  first write fixes `logFilePath`) without needing to distinguish them. Residual
+  gap, stated rather than hidden: it covers what the bin dispatches, NOT library
+  entry points imported in-process — which is the vitest case. Test workers are
+  not a shipped surface, so that gap is accepted.
+- **The URL-leak guard belongs in `@george43g/mcp-kit`, not here.**
+  `packages/mcp-kit/src/dispatch.ts:149-152` — the `logError` that copies
+  `err.message`/`err.stack` verbatim — is kit code, so the leak path is
+  structural and every consumer of the dispatcher has it. The guard goes beside
+  it and everyone inherits it; ours reduces to a thin check that our own throws
+  interpolate only `url.protocol`. Raised by the `mcp-cli-toolkit` session.
+
+Also worth recording because it changes the argument for a template-level fix:
+**`apps/example-repo-mcp/src/cli.ts` has the identical hole** — `grep -c
+'setLogFilePrefix('` → 0, reproduced there against its built bin under an
+isolated `TMPDIR` (`mcp/mcp-97487-…ndjson` holding one `dispatch.health_check`
+span). Two independent instances in two repos generated from the same scaffold:
+this is a template defect handing every new repo the same hole, not two local
+bugs.
