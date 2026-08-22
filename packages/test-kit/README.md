@@ -34,6 +34,13 @@ Exactly two kinds of exports, nothing else:
      file must claim its own disjoint `(base, span)` band (grep
      `randomWsPort(` under `apps/browser-tab-mcp/tests/` for the taken ones);
      files sharing a band red CI ~1 in 10 runs via swallowed-EADDRINUSE.
+     `defaultIpcEndpoint(tmp)` (used internally by `withDaemonEnv`) is also
+     exported standalone, for a caller that builds its own env block instead
+     of going through `withDaemonEnv` — `apps/chrome-extension/e2e/fixtures.ts`
+     imports it directly so the throwaway e2e daemon gets a real per-run
+     `BROWSER_TAB_SOCKET_PATH` instead of falling back to the per-user default
+     pipe/socket (the failure mode: a real daemon already running under that
+     user silently absorbs the test's CLI calls).
    - `fakes/websocket.ts` (the `./node` subpath) — `installNodeWebSocket()`:
      `globalThis.WebSocket = ws.WebSocket`.
 

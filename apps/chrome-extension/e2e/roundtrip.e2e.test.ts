@@ -8,7 +8,15 @@
  */
 
 import type { BrowserContext, Worker } from "@playwright/test";
-import { type Daemon, expect, launchExtension, seedConfig, startDaemon, test } from "./fixtures.js";
+import {
+  type Daemon,
+  EXPECTED_BROWSER,
+  expect,
+  launchExtension,
+  seedConfig,
+  startDaemon,
+  test,
+} from "./fixtures.js";
 
 // Short data: page so the daemon's sanitized url stays intact; tall body so
 // there's somewhere to scroll.
@@ -39,7 +47,7 @@ test.describe("extension ↔ daemon round-trip", () => {
         async () => {
           const snap = JSON.parse(await daemon.cli(["list", "--json"]));
           const chrome = (snap.browsers as Array<Record<string, unknown>>).find(
-            (b) => b.browser === "chrome",
+            (b) => b.browser === EXPECTED_BROWSER,
           );
           return chrome?.dataSource ?? "none";
         },
@@ -60,9 +68,9 @@ test.describe("extension ↔ daemon round-trip", () => {
   test("the daemon serves the real extension's tabs with x-handles", async () => {
     const snap = JSON.parse(await daemon.cli(["list", "--json"]));
     const chrome = (snap.browsers as Array<Record<string, unknown>>).find(
-      (b) => b.browser === "chrome",
+      (b) => b.browser === EXPECTED_BROWSER,
     );
-    expect(chrome, "chrome browser present in snapshot").toBeTruthy();
+    expect(chrome, `${EXPECTED_BROWSER} browser present in snapshot`).toBeTruthy();
     expect(chrome?.dataSource).toBe("extension");
     expect(chrome?.extensionConnected).toBe(true);
     // This job runs on Linux: no osascript, so the "poll" is the unavailable
@@ -71,7 +79,7 @@ test.describe("extension ↔ daemon round-trip", () => {
     // bug, 2026-08-21: a connected browser rendered as "not running").
     expect(chrome?.running, "live extension feed must mean running=true").toBe(true);
     const windows = (chrome?.windows ?? []) as Array<Record<string, unknown>>;
-    expect(String(windows[0]?.windowId)).toMatch(/^w:chrome:x\d+$/);
+    expect(String(windows[0]?.windowId)).toMatch(new RegExp(`^w:${EXPECTED_BROWSER}:x\\d+$`));
   });
 
   test("a daemon-driven cross-window move preserves scroll", async () => {
@@ -96,8 +104,8 @@ test.describe("extension ↔ daemon round-trip", () => {
     expect(await tallPage.evaluate(() => Math.round(window.scrollY))).toBe(SCROLL_Y);
 
     // Handles follow the documented extension-generation grammar (x-ids).
-    const tabHandle = `t:chrome:x${ids.tallTabId}`;
-    const targetWindow = `w:chrome:x${ids.win2Id}`;
+    const tabHandle = `t:${EXPECTED_BROWSER}:x${ids.tallTabId}`;
+    const targetWindow = `w:${EXPECTED_BROWSER}:x${ids.win2Id}`;
 
     // Move via the daemon → WS → real chrome.tabs.move.
     await daemon.cli(["move", tabHandle, "--target-window", targetWindow]);
@@ -108,7 +116,7 @@ test.describe("extension ↔ daemon round-trip", () => {
         async () => {
           const snap = JSON.parse(await daemon.cli(["list", "--json"]));
           const chrome = (snap.browsers as Array<Record<string, unknown>>).find(
-            (b) => b.browser === "chrome",
+            (b) => b.browser === EXPECTED_BROWSER,
           );
           const windows = (chrome?.windows ?? []) as Array<Record<string, unknown>>;
           const target = windows.find((w) => w.windowId === targetWindow);

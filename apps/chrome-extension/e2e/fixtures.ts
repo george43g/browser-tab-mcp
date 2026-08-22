@@ -15,6 +15,7 @@ import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { promisify } from "node:util";
+import { defaultIpcEndpoint } from "@george43g/test-kit";
 import { type BrowserContext, test as base, chromium, type Worker } from "@playwright/test";
 
 const execFileP = promisify(execFile);
@@ -22,6 +23,15 @@ const HERE = fileURLToPath(new URL(".", import.meta.url));
 export const DIST = resolve(HERE, "../dist");
 export const REPO_ROOT = resolve(HERE, "../../..");
 export const CLI = resolve(REPO_ROOT, "apps/browser-tab-mcp/dist/cli.js");
+
+/** Playwright browser channel this run drives — default matches today's ubuntu leg exactly. */
+const RAW_CHANNEL = process.env.E2E_BROWSER_CHANNEL ?? "chromium";
+if (!["chromium", "chrome", "msedge"].includes(RAW_CHANNEL)) {
+  throw new Error(`E2E_BROWSER_CHANNEL must be chromium|chrome|msedge, got "${RAW_CHANNEL}"`);
+}
+export const CHANNEL = RAW_CHANNEL;
+/** What detectBrowserName() must yield inside this channel's real UA. */
+export const EXPECTED_BROWSER: "chrome" | "edge" = CHANNEL === "msedge" ? "edge" : "chrome";
 
 /** An isolated, fake-adapter daemon on an ephemeral WS port. */
 export interface Daemon {
@@ -37,20 +47,38 @@ export interface Daemon {
   stop(): Promise<void>;
 }
 
-/** Pick a port deterministically-ish from the pid to avoid collisions in a serial run. */
+/**
+ * Pick a port deterministically-ish from the pid to avoid collisions in a serial run.
+ * Base 24_500: 21500-23899 now belongs to the vitest integration bands — see
+ * `randomWsPort(` callers and `packages/test-kit/src/fakes/daemon-env.ts`.
+ */
 function ephemeralPort(): number {
-  return 21_500 + (process.pid % 2000);
+  return 24_500 + (process.pid % 2000);
 }
 
 export async function startDaemon(): Promise<Daemon> {
   const dir = mkdtempSync(join(tmpdir(), "bt-e2e-"));
   const wsPort = ephemeralPort();
-  // Shared isolation: state/cache/log dirs + WS port, never the real ~/.browser-tab.
+  // Shared isolation: state/cache/log dirs + WS port + IPC endpoint, never
+  // the real ~/.browser-tab and never the per-user default pipe/socket. The
+  // socket path matters most on Windows: leaving it unset falls back to the
+  // per-user default named pipe, and a real daemon already running under
+  // that same user (a dev's console session) silently absorbs every
+  // `daemon.cli([...])` call below instead of the throwaway one — the
+  // extension still connects to the throwaway fine, but the assertions read
+  // the wrong daemon's state. Measured on the Windows box (2026-08-22):
+  // `daemon status` returned a different pid, ws 8790, uptime 50min — which
+  // is why the msedge roundtrip failed there. `defaultIpcEndpoint()` is
+  // imported from `@george43g/test-kit` (an existing devDependency here,
+  // same as the vitest unit tests use) rather than duplicated — see its doc
+  // comment in `packages/test-kit/src/fakes/daemon-env.ts` for the full
+  // rationale.
   const shared: NodeJS.ProcessEnv = {
     ...process.env,
     BROWSER_TAB_STATE_DIR: join(dir, "state"),
     BROWSER_TAB_CACHE_DIR: join(dir, "cache"),
     BROWSER_TAB_WS_PORT: String(wsPort),
+    BROWSER_TAB_SOCKET_PATH: defaultIpcEndpoint(dir),
     MCP_LOG_DIR: join(dir, "logs"),
   };
   // The DAEMON runs the fake AppleScript adapter (so it never shells osascript);
@@ -119,7 +147,7 @@ export async function launchExtension(): Promise<{
 }> {
   const userDataDir = mkdtempSync(join(tmpdir(), "bt-e2e-profile-"));
   const context = await chromium.launchPersistentContext(userDataDir, {
-    channel: "chromium",
+    channel: CHANNEL,
     args: [
       `--disable-extensions-except=${DIST}`,
       `--load-extension=${DIST}`,
@@ -145,13 +173,16 @@ export async function seedConfig(
   const page = await context.newPage();
   await page.goto(`chrome-extension://${extensionId}/options.html`);
   // Drive storage.local directly — the same keys the options form writes
-  // (`token`/`port`/`browser`), so the background reconnects on storage.onChanged.
+  // (`token`/`port`), so the background reconnects on storage.onChanged.
+  // Deliberately omit `browser`: real UA auto-detection (`detectBrowserName`,
+  // extension-core runtime.ts) is what's under test here, and the msedge leg
+  // is the standing regression guard for the edg/-before-chrome ordering that
+  // keeps Edge from evicting the Chrome WS session.
   await page.evaluate(
     ({ token, port }) =>
       (globalThis as unknown as { chrome: typeof chrome }).chrome.storage.local.set({
         token,
         port,
-        browser: "chrome",
       }),
     { token: daemon.token, port: daemon.wsPort },
   );
