@@ -1926,3 +1926,6 @@ repo browser-tab-mcp, main = 3264605 (#93), clean except untracked `docs/tab-sel
 ## Resume
 
 Next session: read this entry, then BACKLOG § "2026-08-21 — BRIEF" end to end; present George the workstream list WITH the command-sweep e2e proposal as a first-class option (the sweep entry above is its spec); no code before a plan doc + his pick. Mid-flight state: none — no running subagents, no background tasks, no uncommitted work of mine; the box daemon is live and needs nothing.
+
+### 2026-08-22 — checkpoint #4 addendum: the `back` item is CLOSED
+Gestured-history test run on George's real Edge tab (t:edge:x1490804971, on github.com/george43g/better-firebase-functions): `act back` ×2 → github.com/george43g → github.com/george43g/browser-tab-mcp#tools, exactly as he predicted. `act back`/`forward` are NOT broken — Chromium's history-manipulation intervention marks gestureless (tabs.update / `navigate`-built) entries skippable and goBack honours it. Consequences: (1) docs note on `tab_action back/forward` — entries created by the tool's own `navigate` are skippable by design; (2) the command-sweep e2e must build history with a real gesture (Playwright click), never with `navigate`. Remove this from any bug list; it is an expectation, not a defect.
