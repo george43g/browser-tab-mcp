@@ -214,3 +214,43 @@ Merging a chain safely:
 Step 3 is not optional with squash-merges: the parent's commits enter `main`
 with new SHAs, so the child still carries the originals and its diff would
 replay them.
+
+## An anchor inherited from another tree is not an anchor (2026-08-23)
+
+Four citation drifts inside one cross-session thread about log prefixes, and
+**not one was caught by the session that made it.** Every catch came from someone
+re-deriving in their own checkout rather than reasoning about whose message was
+right. The lesson generalises past that thread, so it lives here.
+
+**The easy case is `src/` vs `dist/`.** Everyone expects that one. **The case
+that actually bites is source-to-source at two different versions**, where the
+code block is byte-identical and only the offset differs — the `logError` in
+`dispatch.ts` sat at `:149-152` here and `:158-160` in the template's copy, with
+nine lines of drift above it and the seven quoted lines matching perfectly.
+Quote the snippet side by side and it agrees; every check except the line number
+passes. **"I verified the snippet" is not "I verified the anchor".**
+
+Rules that would have prevented all four:
+
+- **Name the tree in the citation**, not in the commit message — `redact.ts:71-74`
+  is unfalsifiable without knowing whose `redact.ts`. Include the version:
+  `@george43g/robustness@0.11.0 dist/redact.js:12`.
+- **Name the tool too.** `wc -l` said 56 and `cat -n` said 57 for the same file
+  (last line has no trailing newline). Two correct answers, one apparent
+  disagreement.
+- **Read the artifact, not a description of it.** A relayed "the redactor handles
+  credential URLs" came from a **docblock listing what an unanchored EMAIL
+  pattern matches WRONGLY** — the argument for a rule that was declined, read as
+  the rule. Grepping that file for `url` returns hits, from the comment
+  explaining why there is no url rule.
+- **Read the lockfile, not the `.pnpm` store.** A scan of store copies present on
+  disk reported that every repo ran the old redactor; the store holds versions
+  nothing resolves. `specifier`/`version` in `pnpm-lock.yaml` is the answer.
+- **An error attributed to the wrong person is a worse class than a wrong line
+  number** — nobody re-deriving the anchor will correct it, because the anchor
+  was never wrong. Ask for it to be struck rather than letting it stand.
+
+Related, and how the thread started: `^0.11.0` on a **0.x** package expands to
+`>=0.11.0 <0.12.0`, so it structurally cannot resolve `0.12.0` — see B11 in
+`BACKLOG.md`. Verify with `npm view @george43g/<kit> version` before believing
+any version claim, including one from a peer session that read it minutes ago.
