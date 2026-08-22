@@ -1932,3 +1932,165 @@ Gestured-history test run on George's real Edge tab (t:edge:x1490804971, on gith
 
 ### 2026-08-22 — addendum cont.: `forward` verified too (the symmetric half)
 Same tab, immediately after the two back hops: `act forward` → `browser-tab-mcp#tools` → `github.com/george43g`, i.e. it walked back up the chain the two `back` hops had just reversed. So BOTH directions are confirmed working on real gestured history; the earlier "returns ok but never navigates" observation was measured entirely against tool-built (gestureless) entries for both directions. Nothing further to test on this item — closed for good.
+
+---
+
+## 2026-08-22 · Codex · selection-language refinement and deep-control architecture sweep
+
+- Re-read the repository-local `mcp-tool-author` skill, the installed
+  `mcp-server-dev` guidance and references, the full tab transformation spec,
+  the current repository/tool schemas, the live handoff, current MCP
+  specification material through Context7, current Claude connector guidance,
+  and current tmux documentation/manual.
+- Ran two review rounds across three independent lenses: selection algebra,
+  cross-application/package architecture, and model-facing MCP ergonomics. The
+  second round cross-critiqued recursive AST versus named-step programs,
+  tree-versus-graph modeling, transform simplification, risk-coherent tools,
+  package extraction, and MCP/process boundaries.
+- Appended sections 23–27 to
+  `docs/tab-selection-transformation-language-spec.md`; no earlier text was
+  deleted. The append makes whole/multi-window selection explicit, defines
+  same-kind composition and structural projection, blocks multi-domain live
+  movement in preflight, adds source-window/unknown-time/overlap policies,
+  distinguishes schema version from snapshot revision, recommends a smaller
+  effect IR and `setOrder` escape hatch, and proposes a phased risk-coherent
+  MCP surface.
+- Added `docs/deep-application-control-platform-architecture.md`. Preferred
+  direction: one monorepo while concepts evolve, separate MCP/CLI/TUI products
+  per coherent domain family, exactly one generic `control-language` package
+  first, cohesive browser/tmux domain packages, no universal mutation MCP,
+  and optional federation/supervisor only after measured demand. Correctly
+  models tmux clients as attaching to sessions and linked windows as an
+  ordered-graph case.
+- Verified both documents have balanced Markdown fences; all nine fenced JSON
+  examples in the browser spec parse; relative companion link exists;
+  `git diff --check` passes. Documentation only: no implementation or runtime
+  tests were run.
+- Existing root-level `tab-selection-transformation-language-spec.md` is an
+  older duplicate and was deliberately left unchanged. The newer `docs/`
+  version, which already contained the AI-authoring appendix, was treated as
+  canonical. Both spec files and the new companion remain untracked; this log
+  is the only tracked modification.
+- NEXT: George reviews the appended recommendations, especially the reduced
+  transform set, the phased five-tool MCP surface, `control-language` naming,
+  and separate browser/tmux product boundary. No implementation plan or code
+  should be started until those choices are accepted or revised.
+
+---
+
+## 2026-08-22 · precompact checkpoint #5 (session 5a15fe80)
+
+> **Precedence:** where this entry and any conversation summary disagree, **this
+> entry is correct.** The summary is written for narrative and is least reliable
+> about what did NOT happen.
+
+## State
+Cycle closed and re-opened for planning: v1.4.0 shipped, backlog audited end to
+end (32 open rows), and a measured research brief for the real-browser-effect
+testing gap is on `main`. One PR open (#97). No code work in flight.
+
+## Constraints
+New this session, verbatim, and **promoted here so they don't need re-typing**:
+
+- **"leave the e2e matrix parallel"** (2026-08-22) — settles B1. The
+  `e2e-branded` matrix stays two parallel rows; the install+build duplication is
+  accepted deliberately (free on a public repo, wall-clock beats minutes). Do
+  not re-propose collapsing it.
+- **"add all these to the backlog/parked items/todo list (i treat those three
+  things as the same thing... let me know if theyre not)"** (2026-08-22) —
+  confirmed to him: in this repo they ARE one register, `BACKLOG.md`. There is
+  no separate todo file and none should be created. `§ BRIEF` is the
+  next-cycle shortlist within it; everything else is the long tail.
+- **"research and prep the planning brief, the next turn will be a proper /plan
+  session so dont plan implementation now, plan your planning session by
+  researching and measuring and experimenting"** (2026-08-22) — the working
+  pattern he wants before a plan: measure and run experiments FIRST, produce a
+  brief, and let the `/plan` session write tasks from evidence. Applied here;
+  expect it again.
+
+## Done
+- #94 `1ad993d` (checkpoint #4 + backlog B1–B4) · #95 `b167b02` (stress step
+  relabelled 14 cases — count verified by enumerating `caseHandshake`…
+  `caseDaemonLifecycle`) · #96 `4bd864b` (research brief + R1–R9 evidence files).
+- **`forward` verified on real gestured history** — same Edge tab as `back`,
+  `browser-tab-mcp#tools` → `github.com/george43g`. Addendum `939e1f1`. The
+  back/forward item is CLOSED, both directions.
+- **`discard` id-swap CONFIRMED on real Windows Edge, 3/3**:
+  `239550782→239550786`, `229934170→229934174`, `263071999→263072002`
+  (`research/2026-08-22-command-sweep/R9-discard-channels.md`). First hard
+  evidence of it anywhere in this project.
+- **Coverage matrix measured**: 2 of 31 command surfaces effect-verified, 21
+  dispatch-only, 5 zero-coverage (R1, file:line per cell).
+- **Peer exchange with `mcp-cli-toolkit` on the mcp-kit de-vendor**: I verified
+  their three claims independently against the published 0.1.0 tarball rather
+  than taking them relayed, and found their blocker list was one short in their
+  favour (`toContent`/`ContentBlock` are already upstream at
+  `dist/tool-registry.d.ts:26,68`). They accepted option B and are carrying my
+  counter-proposal (D) to George in this repo's name. Recorded as B4.
+- Backlog audited in full and stale entries corrected — see `eed0c4d` (PR #97).
+
+## Open
+Every open row now lives in `BACKLOG.md` (B5–B10 added this session, on PR #97).
+Evidence for the three that were re-verified rather than assumed:
+- **TUI mode-exit message clear** — `App.tsx:280,285,301,308,316` call
+  `setMode({kind:"browse"})` with no `setMessage("")`, while the entry paths at
+  `:351,363,376` do clear. The half-page half IS fixed (`:223`). Whether this
+  fully explains the originally-reported cancel symptom is **unverified from
+  code alone** — needs one live TUI check.
+- **tui-kit `StatusBar` gap** — read at 0.5.1: `justifyContent:"space-between"`
+  with no margin between the message and hint `Text`. Still upstream's.
+- **cli-kit REPL `Ctrl-C`** — read at 2.0.1: `repl.js` registers no
+  `rl.on("SIGINT")`, so it falls through to readline's default.
+
+## Corrections
+- **"my two probe scripts become tests" — WRONG.** There is ONE
+  (`mcp-probe.mjs`, a transcript with zero assertions); the HTTP surface is
+  already covered by `apps/browser-tab-mcp/tests/http-interface.integration.test.ts`.
+- **`env-loader`'s 0% coverage is NOT a testing gap** — 12 tests pass; the
+  barrel-file exclusion hides its only source file (B5).
+- **The `discard` keep-alive hypothesis was REFUTED**, not confirmed: holding a
+  second page open did not save the context (R9). Recorded because the surviving
+  explanation looks stronger than it is without knowing this was tested.
+- **The handoff README's status block was 4 releases stale** (described a held
+  1.1.1 release PR and un-adopted robustness 0.8.1). Demoted to Historical
+  **verbatim**, current block added above it — not rewritten.
+- **PR-D was NOT "the next task"** — executed 2026-07-29. `AGENTS.md` and the
+  doc map both claimed otherwise and pointed every fresh agent at finished work.
+
+## Traps
+- **PowerShell `[IO.File]::WriteAllBytes` resolves a relative path against
+  .NET's CWD, not the shell's `Get-Location`.** It wrote nothing and the command
+  still "succeeded". Always pass an absolute path on the box.
+- **`tail -N` on a live `.jsonl` shifts indices between calls** — the transcript
+  grows as you work, so line-number-based extraction silently reads the wrong
+  records. Match on content, not position.
+- **A Playwright persistent context dies when a tab is discarded**, and it is
+  NOT the last-page teardown (tested). Any discard test must expect it.
+- The pre-push hook runs `verify:macos` on every push (~1 min, builds + loads
+  the native module). Budget for it; it is not a hang.
+
+## Tree
+`browser-tab-mcp`, `main` = `4bd864b`, up to date with origin. One PR open:
+**#97** (`docs/backlog-fold-in`, `eed0c4d`). **Dirty paths that are NOT mine and
+were deliberately left alone:** an uncommitted append to this file from a
+2026-08-22 **Codex** session (selection-language refinement), plus untracked
+`docs/tab-selection-transformation-language-spec.md`,
+`docs/deep-application-control-platform-architecture.md`, and an older duplicate
+spec at the repo root. This checkpoint's commit includes that Codex entry only
+because it shares this file — it is preserved **verbatim and unedited**, and
+authorship is theirs, not mine.
+
+## Blocked on you
+In `BACKLOG.md`; the live ones: Mac redeploy + `BROWSER_TAB_CG_DIAG=1` churn
+measurement (blocks the cgWindowId oscillation bug) · Windows ONLOGON/headless
+ruling · next-cycle workstream pick · the `@george43g/mcp-kit` de-vendor (B4) ·
+merge word for #97 · whether to commit the Codex work sitting untracked.
+
+## Resume
+**Next turn is a `/plan` session**, stated by George. Its input is
+`plans/2026-08-22-command-sweep-research-brief.md` — read it and R1/R2/R4 in
+full before writing tasks. Three of its decisions are already answered by
+measurement (fixture strategy = fresh per file; matrix rows = all three; the
+do-not-re-litigate list); five remain his. **No mid-flight state**: no running
+subagents, no background tasks, nothing staged beyond PR #97, and the Windows
+box is clean (`git status --short` empty there, scratch scripts removed).
