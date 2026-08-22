@@ -92,7 +92,9 @@ packages/
 (logger/watchdog/shutdown/withTimeout/health/retry/rate-limit), `@george43g/cli-kit`
 (commander helpers, tty/color/output, env↔flag binder, REPL) and `@george43g/tui-kit`
 (ink theme system, hooks incl. `useTerminalSize`, viewport helpers, components) are
-published from `mcp-cli-starter-template` and consumed at `^0.7.0`/`^2.0.1`/`^0.4.1`.
+published from `mcp-cli-starter-template` and consumed at `^0.11.0`/`^2.0.1`/`^0.5.1`
+(verified 2026-08-23 against the workspace manifests; this line has already gone
+stale once, so re-read the manifests before quoting it).
 The frozen workspace copies (and the unused `secrets` copy — published as
 `secret-store`, no consumer here) were deleted when the published kits caught up.
 **A kit defect is fixed upstream, never by re-vendoring** — write it into

@@ -1058,3 +1058,52 @@ implementation plan or code should start until those choices are accepted or
 revised.** Also note the untracked PROGRESS-LOG entry describing it was still
 uncommitted as of 2026-08-22; if it is still uncommitted when you read this, it
 is at risk, but it is not yours to commit.
+
+### B11. The CLI never brands its log prefix — its NDJSON lands in a SHARED `$TMPDIR/mcp/` bucket
+Surfaced 2026-08-23 answering a cross-session query from the `dotfiles` session,
+which is building a Vector collector that ships MCP NDJSON logs to g-home-server
+off an **explicit prefix list**. It had found two prefixes; there are three.
+
+`setLogFilePrefix` has exactly three call sites (`src/index.ts:36` and
+`src/tui/index.tsx:27`, both `APP_NAME` minus scope → `browser-tab-mcp`;
+`src/daemon/index.ts:875` → `browser-tab-daemon`). **`src/cli.ts` never calls
+it**, so every dispatcher-routed CLI subcommand falls through to robustness's
+default — `logFilePrefix() => envStr(key("LOG_PREFIX"), "mcp")` and
+`getLogDir() => envStr(key("LOG_DIR"), join(tmpdir(), logFilePrefix()))`
+(`@george43g/robustness@0.11.0` `dist/logger.js:80,171`).
+
+Reproduced with an isolated `TMPDIR` against the built bin: `list --json`,
+`journal` and `history` each create `$TMPDIR/mcp/` holding one
+`{"level":"perf","msg":"dispatch.<tool>"}` line. `doctor` and `daemon status`
+create nothing — they do not route the dispatcher.
+
+Why it matters beyond tidiness: `$TMPDIR/mcp/` is **shared**. On George's Mac it
+is currently dominated by `"entrypoint":"@george43g/example-repo-mcp"`, and our
+own **vitest runs write there too** (reproduced — `ws_disabled`/`ws_listening`
+lines under an isolated `TMPDIR`). So an observability collector cannot take our
+CLI stream without also taking another tool's logs and our test output. Our two
+branded prefixes are clean by contrast: `withDaemonEnv`
+(`packages/test-kit/src/fakes/daemon-env.ts:76-90`) redirects only
+`BROWSER_TAB_CACHE_DIR`, never the logger.
+
+**Fix is one line** — call `setLogFilePrefix` in `src/cli.ts` with the same slug
+`src/index.ts:35` computes (or a distinct `browser-tab-cli`). **The durable fix
+is the guard**: a test asserting every process entry point brands its prefix.
+`cli.ts` drifted silently and nothing failed; the next entry point will too.
+
+Related, checked in the same pass and all clean: no production config sets an
+absolute `MCP_LOG_DIR` (`.mcp.json` carries only `MCP_DEV*`; the LaunchAgent
+plist has **no `EnvironmentVariables` key**; no `.env*` exists but the committed
+`.env.example`). The one setter is `apps/chrome-extension/e2e/fixtures.ts:82`,
+scoped to a spawned-process env object. Two traps for anyone auditing this:
+`BROWSER_TAB_LOG_DIR` (`daemon/paths.ts:117`) is a **different stream** — the
+launchd stdio redirect at `~/Library/Logs/browser-tab` — and `MCP_LOG_PREFIX`
+renames the whole **directory**, not just the filename.
+
+Also settled in that pass, for anyone who wondered: the launchd daemon sees the
+**same `$TMPDIR` as an interactive shell**. `launchctl list` → pid 27327;
+`ps eww -p 27327` → `TMPDIR=/var/folders/2m/…/T/`, identical to the shell's, no
+log override in its env; and `$TMPDIR/browser-tab-daemon/browser-tab-daemon-27327-*.ndjson`
+is the pid-matched anchor. Scope limits: that is the per-user **LaunchAgent**
+case (a system-scope LaunchDaemon would not inherit it — we ship none, and
+cannot), and **Windows is unrelated** (Task Scheduler task, `localAppData()`).
