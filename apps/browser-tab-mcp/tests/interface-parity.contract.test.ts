@@ -18,8 +18,8 @@
  */
 
 import { describe, expect, it } from "vitest";
-import { buildProgram } from "../src/cli.js";
 import { makeAppRegistry } from "../src/tools/registry.js";
+import { cliCommandNames } from "./helpers/cli-surface.js";
 
 /**
  * Tools whose CLI form is a SUBCOMMAND of another command rather than a
@@ -47,18 +47,6 @@ const CLI_NAME: Record<string, string> = {
   get_logs: "logs",
   bookmarks: "bookmark",
 };
-
-/** Every command name commander knows, including nested subcommands. */
-function cliCommandNames(): Set<string> {
-  const program = buildProgram();
-  const names = new Set<string>();
-  for (const cmd of program.commands) {
-    names.add(cmd.name());
-    for (const alias of cmd.aliases()) names.add(alias);
-    for (const sub of cmd.commands) names.add(`${cmd.name()} ${sub.name()}`);
-  }
-  return names;
-}
 
 describe("MCP ↔ CLI parity", () => {
   const tools = makeAppRegistry().tools.map((t) => t.name);

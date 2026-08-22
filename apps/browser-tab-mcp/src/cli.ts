@@ -22,7 +22,7 @@ import {
   printJson,
   resolveOutputMode,
 } from "@george43g/cli-kit";
-import { setLogLevel } from "@george43g/robustness/logger";
+import { setLogFilePrefix, setLogLevel } from "@george43g/robustness/logger";
 import { type BrowserId, WIRE_PROTOCOL_VERSION } from "@george43g/shared-types";
 import { Command, Option } from "commander";
 import {
@@ -804,7 +804,42 @@ export function buildProgram(): Command {
   return program;
 }
 
+/**
+ * Brand this process's NDJSON log files before anything can write one.
+ *
+ * WHY IT IS HERE AND NOT IN `buildProgram()`. `setLogFilePrefix` mutates a
+ * module-global in the logger, and `buildProgram()` is called IN-PROCESS by
+ * `tests/interface-parity.contract.test.ts` to enumerate the command surface.
+ * Branding from there would contaminate the vitest worker — the exact class of
+ * cross-test bleed this repo keeps paying for. `main()` runs only when the bin
+ * is the entry point, so it is the one place that is both early enough and
+ * private to a real invocation.
+ *
+ * WHY IT MATTERS AT ALL. The logger's directory IS the prefix:
+ * `getLogDir()` = `envStr(key("LOG_DIR"), join(tmpdir(), logFilePrefix()))`
+ * (`@george43g/robustness@0.11.0` `dist/logger.js:170-172`), and the prefix
+ * defaults to `"mcp"`. Without this line every dispatcher-routed subcommand
+ * wrote into `$TMPDIR/mcp/` — a bucket shared with every other tool built from
+ * `mcp-cli-starter-template` that also forgot to brand, and with this repo's
+ * own vitest runs. Two consequences, both measured:
+ *
+ *   1. `pruneLogs` keeps N files PER DIRECTORY (default 5,
+ *      `dist/logger.js:66`) and protects only a live process's newest file, so
+ *      a handful of `browser-tab list` one-shots evicted the long-lived MCP
+ *      server's session history. Hence a slug DISTINCT from the server's
+ *      `browser-tab-mcp` rather than sharing one.
+ *   2. `browser-tab logs --source file` filters by `${logFilePrefix()}-`
+ *      (`dist/logger.js:183`), so in the shared bucket it read back OTHER
+ *      tools' `mcp-*.ndjson`. Branding makes that command honest too.
+ *
+ * The three long-lived entry points set a more specific prefix of their own —
+ * `runMcpServer` (`src/index.ts`), `runDaemon` (`src/daemon/index.ts`),
+ * `runTui` (`src/tui/index.tsx`) — and all three run inside a subcommand
+ * action, i.e. strictly after this line. `tests/cli-log-branding.integration.test.ts`
+ * asserts that ordering rather than trusting it.
+ */
 export async function main(argv: readonly string[] = process.argv): Promise<void> {
+  setLogFilePrefix("browser-tab-cli");
   await buildProgram().parseAsync(argv as string[]);
 }
 
