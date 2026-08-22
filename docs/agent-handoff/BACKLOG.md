@@ -1181,3 +1181,21 @@ isolated `TMPDIR` (`mcp/mcp-97487-…ndjson` holding one `dispatch.health_check`
 span). Two independent instances in two repos generated from the same scaffold:
 this is a template defect handing every new repo the same hole, not two local
 bugs.
+
+**Why the URL guard is needed at all — do not close it as "redaction covers
+it".** Measured by the `mcp-cli-toolkit` session 2026-08-23: the logger DOES
+redact before writing (`redactString` over `msg`, `redactValue` over the payload,
+when `redactionEnabled()`), but **redaction has no URL rule** — phones,
+secret-shaped tokens, and emails-if-opted-in, that is the whole set. So a URL in
+an `err.stack` passes straight through the redaction layer to the file. That
+turns B11's URL finding from a measurement into an argument: the reason a
+*future* throw would not be caught is that nothing between the throw and the
+file is looking for a URL. "Redaction covers it" is the sentence someone would
+reach for to close the `mcp-kit` guard as unnecessary, and it is false.
+
+Anchor note: line numbers cited in this row are the **published artifact**,
+`@george43g/robustness@0.11.0` `dist/logger.js` — `setLogFilePrefix` 77-79,
+`logFilePath` declaration 166, `writeStderrLine` 156, `ensureLogFile` 264,
+`pruneLogs` 245-263, `_resetForTests` 520-522. The template repo's own records
+cite its `packages/robustness/src/logger.ts` source lines for the same things.
+Both are correct; they are different trees.
