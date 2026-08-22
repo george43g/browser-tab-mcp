@@ -7,7 +7,7 @@
 
 > **Precedence:** where this brief and any earlier chat summary disagree, this brief is correct.
 > Raw research (verbatim command output, working code recipes, full tables) is committed
-> alongside at `docs/agent-handoff/research/2026-08-22-command-sweep/R1…R8.md`. The brief
+> alongside at `docs/agent-handoff/research/2026-08-22-command-sweep/R1…R9.md`. The brief
 > summarises; the R-files are the evidence and the `/plan` session should read R1, R2 and R4
 > in full before writing tasks.
 
@@ -66,12 +66,26 @@ Most likely explanation is the test tab's history was `[about:blank, target]` so
 only the blank to return to, whereas a real tab has a long gestured history to skip back
 through. **Unverified** — do not assert either behaviour in a test until it's pinned down.
 
-**E3 — `discard`: BLOCKED.** `chrome.tabs.discard()` **crashes the entire browser process**
-(`SEGV_ACCERR`, 3/3, headless AND headed) on Playwright's bundled Chromium build 1228 on this
-host. Not a flake. Implications: (a) a `discard` test would take down every other test sharing
-that browser process; (b) `discard`'s documented id-swap cannot currently be verified on this
-toolchain at all. A follow-up experiment testing `msedge`/`chrome` channels is running; its
-result lands as **R9** and the plan must read it before scheduling any `discard` work.
+**E3 — `discard`: RESOLVED by R9, and the id-swap is now CONFIRMED.** On macOS's bundled
+Chromium it hard-crashes (`SEGV_ACCERR`, 3/3, no return value). But on **real Windows Edge**
+(g-home-server) it returns cleanly and **the tab id changes, 3/3 runs**:
+```
+run 1: TARGET::239550782  ->  {"id":239550786,"discarded":true}
+run 2: BEFORE-ID::229934170 ->  {"id":229934174,"discarded":true}
+run 3: TARGET::263071999  ->  {"id":263072002,"discarded":true}
+```
+Then the Playwright context dies (`EVT::context-closed`, `pages=0`, worker gone). **I tested and
+REFUTED the obvious explanation** — that Playwright tears down a context when its last page
+closes: run 3 held a keep-alive page and the context still died.
+
+**This is NOT a product defect.** `discard` against George's real, non-automated Edge during the
+manual sweep left the browser alive; the teardown appears only under a Playwright/CDP-driven
+headless context. Do not report it as "our command crashes browsers".
+
+**So `discard` IS testable** — the return value is available *before* the teardown. It must live
+in its **own spec file** whose fixture expects termination, asserting `returned.id !== requestedId`
+rather than a post-discard `query` (unreachable by construction). It must never share a context
+with other tests, or it takes them down and the failure looks like theirs. Full detail: R9.
 
 **E4 — cost: cheap.** `startDaemon()` 280–550ms · `launchExtension()` 400–960ms · teardown
 ~350–380ms ⇒ **~1.0–1.9s per file**. Existing 3-test suite runs in 3.8–4.9s. An 8-file suite
@@ -153,9 +167,10 @@ regression test.
 
 ## 7. Open / blocked / unresolved
 
-- **R9 (`discard` on msedge/chrome channels) — pending.** Blocks any `discard` task. If Edge
-  crashes too, our CI's msedge leg would go down on such a test.
-- **E3's crash** may be a real product-surface gap, not just test infra — unknown until R9.
+- **R9 — DONE.** `discard` is testable in an isolated spec (see §2 E3). Two residual unknowns:
+  whether the same teardown occurs on the *Windows CI* msedge leg (measured on George's box, not
+  on a GitHub runner), and whether the macOS `SEGV_ACCERR` is purely a bundled-build artifact.
+  Neither blocks planning; both should be stated as assumptions in any `discard` task.
 - **The gestureless-`goBack` discrepancy** (§2, E2 caveat) — unverified, don't assert it.
 - **The AppleScript path** has no CI-reachable coverage strategy at all. Out of scope for a
   Chromium suite; say so explicitly rather than leaving it implied.
