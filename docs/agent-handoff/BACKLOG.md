@@ -1107,3 +1107,45 @@ log override in its env; and `$TMPDIR/browser-tab-daemon/browser-tab-daemon-2732
 is the pid-matched anchor. Scope limits: that is the per-user **LaunchAgent**
 case (a system-scope LaunchDaemon would not inherit it — we ship none, and
 cannot), and **Windows is unrelated** (Task Scheduler task, `localAppData()`).
+
+**Amendments, 2026-08-23, after two more rounds with the `dotfiles` and
+`mcp-cli-toolkit` sessions:**
+
+- **Slug decided: `browser-tab-cli`, distinct — not the `browser-tab-mcp` slug.**
+  The reason is retention, not naming. `pruneLogs`
+  (`@george43g/robustness@0.11.0` `dist/logger.js:245-263`) keeps N files **per
+  directory**, default 5 (`keepLogFiles`, line 66), and protects only a live
+  process's *newest* file. The MCP server is long-lived and one-file-per-session;
+  the CLI is one file per invocation. Share a directory and a handful of
+  `browser-tab list` calls evict the MCP server's prior sessions. Separate
+  prefixes give each stream its own budget.
+- **The mis-prefixed burst in the live `$TMPDIR/mcp/` was our own test suite** —
+  identified, not inferred: `pnpm --filter browser-tab-mcp test`, 2026-08-22
+  23:57:48 AEST (67 files / 648 tests), six vitest workers whose records all fall
+  in 13:57:48–13:57:54.5Z. The `EADDRINUSE on 127.0.0.1:8790` in them is workers
+  racing the real launchd daemon for the extension WS port. Two distinct paths
+  reach that bucket: tests (never enter `runMcpServer`/`runTui`/`runDaemon`, so no
+  prefix is ever set) and **real CLI invocations** — which are operational data
+  with no duplicate anywhere else.
+- **Our NDJSON carries no URLs or page titles — verified negative.** 0 lines
+  matching `https\?://` across `browser-tab-daemon/`, `browser-tab-mcp/` and
+  `mcp/`; the daemon's 224KB file is `heartbeat` ×998, `event_loop_lag` ×104,
+  `cg_correlate` ×102 plus lifecycle records. No log call site in
+  `apps/browser-tab-mcp/src` or `packages/mcp-kit/src` references url/title/href.
+  The one plausible vector was chased: `logError(\`dispatch_error: ${name}\`,
+  { message, stack })` (`packages/mcp-kit/src/dispatch.ts:149-152`) copies
+  `err.message`/`err.stack` verbatim, but the four URL-refusal throws that could
+  echo a URL interpolate only the **scheme**
+  (`detect/adapters/{safari,chromium}.ts:44,256`). **Scope: current corpus plus
+  present-day call sites — not a guarantee about future records.** A
+  `dispatch_error` is one thrown URL away from carrying one, so this wants a test
+  rather than a standing measurement. Matters because a Vector collector is being
+  wired to ship these logs to g-home-server; **whether browser-tab is collected at
+  all is George's call, not the collector's.**
+- **Argued against a runtime warning as the class fix.** `mcp-cli-toolkit`
+  proposed that the logger warn when it opens under the default prefix. That
+  warning is written into the very file that is mis-located — here, into
+  `$TMPDIR/mcp/`, the directory nobody collects, and for the six test-worker files
+  into processes with no `startup` record at all, so it would not have fired.
+  A test-time assertion over the entry-point set fails on a developer's machine
+  before the artifact ships. That is the shape to build.
