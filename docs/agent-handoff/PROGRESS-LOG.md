@@ -2230,3 +2230,121 @@ is current for `815ee93`.
 One unverified assumption to check before building the reporter: whether Playwright's
 `Reporter.onEnd` may return a failing status in the installed `@playwright/test@1.61.1`.
 If not, the fallback is a throwing `globalTeardown`.
+
+---
+
+## Checkpoint #7 — 2026-08-24 (session 5a15fe80, post-compact)
+
+**Where this file and any conversation summary disagree, THIS FILE IS CORRECT.**
+The summary optimises for narrative and is least reliable about what did *not* happen.
+
+### State
+
+The effect-verification plan is **complete through Phase 5**. `docs/surfaces/effect-coverage.json`
+reads **31/31 surfaces** with at least one proved pathway (32 pathway rows proved, 14 pending — all
+`macos-local`). Only **Phase 4 (`pnpm sweep:macos`)** remains, and it is gated on George.
+
+### Constraints (verbatim, still binding)
+
+- *"you have my approval to merge and continue"* / *"i approve whatever you think is best, go ahead"*
+  — standing merge authority for this plan's PRs, conditional on green CI. Used for #105-#114.
+- *"leave the e2e matrix parallel"* (2026-08-22) — settled; do not re-propose collapsing `e2e-branded`.
+- **All 31 surfaces**, chosen *after* being told ~9 are AppleScript-only. Do not narrow to Class A.
+- **macOS tier is opt-in `pnpm sweep:macos`, NEVER wired to pre-push** — a push must not spawn browser
+  windows.
+- Never commit/push to `main` directly; branch per workstream, one PR each. **Commit path-scoped** —
+  and path-scoping a DIRECTORY is not path-scoping (see Corrections).
+
+### Done (with anchors)
+
+| PR | what | commit |
+|---|---|---|
+| #105 | ledger + run guard, before the sweep | `a79001e` |
+| #106 | `fix(focus)`: un-minimize explicitly in the extension pathway | `65081e9` |
+| #107 | e2e tab lifecycle (open/list/focus/close) | `7484c7c` |
+| #109 | e2e `tab_action` (+ back/forward, discard) | `42f6246` |
+| #110 | e2e groups, windows, move_tab pathways | `f0e1d26` |
+| #111 | e2e perception surfaces (page/annotate/screenshot/journal/history/bookmarks) | `d7eaf36` |
+| #112 | e2e daemon surfaces + reload-extension — Phase 2 complete | `d09fa60` |
+| #113 | the ten CLI-only surfaces as real processes — 31/31 | `6fe88cc` |
+| #114 | docs: coverage rules + three stale claims retired | merged |
+
+60 Playwright tests across 12 spec files; 15 new vitest integration tests; 726 app tests total.
+
+### Real defects the sweep found
+
+- **#106** — `focus_tab` through the extension relied on Chrome un-minimizing as a SIDE EFFECT of
+  `{focused:true}`. Measured: under `--headless=new` it returns `focused:true` with `state` still
+  `"minimized"`. Fixed; sabotage-verified three ways (revert / unconditional / wrong order).
+- **B12** — untargeted `open_tab`/`open_window` resolve to `enabledBrowsers()[0]` (chrome), running
+  or not. Surfaced by the msedge leg returning `t:chrome:9999` from the FAKE adapter. Not fixed:
+  the rule is a product call.
+- **B13** — `get_logs --source memory` is the DEFAULT and is structurally always empty from a
+  one-shot CLI. Not fixed: product call. The e2e test pins current behaviour both ways.
+- **B14** — `reload-extension` can report a timeout for a reload that WORKED: `REQUEST_TIMEOUT_MS`
+  15s vs the daemon's own 25s reload wait. Not fixed: needs a per-request timeout, a policy decision.
+- The 2026-08-20 **group-relocation** bug reproduced against real Chrome for the first time
+  (sabotage: deleting the `createProperties.windowId` pin puts the tabs in the other window).
+
+### Open
+
+- **Phase 4 / PR 12 — `pnpm sweep:macos`. BLOCKED ON GEORGE, not started.** Needs
+  `brew install --cask chromium` (his call) and a moment he is not typing (the harness steals focus
+  by design). Nothing installed, nothing run against his real browsers. The 14 `macos-local` rows
+  stay `evidence: "pending"` until it lands, which is the honest state.
+- **PR #99** `chore(main): release 1.4.1` — release-please's rolling PR, still open, needs his word.
+  Now carries #106's `fix:` too.
+- **PR #108** — un-tracks two docs a too-broad `git add` swept in (see Corrections). Left open
+  deliberately: it touches someone else's work.
+- **`@types/chrome@^0.0.280`** starved in three manifests. Found by `pnpm deps:check`, not bumped.
+- **mcp-kit `dispatch_error` URL guard** — still unbuilt; robustness 0.12.0 does NOT close it.
+
+### Corrections
+
+- **I swept two untracked docs into #107** with `git add -A apps/chrome-extension docs`.
+  `docs/deep-application-control-platform-architecture.md` (520 lines) and
+  `docs/tab-selection-transformation-language-spec.md` (1524 lines) were another agent's in-flight
+  work. PR #108 restores them to untracked; both are byte-identical on disk. **Path-scoping a
+  directory is not path-scoping** — `-A` on a directory takes untracked files too.
+- PR #110's description said the ledger reached **11/31**; it was **10/31**. The ledger and its
+  contract test were correct throughout; only the prose was wrong.
+- The research brief's note that back/forward "may only be assertable as 'did not return to the
+  first page'" is **FALSE** with a real gesture, and its unexplained `about:blank` landing is
+  **EXPLAINED** (a Playwright `newPage()` starts there, so `goto()` leaves it as genuine history).
+
+### Traps (one line each, all measured; full versions in GOTCHAS.md)
+
+- The e2e daemon's snapshot ALWAYS contains fake brave/chromium/safari browsers — scanning
+  `snap.browsers` measures the fixture, successfully. Use `stack.browserState()`.
+- Browser-side `status === "complete"` is not daemon-side presence. Use `stack.waitForTab()`.
+- Environment behaviour goes BOTH ways across legs (reload invisible-because-instant on Edge,
+  invisible-because-never on headless). Assert the invariant, not the observation.
+- Sabotage-verifying means checking the **build's** exit code. Twice this session a broken build left
+  `dist/` stale and the test "passed" against unmodified code.
+- `dist/cli.js` is a 255-byte shim over a hashed chunk — grepping it for your change proves nothing.
+- `expect.poll` cannot observe a HANGING predicate. A destroyed service worker makes `sw.evaluate`
+  hang, not throw; use an explicit `Promise.race`.
+
+### Tree
+
+`main` @ the #114 merge, clean. Untracked and deliberately left alone: `surfingkeys-integration-ideas.md`,
+`tab-selection-transformation-language-spec.md` (root-level older duplicate), and — pending #108 —
+the two `docs/` files named under Corrections.
+
+### Blocked on you
+
+1. `brew install --cask chromium` + a green light to run `pnpm sweep:macos` (Phase 4).
+2. PR #99 (release 1.4.1) — merge word.
+3. PR #108 — merge it, or close it if you wanted those two docs tracked.
+
+### Resume
+
+If Phase 4 is greenlit: build `scripts/sweep-macos.mjs` per the plan's Phase 4 section — Chromium as
+the Chromium-family target (the harness must REFUSE to start if Chromium is already open), real
+Safari under snapshot/restore (record frontmost app + pre-existing window ids; touch only
+self-created windows; restore in a `finally`), three TCC outcomes (Automation absent = exit 1, Screen
+Recording absent = named skip, FDA absent = named skip), and a redacted
+`sweep-macos-report.json`. Highest-value assertion in it: `focus_tab`'s minimized-before-`index 1`
+ordering, because `focus.test.ts` mocks the return STRING and so proves the decoder, never the script.
+
+If not: the plan is done. `docs/surfaces/effect-coverage.json` is the register of what is left.
