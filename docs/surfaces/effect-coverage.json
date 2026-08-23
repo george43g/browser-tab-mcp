@@ -45,7 +45,7 @@
       "coverage": [
         {
           "tier": "chromium-e2e",
-          "covers": "extension pathway: real tabs served as x-handles, dataSource=extension, running=true from a live socket",
+          "covers": "extension pathway: real tabs as x-handles with dataSource=extension and running=true from a live socket; the summary projection's tabCount matches chrome.tabs.query and --url narrows to matching tabs only",
           "evidence": "apps/chrome-extension/e2e/roundtrip.e2e.test.ts"
         },
         {
@@ -61,8 +61,8 @@
       "coverage": [
         {
           "tier": "chromium-e2e",
-          "covers": "extension pathway: minimize then focus, asserting wasMinimized/windowState/windowFocused",
-          "evidence": "pending"
+          "covers": "extension pathway: activates the tab and raises its window; un-minimizes a REALLY minimized window (wasMinimized/windowState/windowFocused, cross-checked against chrome.windows.get); --no-raise leaves window focus exactly where it was",
+          "evidence": "apps/chrome-extension/e2e/tabs-lifecycle.e2e.test.ts"
         },
         {
           "tier": "macos-local",
@@ -93,8 +93,8 @@
       "coverage": [
         {
           "tier": "chromium-e2e",
-          "covers": "extension pathway: the tab exists in chrome.tabs.query and in the daemon snapshot, at the requested window",
-          "evidence": "pending"
+          "covers": "extension pathway: the tab exists in chrome.tabs.query with the returned x-handle, in the window asked for, and --no-activate does not steal the window's active tab",
+          "evidence": "apps/chrome-extension/e2e/tabs-lifecycle.e2e.test.ts"
         },
         {
           "tier": "macos-local",
@@ -109,8 +109,8 @@
       "coverage": [
         {
           "tier": "chromium-e2e",
-          "covers": "extension pathway: the tab is gone from chrome.tabs.query, not merely absent from the snapshot. The weakest surface in the registry today — one extension-core unit test",
-          "evidence": "pending"
+          "covers": "extension pathway: the tab is GONE from chrome.tabs.query, not merely absent from a snapshot the daemon rebuilt after being told it worked",
+          "evidence": "apps/chrome-extension/e2e/tabs-lifecycle.e2e.test.ts"
         },
         {
           "tier": "macos-local",

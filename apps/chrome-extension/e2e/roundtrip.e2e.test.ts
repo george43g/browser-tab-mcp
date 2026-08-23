@@ -7,17 +7,7 @@
  * the command path end-to-end through a real browser.
  */
 
-import type { BrowserContext, Worker } from "@playwright/test";
-import {
-  assertExtensionFresh,
-  type Daemon,
-  EXPECTED_BROWSER,
-  expect,
-  launchExtension,
-  seedConfig,
-  startDaemon,
-  test,
-} from "./fixtures.js";
+import { EXPECTED_BROWSER, expect, type Stack, startStack, test } from "./fixtures.js";
 
 // Short data: page so the daemon's sanitized url stays intact; tall body so
 // there's somewhere to scroll.
@@ -27,51 +17,14 @@ const SCROLL_Y = 1200;
 test.describe.configure({ mode: "serial" });
 
 test.describe("extension ↔ daemon round-trip", () => {
-  let daemon: Daemon;
-  let context: BrowserContext;
-  let extensionId: string;
-  let userDataDir: string;
-  let sw: Worker;
+  let stack: Stack;
 
   test.beforeAll(async () => {
-    daemon = await startDaemon(import.meta.url);
-    ({ context, extensionId, userDataDir } = await launchExtension());
-    // `serviceWorkers()[0]` is `Worker | undefined` under
-    // noUncheckedIndexedAccess — assign through a local so the narrowing
-    // actually applies, rather than destructuring into an already-typed `sw`.
-    const existing = context.serviceWorkers()[0];
-    sw = existing ?? (await context.waitForEvent("serviceworker"));
-    await seedConfig(context, extensionId, daemon);
-
-    // Wait until the daemon is actually extension-AUTHORITATIVE — not merely
-    // that `extensions` lists chrome (which flips the moment `hello` registers
-    // the session, a beat before the first snapshot merges).
-    await expect
-      .poll(
-        async () => {
-          const snap = JSON.parse(await daemon.cli(["list", "--json"]));
-          const chrome = (snap.browsers as Array<Record<string, unknown>>).find(
-            (b) => b.browser === EXPECTED_BROWSER,
-          );
-          return chrome?.dataSource ?? "none";
-        },
-        { timeout: 20_000, intervals: [250] },
-      )
-      .toBe("extension");
-
-    // Now that a session exists, prove it is THIS tree's bundle. A stale dist/
-    // reports no capabilities, so the rest of this file would degrade into
-    // graceful refusals that look like product limits.
-    await assertExtensionFresh(daemon);
+    stack = await startStack(import.meta.url);
   });
 
   test.afterAll(async () => {
-    await context?.close();
-    await daemon?.stop();
-    if (userDataDir) {
-      const { rmSync } = await import("node:fs");
-      rmSync(userDataDir, { recursive: true, force: true });
-    }
+    await stack?.close();
   });
 
   test("the daemon serves the real extension's tabs with x-handles", async () => {
@@ -79,10 +32,7 @@ test.describe("extension ↔ daemon round-trip", () => {
     // on this tier, and this annotation is what makes that claim checkable. Drop
     // it and the run fails with the surface named.
     test.info().annotations.push({ type: "surface", description: "list_tabs" });
-    const snap = JSON.parse(await daemon.cli(["list", "--json"]));
-    const chrome = (snap.browsers as Array<Record<string, unknown>>).find(
-      (b) => b.browser === EXPECTED_BROWSER,
-    );
+    const chrome = await stack.browserState();
     expect(chrome, `${EXPECTED_BROWSER} browser present in snapshot`).toBeTruthy();
     expect(chrome?.dataSource).toBe("extension");
     expect(chrome?.extensionConnected).toBe(true);
@@ -98,7 +48,7 @@ test.describe("extension ↔ daemon round-trip", () => {
   test("a daemon-driven cross-window move preserves scroll", async () => {
     test.info().annotations.push({ type: "surface", description: "move_tab" });
     // Two real windows: one with a tall page, one empty target.
-    const ids = await sw.evaluate(async (tall) => {
+    const ids = await stack.sw.evaluate(async (tall) => {
       const c = (globalThis as unknown as { chrome: typeof chrome }).chrome;
       const w1 = await c.windows.create({ url: tall, focused: true });
       const w2 = await c.windows.create({ url: "about:blank" });
@@ -110,28 +60,27 @@ test.describe("extension ↔ daemon round-trip", () => {
 
     // Grab the Playwright Page for the tall tab and scroll it.
     await expect
-      .poll(() => context.pages().some((p) => p.url().includes("BTMARK")), { timeout: 10_000 })
+      .poll(() => stack.context.pages().some((p) => p.url().includes("BTMARK")), {
+        timeout: 10_000,
+      })
       .toBe(true);
-    const tallPage = context.pages().find((p) => p.url().includes("BTMARK"));
+    const tallPage = stack.context.pages().find((p) => p.url().includes("BTMARK"));
     if (!tallPage) throw new Error("tall page not found");
     await tallPage.evaluate((y) => window.scrollTo(0, y), SCROLL_Y);
     expect(await tallPage.evaluate(() => Math.round(window.scrollY))).toBe(SCROLL_Y);
 
     // Handles follow the documented extension-generation grammar (x-ids).
-    const tabHandle = `t:${EXPECTED_BROWSER}:x${ids.tallTabId}`;
-    const targetWindow = `w:${EXPECTED_BROWSER}:x${ids.win2Id}`;
+    const tabHandle = stack.tabHandle(ids.tallTabId);
+    const targetWindow = stack.windowHandle(ids.win2Id);
 
     // Move via the daemon → WS → real chrome.tabs.move.
-    await daemon.cli(["move", tabHandle, "--target-window", targetWindow]);
+    await stack.daemon.cli(["move", tabHandle, "--target-window", targetWindow]);
 
     // The daemon's snapshot now places the tab under the target window…
     await expect
       .poll(
         async () => {
-          const snap = JSON.parse(await daemon.cli(["list", "--json"]));
-          const chrome = (snap.browsers as Array<Record<string, unknown>>).find(
-            (b) => b.browser === EXPECTED_BROWSER,
-          );
+          const chrome = await stack.browserState();
           const windows = (chrome?.windows ?? []) as Array<Record<string, unknown>>;
           const target = windows.find((w) => w.windowId === targetWindow);
           return (

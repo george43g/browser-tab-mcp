@@ -16,7 +16,13 @@ import { basename, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { promisify } from "node:util";
 import { defaultIpcEndpoint } from "@george43g/test-kit";
-import { type BrowserContext, test as base, chromium, type Worker } from "@playwright/test";
+import {
+  type BrowserContext,
+  test as base,
+  chromium,
+  expect as pwExpect,
+  type Worker,
+} from "@playwright/test";
 import { portForSpec } from "./ports.js";
 
 const execFileP = promisify(execFile);
@@ -226,6 +232,94 @@ export async function startDaemon(specUrl: string): Promise<Daemon> {
     throw err;
   }
   return daemon;
+}
+
+/**
+ * Everything a sweep spec needs, wired and proven live: a throwaway daemon on
+ * this spec's own port band, a real browser running the built bundle, and a
+ * daemon that is EXTENSION-AUTHORITATIVE rather than merely aware of one.
+ *
+ * Every Phase-2 spec file calls this in `beforeAll`. Each call builds its OWN
+ * daemon and its OWN browser — the sharing that would be wrong here is sharing
+ * one stack ACROSS files, which is what destroys per-command diagnostics when
+ * something fails. Sharing the setup code has the opposite effect: twelve
+ * hand-copied `beforeAll` blocks drift, and a drifted one that waits on the
+ * wrong condition looks exactly like a flaky product.
+ */
+export interface Stack {
+  daemon: Daemon;
+  context: BrowserContext;
+  extensionId: string;
+  /** The extension's background service worker — used to drive AND to read back. */
+  sw: Worker;
+  /** Tab/window handle for a raw chrome id, in the documented x-id grammar. */
+  tabHandle(id: number): string;
+  windowHandle(id: number): string;
+  /**
+   * Parsed `browser-tab list --json`, NARROWED to this run's browser.
+   *
+   * ALWAYS go through this rather than scanning `snap.browsers`. The throwaway
+   * daemon runs `BROWSER_TAB_FAKE_ADAPTER=1` so it never shells `osascript`,
+   * and the fake adapter fabricates brave/chromium/safari windows full of
+   * plausible tabs (gmail, github, HN). A spec that scans every browser is
+   * measuring the FIXTURE — and measuring it successfully, which is worse than
+   * failing. Caught the hard way while writing tabs-lifecycle: a tab-count
+   * assertion picked "the first browser with windows" and got brave.
+   *
+   * `extraArgs` are appended before `--json`, e.g. ["--fields", "summary"].
+   */
+  browserState(extraArgs?: readonly string[]): Promise<Record<string, unknown> | undefined>;
+  close(): Promise<void>;
+}
+
+export async function startStack(specUrl: string): Promise<Stack> {
+  const daemon = await startDaemon(specUrl);
+  const { context, extensionId, userDataDir } = await launchExtension();
+  // `serviceWorkers()[0]` is `Worker | undefined` under noUncheckedIndexedAccess
+  // — assign through a local so the narrowing actually applies.
+  const existing = context.serviceWorkers()[0];
+  const sw = existing ?? (await context.waitForEvent("serviceworker"));
+  await seedConfig(context, extensionId, daemon);
+
+  const browserState = async (
+    extraArgs: readonly string[] = [],
+  ): Promise<Record<string, unknown> | undefined> => {
+    const snap = JSON.parse(await daemon.cli(["list", ...extraArgs, "--json"])) as {
+      browsers: Array<Record<string, unknown>>;
+    };
+    return snap.browsers.find((b) => b.browser === EXPECTED_BROWSER);
+  };
+
+  // Wait until the daemon is extension-AUTHORITATIVE — not merely that
+  // `extensions` lists the browser, which flips the moment `hello` registers
+  // the session, a beat before the first snapshot merges.
+  await pwExpect
+    .poll(async () => (await browserState())?.dataSource ?? "none", {
+      timeout: 20_000,
+      intervals: [250],
+    })
+    .toBe("extension");
+
+  // A session exists now, so freshness is checkable. A stale dist/ reports no
+  // capabilities, and everything downstream degrades into graceful refusals
+  // that read as product limits rather than a build problem.
+  await assertExtensionFresh(daemon);
+
+  return {
+    daemon,
+    context,
+    extensionId,
+    sw,
+    tabHandle: (id) => `t:${EXPECTED_BROWSER}:x${id}`,
+    windowHandle: (id) => `w:${EXPECTED_BROWSER}:x${id}`,
+    browserState,
+    close: async () => {
+      await context.close();
+      await daemon.stop();
+      const { rmSync } = await import("node:fs");
+      rmSync(userDataDir, { recursive: true, force: true });
+    },
+  };
 }
 
 /** Launch the extension in a fresh new-headless Chromium; resolve its id. */
