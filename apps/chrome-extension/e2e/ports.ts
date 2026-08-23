@@ -38,7 +38,11 @@ export const E2E_PORT_SPAN = 100;
  * reordering silently reassigns every band below the insertion point, which is
  * harmless in a serial run and confusing in any other.
  */
-export const E2E_SPEC_SLOTS: readonly string[] = ["load.e2e.test.ts", "roundtrip.e2e.test.ts"];
+export const E2E_SPEC_SLOTS: readonly string[] = [
+  "load.e2e.test.ts",
+  "roundtrip.e2e.test.ts",
+  "tabs-lifecycle.e2e.test.ts",
+];
 
 export interface PortBand {
   base: number;
