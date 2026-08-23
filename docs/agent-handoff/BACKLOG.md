@@ -1365,10 +1365,15 @@ coverage until that PR, which is why nobody had hit it. The fix is a per-request
 knows it needs longer than a `list_tabs`) rather than raising the global one, which would make every
 wedged call take 25s to report. **Not fixed here**: it is a timeout-policy decision.
 
-### Environment limit (not a bug): the reloaded worker does not come back under `--headless=new`
+### Environment limit (not a bug): a reload LOOKS opposite ways in different browsers
 
-Polled 40s after a `reload-extension`: the browser stayed out of `daemon status`'s `extensions` the
-whole time. MV3 service workers are event-driven and a `--load-extension` headless context does not
-appear to restart one after `runtime.reload()`. On real headed Chrome it does — that is the dev loop
-in daily use. So the RECONNECT half of `reload-extension` is not assertable on the chromium-e2e
-tier; the teardown half is, and is what the spec asserts.
+Under macOS/Linux `--headless=new`, the reloaded worker never comes back: polled 40s, the browser
+stayed out of `daemon status`'s `extensions` the whole time (MV3 workers are event-driven and a
+`--load-extension` headless context does not appear to restart one). On **real Windows Edge** it
+restarts so fast the disconnect is never observable by polling — CI, PR #112, where an assertion
+that the browser LEAVES `extensions` failed twice on that leg while passing everywhere else.
+
+So neither "it went down" nor "it came back" is invariant. What IS invariant is that the service
+worker being driven is destroyed, and the way to observe that is a RACE, not a try/catch: the worker
+dies mid-call, so the `evaluate` promise never settles and a catch waits forever. Sabotage-verified
+(an extension that acks without reloading fails the assertion).

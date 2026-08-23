@@ -352,7 +352,7 @@
       "coverage": [
         {
           "tier": "chromium-e2e",
-          "covers": "the command reaches a REAL extension and really tears it down (a stub answering ok without touching anything fails this), plus the refusal for a browser with no connected extension. The RECONNECT half is NOT asserted: measured 2026-08-24, a --headless=new --load-extension context does not restart the worker after runtime.reload(), though real headed Chrome does. Writing this found B14 — the IPC client's 15s request timeout is shorter than the daemon's own 25s reload wait",
+          "covers": "the command reaches a REAL extension and its service worker really does not survive (sabotage-verified: an extension that acks without reloading fails it), plus the refusal for a browser with no connected extension. Neither \"it disconnected\" nor \"it reconnected\" is asserted — measured 2026-08-24, those go OPPOSITE ways by environment: headless never restarts the worker, real Windows Edge restarts it too fast to observe the drop. Writing this found B14 — the IPC client's 15s request timeout is shorter than the daemon's own 25s reload wait",
           "evidence": "apps/chrome-extension/e2e/reload-extension.e2e.test.ts"
         },
         {
