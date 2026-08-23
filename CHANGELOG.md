@@ -1,5 +1,14 @@
 # Changelog
 
+## [1.4.1](https://github.com/george43g/browser-tab-mcp/compare/v1.4.0...v1.4.1) (2026-08-23)
+
+
+### Bug Fixes
+
+* **cli:** brand CLI log files as browser-tab-cli ([#98](https://github.com/george43g/browser-tab-mcp/issues/98)) ([c94e5b9](https://github.com/george43g/browser-tab-mcp/commit/c94e5b951d4e01db6739272d33d0570375a81a26))
+* **e2e:** per-spec port bands + daemon identity assertions ([#103](https://github.com/george43g/browser-tab-mcp/issues/103)) ([815ee93](https://github.com/george43g/browser-tab-mcp/commit/815ee936588c25e2160f8e7aaeead5bcf99d67e8))
+* **focus:** un-minimize explicitly in the extension pathway too ([#106](https://github.com/george43g/browser-tab-mcp/issues/106)) ([65081e9](https://github.com/george43g/browser-tab-mcp/commit/65081e9efa3d2f92110c7292aee9f6c69b9e741e))
+
 ## [1.4.0](https://github.com/george43g/browser-tab-mcp/compare/v1.3.2...v1.4.0) (2026-08-21)
 
 
