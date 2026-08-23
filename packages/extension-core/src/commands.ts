@@ -443,7 +443,26 @@ export async function executeCommand(kind: string, args: CommandArgs): Promise<C
       // user could not see.
       const before = await peekWindow(windows, windowId);
       if (before?.state !== undefined) outcome.wasMinimized = before.state === "minimized";
-      if (raiseWindow) await windows.update(windowId, { focused: true });
+      if (raiseWindow) {
+        // Clear `minimized` FIRST, then focus — the same ordering the
+        // AppleScript adapters use, and for the same reason: a minimized
+        // window cannot be raised, so the order IS the fix.
+        //
+        // This path used to pass only `{focused:true}` and lean on Chrome
+        // un-minimizing as a side effect. That side effect is not contractual
+        // and does not always happen: measured 2026-08-24 on Chromium under
+        // `--headless=new`, `windows.update({focused:true})` on a minimized
+        // window returns `focused:true` with `state` still `"minimized"` — a
+        // focused tab inside a window the user cannot see, which is exactly
+        // the bug the AppleScript pathway was fixed for. The two pathways
+        // disagreeing about one documented contract is how that bug survived.
+        //
+        // CONDITIONAL ON `minimized` on purpose: sending `state:"normal"`
+        // unconditionally would un-maximize a maximized window, turning a
+        // focus call into an unrequested resize.
+        if (before?.state === "minimized") await windows.update(windowId, { state: "normal" });
+        await windows.update(windowId, { focused: true });
+      }
       const after = (await peekWindow(windows, windowId)) ?? before;
       if (after?.state !== undefined) outcome.windowState = after.state;
       if (after?.focused !== undefined) outcome.windowFocused = after.focused;

@@ -121,6 +121,36 @@ staleness check keys on) and from the build stamp
 (`<semver>+<count>.<sha>`, `scripts/build-stamp.mjs`), which answers *which
 build* rather than *which release*.
 
+## Window raising is explicit, never a side effect
+
+`focus_tab` with `raiseWindow` (the default) issues **two** `chrome.windows.update`
+calls when the target window is minimized, in this order:
+
+```js
+await chrome.windows.update(windowId, { state: "normal" });  // first
+await chrome.windows.update(windowId, { focused: true });    // then
+```
+
+It used to issue only the second and rely on Chrome un-minimizing as a side
+effect of focusing. That side effect is **not contractual**: measured
+2026-08-24 on Chromium under `--headless=new`, the call came back
+`focused: true` with `state` still `"minimized"` — a focused tab inside a
+window the user cannot see. Headed Chrome had been masking it.
+
+Two details that are load-bearing:
+
+- **The order.** Raising a minimized window is a no-op, so focusing first
+  leaves it minimized however many times it runs. This is the same ordering
+  the AppleScript adapters use, for the same reason.
+- **The condition.** The `state: "normal"` call fires *only* when the window
+  was minimized. Sending it unconditionally would un-maximize a maximized
+  window — a focus call becoming an unrequested resize, which is worse than
+  the bug being fixed.
+
+Pinned by `packages/extension-core/src/commands.test.ts` (asserts both calls
+*and their order*, plus that a maximized window is left alone) and by
+`e2e/tabs-lifecycle.e2e.test.ts` against a real minimized window.
+
 ## Gotchas
 
 - **Self-contained IIFE build, not ES modules.** Safari doesn't support
