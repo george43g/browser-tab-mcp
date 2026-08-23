@@ -34,8 +34,8 @@
       "coverage": [
         {
           "tier": "chromium-e2e",
-          "covers": "answers instantly while a real browser session is live — the canary's whole contract is that it never touches external I/O",
-          "evidence": "pending"
+          "covers": "answers while a real browser session is live — the canary's contract is that it is unaffected by anything the browser is doing",
+          "evidence": "apps/chrome-extension/e2e/daemon-surfaces.e2e.test.ts"
         }
       ]
     },
@@ -281,8 +281,8 @@
       "coverage": [
         {
           "tier": "chromium-e2e",
-          "covers": "the tool handler itself (never invoked via callMcpTool today) reporting a live extension session: extensions, extensionInfo, wsPort, correlationTier",
-          "evidence": "pending"
+          "covers": "the TOOL HANDLER itself (invoked by nothing today — no integration test, no stress case; only the IPC method beneath it) answering with a real session behind it: pid, bound wsPort, the browser in `extensions`, a non-stale extensionInfo record, dataSource=extension and a non-zero real tab count. Plus the daemon-identity assertion re-stated as a named test so a regression names itself",
+          "evidence": "apps/chrome-extension/e2e/daemon-surfaces.e2e.test.ts"
         }
       ]
     },
@@ -292,8 +292,8 @@
       "coverage": [
         {
           "tier": "chromium-e2e",
-          "covers": "the dispatch envelope end-to-end alongside the real surfaces — the control that proves the harness itself is wired",
-          "evidence": "pending"
+          "covers": "the control, and the only CLI-level coverage this surface has: the input travels the real dispatcher and comes back, carrying the rust-vs-ts engine marker",
+          "evidence": "apps/chrome-extension/e2e/daemon-surfaces.e2e.test.ts"
         }
       ]
     },
@@ -303,8 +303,8 @@
       "coverage": [
         {
           "tier": "chromium-e2e",
-          "covers": "with MCP_DEV=1, reading back a line the run itself produced — today only the dev-mode GATING is tested, never retrieval",
-          "evidence": "pending"
+          "covers": "both halves: hidden without MCP_DEV, and — the half nothing tested — `--source file` returning this run's own structured NDJSON records. Also pins that `--source memory` (the DEFAULT) is structurally EMPTY from a one-shot CLI, so changing that default turns the test red rather than passing silently. See BACKLOG B13",
+          "evidence": "apps/chrome-extension/e2e/daemon-surfaces.e2e.test.ts"
         }
       ]
     },
@@ -352,8 +352,8 @@
       "coverage": [
         {
           "tier": "chromium-e2e",
-          "covers": "success path: runtime.reload() destroys the service worker, so the assertion is daemon-side — the browser drops out of `extensions` and re-appears. Isolated file",
-          "evidence": "pending"
+          "covers": "the command reaches a REAL extension and its service worker really does not survive (sabotage-verified: an extension that acks without reloading fails it), plus the refusal for a browser with no connected extension. Neither \"it disconnected\" nor \"it reconnected\" is asserted — measured 2026-08-24, those go OPPOSITE ways by environment: headless never restarts the worker, real Windows Edge restarts it too fast to observe the drop. Writing this found B14 — the IPC client's 15s request timeout is shorter than the daemon's own 25s reload wait",
+          "evidence": "apps/chrome-extension/e2e/reload-extension.e2e.test.ts"
         },
         {
           "tier": "cli-process",

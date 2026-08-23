@@ -47,8 +47,14 @@ export interface Daemon {
   token: string;
   /** Env every CLI call must carry to reach THIS daemon (state/cache/port). */
   env: NodeJS.ProcessEnv;
-  /** Run a `browser-tab` CLI subcommand against this daemon; returns stdout. */
-  cli(args: string[]): Promise<string>;
+  /**
+   * Run a `browser-tab` CLI subcommand against this daemon; returns stdout.
+   *
+   * `extraEnv` is merged over the fixture's env for THIS call only — needed
+   * for the handful of surfaces gated by an env var the daemon does not share
+   * (`MCP_DEV` for `get_logs`, say), where the gate lives in the CLI process.
+   */
+  cli(args: string[], extraEnv?: NodeJS.ProcessEnv): Promise<string>;
   /** `daemon status --json` parsed. */
   status(): Promise<Record<string, unknown>>;
   stop(): Promise<void>;
@@ -175,8 +181,11 @@ export async function startDaemon(specUrl: string): Promise<Daemon> {
   const daemonEnv: NodeJS.ProcessEnv = { ...shared, BROWSER_TAB_FAKE_ADAPTER: "1" };
   const env = shared;
 
-  const cli = async (args: string[]): Promise<string> => {
-    const { stdout } = await execFileP("node", [CLI, ...args], { env, timeout: 20_000 });
+  const cli = async (args: string[], extraEnv?: NodeJS.ProcessEnv): Promise<string> => {
+    const { stdout } = await execFileP("node", [CLI, ...args], {
+      env: extraEnv ? { ...env, ...extraEnv } : env,
+      timeout: 20_000,
+    });
     return stdout.trim();
   };
   const status = async (): Promise<Record<string, unknown>> => {

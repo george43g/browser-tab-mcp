@@ -1339,3 +1339,41 @@ assertion that scans `snap.browsers` rather than narrowing to the run's browser 
 fixture — and measuring it *successfully*, which is worse than failing. Cost an hour on PR #107,
 where a tab-count assertion picked "the first browser with windows" and got brave.
 `stack.browserState()` narrows and carries the warning; use it.
+
+### B13. `get_logs --source memory` is the DEFAULT and is structurally always empty from the CLI
+
+The ring buffer belongs to the **calling process**. A `browser-tab logs` one-shot has barely
+started when it reads its own buffer, so the default source answers `{"source":"memory","lines":[]}`
+for the most common invocation, while the daemon's actual history sits in `file`.
+
+Measured 2026-08-24 (`e2e/daemon-surfaces.e2e.test.ts` asserts both halves). Not a correctness bug —
+`memory` genuinely means "this process" — but the default makes the tool look broken to anyone who
+runs it without reading `--help`. Candidate fixes: default to `all` for the CLI front while the MCP
+tool keeps `memory`, or have an empty `memory` result say why. **Product call, not taken here.** The
+e2e test asserts the CURRENT behaviour, so changing the default turns it red rather than passing
+silently.
+
+### B14. `reload-extension` can report a timeout for a reload that WORKED
+
+`client/daemon-client.ts:17` sets `REQUEST_TIMEOUT_MS = 15_000`. The daemon's own reload wait is up
+to **25s** — `RELOAD_DOWN_TIMEOUT_MS` (5s) + `RELOAD_UP_TIMEOUT_MS` (20s), `daemon/index.ts:526-528`.
+The client therefore gives up before the operation it is waiting for can possibly finish, and a
+slow-but-successful reload surfaces as `daemon request "command" timed out`.
+
+Measured 2026-08-24 while writing `e2e/reload-extension.e2e.test.ts` — the surface with TRUE ZERO
+coverage until that PR, which is why nobody had hit it. The fix is a per-request timeout (the reload
+knows it needs longer than a `list_tabs`) rather than raising the global one, which would make every
+wedged call take 25s to report. **Not fixed here**: it is a timeout-policy decision.
+
+### Environment limit (not a bug): a reload LOOKS opposite ways in different browsers
+
+Under macOS/Linux `--headless=new`, the reloaded worker never comes back: polled 40s, the browser
+stayed out of `daemon status`'s `extensions` the whole time (MV3 workers are event-driven and a
+`--load-extension` headless context does not appear to restart one). On **real Windows Edge** it
+restarts so fast the disconnect is never observable by polling — CI, PR #112, where an assertion
+that the browser LEAVES `extensions` failed twice on that leg while passing everywhere else.
+
+So neither "it went down" nor "it came back" is invariant. What IS invariant is that the service
+worker being driven is destroyed, and the way to observe that is a RACE, not a try/catch: the worker
+dies mid-call, so the `evaluate` promise never settles and a catch waits forever. Sabotage-verified
+(an extension that acks without reloading fails the assertion).
