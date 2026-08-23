@@ -42,6 +42,9 @@ export const E2E_SPEC_SLOTS: readonly string[] = [
   "load.e2e.test.ts",
   "roundtrip.e2e.test.ts",
   "tabs-lifecycle.e2e.test.ts",
+  "tab-action.e2e.test.ts",
+  "tab-history.e2e.test.ts",
+  "tab-discard.e2e.test.ts",
 ];
 
 export interface PortBand {

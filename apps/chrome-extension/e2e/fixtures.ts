@@ -373,4 +373,5 @@ export async function seedConfig(
 }
 
 export const test = base;
+export type { Page } from "@playwright/test";
 export { expect } from "@playwright/test";
