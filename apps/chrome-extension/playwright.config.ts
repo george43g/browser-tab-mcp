@@ -18,7 +18,10 @@ export default defineConfig({
   retries: process.env.CI ? 1 : 0,
   timeout: 60_000,
   expect: { timeout: 15_000 },
-  reporter: [["list"]],
+  // `list` for humans; `run-guard.ts` for the thing a green exit code cannot
+  // tell you — that the run actually proved what docs/surfaces/effect-coverage.json
+  // claims it proves. The guard can only turn green into red (see its header).
+  reporter: [["list"], ["./e2e/run-guard.ts"]],
   use: {
     trace: "on-first-retry",
     video: "on-first-retry",

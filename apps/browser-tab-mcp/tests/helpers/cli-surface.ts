@@ -54,3 +54,76 @@ export function cliCommandNamesWithoutAliases(): Set<string> {
   }
   return names;
 }
+
+/**
+ * The ONE hand-written mapping in this file: tool name → the CLI command that
+ * fronts it, for every tool whose CLI form is not its own name.
+ *
+ * This cannot be derived — it is a naming decision, not a fact about the code.
+ * Everything else below is computed from commander and the registry, so a
+ * renamed or added command moves the enumeration on its own.
+ *
+ * It lives here rather than in a test file because two contract tests now read
+ * it (MCP↔CLI parity and the surface-coverage ledger) and a second copy would
+ * drift — this repo's most-repeated failure mode is an apparatus that passes
+ * while proving nothing.
+ */
+export const TOOL_CLI_FORM: Readonly<Record<string, string>> = {
+  health_check: "health",
+  list_tabs: "list",
+  focus_tab: "focus",
+  move_tab: "move",
+  open_tab: "open",
+  close_tab: "close",
+  tab_action: "act",
+  group_tabs: "group",
+  get_page: "page",
+  get_logs: "logs",
+  bookmarks: "bookmark",
+  // Subcommand forms — still fully reachable, just not the identity mapping.
+  open_window: "window open",
+  set_window: "window set",
+  close_window: "window close",
+  daemon_status: "daemon status",
+};
+
+/** The CLI command string that fronts a tool (identity when unmapped). */
+export function cliFormOf(tool: string): string {
+  return TOOL_CLI_FORM[tool] ?? tool;
+}
+
+/**
+ * Every CLI command that is NOT the front of a registry tool.
+ *
+ * These are the surfaces the MCP registry cannot enumerate — process
+ * lifecycle (`daemon run`), alternative entry points (`mcp`, `tui`, `repl`),
+ * and the dev deploy loop (`reload-extension`). Together with the tools they
+ * form the full command surface of this bin.
+ *
+ * Derived, not listed:
+ *   - a container command (`window`, `daemon`) contributes its SUBCOMMANDS,
+ *     never itself — `browser-tab window` alone does nothing;
+ *   - commander's built-in `help` is not a surface of ours;
+ *   - aliases are folded into their canonical command (we walk `name()`
+ *     only), so `console` does not double-count against `repl`. The alias
+ *     still has to be *driven* to prove it resolves — that is PR 11's job,
+ *     and `cliCommandNames()` above is what exposes it.
+ */
+export function cliOnlySurfaces(toolNames: readonly string[]): Set<string> {
+  const fronts = new Set(toolNames.map(cliFormOf));
+  const program = buildProgram();
+  const out = new Set<string>();
+  for (const cmd of program.commands) {
+    if (cmd.name() === "help") continue;
+    if (cmd.commands.length > 0) {
+      for (const sub of cmd.commands) {
+        if (sub.name() === "help") continue;
+        const surface = `${cmd.name()} ${sub.name()}`;
+        if (!fronts.has(surface)) out.add(surface);
+      }
+      continue;
+    }
+    if (!fronts.has(cmd.name())) out.add(cmd.name());
+  }
+  return out;
+}

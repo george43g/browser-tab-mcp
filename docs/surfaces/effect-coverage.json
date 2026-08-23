@@ -1,0 +1,443 @@
+{
+  "$comment": [
+    "THE LEDGER. One row per command surface of this bin — 20 registry tools plus 11",
+    "CLI-only commands. It is not a hand-written list: apps/browser-tab-mcp/tests/",
+    "surface-coverage.contract.test.ts enumerates the surfaces from makeAppRegistry()",
+    "and from commander (tests/helpers/cli-surface.ts) and fails if this file has a gap",
+    "or an orphan. Adding tool #21 turns that test red on the next `pnpm test`.",
+    "",
+    "`tier` is where a surface's EFFECT is proved — that a browser actually did the",
+    "thing — not where it is dispatch-tested. A fake adapter and installFakeChrome",
+    "both stand in for a browser; neither is one, so neither counts here.",
+    "",
+    "`evidence` is a path or the literal \"pending\". \"pending\" claims nothing and is",
+    "always honest. A non-pending chromium-e2e entry is a CLAIM, and e2e/run-guard.ts",
+    "enforces it: the run fails unless a PASSING test carried the matching",
+    "`surface` annotation. That is the anti-vacuity rule — this repo has shipped five",
+    "harnesses that passed while proving nothing, and the ledger is not allowed to",
+    "become the sixth.",
+    "",
+    "A surface may appear in more than one tier when it has more than one PATHWAY.",
+    "focus_tab through the extension and focus_tab through AppleScript are different",
+    "code with different bugs; the Chromium suite cannot reach the second by",
+    "construction, so it gets its own macos-local row rather than being called done."
+  ],
+  "tiers": {
+    "chromium-e2e": "Playwright, apps/chrome-extension/e2e/ — the built dist/ in a real Chromium/Edge against a throwaway daemon. Runs in CI on all three legs.",
+    "cli-process": "vitest, apps/browser-tab-mcp/tests/ — the built dist/cli.js spawned as a real process against a fake-adapter daemon. No browser. Runs in CI.",
+    "macos-local": "pnpm sweep:macos, a developer's Mac only. Real osascript / screencapture / Safari History.db. CANNOT run in CI: GitHub's macOS runners have no logged-in GUI session, so `tell application` cannot work."
+  },
+  "surfaces": [
+    {
+      "surface": "health_check",
+      "kind": "tool",
+      "coverage": [
+        {
+          "tier": "chromium-e2e",
+          "covers": "answers instantly while a real browser session is live — the canary's whole contract is that it never touches external I/O",
+          "evidence": "pending"
+        }
+      ]
+    },
+    {
+      "surface": "list_tabs",
+      "kind": "tool",
+      "coverage": [
+        {
+          "tier": "chromium-e2e",
+          "covers": "extension pathway: real tabs served as x-handles, dataSource=extension, running=true from a live socket",
+          "evidence": "apps/chrome-extension/e2e/roundtrip.e2e.test.ts"
+        },
+        {
+          "tier": "macos-local",
+          "covers": "AppleScript pathway: t:<browser>:<numeric> handles with dataSource != extension — the handle-grammar difference only this tier can prove",
+          "evidence": "pending"
+        }
+      ]
+    },
+    {
+      "surface": "focus_tab",
+      "kind": "tool",
+      "coverage": [
+        {
+          "tier": "chromium-e2e",
+          "covers": "extension pathway: minimize then focus, asserting wasMinimized/windowState/windowFocused",
+          "evidence": "pending"
+        },
+        {
+          "tier": "macos-local",
+          "covers": "AppleScript pathway: clearing minimized BEFORE `set index to 1`. focus.test.ts mocks the runOsa return string, so it proves the decoder and never the script",
+          "evidence": "pending"
+        }
+      ]
+    },
+    {
+      "surface": "move_tab",
+      "kind": "tool",
+      "coverage": [
+        {
+          "tier": "chromium-e2e",
+          "covers": "extension pathway: cross-window move via chrome.tabs.move preserves scroll (no reload)",
+          "evidence": "apps/chrome-extension/e2e/roundtrip.e2e.test.ts"
+        },
+        {
+          "tier": "macos-local",
+          "covers": "AppleScript pathways: Chromium close+reopen and Safari --allow-reload — asserting the tab lands AND that the page reloaded, since proving the documented state loss matters as much as proving the move",
+          "evidence": "pending"
+        }
+      ]
+    },
+    {
+      "surface": "open_tab",
+      "kind": "tool",
+      "coverage": [
+        {
+          "tier": "chromium-e2e",
+          "covers": "extension pathway: the tab exists in chrome.tabs.query and in the daemon snapshot, at the requested window",
+          "evidence": "pending"
+        },
+        {
+          "tier": "macos-local",
+          "covers": "AppleScript pathway (`make new tab`)",
+          "evidence": "pending"
+        }
+      ]
+    },
+    {
+      "surface": "close_tab",
+      "kind": "tool",
+      "coverage": [
+        {
+          "tier": "chromium-e2e",
+          "covers": "extension pathway: the tab is gone from chrome.tabs.query, not merely absent from the snapshot. The weakest surface in the registry today — one extension-core unit test",
+          "evidence": "pending"
+        },
+        {
+          "tier": "macos-local",
+          "covers": "AppleScript pathway (baseline `close tab`, not in applescriptCaps because it is unconditional)",
+          "evidence": "pending"
+        }
+      ]
+    },
+    {
+      "surface": "tab_action",
+      "kind": "tool",
+      "coverage": [
+        {
+          "tier": "chromium-e2e",
+          "covers": "extension pathway: mute/unmute/pin/unpin/reload/duplicate/navigate, plus back/forward and discard in isolated files",
+          "evidence": "pending"
+        },
+        {
+          "tier": "macos-local",
+          "covers": "AppleScript pathway: navigate/reload everywhere, back/forward on Chromium only (Safari's dictionary has no verb)",
+          "evidence": "pending"
+        }
+      ]
+    },
+    {
+      "surface": "group_tabs",
+      "kind": "tool",
+      "coverage": [
+        {
+          "tier": "chromium-e2e",
+          "covers": "create/add/remove/update/move against real chrome.tabGroups — and the 2026-08-20 dogfood bug: grouping tabs in window 1 while window 2 is focused must NOT relocate them. Extension-only; there is no AppleScript equivalent",
+          "evidence": "pending"
+        }
+      ]
+    },
+    {
+      "surface": "open_window",
+      "kind": "tool",
+      "coverage": [
+        {
+          "tier": "chromium-e2e",
+          "covers": "extension pathway: a real window appears in chrome.windows.getAll with the requested urls",
+          "evidence": "pending"
+        },
+        {
+          "tier": "macos-local",
+          "covers": "AppleScript pathway (`make new window`), including --display targeting through rust-accel list_displays()",
+          "evidence": "pending"
+        }
+      ]
+    },
+    {
+      "surface": "set_window",
+      "kind": "tool",
+      "coverage": [
+        {
+          "tier": "chromium-e2e",
+          "covers": "extension pathway: bounds/state round-trip through chrome.windows.get. Headless has no window manager, so bounds may be advisory — see the cut order in the plan",
+          "evidence": "pending"
+        },
+        {
+          "tier": "macos-local",
+          "covers": "AppleScript pathway: real geometry with tolerance (macOS clamps to the visible frame), plus minimized/normal transitions",
+          "evidence": "pending"
+        }
+      ]
+    },
+    {
+      "surface": "close_window",
+      "kind": "tool",
+      "coverage": [
+        {
+          "tier": "chromium-e2e",
+          "covers": "extension pathway: the window and all its tabs are gone from chrome.windows.getAll",
+          "evidence": "pending"
+        },
+        {
+          "tier": "macos-local",
+          "covers": "AppleScript pathway (`close window`)",
+          "evidence": "pending"
+        }
+      ]
+    },
+    {
+      "surface": "get_page",
+      "kind": "tool",
+      "coverage": [
+        {
+          "tier": "chromium-e2e",
+          "covers": "the real two-step scripting.executeScript against a real page served over http — metadata/text/state modes and navEpoch cache busting. Extension-only: there is no AppleScript path to read a page",
+          "evidence": "pending"
+        }
+      ]
+    },
+    {
+      "surface": "annotate",
+      "kind": "tool",
+      "coverage": [
+        {
+          "tier": "chromium-e2e",
+          "covers": "write-then-read against a real tab's real URL, proving the URL key survives the extension's own redaction/normalisation",
+          "evidence": "pending"
+        }
+      ]
+    },
+    {
+      "surface": "screenshot",
+      "kind": "tool",
+      "coverage": [
+        {
+          "tier": "chromium-e2e",
+          "covers": "tier-1 tab capture: real captureVisibleTab bytes, the active-tab preflight, and the MCP image block. Likeliest failure in the whole sweep under --headless=new; re-tier rather than weaken",
+          "evidence": "pending"
+        },
+        {
+          "tier": "macos-local",
+          "covers": "tier-2 window capture: real `screencapture -l <cgWindowId>` behind BROWSER_TAB_WINDOW_CAPTURE=1 + Screen Recording TCC. Today's unit tests shim the binary",
+          "evidence": "pending"
+        }
+      ]
+    },
+    {
+      "surface": "journal",
+      "kind": "tool",
+      "coverage": [
+        {
+          "tier": "chromium-e2e",
+          "covers": "real focus/nav events from a real browser reaching windowMru/tabMru/journey, and navEpoch bumping on a real committed navigation",
+          "evidence": "pending"
+        }
+      ]
+    },
+    {
+      "surface": "history",
+      "kind": "tool",
+      "coverage": [
+        {
+          "tier": "chromium-e2e",
+          "covers": "Chrome-family: real chrome.history.search finding a URL this run actually visited, and the `sources` array reporting every source considered",
+          "evidence": "pending"
+        },
+        {
+          "tier": "macos-local",
+          "covers": "Safari: real sqlite3 against a fixture History.db by default; --real-history (Full Disk Access) is the only thing that proves FDA is granted",
+          "evidence": "pending"
+        }
+      ]
+    },
+    {
+      "surface": "bookmarks",
+      "kind": "tool",
+      "coverage": [
+        {
+          "tier": "chromium-e2e",
+          "covers": "search/list/create/update/remove against real chrome.bookmarks. Extension-only",
+          "evidence": "pending"
+        }
+      ]
+    },
+    {
+      "surface": "daemon_status",
+      "kind": "tool",
+      "coverage": [
+        {
+          "tier": "chromium-e2e",
+          "covers": "the tool handler itself (never invoked via callMcpTool today) reporting a live extension session: extensions, extensionInfo, wsPort, correlationTier",
+          "evidence": "pending"
+        }
+      ]
+    },
+    {
+      "surface": "noop",
+      "kind": "tool",
+      "coverage": [
+        {
+          "tier": "chromium-e2e",
+          "covers": "the dispatch envelope end-to-end alongside the real surfaces — the control that proves the harness itself is wired",
+          "evidence": "pending"
+        }
+      ]
+    },
+    {
+      "surface": "get_logs",
+      "kind": "tool",
+      "coverage": [
+        {
+          "tier": "chromium-e2e",
+          "covers": "with MCP_DEV=1, reading back a line the run itself produced — today only the dev-mode GATING is tested, never retrieval",
+          "evidence": "pending"
+        }
+      ]
+    },
+    {
+      "surface": "mcp",
+      "kind": "cli",
+      "coverage": [
+        {
+          "tier": "cli-process",
+          "covers": "spawn dist/cli.js mcp, speak stdio JSON-RPC initialize + tools/list, assert the names equal makeAppRegistry().tools. The stress harness spawns src/index.ts directly, so the commander wiring for this subcommand is driven by nothing today",
+          "evidence": "pending"
+        }
+      ]
+    },
+    {
+      "surface": "tui",
+      "kind": "cli",
+      "coverage": [
+        {
+          "tier": "cli-process",
+          "covers": "non-TTY stdio: exit 1 and the refusal text. The App component is well covered; the CLI action's own branch is not",
+          "evidence": "pending"
+        }
+      ]
+    },
+    {
+      "surface": "doctor",
+      "kind": "cli",
+      "coverage": [
+        {
+          "tier": "cli-process",
+          "covers": "emits a report and the exit code tracks full.ok. Off macOS the AppleScript items are simply absent — that is the platform-correct assertion",
+          "evidence": "pending"
+        },
+        {
+          "tier": "macos-local",
+          "covers": "the real Automation TCC probe and the non-prompting Screen Recording preflight. It reports what it finds; it cannot construct a DENIED state without revoking permission",
+          "evidence": "pending"
+        }
+      ]
+    },
+    {
+      "surface": "reload-extension",
+      "kind": "cli",
+      "coverage": [
+        {
+          "tier": "chromium-e2e",
+          "covers": "success path: runtime.reload() destroys the service worker, so the assertion is daemon-side — the browser drops out of `extensions` and re-appears. Isolated file",
+          "evidence": "pending"
+        },
+        {
+          "tier": "cli-process",
+          "covers": "the no-daemon error path. Today this surface has TRUE zero coverage — no test file anywhere references it",
+          "evidence": "pending"
+        }
+      ]
+    },
+    {
+      "surface": "daemon run",
+      "kind": "cli",
+      "coverage": [
+        {
+          "tier": "cli-process",
+          "covers": "poll to reachable, assert status.pid is the spawned pid, SIGTERM, assert clean exit. Really executed as harness plumbing today, never asserted on as its own contract",
+          "evidence": "pending"
+        }
+      ]
+    },
+    {
+      "surface": "daemon install",
+      "kind": "cli",
+      "coverage": [
+        {
+          "tier": "cli-process",
+          "covers": "on Linux CI, serviceManager() refuses with an instruction: assert non-zero exit carrying it. That proves the subcommand routes to serviceManager() and surfaces its answer, which is the untested wiring",
+          "evidence": "pending"
+        },
+        {
+          "tier": "macos-local",
+          "covers": "the real launchctl bootstrap. Opt-in and destructive to a developer's service state — expected to be CUT rather than automated",
+          "evidence": "pending"
+        }
+      ]
+    },
+    {
+      "surface": "daemon uninstall",
+      "kind": "cli",
+      "coverage": [
+        {
+          "tier": "cli-process",
+          "covers": "same refusal-routing assertion as install. Shares a body with `stop` DELIBERATELY (a plain kill gets resurrected under KeepAlive) — test them by name, do not 'fix' the duplication",
+          "evidence": "pending"
+        }
+      ]
+    },
+    {
+      "surface": "daemon token",
+      "kind": "cli",
+      "coverage": [
+        {
+          "tier": "cli-process",
+          "covers": "prints a token and is idempotent on a second call. Really executed as e2e plumbing today, never asserted on",
+          "evidence": "pending"
+        }
+      ]
+    },
+    {
+      "surface": "daemon stop",
+      "kind": "cli",
+      "coverage": [
+        {
+          "tier": "cli-process",
+          "covers": "refusal-routing assertion. Zero coverage today: even the harnesses kill by SIGTERM rather than through this command",
+          "evidence": "pending"
+        }
+      ]
+    },
+    {
+      "surface": "daemon restart",
+      "kind": "cli",
+      "coverage": [
+        {
+          "tier": "cli-process",
+          "covers": "refusal-routing assertion. Zero coverage today",
+          "evidence": "pending"
+        }
+      ]
+    },
+    {
+      "surface": "repl",
+      "kind": "cli",
+      "coverage": [
+        {
+          "tier": "cli-process",
+          "covers": "piped stdin takes cli-kit's terminal:false branch — feed `help` + `noop hello`, assert banner + echo. Driven under BOTH spellings (`repl` and the `console` alias), because commander reports an alias as a name and 'registered' is not 'reachable'",
+          "evidence": "pending"
+        }
+      ]
+    }
+  ]
+}

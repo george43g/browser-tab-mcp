@@ -221,6 +221,17 @@ jobs:
       - name: Run e2e (built extension ↔ throwaway daemon)
         run: pnpm --filter @george43g/chrome-extension test:e2e
 
+      # `always()`, not `failure()`: the point of this file is the runs that
+      # PASSED — per-file participation and per-surface proof, plus the retry
+      # counts that `retries: 1` otherwise absorbs into a green tick.
+      - name: Upload e2e coverage report
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: e2e-coverage
+          path: apps/chrome-extension/e2e-coverage.json
+          if-no-files-found: warn
+
       - name: Upload Playwright report on failure
         if: failure()
         uses: actions/upload-artifact@v7
@@ -283,6 +294,13 @@ jobs:
         run: pnpm --filter @george43g/chrome-extension test:e2e
         env:
           E2E_BROWSER_CHANNEL: ${{ matrix.channel }}
+      - name: Upload e2e coverage report
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: e2e-coverage-${{ matrix.channel }}
+          path: apps/chrome-extension/e2e-coverage.json
+          if-no-files-found: warn
       - name: Upload Playwright report on failure
         if: failure()
         uses: actions/upload-artifact@v7

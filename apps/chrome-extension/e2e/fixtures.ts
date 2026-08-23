@@ -98,6 +98,41 @@ async function assertDaemonIdentity(d: Daemon): Promise<void> {
 }
 
 /**
+ * Assert the extension the daemon is talking to is built from THIS tree.
+ *
+ * The C3 failure: a spec passes against last week's `dist/`. Git does not
+ * preserve mtimes, so a file-freshness check is worthless here — but the
+ * daemon already computes the signal for its own reasons. `extIsStale`
+ * (`daemon/ws-server.ts`) compares the extension's `protocolVersion` against
+ * the daemon's `WIRE_PROTOCOL_VERSION` at hello, and `daemon status --json`
+ * reports it per session. A stale bundle also reports no capabilities, so
+ * everything downstream degrades into "gracefully refuses" — which reads as a
+ * product limitation rather than a build problem.
+ *
+ * Call this once the browser is extension-authoritative, not at startDaemon
+ * time: nothing has connected yet then.
+ */
+export async function assertExtensionFresh(daemon: Daemon): Promise<void> {
+  const s = await daemon.status();
+  const sessions = (s.extensionInfo ?? []) as Array<Record<string, unknown>>;
+  if (sessions.length === 0) {
+    throw new Error(
+      "daemon reports no extension sessions, so freshness cannot be checked. " +
+        "Wait for dataSource === 'extension' before calling assertExtensionFresh().",
+    );
+  }
+  const stale = sessions.filter((x) => x.stale === true);
+  if (stale.length > 0) {
+    throw new Error(
+      `extension session(s) ${stale.map((x) => String(x.browser)).join(", ")} speak an ` +
+        `older wire protocol than this daemon — the loaded dist/ is from an earlier ` +
+        `build. Run \`pnpm build\` and re-run; testing a stale bundle is a pass that ` +
+        `means nothing.`,
+    );
+  }
+}
+
+/**
  * @param specUrl the calling spec's `import.meta.url`. REQUIRED, so that an
  * unmigrated caller is a typecheck error rather than a silent fall-back to a
  * shared port — see `e2e/ports.ts` for why sharing is not survivable.

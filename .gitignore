@@ -90,6 +90,10 @@ example/**/*.node
 test-results/
 playwright-report/
 playwright/.cache/
+# Written by e2e/run-guard.ts every run (per-channel, per-machine). Uploaded as
+# a CI artifact, not tracked — unlike stress-mcp-report.json, this one changes
+# on every run and would be pure churn.
+apps/chrome-extension/e2e-coverage.json
 
 # Agent worktrees (isolated checkouts created by the Agent tool). They nest a
 # second root biome.json inside the repo; also excluded in biome.json.
