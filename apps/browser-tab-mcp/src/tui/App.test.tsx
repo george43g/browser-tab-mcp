@@ -130,12 +130,26 @@ afterEach(() => {
 });
 
 describe("App viewport", () => {
-  it("never renders more lines than the terminal has", async () => {
-    for (const rows of [50, 24, 20, 12]) {
-      const { lines, unmount } = await renderAt(100, rows);
-      expect(lines.length, `terminal height ${rows}`).toBeLessThanOrEqual(rows);
-      unmount();
-    }
+  /**
+   * ONE CASE PER GEOMETRY, not one loop over four.
+   *
+   * This was a single test mounting, resizing and unmounting a full Ink tree
+   * four times, all inside vitest's default 5s budget. On the windows-latest
+   * runner that is genuinely close to the limit, and it timed out
+   * intermittently — including on `main` at `docs(brief)` (#96), a commit that
+   * touched no source file at all, which is what proves it was the harness and
+   * not the app.
+   *
+   * Splitting gives each geometry its own budget for the same total work, and
+   * a failure now names the height that broke instead of the whole set. Do not
+   * re-collapse this into a loop to save four lines.
+   */
+  it.each([
+    50, 24, 20, 12,
+  ])("never renders more lines than the terminal has (rows=%i)", async (rows) => {
+    const { lines, unmount } = await renderAt(100, rows);
+    cleanup = unmount;
+    expect(lines.length, `terminal height ${rows}`).toBeLessThanOrEqual(rows);
   });
 
   it("fills a tall terminal rather than stopping at 24", async () => {

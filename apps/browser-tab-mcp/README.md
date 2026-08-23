@@ -127,6 +127,27 @@ A **single** bin, `browser-tab`, with subcommands (run `browser-tab --help`):
 | `logs` | recent server/daemon log lines (**dev-only** — the dispatcher refuses without `MCP_DEV=1`) |
 | `repl` (alias `console`) | interactive REPL over the in-process dispatcher |
 
+### Where each process writes its logs
+
+The NDJSON logger names its **directory** after the process's log prefix, so each kind of
+process gets its own:
+
+| Process | Directory |
+|---|---|
+| `browser-tab mcp`, `browser-tab tui` | `$TMPDIR/browser-tab-mcp/` |
+| `browser-tab daemon run` | `$TMPDIR/browser-tab-daemon/` |
+| every other subcommand | `$TMPDIR/browser-tab-cli/` |
+
+`MCP_LOG_DIR` overrides the directory outright; `MCP_LOG_PREFIX` renames it. The CLI is kept
+separate from the server rather than merged into one directory because log retention is
+per-directory (5 files by default) — a handful of one-shot `browser-tab list` invocations
+sharing a directory with the long-lived server would evict its session history.
+
+Before 2026-08-23 the CLI branded nothing and fell through to the logger's generic default,
+`$TMPDIR/mcp/`, which is shared with any other tool built from `mcp-cli-starter-template` that
+also forgot to brand. If you have an old `$TMPDIR/mcp/` lying around, that is where it came
+from; nothing writes there now.
+
 ## Platforms
 
 | | macOS | Windows | Linux |

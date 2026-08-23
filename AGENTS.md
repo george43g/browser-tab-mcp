@@ -209,7 +209,25 @@ The watchdog writes its state to JSON each tick when `MCP_WATCHDOG_STATE_PATH` i
 
 ## Logs
 
-NDJSON files written to `$TMPDIR/browser-tab-mcp/browser-tab-mcp-{PID}-{date}.ndjson`. Lines:
+**Three prefixes, one per process kind, and the prefix IS the directory.** The logger resolves
+its directory as `join(tmpdir(), logFilePrefix())`, so branding a process moves its whole log
+directory, not just the filename:
+
+| Process | Brands in | Directory |
+|---|---|---|
+| MCP server (`mcp`), TUI (`tui`) | `src/index.ts`, `src/tui/index.tsx` | `$TMPDIR/browser-tab-mcp/` |
+| daemon (`daemon run`) | `src/daemon/index.ts` | `$TMPDIR/browser-tab-daemon/` |
+| every other CLI subcommand | `main()` in `src/cli.ts` | `$TMPDIR/browser-tab-cli/` |
+
+The CLI one is **not** merged into `browser-tab-mcp/` on purpose: `pruneLogs` keeps N files per
+*directory* (default 5) and protects only a live process's newest file, so CLI one-shots sharing
+a directory would evict the long-lived server's session history. Until 2026-08-23 the CLI
+branded nothing at all and fell through to robustness's default `$TMPDIR/mcp/` — a bucket shared
+with every other tool built from this template that also forgot, and with this repo's own vitest
+runs. `tests/cli-log-branding.integration.test.ts` is the guard; adding a new process entry point
+means branding it there too.
+
+Filenames are `{prefix}-{PID}-{date}.ndjson`. Lines:
 - `level: "info" | "warn" | "error"` — events
 - `level: "perf"` with `dur_ms` — performance spans
 - `msg: "heartbeat"` — periodic memory/uptime (every 60s)
