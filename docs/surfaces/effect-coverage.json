@@ -200,8 +200,8 @@
       "coverage": [
         {
           "tier": "chromium-e2e",
-          "covers": "the real two-step scripting.executeScript against a real page served over http — metadata/text/state modes and navEpoch cache busting. Extension-only: there is no AppleScript path to read a page",
-          "evidence": "pending"
+          "covers": "the REAL two-step scripting.executeScript against a real page over http (chrome.scripting is blocked on data: entirely, so this could not be done with the roundtrip spec's data: page): metadata reads the live <title>, text returns reader-extracted prose and strips page chrome, state observes a scroll position that exists nowhere in the HTML, the navEpoch cache serves a repeat read and --force bypasses it, and an AppleScript-generation handle is refused with a reason",
+          "evidence": "apps/chrome-extension/e2e/content.e2e.test.ts"
         }
       ]
     },
@@ -211,8 +211,8 @@
       "coverage": [
         {
           "tier": "chromium-e2e",
-          "covers": "write-then-read against a real tab's real URL, proving the URL key survives the extension's own redaction/normalisation",
-          "evidence": "pending"
+          "covers": "write-then-read keyed by the URL the EXTENSION reported (post-redaction, post-normalisation) rather than one the test invented — a key mismatch would make notes silently unreadable; plus a miss on an un-annotated URL returning nothing rather than inventing or erroring",
+          "evidence": "apps/chrome-extension/e2e/content.e2e.test.ts"
         }
       ]
     },
@@ -222,8 +222,8 @@
       "coverage": [
         {
           "tier": "chromium-e2e",
-          "covers": "tier-1 tab capture: real captureVisibleTab bytes, the active-tab preflight, and the MCP image block. Likeliest failure in the whole sweep under --headless=new; re-tier rather than weaken",
-          "evidence": "pending"
+          "covers": "tier-1 tab capture: real captureVisibleTab bytes verified by the JPEG SOI marker and a size floor (so \"a file exists\" cannot pass for an empty one), the active-tab preflight REFUSING a background tab (a screenshot of the wrong tab is far worse than an error) with --focus fixing it, and the neither-id schema rejection. Flagged as the sweep's likeliest failure; measured working under --headless=new 2026-08-24",
+          "evidence": "apps/chrome-extension/e2e/capture.e2e.test.ts"
         },
         {
           "tier": "macos-local",
@@ -238,7 +238,12 @@
       "coverage": [
         {
           "tier": "chromium-e2e",
-          "covers": "real focus/nav events from a real browser reaching windowMru/tabMru/journey, and navEpoch bumping on a real committed navigation",
+          "covers": "real events, not a synthetic stream: a REAL committed navigation reaching `journey` with the browser's own transitionType and a navEpoch, the focus views asserted to be focus-only by design (recent/windowMru/tabMru return nav:[] unconditionally), and windowMru ordered by real onFocusChanged. Re-focus-driven MRU is NOT observable here — measured 2026-08-24, windows.update({focused:true}) on an existing window emits nothing under --headless=new — so that half is macos-local",
+          "evidence": "apps/chrome-extension/e2e/journal-history-bookmarks.e2e.test.ts"
+        },
+        {
+          "tier": "macos-local",
+          "covers": "AppleScript-mode browsers get COARSE events derived from StateStore diffs rather than extension frames — a different ingest path with different records. Also the half of windowMru the Chromium tier cannot reach: re-focusing an EXISTING window, which emits nothing under --headless=new because there is no window manager",
           "evidence": "pending"
         }
       ]
@@ -249,8 +254,8 @@
       "coverage": [
         {
           "tier": "chromium-e2e",
-          "covers": "Chrome-family: real chrome.history.search finding a URL this run actually visited, and the `sources` array reporting every source considered",
-          "evidence": "pending"
+          "covers": "Chrome-family: a real chrome.history.search finding a URL this run actually visited, and the `sources` array present on every result naming each source considered (the contract that exists because Chrome-only rows were otherwise indistinguishable from \"Safari had nothing\")",
+          "evidence": "apps/chrome-extension/e2e/journal-history-bookmarks.e2e.test.ts"
         },
         {
           "tier": "macos-local",
@@ -265,8 +270,8 @@
       "coverage": [
         {
           "tier": "chromium-e2e",
-          "covers": "search/list/create/update/remove against real chrome.bookmarks. Extension-only",
-          "evidence": "pending"
+          "covers": "real chrome.bookmarks: create returns the new node's real id and the node is verifiable through chrome.bookmarks.get, search finds it, update renames it in the real tree, remove really deletes it (not just answers ok), and a javascript: URL is refused — a security boundary worth proving against the real command path rather than a mocked client",
+          "evidence": "apps/chrome-extension/e2e/journal-history-bookmarks.e2e.test.ts"
         }
       ]
     },

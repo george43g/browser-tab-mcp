@@ -29,12 +29,13 @@ const REPORT = resolve(HERE, "..", "e2e-coverage.json");
 
 /**
  * Floor on how many tests must run. RAISE-ONLY: lowering it to make a run
- * green is the exact move this guard exists to catch. Thirty-six is today's suite
+ * green is the exact move this guard exists to catch. Fifty-two is today's suite
  * (load × 1, roundtrip × 2, tabs-lifecycle × 8, tab-action × 7,
- * tab-history × 3, tab-discard × 1, groups × 5, windows × 5, move-tab × 4); Phase 2 raises it as specs
+ * tab-history × 3, tab-discard × 1, groups × 5, windows × 5, move-tab × 4,
+ * content × 7, capture × 3, journal-history-bookmarks × 6); Phase 2 raises it as specs
  * land.
  */
-export const EXPECTED_MIN_TESTS = 36;
+export const EXPECTED_MIN_TESTS = 52;
 
 /**
  * Spec files allowed to contribute no non-skipped test, with the reason.

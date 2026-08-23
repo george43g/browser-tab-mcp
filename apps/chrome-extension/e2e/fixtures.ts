@@ -256,6 +256,23 @@ export interface Stack {
   tabHandle(id: number): string;
   windowHandle(id: number): string;
   /**
+   * Block until the daemon's snapshot actually contains this tab handle.
+   *
+   * NEEDED WHENEVER A SPEC CREATES A TAB OUT OF BAND. A tab created by a
+   * daemon COMMAND (`open_tab`, `move_tab`) is safe immediately: the extension
+   * pushes its post-command snapshot without debounce, precisely so
+   * read-after-write works. A tab created by `sw.evaluate(chrome.tabs.create)`
+   * has no such guarantee — it arrives on the ordinary debounced event path,
+   * so a daemon call naming it can legitimately lose the race.
+   *
+   * Measured 2026-08-24: `screenshot` on a just-created tab failed 3 runs in 5
+   * with "Tab … is not in the current snapshot — re-run list_tabs." That is
+   * the daemon being correct, not a defect; the test was asking too early.
+   * `tabs.get(id).status === "complete"` does NOT cover it — that is the
+   * browser's opinion, and the daemon is a separate process.
+   */
+  waitForTab(handle: string, timeoutMs?: number): Promise<void>;
+  /**
    * Parsed `browser-tab list --json`, NARROWED to this run's browser.
    *
    * ALWAYS go through this rather than scanning `snap.browsers`. The throwaway
@@ -312,6 +329,19 @@ export async function startStack(specUrl: string): Promise<Stack> {
     sw,
     tabHandle: (id) => `t:${EXPECTED_BROWSER}:x${id}`,
     windowHandle: (id) => `w:${EXPECTED_BROWSER}:x${id}`,
+    waitForTab: async (handle, timeoutMs = 15_000) => {
+      await pwExpect
+        .poll(
+          async () => {
+            const b = await browserState();
+            return ((b?.windows ?? []) as Array<Record<string, unknown>>)
+              .flatMap((w) => (w.tabs ?? []) as Array<Record<string, unknown>>)
+              .some((t) => t.tabId === handle);
+          },
+          { timeout: timeoutMs, intervals: [200] },
+        )
+        .toBe(true);
+    },
     browserState,
     close: async () => {
       await context.close();
