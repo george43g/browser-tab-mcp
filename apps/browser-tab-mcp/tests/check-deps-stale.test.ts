@@ -220,6 +220,20 @@ describe("check-deps-stale", () => {
     expect(code, "not knowing is not a build failure — but it must be visible").toBe(0);
   });
 
+  /**
+   * The scheduled CI job tees this into `$GITHUB_STEP_SUMMARY`, which renders
+   * as markdown. Raw SGR escapes there are not dim text — they are visible
+   * garbage wrapped around the one line anyone wanted to read.
+   */
+  it("emits no ANSI escapes under NO_COLOR, for the CI job summary", () => {
+    const root = fixture({ kit: "^0.11.0" }, { kit: "0.11.0" });
+    const npm = fakeNpm({ kit: "0.12.0" });
+    const { stdout } = run(root, ["--registry"], npm);
+    expect(stdout).toContain("STARVED");
+    // biome-ignore lint/suspicious/noControlCharactersInRegex: asserting the ESC byte is absent is the point.
+    expect(stdout, "raw escape bytes reached stdout under NO_COLOR").not.toMatch(/\x1b\[/);
+  });
+
   it("--advisory reports the same findings without failing the build", () => {
     const root = fixture({ kit: "^0.11.0" }, { kit: "0.11.0" });
     const npm = fakeNpm({ kit: "0.12.0" });

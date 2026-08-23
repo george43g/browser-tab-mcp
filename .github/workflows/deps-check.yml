@@ -1,0 +1,97 @@
+# Dependency starvation check — weekly, not per-PR.
+#
+# WHY A SCHEDULE AND NOT A GATE. The finding this looks for is "upstream
+# published something our specifier structurally cannot reach", and upstream
+# publishes on its own schedule, not on ours. Wiring it to `pull_request` would
+# put ~60 network round-trips on every PR to answer a question whose answer
+# cannot have changed since the last PR — and would hand every merge a new way
+# to flake. Wiring it to nothing at all is worse: a check nobody remembers to
+# run is one that stops running, which is exactly how this repo shipped three
+# starved dependencies in a row without noticing.
+#
+# WHY FAILING IS THE RIGHT SIGNAL. A red scheduled run is visible in the
+# Actions tab and mails the repo owner. It cannot block anyone's merge, so
+# there is nothing to route around. And it will not cry wolf on a network
+# blip: an unreachable registry produces no STARVED rows, so the script exits
+# 0 and says UNCHECKED instead — the one failure mode it refuses to have is
+# reporting a clean bill of health it did not earn.
+#
+# `--registry` is blocking on purpose (no `--advisory`): an advisory run that
+# always exits 0 has no way to tell anyone anything.
+
+name: Dependency check
+
+on:
+  schedule:
+    # Mondays, 02:00 UTC. Early enough in the week that acting on it is
+    # cheap; the exact hour is arbitrary and GitHub may delay it.
+    - cron: "0 2 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  deps-check:
+    name: starved / lock-stale dependencies
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v6
+        with:
+          version: 10.29.3
+
+      - name: Setup Node
+        uses: actions/setup-node@v6
+        with:
+          node-version: "24"
+          cache: pnpm
+
+      # `--frozen-lockfile` matters here beyond the usual reason: this script
+      # reads the RESOLVED version out of node_modules, so an install that
+      # silently updated something would have it auditing a tree that exists
+      # nowhere else.
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Check dependency freshness
+        id: check
+        run: |
+          # Tee to the job summary so the finding is readable without opening
+          # the log. Two traps, both of which this repo has hit before:
+          #   - GitHub runs `run:` under `bash -e`, so a failing pipeline would
+          #     abort the step BEFORE the status could be captured. Hence the
+          #     explicit `set +e` around it.
+          #   - `$?` after a pipeline is the LAST command's status, i.e. tee's,
+          #     which is always 0. `PIPESTATUS[0]` is the script's own.
+          {
+            echo '## Dependency freshness'
+            echo
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+          set +e
+          NO_COLOR=1 pnpm deps:check --registry 2>&1 | tee -a "$GITHUB_STEP_SUMMARY"
+          STATUS=${PIPESTATUS[0]}
+          set -e
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
+          exit "$STATUS"
+
+      - name: Explain a failure
+        if: failure()
+        run: |
+          cat >> "$GITHUB_STEP_SUMMARY" <<'EOF'
+
+          A **STARVED** row means the specifier structurally cannot reach the
+          published version — a caret on a `0.x` package pins the MINOR, so no
+          `pnpm install` will ever cross it. Raise the specifier in **every**
+          manifest that declares it (the vendored `packages/mcp-kit` one has
+          been the missed half twice), then `pnpm install` and commit the
+          lockfile.
+
+          A 0.x minor is semver's breaking slot: diff the type surface before
+          bumping, not after.
+          EOF
