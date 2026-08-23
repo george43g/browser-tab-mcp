@@ -34,7 +34,7 @@
  */
 
 import { execFile } from "node:child_process";
-import { existsSync, mkdtempSync, readdirSync, rmSync } from "node:fs";
+import { existsSync, mkdtempSync, readdirSync, realpathSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -74,7 +74,18 @@ async function runCli(
 ): Promise<void> {
   const env: NodeJS.ProcessEnv = {
     ...process.env,
+    // ALL THREE, and Windows is why. `os.tmpdir()` reads `TMPDIR` on POSIX but
+    // `TEMP` then `TMP` on win32 — setting only `TMPDIR` there redirects
+    // nothing, the child logs into the real user temp dir, and this file's
+    // assertions look at an empty directory. That is not hypothetical: it is
+    // how this test failed on the windows-latest leg the first time it ran,
+    // and the sweep half failed SILENTLY (nothing in our dir means no `mcp/`
+    // in our dir, so the negative assertion passed for the wrong reason).
+    // The "redirects the child process's tmpdir" canary below is what makes a
+    // recurrence one legible failure instead of four misleading ones.
     TMPDIR: tmp,
+    TEMP: tmp,
+    TMP: tmp,
     BROWSER_TAB_FAKE_ADAPTER: "1",
     ...extraEnv,
   };
@@ -121,6 +132,28 @@ afterAll(() => {
 describe("CLI log branding", () => {
   it("requires a built bin (this test is about the shipped binary)", () => {
     expect(existsSync(CLI), `${CLI} missing — run \`pnpm build\` first`).toBe(true);
+  });
+
+  /**
+   * CANARY: prove the temp-dir isolation actually takes effect on THIS platform
+   * before trusting a single directory assertion below.
+   *
+   * Every other test here reasons about "the directory the child logged into".
+   * If the child's `os.tmpdir()` is not ours, all of them are inspecting an
+   * empty directory — the positive ones fail confusingly and the negative sweep
+   * passes vacuously. Asserting the mechanism directly turns a platform
+   * difference into one legible failure instead of four misleading ones.
+   */
+  it("redirects the child process's tmpdir on this platform", async () => {
+    const tmp = isolatedTmp();
+    const env: NodeJS.ProcessEnv = { ...process.env, TMPDIR: tmp, TEMP: tmp, TMP: tmp };
+    const { stdout } = await execFileP("node", ["-p", "require('node:os').tmpdir()"], { env });
+    expect(
+      realpathSync(stdout.trim()),
+      `child tmpdir is ${stdout.trim()}, not ${tmp} — the env keys this test sets do not ` +
+        `redirect os.tmpdir() on ${process.platform}, so every directory assertion below ` +
+        `would be inspecting the wrong place`,
+    ).toBe(realpathSync(tmp));
   });
 
   // (a) THE PROOF. These three all emit at least a `dispatch.<tool>` perf span,
