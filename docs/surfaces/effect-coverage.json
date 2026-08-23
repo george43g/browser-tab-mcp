@@ -125,8 +125,8 @@
       "coverage": [
         {
           "tier": "chromium-e2e",
-          "covers": "extension pathway: mute/unmute/pin/unpin/reload/duplicate/navigate, plus back/forward and discard in isolated files",
-          "evidence": "pending"
+          "covers": "extension pathway: mute/unmute (real mutedInfo + the snapshot enrichment), pin/unpin (including Chrome relocating a pinned tab to index 0), navigate in place, reload really re-fetching (a DOM mutation is thrown away), duplicate producing a second real tab, and refusals for a missing --url and an unknown action. back/forward are in tab-history.e2e.test.ts (a REAL click gesture, both directions, plus Chrome's own \"Cannot find a next page in history\" rejection travelling the full error path); discard is isolated in tab-discard.e2e.test.ts, which asserts only that a real browser accepted it and REISSUED the tab id — a post-discard read is unreachable by construction",
+          "evidence": "apps/chrome-extension/e2e/tab-action.e2e.test.ts"
         },
         {
           "tier": "macos-local",
