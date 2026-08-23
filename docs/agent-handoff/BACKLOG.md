@@ -1303,3 +1303,39 @@ from an outside report without reading our file.
   (#100, `6782b6c`) plus a weekly scheduled workflow (#102, `201804f`). It found a second
   live instance nobody had noticed: `@types/chrome@^0.0.280` caps at `0.0.281` while the
   registry is at `0.2.7`, in three manifests — **still open, not yet bumped.**
+
+## 2026-08-24 — found by the Chromium sweep (Phase 2 in flight)
+
+### B12. `open_tab`/`open_window` with no `browser` target the FIRST CONFIGURED browser, not a running one
+
+`client/tabs-service.ts:150` resolves `input.browser ?? (input.windowId ? browserOf(input.windowId)
+: enabledBrowsers()[0])`; `:176` (`open_window`) and `daemon/index.ts:350` do the same. So an
+untargeted open goes to `enabledBrowsers()[0]` — **chrome by default** — whether or not Chrome is
+running and whether or not some *other* browser is the one with a live extension feed.
+
+**Measured, not theorised.** CI 2026-08-24, `e2e (msedge, windows)` on PR #107: `open_tab` with no
+`--browser`, on a run whose only real browser is Edge with a connected extension, returned
+`t:chrome:9999` — an AppleScript-generation handle from the *fake* adapter — instead of an
+`x`-handle from the live Edge session. The chromium legs never showed it because
+`enabledBrowsers()[0] === "chrome"` happens to be the run's browser there.
+
+**Not obviously a bug**: a deterministic default is defensible, and the daemon knows
+`focusedBrowser`, so "the focused browser" and "the first browser with a live feed" are both
+plausible alternatives with their own surprises. What is NOT defensible is that nothing states
+which rule applies — the tool description says nothing, and the only test that could have shown it
+is the one that just did.
+
+**Not observable on the chromium-e2e tier either way**, because the throwaway daemon runs
+`BROWSER_TAB_FAKE_ADAPTER=1` and therefore always fabricates a running chrome.
+`tabs-lifecycle.e2e.test.ts` passes `--browser` explicitly and says why; it does not assert the
+default. Deciding the rule is a product call, and asserting it needs a tier where "which browsers
+are running" is real — T3, or a `cli-process` test that controls `BROWSER_TAB_BROWSERS`.
+
+### Trap (not a bug): the e2e daemon's snapshot always contains FAKE browsers
+
+The throwaway daemon runs the fake AppleScript adapter so it never shells `osascript`. That fake
+fabricates brave/chromium/safari windows full of plausible tabs (gmail, github, HN). Any e2e
+assertion that scans `snap.browsers` rather than narrowing to the run's browser is measuring the
+fixture — and measuring it *successfully*, which is worse than failing. Cost an hour on PR #107,
+where a tab-count assertion picked "the first browser with windows" and got brave.
+`stack.browserState()` narrows and carries the warning; use it.

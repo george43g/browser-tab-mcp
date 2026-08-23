@@ -14,7 +14,7 @@
  * routing, or the CLI's arg glue.
  */
 
-import { expect, type Stack, startStack, test } from "./fixtures.js";
+import { EXPECTED_BROWSER, expect, type Stack, startStack, test } from "./fixtures.js";
 import { type LocalServer, PAGE_MARKER, startLocalServer } from "./local-server.js";
 
 test.describe.configure({ mode: "serial" });
@@ -68,7 +68,17 @@ test.describe("tab lifecycle", () => {
     test.info().annotations.push({ type: "surface", description: "open_tab" });
     const url = server.url("/u/opened");
 
-    const raw = JSON.parse(await stack.daemon.cli(["open", url, "--json"])) as {
+    // `--browser` EXPLICITLY, and this is not incidental. An untargeted
+    // `open_tab` resolves to `enabledBrowsers()[0]`
+    // (`client/tabs-service.ts:150`) — chrome by default, whatever is actually
+    // running. On the msedge leg that routed to the FAKE AppleScript adapter
+    // and returned `t:chrome:9999` instead of an x-handle (CI, 2026-08-24).
+    // The default is deterministic by design, so this is not a bug being
+    // hidden; it is simply not observable on this tier, because the fake
+    // adapter fabricates a running chrome for every run. See BACKLOG B12.
+    const raw = JSON.parse(
+      await stack.daemon.cli(["open", url, "--browser", EXPECTED_BROWSER, "--json"]),
+    ) as {
       ok: boolean;
       command: string;
       tabId?: string;
