@@ -128,6 +128,7 @@ structured result it used to discard). Before bumping, run
 | `pnpm lint` | Biome check |
 | `pnpm lint:fix` | Biome write |
 | `pnpm stress` | Run 14-case stress harness against the built MCP |
+| `pnpm deps:check [--registry] [--all] [--filter X]` | Dependency freshness. Reads the **resolved** version out of `node_modules`, never the manifest — a specifier is not evidence of what runs. Offline it checks install integrity only; `--registry` is the mode that matters and it separates **STARVED** (a 0.x caret pins the MINOR, so no install can ever reach the new version — blocking) from **LOCK-STALE** (the range admits it, the install hasn't — `pnpm update`) from an ordinary next-major, which is collapsed to one line because reporting it as a defect is how a report stops being read. Three real instances preceded it, each found by an outside session rather than by us. |
 | `pnpm verify` | lint + typecheck + test + build (CI shape) |
 | `pnpm verify:macos` | **the checks CI no longer makes.** Compiles rust-accel's `#[cfg(target_os = "macos")]` CoreGraphics code, loads the built `.node`, calls `listCgWindows()`/`listDisplays()` for real, asserts the `#[napi(js_name)]` field names at runtime, then runs the suite on the native path. Wired to `.githooks/pre-push`. |
 
