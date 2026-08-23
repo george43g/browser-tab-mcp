@@ -12,11 +12,12 @@
 import { type ChildProcess, execFile, spawn } from "node:child_process";
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join, resolve } from "node:path";
+import { basename, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { promisify } from "node:util";
 import { defaultIpcEndpoint } from "@george43g/test-kit";
 import { type BrowserContext, test as base, chromium, type Worker } from "@playwright/test";
+import { portForSpec } from "./ports.js";
 
 const execFileP = promisify(execFile);
 const HERE = fileURLToPath(new URL(".", import.meta.url));
@@ -48,17 +49,63 @@ export interface Daemon {
 }
 
 /**
- * Pick a port deterministically-ish from the pid to avoid collisions in a serial run.
- * Base 24_500: 21500-23899 now belongs to the vitest integration bands — see
- * `randomWsPort(` callers and `packages/test-kit/src/fakes/daemon-env.ts`.
+ * Assert the daemon answering us is the one we just spawned.
+ *
+ * CI cannot catch environment-binding defects — a fresh runner has no
+ * pre-existing daemon to be confused with — so this exists for the machine
+ * where it actually happens: a developer's box, where a real console or
+ * launchd daemon is running as the same user. Measured on the Windows box
+ * (2026-08-22): `daemon status` returned a different pid, ws 8790 and uptime
+ * 50min, and the msedge roundtrip failed in a way that looked like a product
+ * bug. Every check below turns one of those symptoms into a named failure.
  */
-function ephemeralPort(): number {
-  return 24_500 + (process.pid % 2000);
+async function assertDaemonIdentity(d: Daemon): Promise<void> {
+  const s = await d.status();
+  const fail = (why: string): never => {
+    throw new Error(
+      `${why}\n` +
+        `  This test is talking to the WRONG daemon. A real browser-tab daemon is\n` +
+        `  probably running as this user — stop it with \`browser-tab daemon stop\`,\n` +
+        `  or give this run a distinct BROWSER_TAB_SOCKET_PATH.`,
+    );
+  };
+
+  // `spawn` is called without `shell: true`, so proc.pid IS the node pid.
+  if (s.pid !== d.proc.pid) fail(`daemon status reports pid ${s.pid}, we spawned ${d.proc.pid}.`);
+  if (s.socket !== d.env.BROWSER_TAB_SOCKET_PATH) {
+    fail(
+      `daemon status reports socket ${s.socket}, we asked for ${d.env.BROWSER_TAB_SOCKET_PATH}.`,
+    );
+  }
+  // Redundant with the pid check, but it is the human-legible tell from the
+  // original measurement and it survives a pid coincidence after a reboot.
+  if (typeof s.uptimeS === "number" && s.uptimeS > 60) {
+    fail(`daemon reports ${s.uptimeS}s uptime; ours is seconds old.`);
+  }
+  // A null wsPort means the WS bind FAILED and the daemon degraded silently to
+  // ext = null (`ws_disabled`). Everything downstream would then wait forever
+  // for `dataSource: "extension"`. This is also the port-band check: one call,
+  // two guarantees.
+  if (s.wsPort !== d.wsPort) {
+    throw new Error(
+      s.wsPort === null
+        ? `daemon bound NO WS port — the ${d.wsPort} bind was lost and swallowed as ` +
+            `ws_disabled. Another daemon (or a previous run's leak) holds that port; ` +
+            `see e2e/ports.ts for the per-spec bands.`
+        : `daemon bound WS port ${s.wsPort}, we asked for ${d.wsPort}.`,
+    );
+  }
 }
 
-export async function startDaemon(): Promise<Daemon> {
+/**
+ * @param specUrl the calling spec's `import.meta.url`. REQUIRED, so that an
+ * unmigrated caller is a typecheck error rather than a silent fall-back to a
+ * shared port — see `e2e/ports.ts` for why sharing is not survivable.
+ */
+export async function startDaemon(specUrl: string): Promise<Daemon> {
+  const specBasename = basename(fileURLToPath(specUrl));
   const dir = mkdtempSync(join(tmpdir(), "bt-e2e-"));
-  const wsPort = ephemeralPort();
+  const wsPort = portForSpec(specBasename);
   // Shared isolation: state/cache/log dirs + WS port + IPC endpoint, never
   // the real ~/.browser-tab and never the per-user default pipe/socket. The
   // socket path matters most on Windows: leaving it unset falls back to the
@@ -136,7 +183,14 @@ export async function startDaemon(): Promise<Daemon> {
     rmSync(dir, { recursive: true, force: true });
   };
 
-  return { proc, wsPort, token, env, cli, status, stop };
+  const daemon: Daemon = { proc, wsPort, token, env, cli, status, stop };
+  try {
+    await assertDaemonIdentity(daemon);
+  } catch (err) {
+    await stop();
+    throw err;
+  }
+  return daemon;
 }
 
 /** Launch the extension in a fresh new-headless Chromium; resolve its id. */
