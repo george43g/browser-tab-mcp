@@ -24,6 +24,7 @@
     "typecheck": "turbo run typecheck",
     "stress": "node scripts/turbo-with-stamp.mjs stress",
     "release:check": "node scripts/verify-release.mjs",
+    "deps:check": "node scripts/check-deps-stale.mjs",
     "verify": "pnpm lint && pnpm typecheck && pnpm test && pnpm build",
     "verify:macos": "node scripts/verify-macos.mjs",
     "hooks:install": "git config core.hooksPath .githooks",
