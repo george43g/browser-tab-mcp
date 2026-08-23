@@ -28,8 +28,18 @@ here.** Nothing about this work may live only in an agent's private memory.
 
 ## Ground rules (user-set, non-negotiable)
 
-1. **Never merge a PR without the user's explicit say-so.** Open the PR, get
-   CI green, report, and wait for the merge word.
+1. **~~Never merge a PR without the user's explicit say-so.~~ SUPERSEDED
+   2026-08-24 — George, verbatim: _"all prs are approved to merge"_** (said
+   while approving #99 and #108 individually, then generalising). Standing
+   authority to merge, **conditional on green CI** — the bar in rule 5 is
+   unchanged, and a red or pending check is still a stop. The original rule is
+   left visible rather than deleted, because the conditionality is the whole
+   content of the change: what was withdrawn is the wait for a merge word, not
+   the requirement that the PR be green and reported.
+
+   Two things this does NOT cover, both learned the hard way and both still
+   requiring a word: a PR that touches **another agent's in-flight work** (see
+   #108), and anything under rule 4.
 2. **Never commit/push to `main` directly** — branch per workstream, one PR
    per workstream, each independently green. Squash-merge with a
    conventional-commit title.

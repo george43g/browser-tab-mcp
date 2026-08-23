@@ -2348,3 +2348,89 @@ Recording absent = named skip, FDA absent = named skip), and a redacted
 ordering, because `focus.test.ts` mocks the return STRING and so proves the decoder, never the script.
 
 If not: the plan is done. `docs/surfaces/effect-coverage.json` is the register of what is left.
+
+---
+
+## Checkpoint #8 — 2026-08-24 (session 5a15fe80, second precompact)
+
+**Where this file and any conversation summary disagree, THIS FILE IS CORRECT.**
+Short by design: checkpoint #7 (directly above) still holds for the plan itself. This records
+only what changed after it, plus one correction to a claim #7's PR made.
+
+## State
+
+v1.4.1 released and verified cut. Zero open PRs. The effect-verification plan is complete
+through Phase 5; **Phase 4 (`pnpm sweep:macos`) is the only work left and is blocked on George.**
+
+## Constraints
+
+New, and **promoted into `README.md` ground rule 1** rather than left here — George, 2026-08-24,
+verbatim: *"pr 99 approval to merge, 108 approval to merge, all prs are approved to merge"*.
+Standing merge authority, conditional on green CI. It **supersedes** the old rule 1 ("Never merge
+a PR without the user's explicit say-so"), which is struck through but left visible there because
+the conditionality is the entire content of the change.
+
+Everything in checkpoint #7's Constraints section still stands.
+
+## Done
+
+- **PR #99 `chore(main): release 1.4.1` merged** — `82f4b6c`. **The release really was cut**, not
+  merely workflow-green: `gh release view v1.4.1` → `tag=v1.4.1 draft=false created=2026-08-23T21:57:45Z`,
+  and `pnpm release:check` → `release check — baseline v1.4.1 … ok`. That check is not ceremony;
+  the standing failure mode is a green workflow that cut nothing (v1.0.0).
+  Changelog carries exactly the three `fix:` commits (#98, #103, #106) — `test:`/`docs:`/`chore:`
+  correctly do not bump.
+- **PR #108 merged** — `0230293`. Un-tracks the two docs a too-broad `git add` swept into #107.
+- **Ground rule 1 amended** with the verbatim supersession above.
+
+## Open
+
+Nothing open in this repo's own work except **Phase 4**, which is Blocked-on-you below.
+`docs/surfaces/effect-coverage.json` is the register for what Phase 4 would close: 31/31 surfaces
+have a proved pathway, 32 pathway rows proved, **14 pending — all `macos-local`**. B12/B13/B14 in
+BACKLOG remain open by deliberate deferral (each is a product decision, not a defect to fix).
+
+## Corrections
+
+**PR #108's description, and my chat message repeating it, said both docs would "stay on disk
+exactly as they were". That was false after the merge.** It is true on a branch — `git rm --cached`
+leaves the working file — but the merge commit records the file as absent, so `git pull` onto a
+clean tree DELETES it. Both files were gone when checked.
+
+Restored from `82f4b6c` and verified byte-identical to what #107 had committed
+(25,706 and 74,984 bytes; sha256 match against `git show 7484c7c:<path>`). They are untracked on
+disk again, which is the state George's tree was in at session start. **Nothing lost — but the
+claim was stated as fact before it was verified, and only checking caught it.**
+
+## Traps
+
+- **`git rm --cached` does not survive the merge.** Un-tracking a file on a branch leaves it on
+  disk *there*; anyone who pulls the resulting commit loses it. To un-track without destroying
+  copies, say so in the PR and re-create the file after pulling — or don't track it in the first
+  place.
+- Everything else: checkpoint #7's Traps section and `GOTCHAS.md`.
+
+## Tree
+
+`main` @ `0230293`, in sync with `origin/main`, no staged or modified files. Four untracked files,
+none mine, all deliberately left: `docs/deep-application-control-platform-architecture.md` and
+`docs/tab-selection-transformation-language-spec.md` (restored per Corrections),
+`surfingkeys-integration-ideas.md`, and the root-level `tab-selection-transformation-language-spec.md`
+(older duplicate of the docs/ one).
+
+## Blocked on you
+
+**Phase 4 only.** It needs (a) `brew install --cask chromium` — a prerequisite the plan flagged as
+George's call, which will also prompt for its own Automation TCC grant on first run; and (b) a
+moment he is not typing, because `focus_tab` and `set_window` genuinely steal focus and move a
+window and there is no way to test them otherwise. **Nothing has been installed and nothing has
+been run against his real browsers.**
+
+## Resume
+
+If Phase 4 is greenlit, checkpoint #7's `## Resume` section has the full build order for
+`scripts/sweep-macos.mjs` and is still accurate — start there, not here.
+
+If not, the plan is finished and `docs/surfaces/effect-coverage.json` is the register of what
+remains unproved. No mid-flight state: nothing staged, no background task running, no half-applied
+edit, no question outstanding.
