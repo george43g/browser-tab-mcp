@@ -9,6 +9,7 @@
 
 import type { BrowserContext, Worker } from "@playwright/test";
 import {
+  assertExtensionFresh,
   type Daemon,
   EXPECTED_BROWSER,
   expect,
@@ -57,6 +58,11 @@ test.describe("extension ↔ daemon round-trip", () => {
         { timeout: 20_000, intervals: [250] },
       )
       .toBe("extension");
+
+    // Now that a session exists, prove it is THIS tree's bundle. A stale dist/
+    // reports no capabilities, so the rest of this file would degrade into
+    // graceful refusals that look like product limits.
+    await assertExtensionFresh(daemon);
   });
 
   test.afterAll(async () => {
@@ -69,6 +75,10 @@ test.describe("extension ↔ daemon round-trip", () => {
   });
 
   test("the daemon serves the real extension's tabs with x-handles", async () => {
+    // Read by e2e/run-guard.ts: the ledger claims `list_tabs` is effect-verified
+    // on this tier, and this annotation is what makes that claim checkable. Drop
+    // it and the run fails with the surface named.
+    test.info().annotations.push({ type: "surface", description: "list_tabs" });
     const snap = JSON.parse(await daemon.cli(["list", "--json"]));
     const chrome = (snap.browsers as Array<Record<string, unknown>>).find(
       (b) => b.browser === EXPECTED_BROWSER,
@@ -86,6 +96,7 @@ test.describe("extension ↔ daemon round-trip", () => {
   });
 
   test("a daemon-driven cross-window move preserves scroll", async () => {
+    test.info().annotations.push({ type: "surface", description: "move_tab" });
     // Two real windows: one with a tall page, one empty target.
     const ids = await sw.evaluate(async (tall) => {
       const c = (globalThis as unknown as { chrome: typeof chrome }).chrome;

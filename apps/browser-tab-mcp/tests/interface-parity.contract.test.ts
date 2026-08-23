@@ -19,34 +19,12 @@
 
 import { describe, expect, it } from "vitest";
 import { makeAppRegistry } from "../src/tools/registry.js";
-import { cliCommandNames } from "./helpers/cli-surface.js";
+import { cliCommandNames, cliFormOf, TOOL_CLI_FORM } from "./helpers/cli-surface.js";
 
-/**
- * Tools whose CLI form is a SUBCOMMAND of another command rather than a
- * top-level one. Each is still fully reachable; the mapping just is not the
- * identity, so it has to be stated.
- */
-const SUBCOMMAND_FORMS: Record<string, string> = {
-  open_window: "window open",
-  set_window: "window set",
-  close_window: "window close",
-  daemon_status: "daemon status",
-};
-
-/** Tool name → the top-level CLI command that fronts it. */
-const CLI_NAME: Record<string, string> = {
-  health_check: "health",
-  list_tabs: "list",
-  focus_tab: "focus",
-  move_tab: "move",
-  open_tab: "open",
-  close_tab: "close",
-  tab_action: "act",
-  group_tabs: "group",
-  get_page: "page",
-  get_logs: "logs",
-  bookmarks: "bookmark",
-};
+// The tool → CLI-command mapping used to live here. It moved to
+// `helpers/cli-surface.ts` when the surface-coverage ledger became a second
+// reader of it: two copies of a naming map drift, and the drift shows up as a
+// PASSING test in both files.
 
 describe("MCP ↔ CLI parity", () => {
   const tools = makeAppRegistry().tools.map((t) => t.name);
@@ -63,12 +41,12 @@ describe("MCP ↔ CLI parity", () => {
       .tools.map((t) => t.name)
       .filter((n) => n !== "noop"),
   )("%s is reachable from the CLI", (tool) => {
-    const expected = SUBCOMMAND_FORMS[tool] ?? CLI_NAME[tool] ?? tool;
+    const expected = cliFormOf(tool);
     expect(
       cli.has(expected),
       `tool "${tool}" has no CLI command ("${expected}"). Every tool must be reachable ` +
-        `from every surface — add the command in cli.ts, or map it in this test if it ` +
-        `is fronted under a different name.`,
+        `from every surface — add the command in cli.ts, or map it in TOOL_CLI_FORM ` +
+        `(tests/helpers/cli-surface.ts) if it is fronted under a different name.`,
     ).toBe(true);
   });
 
@@ -84,8 +62,7 @@ describe("MCP ↔ CLI parity", () => {
     // would fail at runtime with "Unknown tool name" and look like a bug.
     const known = new Set([
       ...tools,
-      ...Object.values(CLI_NAME),
-      ...Object.keys(SUBCOMMAND_FORMS),
+      ...Object.values(TOOL_CLI_FORM),
       // Surfaces and lifecycle, not tool fronts.
       "mcp",
       "tui",
@@ -104,9 +81,8 @@ describe("MCP ↔ CLI parity", () => {
       // them as names, so they are reachable but front nothing of their own.
       "bm",
     ]);
-    const orphans = [...cli].filter((c) => !c.includes(" ") && !known.has(c) && !CLI_NAME[c]);
-    const mapped = new Set(Object.values(CLI_NAME));
-    expect(orphans.filter((o) => !mapped.has(o))).toEqual([]);
+    const orphans = [...cli].filter((c) => !c.includes(" ") && !known.has(c));
+    expect(orphans).toEqual([]);
   });
 });
 
