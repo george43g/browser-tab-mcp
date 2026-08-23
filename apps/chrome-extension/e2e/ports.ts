@@ -48,6 +48,9 @@ export const E2E_SPEC_SLOTS: readonly string[] = [
   "groups.e2e.test.ts",
   "windows.e2e.test.ts",
   "move-tab.e2e.test.ts",
+  "content.e2e.test.ts",
+  "capture.e2e.test.ts",
+  "journal-history-bookmarks.e2e.test.ts",
 ];
 
 export interface PortBand {
