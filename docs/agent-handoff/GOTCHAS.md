@@ -254,3 +254,55 @@ Related, and how the thread started: `^0.11.0` on a **0.x** package expands to
 `>=0.11.0 <0.12.0`, so it structurally cannot resolve `0.12.0` — see B11 in
 `BACKLOG.md`. Verify with `npm view @george43g/<kit> version` before believing
 any version claim, including one from a peer session that read it minutes ago.
+
+## The e2e daemon's snapshot always contains FAKE browsers (2026-08-24)
+
+The throwaway daemon in `apps/chrome-extension/e2e/fixtures.ts` runs
+`BROWSER_TAB_FAKE_ADAPTER=1` so it never shells `osascript`. That fake fabricates
+brave/chromium/safari windows full of plausible tabs (gmail, github, HN).
+
+**Any e2e assertion that scans `snap.browsers` is measuring the fixture** — and
+measuring it *successfully*, which is worse than failing. A tab-count assertion
+that picked "the first browser with windows" got **brave**, and cost an hour on
+PR #107. Narrow with `stack.browserState()`, which exists for this and carries the
+warning.
+
+## Browser-side "done" is not daemon-side "present" (2026-08-24)
+
+`tabs.get(id).status === "complete"` is the BROWSER's opinion. The daemon is a
+separate process, and a tab created **out of band** (`sw.evaluate(chrome.tabs.create)`)
+reaches its snapshot on the ordinary *debounced* event path — unlike a tab created by
+a daemon COMMAND, which the extension pushes immediately so read-after-write works.
+
+Measured: `screenshot` on a just-created tab failed 3 runs in 5 with *"Tab … is not in
+the current snapshot"*. That is the daemon being correct; the test was asking too
+early. Use `stack.waitForTab(handle)`.
+
+## Environment-dependent behaviour goes BOTH ways across CI legs (2026-08-24)
+
+Two measurements of the same operation, opposite conclusions:
+
+- **`reload-extension`**: under macOS/Linux `--headless=new` the reloaded worker never
+  comes back (polled 40s). On **real Windows Edge** it restarts so fast the disconnect
+  is never observable. An assertion built on either observation fails on the other leg —
+  and did, twice, on PR #112.
+- **`windows.update({focused:true})`**: on an EXISTING window it emits no
+  `onFocusChanged` under `--headless=new` and does not move `getLastFocused()`; on
+  window CREATION it does emit.
+
+**Assert the invariant, not the observation.** For the reload that is "the service
+worker being driven is destroyed" — observed with a RACE, not a try/catch, because the
+worker dies mid-call so the `evaluate` promise never settles and a catch waits forever.
+
+## Sabotage-verifying a test? Check the BUILD's exit code, not the test's (2026-08-24)
+
+Twice in one session: a sabotage edit broke the TS build, `pnpm build` exited non-zero
+(output was redirected away), the `dist/` was never updated, and the test ran against
+**unmodified code** and "passed" — briefly looking like the assertion was vacuous.
+
+Prefer sabotages that compile: rename a string, delete a `setTimeout` — not an early
+`return` that leaves unreachable code. And always print `echo "build=$?"`.
+
+Related: `dist/cli.js` is a **255-byte shim** that imports a hashed chunk
+(`dist/cli-<hash>.js`). Grepping `dist/cli.js` for your change finds nothing and proves
+nothing; grep the chunk, or trust the behavioural before/after.

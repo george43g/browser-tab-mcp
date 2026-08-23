@@ -306,10 +306,73 @@ CI green now exercises the **browser-extension runtime too**, not just the daemo
 - **Messaging regression** (`apps/chrome-extension/tests/messaging.test.ts`): asserts the `onMessage` listener returns a Promise under `globalThis.browser` (Safari/Firefox) and `sendResponse`+`true` under Chrome.
 - **Build-output guards** (`apps/chrome-extension/tests/build-output.test.ts`): reads `dist/` — MV3, BOTH background keys, no `background.type:"module"`, IIFE-not-ESM entry JS, no `type="module"` script tags, every asset present.
 - **Contract** (`packages/shared-types/tests/ws-protocol.contract.test.ts`, `apps/browser-tab-mcp/tests/snapshot.contract.test.ts`): WS message round-trips + `extSnapshotToBrowserState` shape/x-handle grammar.
-- **e2e** (`apps/chrome-extension/e2e/*.e2e.test.ts`): the `e2e-chromium` job in `ci.yml` runs **unconditionally** — no gate, no `continue-on-error` — with 3 real Playwright tests: the built extension loads and renders its options page, the daemon serves the real extension's tabs as x-handles, and a daemon-driven cross-window move preserves scroll. Run it locally with `pnpm --filter @george43g/chrome-extension test:e2e`. **Windows legs**: `e2e-branded` (windows-latest, matrix `channel: [chromium, msedge]` via `E2E_BROWSER_CHANNEL`, headless) runs the SAME 3 tests there — `chromium` (Playwright's own bundled build, one `playwright install` step) is the only CI coverage of the win32 daemon/named-pipe/e2e path, and `msedge` (real, preinstalled Windows Edge, no install step) is the standing regression test for `detectBrowserName`'s `edg/`-before-chrome UA ordering — `seedConfig` deliberately does not seed a `browser` key, so real auto-detection is what each leg exercises, and Edge evicting the Chrome WS session would show up here as a failure, not silently. **Not a `chrome` row**: branded Google Chrome ≥137 removed `--load-extension` support entirely (confirmed on both a real Windows box and a local macOS Chrome 151 — the load test times out waiting for the background service worker, which never registers); `chrome` stays a valid `E2E_BROWSER_CHANNEL` value in `fixtures.ts` for Chrome ≤136 or a future re-enable, it's just not in CI — branded-Chrome coverage, where it still matters, is a real-profile GUI install smoke instead. The throwaway daemon's IPC endpoint is pinned per-run via `BROWSER_TAB_SOCKET_PATH` (`fixtures.ts`'s `e2eIpcEndpoint`, mirroring `defaultIpcEndpoint()` in `packages/test-kit/src/fakes/daemon-env.ts`) — without it, Windows falls back to the per-user default named pipe, and a dev box's already-running console daemon silently absorbs the test's CLI calls instead of the throwaway one (measured on the box, 2026-08-22).
+- **e2e** (`apps/chrome-extension/e2e/*.e2e.test.ts`): the `e2e-chromium` job in `ci.yml` runs **unconditionally** — no gate, no `continue-on-error` — with **60 real Playwright tests across 12 spec files** (it was 3 until 2026-08-24; see § Effect coverage below). Every one of them asserts against BOTH the daemon snapshot and the browser's own truth via `chrome.tabs.query` / `chrome.windows.get` in the extension's service worker, because a snapshot agreeing with itself is what a fake adapter already proves. Run it locally with `pnpm --filter @george43g/chrome-extension test:e2e`. **Windows legs**: `e2e-branded` (windows-latest, matrix `channel: [chromium, msedge]` via `E2E_BROWSER_CHANNEL`, headless) runs the SAME suite there — `chromium` (Playwright's own bundled build, one `playwright install` step) is the only CI coverage of the win32 daemon/named-pipe/e2e path, and `msedge` (real, preinstalled Windows Edge, no install step) is the standing regression test for `detectBrowserName`'s `edg/`-before-chrome UA ordering — `seedConfig` deliberately does not seed a `browser` key, so real auto-detection is what each leg exercises, and Edge evicting the Chrome WS session would show up here as a failure, not silently. **Not a `chrome` row**: branded Google Chrome ≥137 removed `--load-extension` support entirely (confirmed on both a real Windows box and a local macOS Chrome 151 — the load test times out waiting for the background service worker, which never registers); `chrome` stays a valid `E2E_BROWSER_CHANNEL` value in `fixtures.ts` for Chrome ≤136 or a future re-enable, it's just not in CI — branded-Chrome coverage, where it still matters, is a real-profile GUI install smoke instead. The throwaway daemon's IPC endpoint is pinned per-run via `BROWSER_TAB_SOCKET_PATH` (`defaultIpcEndpoint()` from `@george43g/test-kit`, imported by `fixtures.ts` rather than duplicated — it was a local `e2eIpcEndpoint` copy until #103) — without it, Windows falls back to the per-user default named pipe, and a dev box's already-running console daemon silently absorbs the test's CLI calls instead of the throwaway one (measured on the box, 2026-08-22).
 - **Coverage**: collected + uploaded in CI (`COVERAGE=1`), **not gated yet** — arm with `COVERAGE_GATE=1` later.
 
 Acceptance held when built: dropping `background.scripts`, reintroducing `background.type:"module"`, or making the messaging listener Chrome-only each turns a test RED.
+
+### Effect coverage — the ledger, and why it is not a table in this file
+
+**`docs/surfaces/effect-coverage.json` is the source of truth**, and
+`apps/browser-tab-mcp/tests/surface-coverage.contract.test.ts` enforces it. The
+ledger has one row per command surface — 20 registry tools + 11 CLI-only
+commands = **31** — and the contract test enumerates that set from
+`makeAppRegistry().tools` plus commander (`tests/helpers/cli-surface.ts`), never
+from a hand-written list. Adding tool #21 turns it red on the next `pnpm test`.
+
+A prose table here would be a second copy that drifts, so this section states
+the RULES and points at the file for the state.
+
+| tier | runner | reaches |
+|---|---|---|
+| `chromium-e2e` | Playwright, `apps/chrome-extension/e2e/` | the built `dist/` in real Chromium/Edge + a throwaway daemon. Runs in CI on all three legs. |
+| `cli-process` | vitest, `apps/browser-tab-mcp/tests/` | the built `dist/cli.js` spawned as a real process against a fake-adapter daemon. No browser. Runs in CI. |
+| `macos-local` | `pnpm sweep:macos`, a developer's Mac only | real `osascript` / `screencapture` / Safari `History.db`. **Cannot run in CI** — GitHub's macOS runners have no logged-in GUI session, so `tell application` cannot work. |
+
+Three rules the ledger encodes, all of which have been violated before:
+
+1. **`tier` is where a surface's EFFECT is proved** — that a browser actually
+   did the thing. `installFakeChrome` and `BROWSER_TAB_FAKE_ADAPTER=1` both
+   stand in for a browser; neither IS one, so neither counts. Before the sweep,
+   2 of 31 surfaces were effect-verified and 21 were dispatch-only.
+2. **A surface appears on more than one tier when it has more than one
+   PATHWAY.** `focus_tab` through the extension and `focus_tab` through
+   AppleScript are different code with different bugs, and the Chromium suite
+   cannot reach the second by construction. 14 surfaces carry a `macos-local`
+   row for exactly this reason.
+3. **`evidence` is a path or the literal `"pending"`, and a non-pending
+   `chromium-e2e` entry is a CLAIM that gets enforced.**
+   `e2e/run-guard.ts` (a Playwright reporter) fails the run unless a PASSING
+   test carried a matching `surface` annotation. It reads annotations off the
+   RESULT, so a test that asserts a surface and then fails proves nothing; and
+   it fails the inverse too, so a test cannot land without its ledger row being
+   flipped in the same PR. The guard only ever turns green into red — on an
+   already-failed run it reports and decides nothing, so cascade noise cannot
+   bury Playwright's own diagnostics.
+
+**What this bought, concretely.** The sweep found a real defect in its first
+week that five months of unit tests did not: `focus_tab` through the extension
+relied on Chrome un-minimizing as a SIDE EFFECT of `{focused:true}`, which does
+not always fire — a focused tab inside a window the user cannot see, and the
+exact bug the AppleScript pathway had already been fixed for (#106). It also
+reproduced the 2026-08-20 group-relocation bug against real Chrome for the
+first time, where the fix had only ever been proven against a fake stub's model
+of the surprise.
+
+**Traps this tier has, that the others do not** (all measured, all in the
+relevant file's header):
+
+- The throwaway e2e daemon runs the fake AppleScript adapter, so its snapshot
+  ALWAYS contains fabricated brave/chromium/safari windows. Narrow to the run's
+  browser via `stack.browserState()`; a spec that scans `snap.browsers` is
+  measuring the fixture, successfully.
+- A tab created by a daemon COMMAND is pushed to the snapshot immediately; one
+  created out of band via `sw.evaluate` arrives debounced. Use
+  `stack.waitForTab()`, not `tabs.get(id).status === "complete"` — that is the
+  browser's opinion about a different process.
+- Environment-dependent behaviour goes BOTH ways across legs. Headless Chromium
+  never restarts a reloaded service worker; real Windows Edge restarts it too
+  fast to observe the drop. Assert the invariant, not either observation.
 
 **Where a new test goes** — four layers:
 

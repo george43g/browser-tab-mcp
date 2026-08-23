@@ -242,7 +242,7 @@ jobs:
             apps/chrome-extension/test-results/
           if-no-files-found: ignore
 
-  # Windows e2e: the SAME three tests via Playwright's channel option on
+  # Windows e2e: the SAME suite via Playwright's channel option on
   # windows-latest. NOT a "chrome" row: branded Google Chrome >=137 removed
   # `--load-extension` support entirely (confirmed both on a real Windows box
   # and on this Mac's branded Chrome 151 — the load test times out waiting
