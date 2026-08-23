@@ -77,7 +77,7 @@
       "coverage": [
         {
           "tier": "chromium-e2e",
-          "covers": "extension pathway: cross-window move via chrome.tabs.move preserves scroll (no reload)",
+          "covers": "extension pathway: cross-window move via chrome.tabs.move preserves scroll (roundtrip.e2e.test.ts, the crown jewel); plus --new-window landing in a window that did not previously exist, --index placing exactly, the append form reporting the tab's ACTUAL final index rather than tabs.move's echo, and a negative index refused at the boundary (move-tab.e2e.test.ts)",
           "evidence": "apps/chrome-extension/e2e/roundtrip.e2e.test.ts"
         },
         {
@@ -141,8 +141,8 @@
       "coverage": [
         {
           "tier": "chromium-e2e",
-          "covers": "create/add/remove/update/move against real chrome.tabGroups — and the 2026-08-20 dogfood bug: grouping tabs in window 1 while window 2 is focused must NOT relocate them. Extension-only; there is no AppleScript equivalent",
-          "evidence": "pending"
+          "covers": "create/add/update/remove/move against real chrome.tabGroups — and THE DOGFOOD BUG: grouping window-1 tabs while window 2 is frontmost must not relocate them. Sabotage-verified against real Chrome (reverting the createProperties.windowId pin reproduces the relocation), where it was previously proven only against a fake stub's model of the surprise. Also the per-id stale handling: one dead id is skipped and REPORTED in payload.skippedTabIds, all-stale errors. Extension-only by design, so this tier is the ceiling for this surface, not a stepping stone",
+          "evidence": "apps/chrome-extension/e2e/groups.e2e.test.ts"
         }
       ]
     },
@@ -152,8 +152,8 @@
       "coverage": [
         {
           "tier": "chromium-e2e",
-          "covers": "extension pathway: a real window appears in chrome.windows.getAll with the requested urls",
-          "evidence": "pending"
+          "covers": "extension pathway: a real window appears in chrome.windows.getAll holding exactly the urls asked for, and --no-focus does not steal focus from the previously frontmost window",
+          "evidence": "apps/chrome-extension/e2e/windows.e2e.test.ts"
         },
         {
           "tier": "macos-local",
@@ -168,8 +168,8 @@
       "coverage": [
         {
           "tier": "chromium-e2e",
-          "covers": "extension pathway: bounds/state round-trip through chrome.windows.get. Headless has no window manager, so bounds may be advisory — see the cut order in the plan",
-          "evidence": "pending"
+          "covers": "extension pathway: minimized/normal transitions read back through chrome.windows.get, and --bounds applied VERBATIM (probed, not assumed — measured 2026-08-24 under --headless=new; real clamping behaviour stays macos-local)",
+          "evidence": "apps/chrome-extension/e2e/windows.e2e.test.ts"
         },
         {
           "tier": "macos-local",
@@ -184,8 +184,8 @@
       "coverage": [
         {
           "tier": "chromium-e2e",
-          "covers": "extension pathway: the window and all its tabs are gone from chrome.windows.getAll",
-          "evidence": "pending"
+          "covers": "extension pathway: the window is gone from chrome.windows.getAll AND its tabs are gone from chrome.tabs.query — a window that closed while orphaning its tabs is invisible to any assertion that only counts windows",
+          "evidence": "apps/chrome-extension/e2e/windows.e2e.test.ts"
         },
         {
           "tier": "macos-local",
