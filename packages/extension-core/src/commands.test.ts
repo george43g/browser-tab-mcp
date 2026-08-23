@@ -28,10 +28,43 @@ describe("executeCommand", () => {
   it("focus_tab raises by default and reports the window post-state", async () => {
     fc.setWindows([{ id: 7, focused: false, incognito: false, state: "minimized" }]);
     const out = await executeCommand("focus_tab", { tabId: 5 });
-    expect(fc.calls["windows.update"]?.[0]).toEqual([7, { focused: true }]);
     // wasMinimized is a BEFORE-state; no later read can recover it.
     expect(out.wasMinimized).toBe(true);
     expect(out.windowFocused).toBe(true);
+  });
+
+  it("focus_tab clears `minimized` BEFORE focusing, in that order", async () => {
+    // THE DEFECT THIS PINS. This pathway used to send only `{focused:true}`
+    // and lean on Chrome un-minimizing as a side effect, while the AppleScript
+    // adapters cleared `minimized` explicitly first. The side effect is not
+    // contractual: measured 2026-08-24 on Chromium under `--headless=new`,
+    // focusing a minimized window returned `focused:true` with `state` still
+    // `"minimized"` — a focused tab inside a window the user cannot see, which
+    // is the exact bug the AppleScript pathway was fixed for. Two pathways
+    // disagreeing about one documented contract is how it survived.
+    fc.setWindows([{ id: 7, focused: false, incognito: false, state: "minimized" }]);
+    const out = await executeCommand("focus_tab", { tabId: 5 });
+
+    // Order is the whole assertion: raising a minimized window is a no-op, so
+    // `{focused:true}` first would leave it minimized however many times it ran.
+    expect(fc.calls["windows.update"]).toEqual([
+      [7, { state: "normal" }],
+      [7, { focused: true }],
+    ]);
+    expect(out.wasMinimized).toBe(true);
+    expect(out.windowState).toBe("normal");
+    expect(out.windowFocused).toBe(true);
+  });
+
+  it("focus_tab does NOT send a state change for a window that is not minimized", async () => {
+    // Conditional on purpose. An unconditional `state:"normal"` would
+    // un-maximize a maximized window — turning a focus call into an
+    // unrequested resize, which is a worse bug than the one being fixed.
+    fc.setWindows([{ id: 7, focused: false, incognito: false, state: "maximized" }]);
+    const out = await executeCommand("focus_tab", { tabId: 5 });
+    expect(fc.calls["windows.update"]).toEqual([[7, { focused: true }]]);
+    expect(out.wasMinimized).toBe(false);
+    expect(out.windowState, "a maximized window must stay maximized").toBe("maximized");
   });
 
   it("focus_tab with raiseWindow:false activates the tab and touches the window not at all", async () => {
