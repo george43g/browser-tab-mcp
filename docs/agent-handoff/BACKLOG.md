@@ -1275,3 +1275,31 @@ verified again just now. `mcp-cli-toolkit` reported the same site at `:158-160`;
 that is their mcp-kit source, not ours. Third instance in one thread of two
 sessions being locally right about different trees. Do not renumber this anchor
 from an outside report without reading our file.
+
+---
+
+## Closed 2026-08-24 (evidence, not tidying)
+
+- **B6 — `e2e/**` typechecked NOWHERE: CLOSED.** `apps/chrome-extension/tsconfig.json`
+  `include` now carries `e2e/**/*.ts` and `tests/**/*.ts` (#103, `815ee93`). Widening it
+  surfaced exactly ONE pre-existing error (`serviceWorkers()[0]` is `Worker | undefined`
+  under `noUncheckedIndexedAccess`), fixed in the same PR. Verified by `tsc --listFiles`
+  reporting 4 files under `e2e/`, and by deliberately calling `startDaemon()` with no
+  argument and getting `TS2554`. **This was not a tidy-up**: PR #103 made `specUrl` a
+  required parameter *specifically* so an unmigrated caller would be a typecheck error,
+  and that guarantee was fiction until the include was widened.
+- **B11 — CLI never brands its log prefix: CLOSED.** `main()` calls
+  `setLogFilePrefix("browser-tab-cli")` (#98, `c94e5b9`). Guarded by
+  `tests/cli-log-branding.integration.test.ts`, whose proof half was sabotage-verified:
+  reverting the one line reddens 7 of its 41 cases. The `$TMPDIR/mcp/` bucket is no
+  longer written by this repo. **The amendments under B11 that are NOT closed by it:**
+  the `mcp-kit` `dispatch_error` URL guard is still unbuilt, and robustness 0.12.0 does
+  NOT close it (verified: `redactString` still passes a URL through untouched).
+- **The robustness bump (B11 amendment): DONE.** `^0.12.0` in both manifests (#101,
+  `34f7305`). Type surface diffed BEFORE bumping — purely additive. Email redaction left
+  OFF deliberately; `redactionCoverage()` now answers
+  `{"phones":true,"secrets":true,"emails":false}`.
+- **Dependency starvation detection: DONE and now automated.** `pnpm deps:check`
+  (#100, `6782b6c`) plus a weekly scheduled workflow (#102, `201804f`). It found a second
+  live instance nobody had noticed: `@types/chrome@^0.0.280` caps at `0.0.281` while the
+  registry is at `0.2.7`, in three manifests — **still open, not yet bumped.**

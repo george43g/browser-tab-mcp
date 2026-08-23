@@ -2094,3 +2094,139 @@ measurement (fixture strategy = fresh per file; matrix rows = all three; the
 do-not-re-litigate list); five remain his. **No mid-flight state**: no running
 subagents, no background tasks, nothing staged beyond PR #97, and the Windows
 box is clean (`git status --short` empty there, scratch scripts removed).
+
+---
+
+# Checkpoint #6 — 2026-08-24 (Opus 5, session 5a15fe80)
+
+> **Precedence:** where this entry and any conversation summary disagree, THIS FILE IS
+> CORRECT. The summary optimises for narrative and is least reliable about what did NOT
+> happen.
+
+## State
+
+Phase 0 of the 31-surface plan is complete and Phase 1 is half done: five PRs merged
+(#98, #100, #101, #102, #103). Next action is PR 5 — the run guard + surface-coverage
+ledger — which must land before any sweep spec.
+
+## Constraints
+
+George, this session, verbatim:
+- *"merge and go ahead"* (twice), *"i approve whatever you think is best, go ahead"*,
+  *"you have my approval to merge and continue"*. **Read as standing merge authority for
+  this plan's PRs**, conditional on green CI. He has not asked to gate each one; if a
+  future session wants to re-confirm, ask once rather than stalling every PR.
+- *"plan either what you were supposed, or fixes to the above or both"* → he chose
+  **both, sequenced**.
+- **Scope: ALL 31 surfaces**, chosen explicitly AFTER being told ~9 are AppleScript-only
+  and a Chromium suite cannot reach them. Do not quietly narrow this back to the Class A
+  subset — the brief recommends the subset, George overrode it.
+- **macOS tier: opt-in `pnpm sweep:macos`, NEVER wired to pre-push.** A push must not
+  spawn browser windows.
+- **macOS tier target: install Chromium** as a dedicated victim + **real Safari under
+  snapshot/restore**. Rationale that is easy to lose: AppleScript addresses the app BY
+  NAME (`tell application "…"`), so a throwaway `--user-data-dir` profile of the same
+  browser gives NO isolation. Only Chrome and Safari are installed on this Mac today.
+
+The approved plan is at `~/.claude/plans/optimized-toasting-lynx.md` (13 PRs, 5 phases,
+with a cut order). Read it before writing tasks.
+
+## Done
+
+- **#98 `c94e5b9`** — CLI brands its log prefix (`browser-tab-cli`). Sabotage-verified:
+  reverting the one line reddens 7/41 cases.
+- **#100 `6782b6c`** — `pnpm deps:check`. Classification is the design: 0.x-caret
+  starvation blocks, lock-stale warns, ordinary next-major collapses to one line
+  (34 blocking findings → 5).
+- **#101 `34f7305`** — robustness `^0.12.0`, both manifests. Type surface diffed first;
+  purely additive.
+- **#102 `201804f`** — weekly scheduled dependency check, not a per-PR gate.
+- **#103 `815ee93`** — per-spec e2e port bands + daemon identity assertions; `e2e/` now
+  typechecked (closes B6).
+
+## Open
+
+- **PR 5 (run guard + `docs/surfaces/effect-coverage.json` ledger) — never attempted.**
+  Must land BEFORE any sweep spec so a spec cannot be added without being counted.
+- **Phase 2 (PRs 6-10), Phase 3 (PR 11), Phase 4 (PR 12 macOS), Phase 5 (PR 13 docs)** —
+  none started. Layout and per-file surface assignments are in the plan file.
+- **`@types/chrome@^0.0.280` is starved** in three manifests (registry at `0.2.7`) —
+  found by `deps:check`, **not bumped**. A major type-package jump will surface real
+  errors; it is its own PR.
+- **The `mcp-kit` `dispatch_error` URL guard is unbuilt.** `packages/mcp-kit/src/dispatch.ts:149-152`
+  copies `err.message`/`err.stack` verbatim, and robustness 0.12.0 has no URL rule —
+  re-verified after the bump, `redactString` still passes a URL through untouched.
+
+## Corrections
+
+- **"Making `specUrl` required makes an unmigrated caller a typecheck error" was FALSE
+  when written.** `apps/chrome-extension/tsconfig.json` included only `src/**`, so no
+  caller of `startDaemon()` was typechecked at all. Fixed in the same PR; the claim is
+  now true and verified (`TS2554`).
+- **The scheduled-check decision reversed my own two options.** I offered George
+  "per-PR gate" vs "manual"; both were wrong. Weekly schedule is the answer, and the
+  semver question I raised alongside it was not a decision at all — I dressed up a
+  description of behaviour as a choice.
+
+## Traps
+
+- **Windows `os.tmpdir()` ignores `TMPDIR`** — it reads `TEMP`/`TMP`. A test that
+  isolates only `TMPDIR` inspects an empty directory there, and a NEGATIVE assertion
+  ("no `mcp/` dir") then passes vacuously. Set all three, and assert the child's own
+  `os.tmpdir()` before trusting any directory assertion.
+- **`npm` on Windows is `npm.cmd`**, which Node refuses to `execFile` without a shell
+  since CVE-2024-27980. Route via `cmd.exe /c` (not `shell: true`, which re-parses args).
+- **A swallowed failure that reports success is worse than a crash.** Both of the above
+  produced "nothing is wrong" answers. Any code path that catches-and-continues needs a
+  line saying what it could not check.
+- **Reading `$?` after a pipe gives the LAST command's status.** Bit me twice this
+  session (`| tail`, `| head`). Redirect to a file, or use `PIPESTATUS[0]`.
+- **`cd` persists between Bash tool calls** — a `cd` in one command silently relocates
+  the next. Ran `pnpm lint` from a subdirectory and got a meaningless 254.
+- **`python3 json.dumps` reflows the whole file.** Rewrote `tsconfig.json` and turned
+  lint red on formatting. Edit the one line with a targeted replace instead.
+- **`diff` is a zsh function here** — use `/usr/bin/diff`.
+- A pre-existing Windows flake (`App viewport`, 4 Ink renders in one 5s budget) was
+  fixed in #98. It had already reddened `main` on a docs-only commit.
+
+## Tree
+
+`main` = `815ee93`, clean and pushed. **One PR open: #99, `chore(main): release 1.4.1`**
+— release-please's rolling PR, not mine.
+
+Four untracked files, none of them mine, deliberately left alone:
+`docs/deep-application-control-platform-architecture.md`,
+`docs/tab-selection-transformation-language-spec.md`, its older root-level duplicate
+`tab-selection-transformation-language-spec.md` (a Codex session's, user-gated), and
+`surfingkeys-integration-ideas.md` (parked idea, written this session at George's request).
+
+## Blocked on you
+
+- **Release PR #99** needs George's merge word like any other.
+- **`brew install --cask chromium`** — prerequisite for PR 12; it will prompt for its own
+  Automation TCC grant on first run.
+- **`packages/robustness/`** sits in the tree with `dist/` + `coverage/` but no
+  `package.json`, so pnpm ignores it and the apps resolve from npm. Looks like a stale
+  local artifact; worth deleting, not mine to delete.
+- **Is `stress-mcp-report.json` committed deliberately?** PR 12's design mirrors it for
+  the macOS report; if it was accidental, that report should be gitignored instead and
+  the ledger's evidence pointer becomes a manual attestation.
+- Standing from earlier cycles, unchanged: Mac redeploy + `BROWSER_TAB_CG_DIAG=1` churn
+  measurement; the Windows ONLOGON/headless ruling; whether browser-tab is collected at
+  all by the dotfiles Vector rollout.
+
+## Resume
+
+Start **PR 5**: `docs/surfaces/effect-coverage.json` (all 31 surfaces as
+`{surface, tier, evidence}`), `apps/browser-tab-mcp/tests/surface-coverage.contract.test.ts`
+(enumerate from `makeAppRegistry().tools` + `tests/helpers/cli-surface.ts`'s
+`cliCommandNames()` — never a hand-written list), and `e2e/run-guard.ts` (a Playwright
+reporter asserting minimum test count, per-file participation, and that every
+`tier: "chromium-e2e"` ledger row had a PASSING annotated test).
+
+Nothing is staged, nothing half-applied, no background tasks running. `pnpm build` output
+is current for `815ee93`.
+
+One unverified assumption to check before building the reporter: whether Playwright's
+`Reporter.onEnd` may return a failing status in the installed `@playwright/test@1.61.1`.
+If not, the fallback is a throwing `globalTeardown`.
