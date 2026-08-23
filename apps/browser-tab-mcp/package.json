@@ -1,6 +1,6 @@
 {
   "name": "@george43g/browser-tab-mcp",
-  "version": "1.4.0",
+  "version": "1.4.1",
   "description": "browser-tab — macOS browser-tab detection & management for the yabai/Hammerspoon wm-stack. MCP server + CLI + TUI over a launchd daemon, with a Chrome/Safari connector extension for live tab events and state-preserving cross-window moves.",
   "type": "module",
   "license": "MIT",
