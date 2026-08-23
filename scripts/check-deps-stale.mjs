@@ -52,12 +52,21 @@ const ROOT =
     ? resolve(argvRaw[rootIdx + 1])
     : resolve(dirname(fileURLToPath(import.meta.url)), "..");
 
-const BOLD = "\x1b[1m";
-const DIM = "\x1b[2m";
-const RED = "\x1b[31m";
-const YELLOW = "\x1b[33m";
-const GREEN = "\x1b[32m";
-const OFF = "\x1b[0m";
+/**
+ * Colour is off when NO_COLOR is set, when stdout is not a TTY, or under
+ * FORCE_COLOR=0. The CI job tees this into `$GITHUB_STEP_SUMMARY`, which
+ * renders as markdown — raw SGR escapes there are not dimmed text, they are
+ * visible garbage wrapped around the one line you wanted to read.
+ */
+const useColor =
+  !process.env.NO_COLOR && process.env.FORCE_COLOR !== "0" && Boolean(process.stdout.isTTY);
+const c = (code) => (useColor ? code : "");
+const BOLD = c("\x1b[1m");
+const DIM = c("\x1b[2m");
+const RED = c("\x1b[31m");
+const YELLOW = c("\x1b[33m");
+const GREEN = c("\x1b[32m");
+const OFF = c("\x1b[0m");
 
 const argv = argvRaw;
 const useRegistry = argv.includes("--registry");
