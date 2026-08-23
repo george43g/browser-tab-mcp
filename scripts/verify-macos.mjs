@@ -2,11 +2,21 @@
 /**
  * The macOS half of CI, run where macOS actually is.
  *
- * WHY THIS EXISTS. `.github/workflows/ci.yml` deliberately has no
- * `macos-latest` leg: GitHub bills macOS at 10x Linux on a private repo, and on
- * 2026-08-18 that leg was 71% of the day's CI spend (38 jobs, 131 billable
- * minutes, $10.48) while testing almost nothing Linux did not. Almost — the
- * exception is real, and this script is it.
+ * WHY THIS EXISTS. `.github/workflows/ci.yml` DOES have a `macos-latest` leg
+ * today — it is conditional on this repo being public, where GitHub-hosted
+ * macOS runners cost nothing (see AGENTS.md § CI). This header used to say the
+ * opposite, flatly, and was wrong from the day the leg landed; corrected
+ * 2026-08-24.
+ *
+ * The leg is conditional because macOS bills at 10x Linux on a PRIVATE repo:
+ * on 2026-08-18, while this repo was private, it was 71% of the day's CI spend
+ * (38 jobs, 131 billable minutes, $10.48) while testing almost nothing Linux
+ * did not. If the repo ever goes private again the leg gets deleted the same
+ * day, and this script becomes the only macOS check there is.
+ *
+ * EITHER WAY THIS SCRIPT EARNS ITS SLOT, because it is STRICTER than the
+ * runner: the leg compiles the Darwin-only code, while this loads the built
+ * `.node` and CALLS it. A compile cannot catch a wrong `#[napi(js_name)]`.
  *
  * WHAT ONLY A MAC CAN CHECK. `apps/rust-accel` splits on
  * `#[cfg(target_os = "macos")]`: the CoreGraphics implementation of
