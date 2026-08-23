@@ -247,12 +247,29 @@ describe("daemon run (CLI-only)", () => {
       expect(status?.pid, "and it is the process we spawned, not a stray one").toBe(proc.pid);
       expect(Number(status?.uptimeS ?? -1)).toBeGreaterThanOrEqual(0);
 
-      const exit = await new Promise<number | null>((resolveExit) => {
-        proc.on("exit", (code) => resolveExit(code));
-        proc.kill("SIGTERM");
-        setTimeout(() => resolveExit(-1), 10_000);
-      });
-      expect(exit, "SIGTERM is a clean shutdown, not a kill").toBe(0);
+      // SHUTDOWN IS PLATFORM-SHAPED, and this is settled rather than open.
+      // win32 has no catchable SIGTERM: Node terminates the process abruptly
+      // and the exit event reports `code: null` with a signal, so "exits 0"
+      // is not a thing that can happen there. The stress harness already
+      // encodes exactly this split (case 7: SIGTERM on POSIX, stdin EOF on
+      // win32; case 13: POSIX asserts exit-0 + socket unlink, win32 asserts
+      // prompt termination). This mirrors it rather than inventing a second
+      // opinion — and CI is what caught the first draft asserting 0
+      // everywhere.
+      const exited = await new Promise<{ code: number | null; timedOut: boolean }>(
+        (resolveExit) => {
+          const timer = setTimeout(() => resolveExit({ code: null, timedOut: true }), 10_000);
+          proc.on("exit", (code) => {
+            clearTimeout(timer);
+            resolveExit({ code, timedOut: false });
+          });
+          proc.kill("SIGTERM");
+        },
+      );
+      expect(exited.timedOut, "the daemon must terminate promptly on SIGTERM").toBe(false);
+      if (process.platform !== "win32") {
+        expect(exited.code, "on POSIX, SIGTERM is a clean shutdown — not a kill").toBe(0);
+      }
     } finally {
       if (proc.exitCode === null) proc.kill("SIGKILL");
     }
