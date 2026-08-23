@@ -141,11 +141,32 @@ function resolvedVersion(fromDir, name) {
 }
 
 const registryCache = new Map();
+
+/**
+ * Ask npm what the latest published version is.
+ *
+ * WINDOWS. `npm` there is `npm.cmd`, and since the 2024 shell-injection fix
+ * (CVE-2024-27980) Node refuses to `execFile` a `.cmd`/`.bat` without a shell —
+ * it throws EINVAL. Plain `execFileSync("npm", …)` therefore fails on every
+ * Windows machine, and because this function swallows failures as "unknown",
+ * it would have failed SILENTLY: the report would say nothing is stale
+ * because it could not ask, which is precisely the false reassurance this
+ * script exists to prevent. Caught by the windows-latest leg on this file's
+ * first CI run.
+ *
+ * Routed through `cmd.exe /c` rather than `shell: true` so the arguments stay
+ * an array and never get re-parsed as a command line.
+ */
 function registryLatest(name) {
   if (registryCache.has(name)) return registryCache.get(name);
+  const win = process.platform === "win32";
+  const bin = win ? "cmd.exe" : "npm";
+  const args = win
+    ? ["/c", "npm", "view", name, "dist-tags.latest"]
+    : ["view", name, "dist-tags.latest"];
   let latest = null;
   try {
-    latest = execFileSync("npm", ["view", name, "dist-tags.latest"], {
+    latest = execFileSync(bin, args, {
       encoding: "utf8",
       stdio: ["ignore", "pipe", "ignore"],
       timeout: 20_000,
@@ -161,6 +182,7 @@ function registryLatest(name) {
 
 const findings = [];
 const unparsed = [];
+const unanswered = new Set();
 let scanned = 0;
 
 for (const manifestPath of manifestPaths()) {
@@ -219,6 +241,9 @@ for (const manifestPath of manifestPaths()) {
 
       const latestRaw = registryLatest(name);
       const latest = latestRaw ? parseVersion(latestRaw) : null;
+      // A registry that cannot answer must never read as "up to date". Record
+      // it so the summary can say how much of the tree went unchecked.
+      if (!latestRaw) unanswered.add(name);
       if (!latest || !resolved) continue;
       if (cmp(latest, resolved) <= 0) continue;
 
@@ -316,6 +341,20 @@ if (unparsed.length) {
   }
 }
 
+if (useRegistry && unanswered.size) {
+  // THE SILENT-HOLE GUARD. `registryLatest` swallows every failure as
+  // "unknown", so without this line a totally unreachable registry produces a
+  // clean bill of health — which is how this script failed on Windows before
+  // `npm.cmd` was handled, and is the exact false reassurance it exists to
+  // prevent. Say what could not be checked.
+  process.stdout.write(
+    `\n  ${YELLOW}UNCHECKED${OFF} the registry answered nothing for ${unanswered.size} ` +
+      `package(s): ${[...unanswered].sort().join(", ")}\n` +
+      `      ${DIM}Unpublished/private is expected; a long list means npm is unreachable and\n` +
+      `      this run proves nothing about staleness.${OFF}\n`,
+  );
+}
+
 if (!useRegistry) {
   process.stdout.write(
     `\n${DIM}Offline run: checked install integrity only. Staleness needs the registry —\n` +
@@ -325,7 +364,7 @@ if (!useRegistry) {
 
 const errors = bySeverity.error.length;
 const warns = bySeverity.warn.length;
-if (!errors && !warns && !unparsed.length && !bySeverity.info.length) {
+if (!errors && !warns && !unparsed.length && !bySeverity.info.length && !unanswered.size) {
   process.stdout.write(`${GREEN}✓${OFF} nothing stale, nothing starved, nothing unreadable.\n`);
 }
 process.stdout.write("\n");

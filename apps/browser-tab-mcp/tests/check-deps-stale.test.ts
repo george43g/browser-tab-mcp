@@ -58,8 +58,12 @@ function fakeNpm(latest: Record<string, string>): string {
     .map(([k, v]) => `  "${k}") echo "${v}" ;;`)
     .join("\n");
   if (isWin) {
+    // `%1` is `view`, `%2` the package name. Each branch on its own lines so
+    // `echo` cannot pick up a trailing space before the version — the script
+    // trims, but a shim that emits subtly different bytes from the real tool
+    // is a fixture that tests itself rather than the code.
     const lines = Object.entries(latest)
-      .map(([k, v]) => `if "%2"=="${k}" ( echo ${v} & exit /b 0 )`)
+      .map(([k, v]) => `if "%2"=="${k}" (\r\n  echo ${v}\r\n  exit /b 0\r\n)`)
       .join("\r\n");
     writeFileSync(join(dir, "npm.cmd"), `@echo off\r\n${lines}\r\nexit /b 1\r\n`);
   } else {
@@ -195,13 +199,25 @@ describe("check-deps-stale", () => {
     expect(stdout).toContain("zeta");
   });
 
-  // An unreachable registry must not read as "everything is current".
-  it("treats an unanswerable registry as unknown, not as up to date", () => {
+  /**
+   * An unreachable registry must not read as "everything is current" — and it
+   * must SAY SO. `registryLatest` swallows every failure as unknown, so
+   * without the UNCHECKED line a totally unreachable npm produces a clean bill
+   * of health. That is not hypothetical: it is exactly how this script behaved
+   * on Windows before `npm.cmd` was handled, and it is the false reassurance
+   * the whole file exists to prevent.
+   */
+  it("says which packages it could not check rather than reporting them clean", () => {
     const root = fixture({ eta: "^0.4.0" }, { eta: "0.4.0" });
     const npm = fakeNpm({}); // answers nothing, exits 1
     const { stdout, code } = run(root, ["--registry"], npm);
-    expect(code).toBe(0);
     expect(stdout).not.toContain("STARVED");
+    expect(stdout, "silence about an unreachable registry reads as 'all clear'").toContain(
+      "UNCHECKED",
+    );
+    expect(stdout).toContain("eta");
+    expect(stdout).not.toContain("nothing stale, nothing starved");
+    expect(code, "not knowing is not a build failure — but it must be visible").toBe(0);
   });
 
   it("--advisory reports the same findings without failing the build", () => {
