@@ -33,10 +33,13 @@ test.describe("extension ↔ daemon round-trip", () => {
   let sw: Worker;
 
   test.beforeAll(async () => {
-    daemon = await startDaemon();
+    daemon = await startDaemon(import.meta.url);
     ({ context, extensionId, userDataDir } = await launchExtension());
-    [sw] = context.serviceWorkers();
-    if (!sw) sw = await context.waitForEvent("serviceworker");
+    // `serviceWorkers()[0]` is `Worker | undefined` under
+    // noUncheckedIndexedAccess — assign through a local so the narrowing
+    // actually applies, rather than destructuring into an already-typed `sw`.
+    const existing = context.serviceWorkers()[0];
+    sw = existing ?? (await context.waitForEvent("serviceworker"));
     await seedConfig(context, extensionId, daemon);
 
     // Wait until the daemon is actually extension-AUTHORITATIVE — not merely
