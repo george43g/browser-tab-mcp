@@ -314,8 +314,8 @@
       "coverage": [
         {
           "tier": "cli-process",
-          "covers": "spawn dist/cli.js mcp, speak stdio JSON-RPC initialize + tools/list, assert the names equal makeAppRegistry().tools. The stress harness spawns src/index.ts directly, so the commander wiring for this subcommand is driven by nothing today",
-          "evidence": "pending"
+          "covers": "spawns the built bin's `mcp` subcommand and speaks real stdio JSON-RPC (initialize + tools/list), asserting a non-empty catalog that matches the registry's non-devOnly tools. FIRST coverage of runMcpServer THROUGH the subcommand — the stress harness spawns src/index.ts directly, so the commander wiring was driven by nothing. Sabotage-verified: renaming the command reddens it",
+          "evidence": "apps/browser-tab-mcp/tests/cli-surfaces.integration.test.ts"
         }
       ]
     },
@@ -325,8 +325,8 @@
       "coverage": [
         {
           "tier": "cli-process",
-          "covers": "non-TTY stdio: exit 1 and the refusal text. The App component is well covered; the CLI action's own branch is not",
-          "evidence": "pending"
+          "covers": "piped (non-TTY) stdio takes the refusal branch: exit 1 and a reason naming the TTY. The App component's own tests never reach the CLI action",
+          "evidence": "apps/browser-tab-mcp/tests/cli-surfaces.integration.test.ts"
         }
       ]
     },
@@ -336,8 +336,8 @@
       "coverage": [
         {
           "tier": "cli-process",
-          "covers": "emits a report and the exit code tracks full.ok. Off macOS the AppleScript items are simply absent — that is the platform-correct assertion",
-          "evidence": "pending"
+          "covers": "the action and checkLocalAccess() really run (no test invoked either before): a report with per-check lines, and the exit code asserted to AGREE with the headline verdict rather than to equal a fixed number — which keeps it honest on a machine where a check legitimately fails",
+          "evidence": "apps/browser-tab-mcp/tests/cli-surfaces.integration.test.ts"
         },
         {
           "tier": "macos-local",
@@ -357,8 +357,8 @@
         },
         {
           "tier": "cli-process",
-          "covers": "the no-daemon error path. Today this surface has TRUE zero coverage — no test file anywhere references it",
-          "evidence": "pending"
+          "covers": "the no-daemon error path (the half that needs no browser); the success path is chromium-e2e",
+          "evidence": "apps/browser-tab-mcp/tests/cli-surfaces.integration.test.ts"
         }
       ]
     },
@@ -368,8 +368,8 @@
       "coverage": [
         {
           "tier": "cli-process",
-          "covers": "poll to reachable, assert status.pid is the spawned pid, SIGTERM, assert clean exit. Really executed as harness plumbing today, never asserted on as its own contract",
-          "evidence": "pending"
+          "covers": "spawned for real: polls to reachable, asserts status.pid is THIS process (not a stray daemon), then SIGTERM and asserts a clean exit 0. Executed by two harnesses today, asserted by neither",
+          "evidence": "apps/browser-tab-mcp/tests/cli-surfaces.integration.test.ts"
         }
       ]
     },
@@ -379,8 +379,8 @@
       "coverage": [
         {
           "tier": "cli-process",
-          "covers": "on Linux CI, serviceManager() refuses with an instruction: assert non-zero exit carrying it. That proves the subcommand routes to serviceManager() and surfaces its answer, which is the untested wiring",
-          "evidence": "pending"
+          "covers": "driven with BROWSER_TAB_PLATFORM forced to a platform with no service integration, so no LaunchAgent is ever registered on the machine running the suite: asserts a non-zero exit carrying the platform name and the actionable alternative. That proves the subcommand routes to serviceManager() and surfaces its answer — the untested wiring. The real install path is macos-local and opt-in",
+          "evidence": "apps/browser-tab-mcp/tests/cli-surfaces.integration.test.ts"
         },
         {
           "tier": "macos-local",
@@ -395,8 +395,8 @@
       "coverage": [
         {
           "tier": "cli-process",
-          "covers": "same refusal-routing assertion as install. Shares a body with `stop` DELIBERATELY (a plain kill gets resurrected under KeepAlive) — test them by name, do not 'fix' the duplication",
-          "evidence": "pending"
+          "covers": "same forced-platform refusal routing; also pinned that `stop` and `uninstall` produce BYTE-IDENTICAL output, because they share a body DELIBERATELY (under KeepAlive a plain kill is undone) and the duplication must not be tidied away",
+          "evidence": "apps/browser-tab-mcp/tests/cli-surfaces.integration.test.ts"
         }
       ]
     },
@@ -406,8 +406,8 @@
       "coverage": [
         {
           "tier": "cli-process",
-          "covers": "prints a token and is idempotent on a second call. Really executed as e2e plumbing today, never asserted on",
-          "evidence": "pending"
+          "covers": "prints a real token and a second call does NOT rotate it — the extension is holding that value",
+          "evidence": "apps/browser-tab-mcp/tests/cli-surfaces.integration.test.ts"
         }
       ]
     },
@@ -417,8 +417,8 @@
       "coverage": [
         {
           "tier": "cli-process",
-          "covers": "refusal-routing assertion. Zero coverage today: even the harnesses kill by SIGTERM rather than through this command",
-          "evidence": "pending"
+          "covers": "same forced-platform refusal routing, plus the byte-identical-to-uninstall assertion. Had zero behavioural coverage before: even the harnesses stop their daemons with SIGTERM rather than through this command",
+          "evidence": "apps/browser-tab-mcp/tests/cli-surfaces.integration.test.ts"
         }
       ]
     },
@@ -428,8 +428,8 @@
       "coverage": [
         {
           "tier": "cli-process",
-          "covers": "refusal-routing assertion. Zero coverage today",
-          "evidence": "pending"
+          "covers": "same forced-platform refusal routing. Had zero behavioural coverage before",
+          "evidence": "apps/browser-tab-mcp/tests/cli-surfaces.integration.test.ts"
         }
       ]
     },
@@ -439,8 +439,8 @@
       "coverage": [
         {
           "tier": "cli-process",
-          "covers": "piped stdin takes cli-kit's terminal:false branch — feed `help` + `noop hello`, assert banner + echo. Driven under BOTH spellings (`repl` and the `console` alias), because commander reports an alias as a name and 'registered' is not 'reachable'",
-          "evidence": "pending"
+          "covers": "piped stdin takes cli-kit's terminal:false branch: `noop hello` really runs through the dispatcher and echoes back, and `help` lists the REPL's own shortcuts. Driven under BOTH spellings — commander reports the `console` alias as a name, so a parity test sees it as present, but registered is not reachable",
+          "evidence": "apps/browser-tab-mcp/tests/cli-surfaces.integration.test.ts"
         }
       ]
     }
