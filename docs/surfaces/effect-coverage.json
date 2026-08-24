@@ -51,7 +51,7 @@
         {
           "tier": "macos-local",
           "covers": "AppleScript pathway: t:<browser>:<numeric> handles with dataSource != extension — the handle-grammar difference only this tier can prove",
-          "evidence": "pending"
+          "evidence": "apps/browser-tab-mcp/sweep-macos-report.json"
         }
       ]
     },
@@ -67,7 +67,7 @@
         {
           "tier": "macos-local",
           "covers": "AppleScript pathway: clearing minimized BEFORE `set index to 1`. focus.test.ts mocks the runOsa return string, so it proves the decoder and never the script",
-          "evidence": "pending"
+          "evidence": "apps/browser-tab-mcp/sweep-macos-report.json"
         }
       ]
     },
@@ -83,7 +83,7 @@
         {
           "tier": "macos-local",
           "covers": "AppleScript pathways: Chromium close+reopen and Safari --allow-reload — asserting the tab lands AND that the page reloaded, since proving the documented state loss matters as much as proving the move",
-          "evidence": "pending"
+          "evidence": "apps/browser-tab-mcp/sweep-macos-report.json"
         }
       ]
     },
@@ -99,7 +99,7 @@
         {
           "tier": "macos-local",
           "covers": "AppleScript pathway (`make new tab`)",
-          "evidence": "pending"
+          "evidence": "apps/browser-tab-mcp/sweep-macos-report.json"
         }
       ]
     },
@@ -115,7 +115,7 @@
         {
           "tier": "macos-local",
           "covers": "AppleScript pathway (baseline `close tab`, not in applescriptCaps because it is unconditional)",
-          "evidence": "pending"
+          "evidence": "apps/browser-tab-mcp/sweep-macos-report.json"
         }
       ]
     },
@@ -131,7 +131,7 @@
         {
           "tier": "macos-local",
           "covers": "AppleScript pathway: navigate/reload everywhere, back/forward on Chromium only (Safari's dictionary has no verb)",
-          "evidence": "pending"
+          "evidence": "apps/browser-tab-mcp/sweep-macos-report.json"
         }
       ]
     },
@@ -158,7 +158,7 @@
         {
           "tier": "macos-local",
           "covers": "AppleScript pathway (`make new window`), including --display targeting through rust-accel list_displays()",
-          "evidence": "pending"
+          "evidence": "apps/browser-tab-mcp/sweep-macos-report.json"
         }
       ]
     },
@@ -174,7 +174,7 @@
         {
           "tier": "macos-local",
           "covers": "AppleScript pathway: real geometry with tolerance (macOS clamps to the visible frame), plus minimized/normal transitions",
-          "evidence": "pending"
+          "evidence": "apps/browser-tab-mcp/sweep-macos-report.json"
         }
       ]
     },
@@ -190,7 +190,7 @@
         {
           "tier": "macos-local",
           "covers": "AppleScript pathway (`close window`)",
-          "evidence": "pending"
+          "evidence": "apps/browser-tab-mcp/sweep-macos-report.json"
         }
       ]
     },
@@ -228,7 +228,8 @@
         {
           "tier": "macos-local",
           "covers": "tier-2 window capture: real `screencapture -l <cgWindowId>` behind BROWSER_TAB_WINDOW_CAPTURE=1 + Screen Recording TCC. Today's unit tests shim the binary",
-          "evidence": "pending"
+          "evidence": "pending",
+          "notRun": "correlation never produced a cgWindowId for this window — capture has nothing to target"
         }
       ]
     },
@@ -244,7 +245,7 @@
         {
           "tier": "macos-local",
           "covers": "AppleScript-mode browsers get COARSE events derived from StateStore diffs rather than extension frames — a different ingest path with different records. Also the half of windowMru the Chromium tier cannot reach: re-focusing an EXISTING window, which emits nothing under --headless=new because there is no window manager",
-          "evidence": "pending"
+          "evidence": "apps/browser-tab-mcp/sweep-macos-report.json"
         }
       ]
     },
@@ -260,7 +261,7 @@
         {
           "tier": "macos-local",
           "covers": "Safari: real sqlite3 against a fixture History.db by default; --real-history (Full Disk Access) is the only thing that proves FDA is granted",
-          "evidence": "pending"
+          "evidence": "apps/browser-tab-mcp/sweep-macos-report.json"
         }
       ]
     },
@@ -342,7 +343,7 @@
         {
           "tier": "macos-local",
           "covers": "the real Automation TCC probe and the non-prompting Screen Recording preflight. It reports what it finds; it cannot construct a DENIED state without revoking permission",
-          "evidence": "pending"
+          "evidence": "apps/browser-tab-mcp/sweep-macos-report.json"
         }
       ]
     },
@@ -385,7 +386,8 @@
         {
           "tier": "macos-local",
           "covers": "the real launchctl bootstrap. Opt-in and destructive to a developer's service state — expected to be CUT rather than automated",
-          "evidence": "pending"
+          "evidence": "pending",
+          "notRun": "deliberate non-run: registering a LaunchAgent rewrites your own service state"
         }
       ]
     },

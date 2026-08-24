@@ -250,6 +250,27 @@ env-only and documented in `.env.example`.
 
 The connector extension lives in `apps/chrome-extension` (load `dist/` unpacked, paste `browser-tab daemon token` in its options page) with Safari packaging in `apps/safari-extension` (`pnpm --filter @george43g/safari-extension sideload`; needs Xcode — see its README). Its toolbar **popup** and **settings page** show live connection status, window/tab counts, and the real error if it can't connect. Without an extension, everything except true Chromium moves still works via AppleScript.
 
+### Driving a Chromium build the adapter doesn't know by name
+
+The AppleScript path addresses a browser **by app name** (`tell application
+"Chromium"`), and Apple Events route by app identity — not by pid, not by
+`--user-data-dir`. So a second instance of the same bundle is not separately
+addressable however isolated its profile is, and the adapter only knows four
+names: Google Chrome, Brave Browser, Chromium, Microsoft Edge.
+
+`BROWSER_TAB_CHROMIUM_APP_NAME` points the `chromium` id at a differently-named
+Chromium build — **Google Chrome for Testing** (Google's automation build, and
+what Playwright downloads), Thorium, Ungoogled Chromium, a local compile. They
+all speak the identical scripting dictionary, so the app name is the only thing
+that cannot be inferred:
+
+```sh
+BROWSER_TAB_CHROMIUM_APP_NAME="Google Chrome for Testing" browser-tab list --browser chromium
+```
+
+This is what `pnpm sweep:macos` uses to verify the AppleScript adapters against
+a real browser without touching the one you actually have open.
+
 ## Install the companion skill
 
 This repo ships with a Claude skill that teaches an AI agent how to use your tool end-to-end. The skill lives at `skills/browser-tab/SKILL.md` and is meant to be rewritten by you (or by the AI itself, after first reading the tool) to document the tool's actual behavior.

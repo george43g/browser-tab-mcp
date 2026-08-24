@@ -1377,3 +1377,122 @@ So neither "it went down" nor "it came back" is invariant. What IS invariant is 
 worker being driven is destroyed, and the way to observe that is a RACE, not a try/catch: the worker
 dies mid-call, so the `evaluate` promise never settles and a catch waits forever. Sabotage-verified
 (an extension that acks without reloading fails the assertion).
+
+### B15. The daemon self-kills when `yabai -m query --windows` fails — a blocking subprocess on the tick path
+
+**Observed on George's real daemon, 2026-08-24, unprompted.** pid 15555 died at
+`2026-08-23T23:58:49.750Z` with `watchdog_kill: event_loop_sustained_lag` (p99 3143ms,
+6 consecutive samples against a 750ms threshold) and launchd's `KeepAlive` respawned it
+as a new pid. Evidence: `$TMPDIR/browser-tab-daemon/browser-tab-daemon-15555-*.ndjson`,
+last five lines.
+
+The lines immediately before the kill are the cause, not context:
+
+```
+warn yabai_query_failed   {"bin":"/opt/homebrew/bin/yabai","message":"Command failed: … -m query --windows","durMs":2172}
+warn yabai_titles_unavailable {"candidates":3}
+info cg_correlate         {"borrowed":true,"titlesAvailable":false,"cgReadMs":1050,"borrowMs":2187, chrome:{windows:2,candidates:33,nulled:2}}
+warn event_loop_lag       {"p99_ms":4693,"threshold_ms":500}
+error watchdog_kill: event_loop_sustained_lag
+```
+
+So: Chrome's two windows are bounds-ambiguous (33 CG candidates, 2 nulled) → `needsTitleTiebreak`
+fires → the daemon shells out to yabai → **yabai fails after 2.2s** → that 2.2s lands on the engine
+tick → sustained lag → the watchdog does exactly what it is for and kills the process. Three
+`yabai_query_failed` entries across ~85 minutes were enough.
+
+Two separable defects, and they should not be conflated:
+
+1. **A failing external subprocess should not be able to starve the tick.** The title tiebreak has
+   no timeout of its own; `durMs` 2172-2291 is yabai hanging before it fails, not yabai being slow
+   at succeeding. A bound (say 500ms) that degrades to "no titles" is strictly better than a
+   correlation that costs more than the poll interval.
+2. **`yabai -m query --windows` failing at all** is the thing to diagnose first — it is George's own
+   WM and it was working. Until it is understood, (1) only converts a crash into a `null`
+   cgWindowId, which is the *other* standing bug (cgWindowId oscillation).
+
+**Not fixed here.** It surfaced while running `pnpm sweep:macos` and is unrelated to it — the kill
+timestamp is ~1 minute BEFORE the sweep created its first window, and the first `yabai_query_failed`
+was 08:34 AEST, over an hour earlier.
+
+### B16. The e2e fixture leaks daemons that outlive the test run
+
+Two `dist/cli.js daemon run` processes were found alive **4+ hours** after their Playwright runs
+ended, with `BROWSER_TAB_SOCKET_PATH` under `/…/T/bt-e2e-*/daemon.sock`. They were still polling
+every browser on the machine on their own interval, which is a direct contributor to B15's lag.
+
+`e2e/fixtures.ts` `startDaemon()` teardown does not guarantee the child is dead — the same shape as
+the sweep's own `quit` bug below. The fix is the same: after the polite stop, poll for the process
+to actually be gone and escalate. Killed by hand this session; nothing in the repo stops it
+recurring on the next local e2e run.
+
+### B17 (trap). AppleScript `quit` returns 0 and does not quit Chrome-family browsers
+
+Measured 2026-08-24 against Google Chrome for Testing: `osascript -e 'tell application "…" to quit'`
+exited **0** with the process still running and three windows open, repeatedly. Chrome-family
+browsers can defer or ignore the Apple Event, and osascript cannot tell.
+
+This is not cosmetic for anything that launches a browser and cleans up after itself: the sweep's
+own safety rule is "refuse to start if the target is already running", so a silently-failed quit
+turns the harness into a one-shot. `scripts/sweep-macos.mjs` now polls for the process to disappear
+and escalates through `pkill -TERM` then `-KILL`, which is safe there and only there — it launched
+the process, `pgrep -x` matches the exact name, and the preflight proved no instance existed before.
+
+### B18 (trap). `set_window --bounds` cannot be effect-verified under a tiling WM
+
+With yabai running, `tell application "…" to set bounds of w to {120, 120, 1020, 820}` read back as
+`{-1297, -1030, 563, -10}` — a different display and a different size. That is yabai doing its job:
+it owns geometry and re-tiles the window the instant the app moves it.
+
+There is therefore no geometry assertion that distinguishes a working `set_window` from a broken one
+on such a machine, and loosening one until it passes would be worse than not having it. The sweep
+detects a tiling WM (`yabai|Amethyst|Rectangle|AeroSpace`) and **skips with that reason**, while
+still proving `set_window` through the `minimized <-> normal` transition, which a tiling WM does not
+fight. Anyone verifying bounds needs a machine with the WM stopped.
+
+### B19 (trap). The AppleScript snapshot carries no window `state` field
+
+`chromium.ts` and `safari.ts` `readState` both map `windowId/bounds/focused/incognito/tabs` and
+stop — `state` is a v2 field the EXTENSION supplies. So on the AppleScript pathway the snapshot
+cannot tell you whether a window is minimized, and any test that polls `window.state` waits forever.
+
+`focus_tab`'s own RESULT does carry `windowState`/`wasMinimized` (the acting pathway computes them,
+`focus-state.ts`), which is why the contract still holds — but that is the command's own account of
+itself. The sweep therefore asks the browser directly (`get minimized of (first window whose id is
+…)`), the same second-source move the Chromium tier makes with `sw.evaluate(() =>
+chrome.windows.get(...))`. Asserting only on the command's echo is the shape of the mock that let
+#106 live for months.
+
+### B20. `tab_action back` cannot reliably reach a history entry made through this tool — mechanism NOT understood
+
+**Nine sweep runs, and this is where it stands.** `tab_action navigate` is `set URL of t to …`.
+Whether a later `tab_action back` can reach the entry it left behind is not reliable, and the
+pattern is not the one an obvious "the page had not committed yet" story predicts.
+
+What is measured, all 2026-08-24, same build, same browser (Google Chrome for Testing):
+
+| sequence | `back` |
+|---|---|
+| tab born at example.net via `open_tab` (`make new tab … with properties {URL:…}`), one `navigate` on top | **moved** |
+| same, with a 2.0 / 2.5 / 3.0s settle inserted between the birth and the navigate | did not move (3 runs) |
+| two `navigate` calls (`set URL` → `set URL`), 3s settles, 3 attempts | did not move (3/3) |
+| `set URL` → `delay 5` → `set URL` → `delay 5` → `go back t`, all inside ONE `osascript` | **moved**, repeatably |
+
+So the verb works, and a settle — the thing that should help — is the change that correlates with
+breakage. **The mechanism is not understood.** The obvious suspect is the difference between one
+osascript holding a live tab reference across delays and three separate CLI invocations each
+re-resolving the tab by id, but that is a suspicion and is recorded as one.
+
+`scripts/sweep-macos.mjs` pins the configuration observed to pass, retries `back` three times, and
+skips `forward` outright when `back` did not move — because a `forward` assertion after a `back`
+that did nothing passes while the command has no effect, which is this repo's signature vacuous-pass
+shape and was live in the harness for two runs before being caught.
+
+**What this does NOT block.** `tab_action` as a surface is effect-verified on the macos tier by
+navigate, reload and the extension-only refusal, all of which pass. It is the back/forward
+sub-pathway that is unproven, and it should stay named as such rather than absorbed into a green
+row.
+
+**Worth knowing for callers:** if a model navigates with `tab_action navigate` and then expects
+`tab_action back` to undo it, it may silently not. That is a user-facing property, not just a test
+problem, and it is the reason this is a B-item rather than a trap note.

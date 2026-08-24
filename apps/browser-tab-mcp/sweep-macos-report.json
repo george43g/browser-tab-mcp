@@ -1,0 +1,192 @@
+{
+  "suite": "sweep-macos",
+  "startedAt": "2026-08-24T00:27:23.054Z",
+  "gitSha": "a6a8209cd5a518342518e97930c9f76179f52371",
+  "os": "darwin 24.6.0",
+  "node": "v24.15.0",
+  "target": {
+    "browser": "chromium",
+    "version": "Google Chrome for Testing 149.0.7827.55"
+  },
+  "safariPhase": false,
+  "realHistory": false,
+  "passed": 15,
+  "failed": 1,
+  "skipped": 13,
+  "results": [
+    {
+      "surface": "doctor",
+      "pathway": "Automation TCC probe (chromium)",
+      "status": "pass",
+      "reason": "Apple Events accepted"
+    },
+    {
+      "surface": "open_window",
+      "pathway": "chromium AppleScript (`make new window`)",
+      "status": "pass",
+      "reason": "w:chromium:1624964090, 1 tab(s)"
+    },
+    {
+      "surface": "list_tabs",
+      "pathway": "chromium AppleScript (handle grammar + dataSource)",
+      "status": "pass",
+      "reason": "t:chromium:1624964091 / w:chromium:1624964090"
+    },
+    {
+      "surface": "open_tab",
+      "pathway": "chromium AppleScript (`make new tab`)",
+      "status": "pass",
+      "reason": "t:chromium:1624964093 (1 -> 2 tabs)"
+    },
+    {
+      "surface": "tab_action",
+      "pathway": "chromium AppleScript (navigate)",
+      "status": "pass",
+      "reason": "https://example.org/"
+    },
+    {
+      "surface": "tab_action",
+      "pathway": "chromium AppleScript (reload)",
+      "status": "pass",
+      "reason": "ok"
+    },
+    {
+      "surface": "tab_action",
+      "pathway": "chromium AppleScript (back)",
+      "status": "fail",
+      "reason": "`go back` did not move the URL in 3 attempts. The verb itself works in isolation, so what is unreliable is a history entry created through this tool being reachable by a later `back` — see BACKLOG B20"
+    },
+    {
+      "surface": "tab_action",
+      "pathway": "chromium AppleScript (forward)",
+      "status": "skip",
+      "reason": "`back` did not move, so there is nothing to go forward to — asserting the URL here would pass without the command having had any effect"
+    },
+    {
+      "surface": "tab_action",
+      "pathway": "chromium AppleScript (extension-only refusal)",
+      "status": "pass",
+      "reason": "Tool \"tab_action\" failed: Action \"mute\" isn't available for Google Chrome for Te"
+    },
+    {
+      "surface": "focus_tab",
+      "pathway": "chromium AppleScript (minimized cleared BEFORE raise)",
+      "status": "pass",
+      "reason": "wasMinimized=true, Chromium confirms not minimized (windowFocused=false)"
+    },
+    {
+      "surface": "set_window",
+      "pathway": "chromium AppleScript (minimized <-> normal)",
+      "status": "pass",
+      "reason": "minimized -> normal, confirmed by the browser both ways"
+    },
+    {
+      "surface": "set_window",
+      "pathway": "chromium AppleScript (bounds)",
+      "status": "skip",
+      "reason": "yabai is running and owns window geometry — it re-tiles the window immediately after the AppleScript `set bounds`, so no geometry assertion can distinguish a working set_window from a broken one on th"
+    },
+    {
+      "surface": "set_window",
+      "pathway": "chromium AppleScript (unsupported state refusal)",
+      "status": "pass",
+      "reason": "Tool \"set_window\" failed: Window state \"maximized\" isn't settable for Google Chr"
+    },
+    {
+      "surface": "move_tab",
+      "pathway": "chromium AppleScript (refuses, names the extension)",
+      "status": "pass",
+      "reason": "Tool \"move_tab\" failed: Google Chrome for Testing tabs cannot be moved via AppleScript wit"
+    },
+    {
+      "surface": "close_tab",
+      "pathway": "chromium AppleScript (`close t`)",
+      "status": "pass",
+      "reason": "2 -> 1 tabs"
+    },
+    {
+      "surface": "close_window",
+      "pathway": "chromium AppleScript (`close window`)",
+      "status": "pass",
+      "reason": "w:chromium:1624964090 gone"
+    },
+    {
+      "surface": "history",
+      "pathway": "safari sqlite (fixture History.db)",
+      "status": "pass",
+      "reason": "fixture row at 2026-08-01T00:00:00.000Z"
+    },
+    {
+      "surface": "journal",
+      "pathway": "chromium AppleScript (StateStore-diff ingest)",
+      "status": "pass",
+      "reason": "tab-focus record, source=applescript"
+    },
+    {
+      "surface": "screenshot",
+      "pathway": "window tier (`screencapture -l`)",
+      "status": "skip",
+      "reason": "correlation never produced a cgWindowId for this window — capture has nothing to target"
+    },
+    {
+      "surface": "list_tabs",
+      "pathway": "safari AppleScript",
+      "status": "skip",
+      "reason": "not run — pass --safari (drives your real Safari)"
+    },
+    {
+      "surface": "focus_tab",
+      "pathway": "safari AppleScript",
+      "status": "skip",
+      "reason": "not run — pass --safari (drives your real Safari)"
+    },
+    {
+      "surface": "open_tab",
+      "pathway": "safari AppleScript",
+      "status": "skip",
+      "reason": "not run — pass --safari (drives your real Safari)"
+    },
+    {
+      "surface": "close_tab",
+      "pathway": "safari AppleScript",
+      "status": "skip",
+      "reason": "not run — pass --safari (drives your real Safari)"
+    },
+    {
+      "surface": "move_tab",
+      "pathway": "safari AppleScript",
+      "status": "skip",
+      "reason": "not run — pass --safari (drives your real Safari)"
+    },
+    {
+      "surface": "tab_action",
+      "pathway": "safari AppleScript",
+      "status": "skip",
+      "reason": "not run — pass --safari (drives your real Safari)"
+    },
+    {
+      "surface": "open_window",
+      "pathway": "safari AppleScript",
+      "status": "skip",
+      "reason": "not run — pass --safari (drives your real Safari)"
+    },
+    {
+      "surface": "set_window",
+      "pathway": "safari AppleScript",
+      "status": "skip",
+      "reason": "not run — pass --safari (drives your real Safari)"
+    },
+    {
+      "surface": "close_window",
+      "pathway": "safari AppleScript",
+      "status": "skip",
+      "reason": "not run — pass --safari (drives your real Safari)"
+    },
+    {
+      "surface": "daemon install",
+      "pathway": "real launchctl bootstrap",
+      "status": "skip",
+      "reason": "deliberate non-run: registering a LaunchAgent rewrites your own service state"
+    }
+  ]
+}

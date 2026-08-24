@@ -52,10 +52,44 @@ export function enabledBrowsers(): BrowserId[] {
   return picked.length > 0 ? picked : [...DEFAULT_BROWSERS];
 }
 
+/**
+ * Point the `chromium` browser id at a differently-NAMED Chromium build.
+ *
+ * WHY THIS EXISTS. The AppleScript adapter addresses a browser by APP NAME
+ * (`tell application "Chromium"`), and Apple Events route by app identity —
+ * not by pid, not by `--user-data-dir`. So a second instance of the same
+ * bundle is not addressable separately, however isolated its profile is, and
+ * "Chromium" is the only Chromium-family name this adapter knows besides the
+ * three branded ones.
+ *
+ * That leaves several real builds unreachable: **Google Chrome for Testing**
+ * (Google's own automation build, and what Playwright downloads), Thorium,
+ * Ungoogled Chromium, and any locally-compiled Chromium. All of them speak the
+ * identical scripting dictionary — `chromium.ts` derives every script body
+ * from `spec.appName` and nothing else — so the only thing standing between
+ * them and full support is the string.
+ *
+ * `processName` is set from the same value because a Chromium build's Mach-O
+ * executable is named after its app; `bundleId` is deliberately NOT derived
+ * and keeps reporting `org.chromium.Chromium`. Nothing keys off it — it is
+ * informational in `BrowserState` (engine.ts:94), correlation joins on pid —
+ * and inventing a second knob to make one cosmetic field accurate would cost
+ * more than it is worth. If that ever stops being true, add the field, don't
+ * guess it.
+ *
+ * Example: BROWSER_TAB_CHROMIUM_APP_NAME="Google Chrome for Testing"
+ */
+function retargetChromium(spec: AdapterSpec): AdapterSpec {
+  if (spec.browser !== "chromium") return spec;
+  const appName = process.env.BROWSER_TAB_CHROMIUM_APP_NAME?.trim();
+  if (!appName) return spec;
+  return { ...spec, appName, processName: appName };
+}
+
 export function specFor(browser: BrowserId): AdapterSpec {
   const spec = ALL_SPECS.find((s) => s.browser === browser);
   if (!spec) throw new Error(`Unknown browser "${browser}".`);
-  return spec;
+  return retargetChromium(spec);
 }
 
 export function makeAdapter(browser: BrowserId): BrowserAdapter {
