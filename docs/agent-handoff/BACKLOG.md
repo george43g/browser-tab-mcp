@@ -1390,6 +1390,58 @@ dies mid-call, so the `evaluate` promise never settles and a catch waits forever
 
 ### B15. The daemon self-kills when `yabai -m query --windows` fails — a blocking subprocess on the tick path
 
+> **CORRECTED 2026-08-24 (same day). The diagnosis below is FALSIFIED — the
+> mechanism is not ours. Body left standing as the original record; read this
+> note first.**
+>
+> Three claims in the entry below are wrong:
+>
+> 1. *"The title tiebreak has no timeout of its own."* It does —
+>    `src/detect/correlate.ts:108-112` passes `timeout: 2_000`. The measured
+>    `durMs` 2172-2291 **is** that bound firing.
+> 2. *"A failing external subprocess should not be able to starve the tick."*
+>    It cannot. The yabai call is `await execFileAsync(...)` — an awaited
+>    subprocess yields the loop by construction.
+> 3. *"`yabai -m query --windows` failing at all is the thing to diagnose
+>    first."* It is not, and it is no longer failing: live logs show
+>    `titlesAvailable: true`, `borrowMs` 225-565ms. yabai was a co-symptom of a
+>    loaded machine, not a cause.
+>
+> **What is actually happening.** Every death — 126 of them, five consecutive
+> log files checked — is `watchdog_kill: event_loop_sustained_lag`. The daemon
+> is **starved, not wedged**:
+>
+> ```
+> $ ps -o pid,%cpu,etime,time -p 16323
+>   PID  %CPU  ELAPSED      TIME
+> 16323   0.0 01:19:35   0:27.26
+> ```
+>
+> 27.26s CPU over 79m35s = a **0.57% duty cycle**, while that same process
+> logged `event_loop_lag` at p99 1885ms and its own measured work was fast
+> (`cgReadMs` 42-131ms). A process blocking its own loop with synchronous work
+> burns CPU; this one did not. Host was at load 20-24 across 118 node/claude
+> processes (a large share of it agent sessions, including the ones that
+> diagnosed this), with no sleep/wake in the window per `pmset -g log`.
+>
+> **So there is no browser-tab performance bug here to fix.** The defect is in
+> `@george43g/robustness@0.12.0`: `dist/watchdog.js:171-172` kills on sustained
+> event-loop lag with no notion of whether the process was ever on-CPU
+> (`cpuUsage`/`loadavg` appear zero times). Per the standing rule, kit defects
+> go upstream — written up as item 4 in `UPSTREAM-KIT-BRIEF.md`, with the
+> two-signal design and both consumers' attribution.
+>
+> **What remains browser-tab's, and it is small:** the generated LaunchAgent
+> sets `KeepAlive` with no `ThrottleInterval` (`src/daemon/launchd.ts:39-45`),
+> so a self-killing daemon respawns on launchd's 10s default. Worth adding
+> regardless of the kit fix; taking effect on a machine needs a
+> `daemon install`, which is George's call under handoff ground rule 4.
+>
+> **Also found while measuring:** George's live daemon was running
+> `1.4.1+115.a6a8209.dirty.0824T1023` — a dirty build off the PR #117 branch
+> left in `dist/` by the session that wrote the sweep. The documented staleness
+> trap, landed on again.
+
 **Observed on George's real daemon, 2026-08-24, unprompted.** pid 15555 died at
 `2026-08-23T23:58:49.750Z` with `watchdog_kill: event_loop_sustained_lag` (p99 3143ms,
 6 consecutive samples against a 750ms threshold) and launchd's `KeepAlive` respawned it
