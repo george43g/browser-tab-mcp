@@ -329,6 +329,66 @@ the RULES and points at the file for the state.
 | `cli-process` | vitest, `apps/browser-tab-mcp/tests/` | the built `dist/cli.js` spawned as a real process against a fake-adapter daemon. No browser. Runs in CI. |
 | `macos-local` | `pnpm sweep:macos`, a developer's Mac only | real `osascript` / `screencapture` / Safari `History.db`. **Cannot run in CI** — GitHub's macOS runners have no logged-in GUI session, so `tell application` cannot work. |
 
+**The `macos-local` tier is `scripts/sweep-macos.mjs`, and its constraints are
+not incidental.** It drives the BUILT bin against a socket path with no daemon
+behind it, so every call takes the `daemon_unreachable_falling_back` route into
+the AppleScript adapters — that route *is* the thing under test. Three surfaces
+(`journal`, `history`, `screenshot`) are daemon-only reads with no adapter
+fallback, so they get a throwaway daemon on that same isolated socket.
+
+- **Target selection is the whole safety model.** The adapter addresses a
+  browser BY APP NAME (`tell application "…"`), and Apple Events route by app
+  identity — not by pid, not by `--user-data-dir`. So Playwright-style
+  isolation does not help: a second instance of the same bundle is not
+  separately addressable however isolated its profile is. What is needed is a
+  DIFFERENT BUNDLE. The sweep prefers **Google Chrome for Testing**, which
+  Playwright already downloads (`~/Library/Caches/ms-playwright/chromium-*/`),
+  reaches it via `BROWSER_TAB_CHROMIUM_APP_NAME`, and **refuses to start** if
+  its chosen browser is already running. Google Chrome is excluded by
+  construction and there is no flag to include it.
+- **Homebrew's `chromium` cask does not work** — ad-hoc signed AND quarantined,
+  so Gatekeeper blocks it and `open` returns a bare `-128`. Note the AND:
+  macOS only assesses *quarantined* bundles, so Chrome for Testing launches
+  fine despite failing the same `spctl` check. A preflight that consulted
+  `spctl` alone would reject the one browser that works.
+- **Safari is opt-in behind `--safari`** and runs under record/restore against
+  the real browser (there is only one). Every window the sweep touches must be
+  in its `owned` set, which it only adds to when it created the window.
+- **A skip with a reason is a first-class outcome**, not a soft failure. Two
+  are structural on a real desktop: `set_window` bounds cannot be verified
+  under a tiling WM (yabai re-tiles the window the instant AppleScript moves
+  it — measured, `{120,120,1020,820}` read back as `{-1297,-1030,563,-10}`),
+  and the window-tier `screenshot` needs both a resolved `cgWindowId` and
+  Screen Recording consent. The sweep reports the TCC state it finds and never
+  grants or revokes one.
+- **The report is committed** (`apps/browser-tab-mcp/sweep-macos-report.json`,
+  redacted by construction: surface, pathway, status, reason, sha, browser
+  build — never a URL, title or user path), and
+  `surface-coverage.contract.test.ts` asserts every non-pending `macos-local`
+  row has a PASSING row in it. That is the macos analogue of `run-guard.ts`,
+  and it works where a reporter cannot precisely because the artifact is in
+  git. Re-running on a machine where a surface newly skips turns that test red
+  until the row goes back to `"pending"` — which is correct: the claim stopped
+  being backed.
+- **It is NOT wired to pre-push.** A push must not spawn browser windows.
+  `focus_tab` and `set_window` genuinely steal focus; there is no way to verify
+  them that does not.
+
+**It exits 1 on this Mac today, and that is the honest answer, not a broken
+harness.** One pathway is genuinely unproven: `tab_action back` cannot reliably
+reach a history entry created through `tab_action navigate` (8 of 9 runs;
+mechanism NOT understood — see BACKLOG **B20**, which records the measurements
+rather than a guess). Everything else passes or skips with a stated reason. So
+the useful reading of a sweep run is *"is there a failure other than B20?"* —
+there is no known-issues allowlist, deliberately, because that is how a known
+issue stops being read.
+
+**One plan assumption it falsified.** The plan predicted a Chromium
+"close+reopen" move to verify; `chromium.ts` `moveTab` does no such thing — it
+throws unconditionally, because close+reopen loses session state and shipping
+that silently would be worse than refusing. The ledger row now records the
+REFUSAL as the contract, which is what the code actually promises.
+
 Three rules the ledger encodes, all of which have been violated before:
 
 1. **`tier` is where a surface's EFFECT is proved** — that a browser actually

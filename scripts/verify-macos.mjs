@@ -33,7 +33,7 @@
  * Run with `pnpm verify:macos`. `.githooks/pre-push` runs it for you.
  */
 import { execFileSync } from "node:child_process";
-import { existsSync, readdirSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { createRequire } from "node:module";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -44,6 +44,7 @@ const ACCEL = join(ROOT, "apps", "rust-accel");
 const BOLD = "\x1b[1m";
 const RED = "\x1b[31m";
 const GREEN = "\x1b[32m";
+const YELLOW = "\x1b[33m";
 const OFF = "\x1b[0m";
 
 const say = (m) => process.stdout.write(`\n${BOLD}> ${m}${OFF}\n`);
@@ -133,6 +134,68 @@ const badDisplay = displays.find(
 if (badDisplay) die(`a display came back malformed: ${JSON.stringify(badDisplay)}`);
 if (!displays.some((d) => d.isMain)) die("no display reports isMain - the napi mapping is wrong.");
 ok("displays carry numeric displayId + boolean isMain, exactly one main");
+
+// A NON-BLOCKING nudge about the OTHER Darwin-only harness.
+//
+// `pnpm sweep:macos` proves the AppleScript adapters against a real browser,
+// and it deliberately does not run here: it opens windows and steals focus,
+// and this script is wired to pre-push. But a stale sweep report is a claim
+// that has quietly stopped being true — `docs/surfaces/effect-coverage.json`
+// cites it as evidence — and nobody re-runs a harness they are not reminded
+// about. So: compare the report's `gitSha` against the newest commit touching
+// the adapters, and say something when the adapters have moved on.
+//
+// It never fails the run. Blocking a push on "you should have run a GUI
+// harness" produces `--no-verify`, not a run.
+say("Sweep report freshness (advisory)");
+try {
+  const reportPath = join(ROOT, "apps", "browser-tab-mcp", "sweep-macos-report.json");
+  if (!existsSync(reportPath)) {
+    process.stdout.write(
+      `  ${YELLOW}note${OFF} no sweep-macos-report.json — the AppleScript pathways have never ` +
+        `been effect-verified on this machine. Run \`pnpm sweep:macos\`.\n`,
+    );
+  } else {
+    const report = JSON.parse(readFileSync(reportPath, "utf8"));
+    const newestAdapterCommit = execFileSync(
+      "git",
+      ["log", "-1", "--format=%H", "--", "apps/browser-tab-mcp/src/detect/adapters"],
+      { cwd: ROOT },
+    )
+      .toString()
+      .trim();
+    if (!report.gitSha) {
+      process.stdout.write(`  ${YELLOW}note${OFF} the sweep report carries no gitSha.\n`);
+    } else if (newestAdapterCommit && report.gitSha !== newestAdapterCommit) {
+      // Is the report's sha an ANCESTOR of the adapter commit? If so the
+      // adapters genuinely moved after the sweep ran.
+      let behind = false;
+      try {
+        execFileSync("git", ["merge-base", "--is-ancestor", report.gitSha, newestAdapterCommit], {
+          cwd: ROOT,
+          stdio: "ignore",
+        });
+        behind = true;
+      } catch {
+        // not an ancestor — the report is from a divergent or later commit,
+        // which is not evidence of staleness
+      }
+      if (behind) {
+        process.stdout.write(
+          `  ${YELLOW}note${OFF} the sweep report is from ${report.gitSha.slice(0, 8)}, and ` +
+            `src/detect/adapters has changed since (${newestAdapterCommit.slice(0, 8)}). ` +
+            `Re-run \`pnpm sweep:macos\` — the ledger cites that report as evidence.\n`,
+        );
+      } else {
+        ok("sweep report is not behind the adapters");
+      }
+    } else {
+      ok("sweep report matches the newest adapter commit");
+    }
+  }
+} catch (err) {
+  process.stdout.write(`  ${YELLOW}note${OFF} could not check sweep freshness: ${err.message}\n`);
+}
 
 run("pnpm", ["test"], "Test suite on the native path (the run CI can no longer make)");
 

@@ -2434,3 +2434,96 @@ If Phase 4 is greenlit, checkpoint #7's `## Resume` section has the full build o
 If not, the plan is finished and `docs/surfaces/effect-coverage.json` is the register of what
 remains unproved. No mid-flight state: nothing staged, no background task running, no half-applied
 edit, no question outstanding.
+
+---
+
+# Checkpoint #9 — 2026-08-24 — Phase 4 executed: the macOS AppleScript tier
+
+*Where this file and a conversation summary disagree, this file is correct.*
+
+## State
+
+`pnpm sweep:macos` exists and has been run 10 times against a real browser; 12 of the ledger's 14
+`macos-local` rows are now backed by a passing check, and PR #117 carries it. The
+effect-verification plan is complete — Phase 4 was its last open item.
+
+## Constraints
+
+- **George, 2026-08-24, verbatim:** *"why did we need to install chromium then? there are existing
+  packages for headless browsers, and the browser mcps that drive browsers like playright often
+  launch separate instances of chrome that are separate from my running chrome…"* — the question was
+  right, and it changed the design. The answer is recorded in AGENTS.md § the macos-local tier and
+  is now the reason the sweep needs no install at all. **Do not re-propose `brew install --cask
+  chromium`.**
+- Standing merge approval (checkpoint #8) is unchanged and was used for #117.
+
+## Done
+
+- `scripts/sweep-macos.mjs` + `pnpm sweep:macos` — commit `267de3c`, PR #117.
+- `BROWSER_TAB_CHROMIUM_APP_NAME` in `specFor()` (`src/detect/engine.ts`) — the one product change,
+  documented in `.env.example` and README.
+- Ledger: 12/14 `macos-local` rows moved off `pending`; the two that did not carry a `notRun` reason.
+- `surface-coverage.contract.test.ts` gained the macos anti-vacuity rule (8 tests, was 7).
+  **Sabotage-verified** — faking `screenshot`'s evidence turns it red with the right message.
+- `scripts/verify-macos.mjs` gained the advisory staleness nudge (never fails the run).
+- BACKLOG B15–B20 appended.
+- `pnpm lint` / `typecheck` / `test` (727 passed) / `build` all green before commit.
+
+## Open
+
+- **B20 — `tab_action back`.** 8 of 9 runs fail; `pnpm sweep:macos` exits 1 on it today. Evidence it
+  is still open: the committed `sweep-macos-report.json` carries `"status": "fail"` for it.
+- **B15 — the daemon self-kills on a failing yabai query.** Evidence: the kill line in
+  `$TMPDIR/browser-tab-daemon/browser-tab-daemon-15555-*.ndjson`. Not attempted.
+- **B16 — e2e fixture leaks daemons.** Two were killed by hand this session; nothing in the repo
+  prevents recurrence. Not attempted.
+- **The `--safari` phase has never been run.** Built, reviewed, opt-in — and deliberately not
+  pointed at George's real Safari without asking first.
+- `screenshot` and `daemon install` remain `macos-local: pending`, each with a stated reason.
+
+## Corrections
+
+- **I said the `back` failure was flake and that a settle would fix it. Both were wrong.** It fails
+  deterministically (8/9), and inserting a settle is the change that correlates with the breakage.
+  B20 now carries the measurement table rather than my explanation, and explicitly says the
+  mechanism is not understood.
+- **A vacuous `forward` check was live in the harness for two runs** — it asserted the tab was on a
+  URL it was already on, so it passed while `back` had failed and the command did nothing. Now
+  skipped whenever `back` did not move. This is the repo's signature failure mode and I reproduced
+  it while building the tool meant to prevent it.
+- **My first Gatekeeper preflight was wrong in a way that would have rejected the correct browser.**
+  It consulted `spctl` alone; macOS only assesses QUARANTINED bundles, so Chrome for Testing fails
+  the same `spctl` check as the Homebrew cask and yet launches fine.
+
+## Traps
+
+- Apple Events route by **app identity**, so `--user-data-dir` / CDP isolation is irrelevant to the
+  AppleScript path. You need a different BUNDLE, not a different instance.
+- AppleScript `quit` returns 0 without quitting Chrome-family browsers (B17) — verify and escalate.
+- The AppleScript snapshot has **no window `state` field** (B19); poll the browser, not the snapshot.
+- A tiling WM overrules `set bounds` instantly (B18) — geometry is unverifiable there.
+- `git status` mtimes and my own sense of elapsed time were both unreliable this session; I twice
+  concluded a run was wedged when it had been going two minutes. Check `date`.
+
+## Tree
+
+`test/macos-sweep-tier` @ `267de3c`, pushed, PR #117 open, CI running. `main` untouched. Four
+deliberately-untracked docs remain untracked (`docs/deep-application-control-platform-architecture.md`,
+`docs/tab-selection-transformation-language-spec.md`, `surfingkeys-integration-ideas.md`,
+`tab-selection-transformation-language-spec.md`) — they are not mine and were kept out of the commit
+by staging 11 files explicitly.
+
+## Blocked on you
+
+- **Running the `--safari` phase** against the real Safari. It is guarded (record/restore, owned-set
+  enforcement, closes only what it created) but it is your live browser.
+- **B15**: your `yabai -m query --windows` is failing. That is a wm-stack question, not a
+  browser-tab one, and it is currently killing your daemon roughly hourly.
+
+## Resume
+
+Wait for #117's CI, then merge (standing approval). After that the plan is finished; the register of
+what remains unproved is `docs/surfaces/effect-coverage.json` plus B15/B16/B20.
+
+No mid-flight state: nothing staged beyond the pushed commit, no half-applied edit, no background
+work that matters. The only outstanding question is the `--safari` one above.
