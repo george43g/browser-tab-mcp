@@ -125,6 +125,87 @@ obvious `browser-tab list | less`.
 `FORCE_HUMAN`/`--human`. Low priority next to items 1–2, and browser-tab is
 **not** working around it locally.
 
+
+---
+
+## 4. `watchdog`: sustained event-loop lag cannot distinguish a WEDGED process from a STARVED one
+
+**Reported 2026-08-24. Affects `@george43g/robustness@0.12.0` (and 0.11.0 — this
+is not a stale-consumer problem).** Two independent consumers hit it on the same
+machine in the same window: `browser-tab-mcp` and `up-bank-mcp`.
+
+**Symptom.** browser-tab's daemon self-killed **126 times**, every death
+`watchdog_kill: event_loop_sustained_lag`, launchd respawning each time on a 10s
+cycle. Nothing was wrong with the daemon.
+
+**Measurement that settles it.** The daemon, while logging `event_loop_lag` at
+p99 1885ms:
+
+```
+$ ps -o pid,%cpu,etime,time -p 16323
+  PID  %CPU  ELAPSED      TIME
+16323   0.0 01:19:35   0:27.26
+```
+
+27.26s of CPU across 79m35s wall — a **0.57% duty cycle**. The host was at load
+20-24 (118 node/claude processes, 3.5GB resident); `pmset -g log` showed no
+sleep/wake in the window. The process was not stalling, it was **not being
+scheduled**.
+
+**The defect.** Event-loop lag alone cannot tell "my code blocked the loop" from
+"the OS didn't schedule me" — the two are indistinguishable from inside the
+process unless you also measure CPU. `dist/watchdog.js:171-172` fires
+`triggerKill("event_loop_sustained_lag", …)` with no notion of whether the
+process was ever on-CPU:
+
+```
+$ grep -c 'cpuUsage\|loadavg' .../@george43g+robustness@0.12.0/dist/watchdog.js
+0
+```
+
+**Asked for — two signals with defined roles, not one.** Sample
+`process.cpuUsage()` across the lag window; consult `os.loadavg()[0] /
+os.cpus().length` only for the branch CPU cannot resolve:
+
+| lag observed | CPU during the window | meaning | action |
+|---|---|---|---|
+| sustained | **high** | spinning on its own work — wedged | **kill** |
+| sustained | **low** + host saturated | starved by the host | **log, do not kill** |
+| sustained | **low** + host idle | blocked in a sync syscall | **kill** |
+
+**Why not `cpuUsage` alone** (this repo argued for that first, then refuted it):
+a process blocked in a *synchronous syscall* is wedged and off-CPU. browser-tab
+makes that reachable — `src/detect/correlate.ts:169` is a synchronous napi call
+into `CGWindowListCopyWindowInfo`, a Mach IPC round-trip to WindowServer, and
+`daemon/journal.ts:266`, `daemon/annotations.ts:70`, `daemon/window-shot.ts:57`
+are synchronous `readFileSync`. A pure duty-cycle test reads a hung WindowServer
+as "starved, don't kill" and leaves the process wedged forever — the exact
+failure the watchdog exists to prevent.
+
+**Why not `loadavg` alone** (up-bank's first proposal, withdrawn): a machine can
+be at load 24 while a specific process is genuinely wedged. Load-aware gating
+suppresses the kill exactly then. Under the table above it cannot — high host
+load only ever downgrades a kill when the process is **also** off-CPU, and a
+spinning wedge is on-CPU regardless of the host.
+
+**Certainty.** The duty-cycle measurement and the absent `cpuUsage`/`loadavg`
+symbols are verified. That `CGWindowListCopyWindowInfo` hangs long enough to
+trip a sustained-lag window is **inference** from its being a synchronous IPC
+round-trip — not observed. The design deliberately does not depend on that hang
+being common: it holds because "low CPU" has two causes and only one is safe to
+ignore.
+
+**Blast radius if unfixed.** Every consumer on a shared or loaded machine
+euthanises itself under someone else's CPU pressure, and the label sends
+maintainers hunting a performance bug in their own code that the evidence never
+supported. That cost is epistemic, not operational — the restart itself is cheap
+(~28MB RSS, sub-second start). Two sessions spent an evening on it here.
+
+**Attribution.** Mechanism (duty-cycle) from browser-tab; the second consumer
+and the `loadavg` branch from up-bank; host measurements (`pmset`, load) from the
+dotfiles session, which held both reports and is the only reason the two repos
+filed one brief instead of two competing ones.
+
 ---
 
 ## After a publish
