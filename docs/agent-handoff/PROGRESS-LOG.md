@@ -2527,3 +2527,90 @@ what remains unproved is `docs/surfaces/effect-coverage.json` plus B15/B16/B20.
 
 No mid-flight state: nothing staged beyond the pushed commit, no half-applied edit, no background
 work that matters. The only outstanding question is the `--safari` one above.
+
+---
+
+# Checkpoint #10 — 2026-08-24 — #117 merged; five stale backlog rows closed with evidence
+
+*Where this file and a conversation summary disagree, this file is correct.*
+*Checkpoint #9 (above) still holds for the sweep itself — this records only what changed after it.*
+
+## State
+
+PR #117 is merged (`2692bcd`), `main` is clean and in sync, and the effect-verification plan is
+finished. Five BACKLOG rows that this cycle actually closed were still reading as open work; they
+now carry dated closure notes with evidence.
+
+## Constraints
+
+- **George, 2026-08-24:** asked for a table of what landed today and a table of everything still
+  outstanding. Building the second one is what surfaced the stale rows below — **a register nobody
+  reconciles against reality stops being a register.** Reconcile BACKLOG against the repo whenever
+  a cycle ends, not only when someone asks for a list.
+
+## Done
+
+- Merged #117 → `2692bcd`; `git rev-list --left-right --count HEAD...origin/main` = `0 0`.
+- Cleanup verified after 10 sweep runs: no `Google Chrome for Testing` process, no
+  `browser-tab-sweep-*` temp dirs, one daemon alive and it is George's launchd one (no
+  `BROWSER_TAB_SOCKET_PATH` in its env). His Chrome (2 windows) and Safari (1 window) untouched.
+- Annotated five entries in BACKLOG.md, each with a citation rather than an assertion:
+  - **B7 CLOSED** — `e2e/tab-discard.e2e.test.ts`, annotated `tab_action:discard` at `:49`.
+  - **B8 CLOSED** — `scripts/sweep-macos.mjs` (`2692bcd`). Its closing line *"No strategy exists for
+    (b) yet"* was false as written and is now marked so.
+  - **B11 CLOSED** — `src/cli.ts:842`, guarded by `tests/cli-log-branding.integration.test.ts`.
+  - **B2 HEADLINE CLOSED** — `run-guard.ts:39` pins `EXPECTED_MIN_TESTS = 60`. Its residuals were
+    NOT folded in: they point at B6, FOLLOWUPS § P2, and the irreducible Safari-manual limit.
+  - **B3 PARTIALLY DONE, deliberately left open** — the structure shipped, but two of its own named
+    items were never built (see below).
+
+## Open
+
+- **B3's two remaining items.** Evidence they are still open, checked this session rather than
+  recalled: no `update` assertion exists in `e2e/journal-history-bookmarks.e2e.test.ts`, and the
+  "blames the extension when the DAEMON is stale" error still has only a comment at
+  `daemon/index.ts:574`, no behaviour change.
+- **B15, B16, B20** unchanged since checkpoint #9 — none attempted.
+- **`@types/chrome@^0.0.280`** in `apps/chrome-extension`, `packages/extension-core`,
+  `packages/test-kit`. `npm view @types/chrome version` → **0.2.7**. A caret on `0.0.x` pins the
+  PATCH, so no install can ever reach it. Never attempted; `pnpm deps:check --registry` is what
+  finds this shape.
+- **The `--safari` sweep phase has still never been run.**
+
+## Corrections
+
+- **My own tables were the correction.** Nothing I claimed this session turned out false, but the
+  exercise of building the outstanding-work table proved that five rows were misleading — B8 in
+  particular asserted no strategy existed for the exact thing that had merged an hour earlier.
+
+## Traps
+
+- **A backlog entry describing a gap does not close itself when the gap closes.** Five did not.
+  The failure is invisible until someone reads the register cold and re-plans work already done.
+- Annotate a closed entry **at its heading**, leaving the original text intact. Rewriting the body
+  destroys why it was opened; appending a closure section far below leaves the heading still lying
+  to anyone scanning.
+
+## Tree
+
+`main` @ `2692bcd`, clean, `0 0` vs `origin/main`. Dirty after this checkpoint: only
+`docs/agent-handoff/BACKLOG.md` and `docs/agent-handoff/PROGRESS-LOG.md`, both mine.
+Four deliberately-untracked docs remain untracked and are **not mine** —
+`docs/deep-application-control-platform-architecture.md`,
+`docs/tab-selection-transformation-language-spec.md`, `surfingkeys-integration-ideas.md`,
+`tab-selection-transformation-language-spec.md` (25706 / 74984 / 10527 / 46453 bytes).
+
+## Blocked on you
+
+Unchanged from checkpoint #9, plus nothing new: B15 (your failing `yabai -m query --windows` is
+killing the daemon roughly hourly), the `--safari` run, B1, B4, B10, `daemon install`, and the
+npm-publish / monorepo / coverage-ratchet deferrals in `docs/FOLLOWUPS.md`.
+
+## Resume
+
+Nothing is mid-flight: no staged work beyond this checkpoint, no background task whose result
+matters, no half-applied edit, no question I am waiting on an answer to.
+
+The next action is whichever of the **Blocked on you** items George picks. If he picks none, the
+highest-value unblocked work is B6 (`e2e/**` is typechecked nowhere — one line, then whatever type
+errors it surfaces) or B3's two leftovers.

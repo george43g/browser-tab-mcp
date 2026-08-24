@@ -915,9 +915,13 @@ The brief's claim that `types.rs` held a browser enum was incorrect — `apps/ru
 The core `build-test` matrix IS de-duplicated (verified `ci.yml:66-141`: lint, shellcheck, typecheck, TS-fallback test, coverage, usage-artifact check, npm-tarball check are Linux-only; every OS leg runs only install → build → native-path test → stress; macOS ~1.5 min, ubuntu ~3 min, windows ~5 min). The `e2e-branded` job (#92) is a two-row matrix and each row does its own install + build, so Windows now installs+builds **three times per PR** (core leg + two e2e rows), ubuntu twice — ~3–4 min of redundant runner time, $0 on the public repo, no wall-clock cost because rows run in parallel. Cheap fix if minutes ever matter: collapse the two rows into one job with sequential test steps (saves two install+builds, costs ~2 min serialization); richer fix: share the built `dist/` via upload/download-artifact across all e2e jobs. **Decision pending George: minutes vs wall-clock.** Also: the stress step label says "10 cases" — it is 14; relabel.
 
 ### B2. Testing gap: the real-browser-effect layer
+
+> **HEADLINE CLOSED 2026-08-24.** "the e2e suite has 3 tests" is no longer true: `e2e/run-guard.ts:39` pins `EXPECTED_MIN_TESTS = 60`, and the AppleScript half is now covered by `pnpm sweep:macos` (`2692bcd`). **Residuals from this entry are still open** and are tracked elsewhere, not here — `e2e/**` typechecking is **B6**, the coverage ratchet is `docs/FOLLOWUPS.md` § P2, and Safari-runtime-manual-only is unchanged and irreducible.
 Coverage is strong for the daemon/MCP/dispatch core (648 unit+integration+contract tests, 14-case stress harness with honest verdicts, TUI render + soak, e2e in three real-browser environments). The gap: the e2e suite has 3 tests, while the 2026-08-22 manual sweep exercised ~25 command surfaces — everything outside load/list/move is verified only against the fake adapter, which asserts *dispatch*, not *effect*. Evidence from the sweep: `discard` swaps the tab id (invisible to a fake); `back`/`forward` no-op on tool-built history because Chromium's history-manipulation intervention marks gestureless entries skippable — they work on human history (verified on George's real Edge tab: two hops landed exactly where he predicted), but **no test builds gestured history, so neither behaviour is pinned**. Two further classes surfaced this cycle: defects only a second daemon or a real deployment can expose (the global-pipe e2e isolation hole, the Windows phantom stress pass) — "the harness is more provisioned/cleaner than the target"; and `e2e/**` sits outside `apps/chrome-extension/tsconfig.json`'s include, so CI never typechecks it. Safari stays manual-only by necessity; coverage is collected but not gated (`COVERAGE_GATE` dormant).
 
 ### B3. Proposed e2e structure: the command-sweep suite (next-cycle candidate, spec = PROGRESS-LOG 2026-08-22 "later still" entry)
+
+> **PARTIALLY DONE 2026-08-24 — deliberately NOT closed.** The proposed structure shipped in full (PRs #105, #107, #109–#113; dual-truth assertions, ledger, run guard). **Two of this entry's own named items were never built**: an unambiguous `bookmark update` test (no `update` assertion exists in `e2e/journal-history-bookmarks.e2e.test.ts`), and the fix for an error that blames the extension side when the DAEMON is stale (searched `tabs-service.ts` / `daemon/index.ts`; only a comment at `daemon/index.ts:574`, no behaviour change). Those two are what remains of B3.
 The fixtures are the right foundation already (channel-parameterized, IPC-isolated throwaway daemon, seeded config). Turn the manual sweep into a Playwright suite with **dual-truth assertions**: every command is driven through the real daemon path, then verified against BOTH the daemon snapshot AND Playwright's direct view of the browser (`sw.evaluate(() => chrome.tabs.get(id))`, `page.url()`, scroll position) — the second truth is what catches the back/discard class. Shape:
 - `apps/chrome-extension/e2e/sweep/` — one file per family: tabs (open/close/move/duplicate/discard), actions (mute/pin/navigate/reload), groups, focus + window-state (minimize→focus→`wasMinimized` contract), perception (page ×3 modes, screenshot, annotate), data (history/journal/bookmarks), transport (MCP stdio + HTTP — the two probe scripts from the sweep become tests).
 - `back`/`forward` tested with a **Playwright-clicked link** (a real gesture) — pins both "works on gestured history" and "skips tool-built entries".
@@ -979,6 +983,8 @@ today.** Fix is one line in the tsconfig include, but it will surface whatever
 type errors are currently hiding — budget for that, don't assume it's free.
 
 ### B7. `discard` needs its OWN e2e spec — and the id-swap is now CONFIRMED
+
+> **CLOSED 2026-08-24** by `apps/chrome-extension/e2e/tab-discard.e2e.test.ts` — its own spec, own fixture, annotated `tab_action:discard` (`:49`), asserting only what is reachable after the context dies.
 Three runs against real Windows Edge: `chrome.tabs.discard(id)` returns a tab
 whose id **differs** from the one passed in (`239550782`→`239550786`,
 `229934170`→`229934174`, `263071999`→`263072002`). First hard evidence of the
@@ -997,6 +1003,8 @@ differently again (hard `SEGV_ACCERR`, no return value), so any acceptance
 criteria must name their environment.
 
 ### B8. The AppleScript path has ZERO real-browser exercise, anywhere
+
+> **CLOSED 2026-08-24** by `pnpm sweep:macos` (`scripts/sweep-macos.mjs`, `2692bcd`). **This entry's last line — "No strategy exists for (b) yet" — is now false**: the strategy is a third tier driving a browser the user does not run, reached by app name via `BROWSER_TAB_CHROMIUM_APP_NAME`. 12 of 14 `macos-local` ledger rows are backed by it; the two still `pending` carry recorded reasons.
 `osascript` is mocked or fixture-substituted at every layer, for list, focus,
 tab_action, open_tab, open_window, set_window and doctor's TCC probe. A
 Playwright/Chromium suite **cannot reach this path at all**. So "the testing
@@ -1060,6 +1068,8 @@ uncommitted as of 2026-08-22; if it is still uncommitted when you read this, it
 is at risk, but it is not yours to commit.
 
 ### B11. The CLI never brands its log prefix — its NDJSON lands in a SHARED `$TMPDIR/mcp/` bucket
+
+> **CLOSED 2026-08-24** by PR #98 — `apps/browser-tab-mcp/src/cli.ts:842` calls `setLogFilePrefix("browser-tab-cli")` as the first statement of `main()`, guarded by `apps/browser-tab-mcp/tests/cli-log-branding.integration.test.ts`.
 Surfaced 2026-08-23 answering a cross-session query from the `dotfiles` session,
 which is building a Vector collector that ships MCP NDJSON logs to g-home-server
 off an **explicit prefix list**. It had found two prefixes; there are three.
