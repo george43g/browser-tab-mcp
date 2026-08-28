@@ -130,7 +130,7 @@ obvious `browser-tab list | less`.
 
 ## 4. `watchdog`: sustained event-loop lag cannot distinguish a WEDGED process from a STARVED one
 
-**Reported 2026-08-24. Affects `@george43g/robustness@0.12.0` (and 0.11.0 — this
+**Reported 2026-08-28. Affects `@george43g/robustness@0.12.0` (and 0.11.0 — this
 is not a stale-consumer problem).** Two independent consumers hit it on the same
 machine in the same window: `browser-tab-mcp` and `up-bank-mcp`.
 

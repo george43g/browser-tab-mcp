@@ -1390,7 +1390,8 @@ dies mid-call, so the `evaluate` promise never settles and a catch waits forever
 
 ### B15. The daemon self-kills when `yabai -m query --windows` fails — a blocking subprocess on the tick path
 
-> **CORRECTED 2026-08-24 (same day). The diagnosis below is FALSIFIED — the
+> **CORRECTED 2026-08-28 (four days after the entry below). The diagnosis
+> below is FALSIFIED — the
 > mechanism is not ours. Body left standing as the original record; read this
 > note first.**
 >
