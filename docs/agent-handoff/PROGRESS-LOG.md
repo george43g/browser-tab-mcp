@@ -2614,3 +2614,146 @@ matters, no half-applied edit, no question I am waiting on an answer to.
 The next action is whichever of the **Blocked on you** items George picks. If he picks none, the
 highest-value unblocked work is B6 (`e2e/**` is typechecked nowhere — one line, then whatever type
 errors it surfaces) or B3's two leftovers.
+
+---
+
+# Checkpoint #11 — 2026-08-28 (session `browser-tab-mcp-4f`)
+
+**Where this file and a conversation summary disagree, THIS FILE IS CORRECT.**
+The summary optimises for narrative and is least reliable about what did *not*
+happen.
+
+## State
+
+B15 is corrected and its real defect is filed upstream and accepted; three more
+backlog rows are fixed in code (#122); the register no longer carries a
+falsified diagnosis, a stale date, or two closed-but-open-looking rows.
+
+## Constraints
+
+New this session, from George, verbatim:
+
+- On routing kit defects: *"why arent you simply asking mcp-cli-toolkit agent to
+  fix the issues with robustness since thats the agent responsible for fixing
+  it?"* — filing a brief is not the whole action; message the owning session.
+  Promoted to user memory `route-kit-defects-to-owning-agent`.
+- On this cleanup: *"get any remaining easy/low hanging fruit done. get the repo
+  into a clean state - you have my permission to commit, push, PR, merge to get
+  this repo in a clean state."*
+- On the partition audit: *"park this in such a way that you remember to fold it
+  into your next plan"* → **B21**, written to be picked up by the next plan
+  rather than done ad hoc.
+
+Standing (unchanged): merge approval for all PRs on green CI; ground rule 4 still
+gates `daemon install`, extension loading and macOS permissions. The end-of-turn
+summary contract changed (dotfiles `6f943ad`) — the list carries only items THIS
+session owns; peer items go under `elsewhere`.
+
+## Done
+
+- **B15 corrected** (#120, `76dc5c7`). Its diagnosis was falsified: the yabai
+  subprocess is already bounded (`correlate.ts:108-112`, `timeout: 2_000`) and
+  awaited, so it cannot starve the tick. Every death is
+  `watchdog_kill: event_loop_sustained_lag` on a process at a **0.57% duty
+  cycle** (27.26s CPU / 79m35s wall) on a host at load 20-24 — starved, not
+  wedged.
+- **Upstream defect filed and ACCEPTED** — `UPSTREAM-KIT-BRIEF` item 4;
+  `mcp-cli-toolkit` is implementing the two-signal design. They found what I
+  could not: `watchdog.test.ts:532` already asserts a kill on the lag path, and
+  a test process on a loaded CI host sits in the *starved* quadrant, so a naive
+  fix makes that test flaky in exactly the conditions it is about. Hence the
+  constraint: downgrade `event_loop_sustained_lag` ONLY, never
+  `event_loop_blocked`. Confirmed from 223 real lag samples here — max 7646ms,
+  **zero** at or above the 10s blocked threshold.
+- **Handed over a real off-CPU-wedge fixture** they said they could not
+  fabricate: `Atomics.wait` blocks the loop at **0.01% duty** vs **74%** for a
+  spin wedge. Test at
+  `$CLAUDE_JOB_DIR/../scratchpad/handoff/watchdog-starvation.test.ts` (session
+  scratch — copy it before it ages out).
+- **#121 (`01e47e3`)** — corrected two dates stamped from a session clock that
+  was four days stale.
+- **#122** — B16 (fixture leaked daemons; `proc.killed` means *signal
+  delivered*, not *process exited*, so the SIGKILL branch was unreachable), B5
+  (env-loader 0% → 97.77%; the override must REPLACE, not merge, because
+  `mergeConfig` concatenates arrays), and `ThrottleInterval` 30s plus the plist
+  generator's first test, sabotage-verified.
+- **B6 closed with evidence** — already fixed by #103 (`815ee93`); typecheck
+  passes clean over `e2e/**`.
+- **Daemon rebuilt off `main` and restarted** at George's explicit instruction —
+  it had been running a dirty PR #117 branch build left by this session.
+
+## Open
+
+- **B21** — the partition-vs-iterate audit. Parked at George's instruction, to
+  be folded into the next plan. Evidence it is open: written this session, no
+  candidate examined.
+- **ThrottleInterval takes effect only on `daemon install`**, deliberately not
+  run (ground rule 4). Evidence: his LaunchAgent still has no throttle.
+- **B20** (`back` after `navigate`), **B12/B13/B14**, **B1**, **B4**, **B10**,
+  `--safari` sweep — all explicitly deferred or George-gated, unchanged.
+- **B3's two leftovers** — `bookmark update` e2e assertion; the stale-daemon
+  blame error at `daemon/index.ts:574` (comment only). Not attempted this
+  session.
+
+## Corrections
+
+- **B15's mechanism was wrong in the register for four days** and two sessions
+  acted on it. Corrected in place, original body left standing.
+- **I proposed `cpuUsage()` alone upstream, then refuted my own proposal**: a
+  process blocked in a *synchronous syscall* is wedged AND off-CPU
+  (`correlate.ts:169` is a sync napi call into `CGWindowListCopyWindowInfo`).
+  Duty-cycle alone reads that as starved and declines to kill. Final design is
+  two signals with defined roles.
+- **The `dotfiles` session's headline was wrong and I checked rather than
+  adopting it**: the daemon is not silent. It writes NDJSON to
+  `$TMPDIR/browser-tab-daemon/`; the 0-byte launchd files are the designed
+  state, because stdout is forbidden after transport connect.
+- **This session's injected "today" was four days stale.** Fixed in #121.
+  `date` and `node` agree; the injected value did not.
+
+## Traps
+
+- **A session's "today" does not advance and can be days wrong. Run `date`
+  before stamping anything.**
+- `proc.killed` is *"a signal was delivered"*, not *"the process exited"*. Any
+  escalation guarded by it is unreachable.
+- `mergeConfig` CONCATENATES arrays — an override that must remove an entry has
+  to replace the array, not merge one.
+- Event-loop lag cannot distinguish "my code blocked the loop" from "the OS
+  didn't schedule me" without a CPU term. This generalises past this repo.
+- A watchdog that kills on host saturation is a positive feedback loop: kill →
+  respawn → module loading burns CPU → more processes cross the threshold.
+
+## Tree
+
+`main`, in sync with origin, clean. PR #122 open (green expected; merge on
+green per standing approval). The four previously-untracked Codex documents are
+committed verbatim and unreconciled in their own PR (#123), separate so a single
+`git revert` undoes them — they were why every build stamped `.dirty`, including
+the one running on George's daemon.
+`docs/tab-selection-transformation-language-spec.md` remains canonical and the
+root-level copy remains the older duplicate; **B10's instruction not to
+reconcile them still stands.**
+
+## Blocked on you
+
+- **B10 / the selection-DSL workstream** — its author's gate is unchanged:
+  George reviews the reduced transform set, the phased five-tool MCP surface,
+  the `control-language` naming, and the browser/tmux product boundary before
+  any implementation starts. This is the "large workstream" named for next.
+- `daemon install` (to pick up `ThrottleInterval`), the `--safari` sweep, B1, B4,
+  and the npm-publish / monorepo / coverage-ratchet deferrals.
+- **Elsewhere, not his to chase from here:** `robustness` release approval
+  (owner `mcp-cli-toolkit`), `mcpsync sync` to repair this repo's dead codex
+  `browser-tab-mcp-dev` entry (owner `life-stack-e8`).
+
+## Resume
+
+Nothing is mid-flight except PR #122 awaiting CI; merge it on green under
+standing approval, then `git pull`. No half-applied edit, no unanswered
+question.
+
+**The next action is the large workstream George has named — and B21 must be
+folded into its plan, not run separately.** Start by reading B10's gate: no
+implementation begins until those four choices are accepted or revised.
+
