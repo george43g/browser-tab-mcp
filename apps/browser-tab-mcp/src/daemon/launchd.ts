@@ -38,6 +38,18 @@ ${args}
   <true/>
   <key>KeepAlive</key>
   <true/>
+  <!--
+    Minimum seconds between respawns. launchd's default is 10, which is a fine
+    figure for a daemon that crashes once; it is the wrong one for a daemon in
+    a restart loop, where it means ~360 cold starts an hour, each of them CPU
+    -intensive module loading. That is not hypothetical here: the watchdog
+    self-kills on sustained event-loop lag, and on a saturated host that lag is
+    imposed from OUTSIDE the process, so the restart adds load to the machine
+    that caused it (BACKLOG B15; the real fix is upstream in robustness).
+    30s keeps recovery prompt while capping the loop's cost.
+  -->
+  <key>ThrottleInterval</key>
+  <integer>30</integer>
   <key>ProcessType</key>
   <string>Background</string>
   <key>StandardOutPath</key>

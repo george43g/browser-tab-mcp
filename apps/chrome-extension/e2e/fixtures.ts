@@ -226,11 +226,49 @@ export async function startDaemon(specUrl: string): Promise<Daemon> {
     r.stdout.trim(),
   );
 
+  /**
+   * Stop the daemon and PROVE it is gone before returning.
+   *
+   * The previous implementation escalated on `proc.killed`, which is not what
+   * that flag means: node sets it once a signal has been DELIVERED, not once
+   * the process has exited. So it was already `true` on the line after
+   * `kill("SIGTERM")`, the `if (!proc.killed)` branch could never run, and the
+   * SIGKILL escalation was dead code. A daemon slow to honour SIGTERM simply
+   * survived the run — two were found alive 4+ hours later, still polling
+   * every browser on the machine (BACKLOG B16).
+   *
+   * `exitCode`/`signalCode` are the honest signal: both stay `null` until the
+   * child actually terminates. Waiting on them is what makes the escalation
+   * reachable.
+   */
+  const exited = (): boolean => proc.exitCode !== null || proc.signalCode !== null;
+  const waitForExit = async (ms: number): Promise<boolean> => {
+    const deadline = Date.now() + ms;
+    while (Date.now() < deadline) {
+      if (exited()) return true;
+      await new Promise((r) => setTimeout(r, 50));
+    }
+    return exited();
+  };
+
   const stop = async (): Promise<void> => {
-    proc.kill("SIGTERM");
-    await new Promise((r) => setTimeout(r, 500));
-    if (!proc.killed) proc.kill("SIGKILL");
-    rmSync(dir, { recursive: true, force: true });
+    try {
+      if (!exited()) {
+        proc.kill("SIGTERM");
+        if (!(await waitForExit(2_000))) {
+          proc.kill("SIGKILL");
+          if (!(await waitForExit(2_000))) {
+            // Nothing left to try from here; make it loud rather than leaking
+            // silently, which is the failure this whole block exists to stop.
+            console.error(
+              `[e2e] daemon pid ${proc.pid} survived SIGTERM and SIGKILL — it may still be polling browsers.`,
+            );
+          }
+        }
+      }
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
   };
 
   const daemon: Daemon = { proc, wsPort, token, env, cli, status, stop };
