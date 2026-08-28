@@ -975,6 +975,14 @@ per-package override in `packages/env-loader/vitest.config.ts` (today
 others. Take (b) now, (a) only if the gate is ever armed.
 
 ### B6. `e2e/**` is typechecked NOWHERE in the repo
+
+> **CLOSED 2026-08-28 — fixed by #103 (`815ee93`), which this entry predates.**
+> `apps/chrome-extension/tsconfig.json` now reads
+> `include: ["src/**/*.ts", "vite.config.ts", "e2e/**/*.ts", "tests/**/*.ts"]`,
+> and `pnpm --filter @george43g/chrome-extension typecheck` passes clean, so the
+> predicted hidden type errors either never existed or were fixed in the same
+> PR. The body below describes the pre-#103 state; kept as the original record.
+
 Not merely excluded from one config: `apps/chrome-extension/tsconfig.json` has
 `include: ["src/**/*.ts", "vite.config.ts"]`, and `tsc --listFiles` on the real
 typecheck run lists **zero** files under `e2e/`. Playwright transpiles specs via
@@ -1559,3 +1567,49 @@ row.
 **Worth knowing for callers:** if a model navigates with `tab_action navigate` and then expects
 `tab_action back` to undo it, it may silently not. That is a user-facing property, not just a test
 problem, and it is the reason this is a B-item rather than a trap note.
+
+### B21. Audit this repo for the partition-vs-iterate defect class — FOLD INTO THE NEXT PLAN
+
+**Parked deliberately at George's instruction (2026-08-28): this is not a grep,
+it is a real audit, and it belongs inside the next plan's scope rather than
+being done ad hoc at the end of a session.**
+
+**The class, named by `life-stack` after five instances across the fleet in one
+evening:** *a comparison that cannot fail reports success*; general form,
+**testing presence when you need capability**. The sharpened rule, which is the
+part to audit against:
+
+> **Assert the selector, not only the result. Wherever a set PARTITIONS rather
+> than ITERATES, an empty match moves every item to the other side silently.
+> Iteration fails safe; partitioning fails inverted.**
+
+Instances already on record, to calibrate what a hit looks like:
+
+- **This repo, B15** — the robustness watchdog compares event-loop lag against a
+  threshold with no CPU term, so "starved" and "wedged" are indistinguishable
+  and it killed 126 healthy processes. Filed upstream (`UPSTREAM-KIT-BRIEF`
+  item 4).
+- **This repo, B16** — `e2e/fixtures.ts` escalated on `proc.killed`, which means
+  *a signal was delivered*, not *the process exited*, so the SIGKILL branch was
+  unreachable. Fixed 2026-08-28.
+- **mcpsync** — a secret scanner matching double-quoted TOML against a file
+  using single quotes throughout, reporting `secrets: 0` over a live plaintext
+  key.
+- **g-home-server** — a PowerShell secret-hygiene check returning PASS with two
+  real leaks, because the selector PARTITIONED findings instead of gating them:
+  an empty match did not void the check, it inverted it and reclassified their
+  own leaks as somebody else's.
+
+**Where to look here** (candidates, none verified — that is the audit):
+`src/detect/correlate.ts` candidate filtering and the `nulled`/`claimCollisions`
+diag counters; `daemon/history.ts` source merging (believed to be the GOOD
+pattern already — per-source `status` rows — so it is the reference, not a
+suspect); `scripts/sweep-macos.mjs` `redact()`'s `ALLOWED_URLS` set;
+`tests/surface-coverage.contract.test.ts` and `e2e/run-guard.ts`, both of which
+enumerate rather than hand-list and should therefore pass, but are worth
+confirming precisely because everything downstream trusts them.
+
+**Acceptance:** each candidate either gets a one-line "iterates, fails safe"
+note, or a fix plus a test that goes RED when the selector matches nothing.
+A sweep that reports "no instances found" without naming what it checked is
+itself an instance of the class.

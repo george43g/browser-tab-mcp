@@ -47,6 +47,16 @@ browser-tab doctor           # preflight: Automation permission, correlation tie
 browser-tab repl             # interactive REPL — same dispatcher as MCP
 ```
 
+`daemon install` registers a per-user service that restarts the daemon if it
+exits — a launchd LaunchAgent on macOS, a Task Scheduler `ONLOGON` task on
+Windows (not a Service: that needs elevation and runs in session 0, which cannot
+see your browser), and elsewhere it refuses with an instruction rather than
+silently producing a daemon that never starts. On macOS the agent sets
+`ThrottleInterval` to 30s, so a daemon that ends up in a restart loop cannot
+respawn on launchd's 10s default and add load to the machine that caused it.
+Re-run `daemon install` after upgrading to pick up changes to the service
+definition.
+
 ## One-click install
 
 Paste these into your MCP host's config. The bin name is `browser-tab` once installed via npm; the `npx` form works without a local install.
