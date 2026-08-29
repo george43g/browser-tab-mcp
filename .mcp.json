@@ -14,11 +14,9 @@
     },
     "mise": {
       "command": "mise",
-      "args": ["mcp"]
-    },
-    "tmux-rust": {
-      "command": "/opt/homebrew/bin/tmux-mcp-rs",
-      "args": ["--shell-type", "zsh"]
+      "args": [
+        "mcp"
+      ]
     }
   }
 }
