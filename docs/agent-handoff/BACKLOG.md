@@ -1613,3 +1613,41 @@ confirming precisely because everything downstream trusts them.
 note, or a fix plus a test that goes RED when the selector matches nothing.
 A sweep that reports "no instances found" without naming what it checked is
 itself an instance of the class.
+
+### B22 (trap). The next real `.mcp.json` write will land as a WHOLE-FILE diff — say so in the message
+
+**Queued, not avoided.** `.mcp.json` currently holds expanded arrays
+(`"args": [\n  "mcp"\n]`) because the `dotfiles` session hand-edited it with a
+Python `json.dump(..., indent=2)` writer on 2026-08-30, not because mcpsync
+emits that style. mcpsync did **not** write the file that day — it reported
+`unchanged 2 server(s)` — and it is right not to care, because it compares
+PARSED JSON, not text (`apps/mcpsync/src/core/hosts/json-adapter.ts`
+`matches()` re-serialises both sides via `JSON.stringify`, so indentation and
+array layout are invisible to it).
+
+**The trap:** the next time mcpsync genuinely *writes* this file — any real
+change to a Cursor or Warp server, since both are symlinks to `.mcp.json` — it
+rewrites the whole document through `formatJson()` and normalises every array
+back to inline. A one-server edit will therefore arrive as a whole-file diff
+with the semantic change buried inside it, and the obvious reading ("the
+generator reformatted everything, so the generator presumably did all of this")
+is the same misattribution that already cost two sessions a round trip and
+nearly sent a non-existent formatting defect upstream to mcpsync.
+
+**Do not pre-normalise it.** Writing to a formatter-owned file by hand to tidy
+it is precisely what created the drift. mcpsync is the only clean writer for
+this file and will do the job for free on its next real write. CI never sees the
+drift either — these four files are Biome-excluded (`biome.json:26-29`).
+
+**What to do instead, when that diff appears:** state the split in the commit
+message — *"whole-file normalisation by mcpsync's writer; the semantic change is
+these N lines"*.
+
+**The general rule, which is the durable output of that exchange:** **when two
+writers touch one file, the commit message must say which wrote what, or say it
+does not know.** A later tool running over a file makes itself the plausible
+author of everything in the diff — it does not just fail to explain earlier
+churn, it *launders* it. The tell that broke the case open is worth keeping: a
+`tmux-rust` deletion cannot touch the neighbouring `mise` entry, and that hunk
+was sitting in the PR body as disproof of the claim the PR was making.
+
