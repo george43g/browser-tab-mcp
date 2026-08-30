@@ -196,9 +196,17 @@ export function installFakeChrome(config: FakeChromeConfig = {}): FakeChrome {
   });
 
   const tabs: Record<string, unknown> = {
+    // MODELS the `groupId` filter rather than ignoring it. An unfiltered fake
+    // would let `group remove --group <id>` ungroup EVERY tab in the profile
+    // and still pass its test — the assertion would be measuring the fake.
+    // Other filters are deliberately not modelled: add one when a test needs
+    // it, so an unmodelled filter never silently widens a query.
     query: (queryInfo?: unknown) => {
       record("tabs.query", [queryInfo]);
-      return Promise.resolve(flatTabs());
+      const q = (queryInfo ?? {}) as { groupId?: number };
+      const all = flatTabs();
+      if (typeof q.groupId !== "number") return Promise.resolve(all);
+      return Promise.resolve(all.filter((t) => (t as { groupId?: number }).groupId === q.groupId));
     },
     // Modelled, not stubbed: resolves the SEEDED tab, and rejects with
     // Chrome's exact wording for an unknown id — the per-id validation in

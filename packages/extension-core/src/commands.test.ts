@@ -265,6 +265,65 @@ describe("group_tabs", () => {
     expect(fc.calls["tabs.ungroup"]?.[0]).toEqual([[3]]);
   });
 
+  // DISSOLVE-BY-GROUP. `groupId` was documented for `remove` in the Zod schema
+  // and the CLI help but never implemented, so the advertised
+  // `group remove --group <id>` failed with "requires tabIds". These four cases
+  // pin the whole surface, not just the happy path.
+  describe("remove by groupId (dissolve)", () => {
+    const seedGrouped = () =>
+      installFakeChrome({
+        windows: [
+          {
+            id: 50,
+            focused: true,
+            tabs: [
+              { id: 1, windowId: 50, index: 0, groupId: 77 },
+              { id: 2, windowId: 50, index: 1, groupId: 77 },
+              { id: 3, windowId: 50, index: 2, groupId: 88 },
+              { id: 4, windowId: 50, index: 3 },
+            ],
+          },
+        ],
+      });
+
+    it("ungroups every member of the group and NOTHING else", async () => {
+      fc = seedGrouped();
+      const out = await executeCommand("group_tabs", { action: "remove", groupId: 77 });
+      expect(out).toEqual({ payload: { action: "remove", ungroupedCount: 2 } });
+      // Exactly the group's members — not tab 3 (other group), not tab 4
+      // (ungrouped). An unfiltered query would ungroup all four and this
+      // assertion is what catches that.
+      expect(fc.calls["tabs.ungroup"]?.at(-1)).toEqual([[1, 2]]);
+      expect(fc.calls["tabs.query"]?.at(-1)).toEqual([{ groupId: 77 }]);
+    });
+
+    it("NEVER closes a tab — dissolving uses ungroup, never remove", async () => {
+      fc = seedGrouped();
+      await executeCommand("group_tabs", { action: "remove", groupId: 77 });
+      // chrome.tabGroups has no delete call; ungroup is the only way to remove
+      // a group, which is precisely why this cannot destroy a tab.
+      expect(fc.calls["tabs.remove"]).toBeUndefined();
+    });
+
+    it("tabIds wins when both are given — the more specific request", async () => {
+      fc = seedGrouped();
+      await executeCommand("group_tabs", { action: "remove", groupId: 77, tabIds: [3] });
+      expect(fc.calls["tabs.ungroup"]?.at(-1)).toEqual([[3]]);
+      expect(fc.calls["tabs.query"]).toBeUndefined();
+    });
+
+    it("errors actionably for neither argument, and for an empty group", async () => {
+      fc = seedGrouped();
+      await expect(executeCommand("group_tabs", { action: "remove" })).rejects.toThrow(
+        /requires tabIds or groupId/,
+      );
+      await expect(
+        executeCommand("group_tabs", { action: "remove", groupId: 999 }),
+      ).rejects.toThrow(/group 999 has no tabs/);
+      expect(fc.calls["tabs.ungroup"]).toBeUndefined();
+    });
+  });
+
   it("update requires at least one property; move calls tabGroups.move", async () => {
     await expect(executeCommand("group_tabs", { action: "update", groupId: 77 })).rejects.toThrow(
       /title\/color\/collapsed/,

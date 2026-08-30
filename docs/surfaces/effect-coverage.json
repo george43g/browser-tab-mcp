@@ -141,7 +141,7 @@
       "coverage": [
         {
           "tier": "chromium-e2e",
-          "covers": "create/add/update/remove/move against real chrome.tabGroups — and THE DOGFOOD BUG: grouping window-1 tabs while window 2 is frontmost must not relocate them. Sabotage-verified against real Chrome (reverting the createProperties.windowId pin reproduces the relocation), where it was previously proven only against a fake stub's model of the surprise. Also the per-id stale handling: one dead id is skipped and REPORTED in payload.skippedTabIds, all-stale errors. Extension-only by design, so this tier is the ceiling for this surface, not a stepping stone",
+          "covers": "create/add/update/remove(by tabIds AND dissolve-by-groupId)/move against real chrome.tabGroups — and THE DOGFOOD BUG: grouping window-1 tabs while window 2 is frontmost must not relocate them. Sabotage-verified against real Chrome (reverting the createProperties.windowId pin reproduces the relocation), where it was previously proven only against a fake stub's model of the surprise. Also the per-id stale handling: one dead id is skipped and REPORTED in payload.skippedTabIds, all-stale errors. Extension-only by design, so this tier is the ceiling for this surface, not a stepping stone",
           "evidence": "apps/chrome-extension/e2e/groups.e2e.test.ts"
         }
       ]
