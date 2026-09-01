@@ -41,6 +41,7 @@ browser-tab focus <tabId> --no-raise   # activate it in place, leave the window 
 browser-tab move <tabId> --target-window <windowId>   # true move (extension)
 browser-tab open <url>       # open a tab
 browser-tab close <tabId>    # close a tab
+browser-tab group remove --group <groupId>   # dissolve a group, keeping every tab
 browser-tab tui              # live tab manager (Ink)
 browser-tab mcp              # run the MCP server (stdio)
 browser-tab doctor           # preflight: Automation permission, correlation tier

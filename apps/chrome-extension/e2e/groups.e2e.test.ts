@@ -172,6 +172,79 @@ test.describe("group_tabs", () => {
     expect(survivor[0]?.windowId).toBe(ids.w);
   });
 
+  test("remove --group dissolves the group and every tab survives", async () => {
+    test.info().annotations.push({ type: "surface", description: "group_tabs:dissolve" });
+    // The capability George actually asked for: get rid of a group WITHOUT
+    // losing its tabs. Only a real browser can prove the group is gone — a fake
+    // cannot delete something Chrome deletes implicitly, because
+    // chrome.tabGroups has no delete call at all: a group disappears when its
+    // last tab leaves, so ungrouping is both the only mechanism AND the reason
+    // no tab can be destroyed by it.
+    const ids = await stack.sw.evaluate(
+      async (urls) => {
+        const c = (globalThis as unknown as { chrome: typeof chrome }).chrome;
+        const w = await c.windows.create({ url: urls[0], focused: true });
+        const a = w.tabs?.[0]?.id as number;
+        const b = (await c.tabs.create({ windowId: w.id as number, url: urls[1] })).id as number;
+        // A tab in the SAME window but outside the group — the control that
+        // catches a dissolve which ungroups more than it was asked to.
+        const outsider = (await c.tabs.create({ windowId: w.id as number, url: urls[2] }))
+          .id as number;
+        return { w: w.id as number, a, b, outsider };
+      },
+      [server.url("/u/d1"), server.url("/u/d2"), server.url("/u/d3")],
+    );
+
+    const created = JSON.parse(
+      await groupCli([
+        "create",
+        "--tabs",
+        `${stack.tabHandle(ids.a)},${stack.tabHandle(ids.b)}`,
+        "--title",
+        "dissolve-me",
+      ]),
+    ) as { groupId: string };
+    const gid = (await homes([ids.a]))[0]?.groupId as number;
+    expect(gid, "the two tabs are really grouped before we dissolve").toBeGreaterThanOrEqual(0);
+
+    // Dissolve by GROUP handle alone — no tab ids. This is the form the schema
+    // and CLI help advertised while the implementation rejected it.
+    const out = JSON.parse(await groupCli(["remove", "--group", created.groupId])) as {
+      ok: boolean;
+    };
+    expect(out.ok).toBe(true);
+
+    // 1. Both members are ungrouped...
+    await expect
+      .poll(async () => (await homes([ids.a, ids.b])).every((t) => t.groupId === -1), {
+        timeout: 10_000,
+      })
+      .toBe(true);
+
+    // 2. ...and BOTH TABS STILL EXIST. This is the whole point.
+    const survivors = await homes([ids.a, ids.b]);
+    expect(survivors.length, "dissolving a group must not close its tabs").toBe(2);
+    expect(survivors.every((t) => t.windowId === ids.w)).toBe(true);
+
+    // 3. The group itself is gone from chrome.tabGroups — asked of the browser,
+    //    not inferred from the daemon snapshot.
+    const groupGone = await stack.sw.evaluate(async (g) => {
+      const c = (globalThis as unknown as { chrome: typeof chrome }).chrome;
+      try {
+        await c.tabGroups.get(g);
+        return false;
+      } catch {
+        return true;
+      }
+    }, gid);
+    expect(groupGone, "an emptied group is deleted by Chrome itself").toBe(true);
+
+    // 4. The outsider was never touched — proves the dissolve was scoped.
+    const outsider = await homes([ids.outsider]);
+    expect(outsider.length, "the ungrouped bystander must survive untouched").toBe(1);
+    expect(outsider[0]?.groupId).toBe(-1);
+  });
+
   test("a list-taking action reports stale ids instead of failing outright", async () => {
     test.info().annotations.push({ type: "surface", description: "group_tabs:stale" });
     // Documented contract: per-id validation, stale ids skipped and reported

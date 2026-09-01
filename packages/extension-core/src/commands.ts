@@ -242,7 +242,32 @@ async function groupTabsOutcome(args: CommandArgs): Promise<CommandOutcome> {
       };
     }
     case "remove": {
-      if (!args.tabIds?.length) throw new Error("group remove requires tabIds");
+      // DISSOLVE-BY-GROUP. `groupId` is documented for `remove` in both the Zod
+      // schema and the CLI help ("Group handle (add/remove/update/move)"), but
+      // only the tabIds form was ever implemented — so the advertised
+      // `group remove --group <id>` failed with "requires tabIds". That is a
+      // surface promising a capability it did not have.
+      //
+      // Dissolving is the natural reading of that parameter and the common
+      // case: Chrome deletes a group the moment its last tab leaves, so
+      // ungrouping every member removes the GROUP while every TAB survives.
+      // There is deliberately no "delete group" call in chrome.tabGroups —
+      // ungrouping is the only way, which is why this cannot close a tab.
+      //
+      // tabIds wins when both are given: it is the more specific request.
+      if (!args.tabIds?.length) {
+        if (typeof args.groupId !== "number") {
+          throw new Error("group remove requires tabIds or groupId");
+        }
+        const members = await tabs.query({ groupId: args.groupId });
+        if (members.length === 0) {
+          throw new Error(
+            `group ${args.groupId} has no tabs — it may already be gone; re-run list_tabs`,
+          );
+        }
+        await tabs.ungroup(members.map((t) => t.id as number));
+        return { payload: { action, ungroupedCount: members.length } };
+      }
       const { live, skippedTabIds } = await partitionLiveTabs(tabs, args.tabIds);
       if (live.length === 0) {
         throw new Error(
