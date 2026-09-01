@@ -2904,3 +2904,83 @@ the verbatim constraint above — surfacing conflicts with load-bearing
 architecture (handle scheme, merge authority, effect-coverage ledger,
 runtime-probed capabilities) rather than following either side silently.
 
+
+# Checkpoint #14 — 2026-09-02 (session `browser-tab-mcp`)
+
+Where this entry and the compaction summary disagree, this entry is correct.
+
+## State
+
+The selection-DSL workstream is LAUNCHED and its first six PRs are merged.
+George accepted the two planning artifacts 2026-09-02 (key conclusions quoted
+verbatim in `plans/2026-09-02-selection-dsl-adaptation.md` §1 — that record is
+the binding adaptation; the specs are inputs, not gospel, per his standing
+instruction). B10's user gate is closed. Post-merge verify on `main` @
+`ec124a4`: build + full test suite + stress all exit 0.
+
+## Done (all merged to main, CI green 7/7 on every PR)
+
+- **#130** `56166b1` — adaptation record: accepted decisions, rulings R1–R8,
+  phase map, §7 edge-policy freeze (eleven binding defaults).
+- **#131** `d2acd99` — tool titles + truthful-annotation audit (five hints
+  corrected: four false `openWorldHint`s, `tab_action` now destructive), new
+  `tool-annotations.contract.test.ts`. Annotation *support* already existed —
+  the field is required and passes through `toMcpTools()`.
+- **#132** `b859565` — monotonic `Snapshot.revision` + `snapshotToken`
+  (`<bootId>:<rev>`, equality-only); bump in `StateStore.update()` keyed on
+  normalized content; `version` stays literal 2 (test-pinned); surfaced in
+  IPC/cache/list_tabs/daemon_status/heartbeat; WM_STACK_CONTRACT updated.
+- **#133** `8b7962b` — **B21 executed and CLOSED** (report:
+  `audits/2026-09-02-partition-vs-iterate.md`): 4 hits fixed with
+  red-when-empty tests (`correlate.ts` noBounds blind spot + exported
+  `correlationDegraded()`; `verify-release.mjs` unreadable-remote and
+  gh-present-query-failed both red now; `readme-check.yml` failed-diff ≠
+  empty-diff; `check-usage-freshness.mjs` deleted-artifact soft-pass), 9
+  clean, `history.ts` confirmed the reference pattern.
+- **#135** `d4ba072` — `move_tab` signed `to` / relative `by` / bare
+  same-window, resolved daemon-side into the existing absolute wire form
+  (**zero wire change** — deployed extensions need no reload); end→append
+  normalization keeps Safari's append-only pathway usable; CLI `--to/--by`;
+  usage artifacts regenerated; ledger row updated at unit tier.
+- **#136** `ec124a4` — `packages/control-language` Phase 1: 17-kind
+  `.strict()` selector AST, §5 signed positions exact, §7.7 algebra laws,
+  explicit projection, `withinEach`+provenance, typed predicate catalog,
+  limits (depth 16/nodes 256/list 1024), `SelectionDomain` seam, synthetic
+  music fixture, 67 tests incl. fast-check property laws. fast-check ^4.0.0
+  → 4.9.0 (no 0.x starvation).
+
+All five implementation PRs were authored by parallel fork agents in isolated
+worktrees during George's boosted-limits window and reviewed against
+`pr-review-sop` before merge. Their full reports live in this session only —
+anything load-bearing is restated above or in the adaptation record.
+
+## Open
+
+- `b23-cache-file-vanish · browser-tab-mcp` — NEW (this checkpoint): see
+  BACKLOG B23, found by the #132 agent, never attempted.
+- `dsl-phase-2 · browser-tab-mcp` — browser binding in-app (adaptation record
+  §4 row 2): unblocked now that 0.a and 1 are merged; not started.
+- `dsl-forgotten-mode · browser-tab-mcp` — George must scan the selector set
+  for the addressing mode he forgot in August (adaptation record Q1). Asked
+  2026-09-02, unanswered.
+- `control-language-npm · browser-tab-mcp` — Q2, George's call; package is
+  private-workspace until he says otherwise.
+- `release-1.6.0 · browser-tab-mcp` — release PR #134 re-rolls as feats land;
+  merge once it covers this round, then `pnpm release:check`. Not merged yet.
+- `daemon-restart-1.6 · browser-tab-mcp` — George's console daemon still runs
+  the pre-revision build; offered a rebuild+restart, not authorized yet.
+
+## Traps (new this session)
+
+- The worktree sandbox refuses `env -u GH_TOKEN` around `gh`; the working
+  equivalent inside worktrees is an empty-assignment prefix (`GH_TOKEN= gh …`),
+  which falls back to keychain auth. (Two agents hit it independently.)
+- A watcher script whose last statement is `[ cond ] && cmd` exits 1 on the
+  healthy path — end diagnostics scripts with `exit 0`.
+
+## Tree
+
+`main` @ `ec124a4`, clean, 0/0 vs origin. Five agent worktrees under
+`.claude/worktrees/` pending removal (branches already merged+deleted on
+origin). Dirty after this checkpoint: only this file + BACKLOG.md (B23), on
+branch `docs/checkpoint-14`.
