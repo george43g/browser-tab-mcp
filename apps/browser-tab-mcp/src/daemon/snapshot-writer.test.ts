@@ -77,6 +77,19 @@ describe("SnapshotWriter.heartbeat", () => {
     expect(heartbeat().snapshotChangedAt as number).toBeGreaterThan(0);
   });
 
+  it("carries the store revision, defaulting to 0 when no getter is wired", () => {
+    const bare = new SnapshotWriter(() => 0);
+    bare.heartbeat();
+    expect(heartbeat().revision).toBe(0);
+
+    const wired = new SnapshotWriter(
+      () => 0,
+      () => 418,
+    );
+    wired.heartbeat();
+    expect(heartbeat().revision).toBe(418);
+  });
+
   it("does not touch snapshot.json — its mtime must keep meaning 'state changed'", () => {
     const writer = new SnapshotWriter(() => 0);
     writer.heartbeat();

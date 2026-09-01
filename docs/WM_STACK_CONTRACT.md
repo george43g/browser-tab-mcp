@@ -20,6 +20,8 @@ The interface `~/dotfiles/wm-stack` rewires around, replacing
 ```jsonc
 {
   "version": 2,
+  "revision": 418,                        // optional — monotonic STATE revision; see below
+  "snapshotToken": "9f3a1c2b:418",        // optional — opaque; compare by EQUALITY only
   "generatedAt": 1752900000000,          // epoch ms
   "source": "daemon",                     // "daemon" | "osascript-direct" (degraded)
   "focusedBrowser": "chrome",             // v2; optional — OS-frontmost browser (native CG tier only)
@@ -142,6 +144,23 @@ tool, `browser-tab daemon restart` so a long-running launchd daemon serves the
 new shape (`daemon_status.contractVersion` reports what it's currently serving;
 `doctor` flags a mismatch).
 
+### `revision` and `snapshotToken` — state identity, NOT the contract version
+
+`version` says what *shape* the snapshot has; it is fixed at 2 and moves only
+on contract milestones. `revision` (added 2026-09-02, additive-optional) says
+*which state* this is: a monotonic counter, bumped by the daemon whenever
+observable snapshot content changes and held steady across idle re-assemblies.
+Two reads with equal `revision` within one daemon run describe identical
+state; a changed `revision` means something moved (including enrichment-only
+changes — audible/muted/`lastAccessed` — that don't rewrite `snapshot.json`).
+
+Revisions restart at 0 with the daemon, so cross-run comparison needs
+`snapshotToken` — an opaque `<bootId>:<revision>` string. Compare tokens by
+**equality only**; never parse, order, or persist meaning into them. Both
+fields are absent on degraded `osascript-direct` snapshots (no daemon, no
+revision continuity). `daemon_status` mirrors them as `snapshotRevision` /
+`snapshotToken`, and `heartbeat.json` carries `revision` for shell consumers.
+
 ## Unix-socket protocol (NDJSON — one JSON object per line)
 
 Request `{"id":1,"method":"getSnapshot"}` → `{"id":1,"ok":true,"result":{…snapshot…}}`
@@ -221,7 +240,7 @@ leaves both hours old while the content stays perfectly correct — which means
 So liveness is a separate file:
 
 ```json
-{"ts":1786303812441,"pid":79004,"build":"1.0.1+40.1291921","contractVersion":2,"snapshotChangedAt":1786303044118}
+{"ts":1786303812441,"pid":79004,"build":"1.0.1+40.1291921","contractVersion":2,"snapshotChangedAt":1786303044118,"revision":418}
 ```
 
 - Written at the **end of every completed engine tick** — cadence is
@@ -233,6 +252,9 @@ So liveness is a separate file:
   for.
 - `snapshotChangedAt` dates `snapshot.json` separately, so one read answers both
   "is the daemon alive?" and "is my snapshot current, or merely unchanged?"
+- `revision` mirrors the store's state revision (see "revision and
+  snapshotToken" above) so a shell consumer can detect "state moved" from the
+  same single read.
 
 Recommended shell check — one `stat`, no fork of ours:
 

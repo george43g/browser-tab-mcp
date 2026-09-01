@@ -54,6 +54,10 @@ describe("daemon IPC", () => {
       expect(snapshot.source).toBe("daemon");
       expect(snapshot.browsers.map((b) => b.browser).sort()).toEqual(["chrome", "safari"]);
       expect(snapshot.browsers[0]?.windows.length).toBeGreaterThan(0);
+      // Revision rides IPC: contract version stays 2, state revision is separate.
+      expect(snapshot.version).toBe(2);
+      expect(snapshot.revision).toBeGreaterThanOrEqual(1);
+      expect(snapshot.snapshotToken).toMatch(/^[0-9a-f]{8}:\d+$/);
     } finally {
       client.close();
     }
@@ -133,6 +137,11 @@ describe("daemon IPC", () => {
     daemon = null;
     expect(existsSync(join(tmp, "snapshot.json"))).toBe(true);
     expect(existsSync(join(tmp, "last.json"))).toBe(true);
+    // The cached file is the stamped store snapshot, not an unstamped copy.
+    const cached = JSON.parse(readFileSync(join(tmp, "snapshot.json"), "utf8")) as Snapshot;
+    expect(cached.version).toBe(2);
+    expect(cached.revision).toBeGreaterThanOrEqual(1);
+    expect(cached.snapshotToken).toMatch(/^[0-9a-f]{8}:\d+$/);
   });
 
   it("shutdown unlinks the socket", async () => {

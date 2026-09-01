@@ -65,6 +65,8 @@ function coreBrowser(b: BrowserState): BrowserState {
 function projectCore(s: Snapshot): Snapshot {
   return {
     version: s.version,
+    ...(s.revision !== undefined ? { revision: s.revision } : {}),
+    ...(s.snapshotToken !== undefined ? { snapshotToken: s.snapshotToken } : {}),
     generatedAt: s.generatedAt,
     source: s.source,
     ...(s.focusedBrowser ? { focusedBrowser: s.focusedBrowser } : {}),
@@ -124,6 +126,8 @@ function summaryBrowser(b: BrowserState): BrowserState {
 function projectSummary(s: Snapshot): Snapshot {
   return {
     version: s.version,
+    ...(s.revision !== undefined ? { revision: s.revision } : {}),
+    ...(s.snapshotToken !== undefined ? { snapshotToken: s.snapshotToken } : {}),
     generatedAt: s.generatedAt,
     source: s.source,
     ...(s.focusedBrowser ? { focusedBrowser: s.focusedBrowser } : {}),

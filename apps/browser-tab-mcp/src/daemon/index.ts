@@ -715,7 +715,10 @@ export async function startDaemon(): Promise<DaemonHandle> {
   const store = new StateStore();
   const merger = new SourceMerger();
   const loop = new EngineLoop(store, merger);
-  const writer = new SnapshotWriter(() => loop.lastScanDuration());
+  const writer = new SnapshotWriter(
+    () => loop.lastScanDuration(),
+    () => store.getSnapshot().revision ?? 0,
+  );
   // Liveness beacon rides the tick, not a timer — a wedged read loop must stop
   // the beat rather than keep reporting "alive" (see SnapshotWriter.heartbeat).
   loop.setOnTick(() => writer.heartbeat());
@@ -779,6 +782,8 @@ export async function startDaemon(): Promise<DaemonHandle> {
       // serving it — semver alone cannot (see scripts/build-stamp.mjs).
       build: buildStamp(),
       contractVersion: store.getSnapshot().version,
+      snapshotRevision: store.getSnapshot().revision ?? 0,
+      snapshotToken: store.getSnapshot().snapshotToken ?? null,
       uptimeS: Math.floor((Date.now() - startedAt) / 1000),
       pollMs: pollMs(),
       wsPort: ext ? wsPort() : null,

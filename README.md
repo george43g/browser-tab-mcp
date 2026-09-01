@@ -167,6 +167,11 @@ stops beating instead of lying. It's removed on a clean stop, and carries
 `snapshotChangedAt` so one read separates "alive" from "current". See
 [`docs/WM_STACK_CONTRACT.md`](docs/WM_STACK_CONTRACT.md) for the shell recipe.
 
+Every daemon-served snapshot also carries a monotonic `revision` plus an opaque
+`snapshotToken` (`<bootId>:<revision>`, equality-comparison only) — state
+identity for optimistic-concurrency callers, separate from the contract
+`version` (fixed at 2); the heartbeat mirrors `revision` for shell consumers.
+
 ### Output: human at a terminal, JSON everywhere else
 
 Read commands (`list`, `journal`, `history`, `daemon status`) print a readable

@@ -20,7 +20,11 @@ export class SnapshotWriter {
   private timer: NodeJS.Timeout | null = null;
   private lastWriteAt = 0;
 
-  constructor(private readonly getScanDurationMs: () => number) {}
+  constructor(
+    private readonly getScanDurationMs: () => number,
+    /** Current StateStore revision, so one heartbeat read answers "which state". */
+    private readonly getRevision: () => number = () => 0,
+  ) {}
 
   /**
    * Liveness beacon — one `stat` tells a shell consumer the daemon is alive.
@@ -45,6 +49,7 @@ export class SnapshotWriter {
           build: buildStamp(),
           contractVersion: 2,
           snapshotChangedAt: this.lastWriteAt,
+          revision: this.getRevision(),
         }),
       );
     } catch (err) {
