@@ -42,10 +42,15 @@ const REPO = join(dirname(fileURLToPath(import.meta.url)), "..");
  * The pure verdict. Every input is a fact someone else gathered, so this can be
  * tested without a network, a token, or a git remote.
  *
- * `null` means "could not determine" and is deliberately NOT treated as a
- * failure — a developer without `gh` on PATH should get a useful partial answer
- * rather than a scary red one. CI always has `gh`, so CI always gets the full
- * check.
+ * `null` means "could not determine", and what that is WORTH depends on why:
+ * a developer without `gh` on PATH gets a useful partial answer with a note
+ * rather than a scary red one, but `gh` being PRESENT while its query failed
+ * is a check that did not run — presence of the binary is not the capability
+ * to answer, and treating the two alike is how a CI verify job goes green
+ * while verifying nothing (the partition-vs-iterate class; B21 audit,
+ * 2026-09-02). Likewise `tagsReadable`: a failed `git ls-remote` used to read
+ * as an empty tag list, which took the "no release tags exist yet — nothing
+ * to verify" early exit and returned ok on a repo with a dozen releases.
  *
  * @param {object} facts
  * @param {string} facts.expectedTag        tag the manifest baseline implies, e.g. "v1.1.1"
@@ -56,6 +61,9 @@ const REPO = join(dirname(fileURLToPath(import.meta.url)), "..");
  *   (a `autorelease: pending` label alone is not enough — see untaggedPending)
  * @param {string[]} facts.extraFiles       paths release-please is configured to rewrite
  * @param {{number: number, files: string[]}|null} facts.openReleasePr the open release PR, if any
+ * @param {boolean} facts.tagsReadable      did `git ls-remote --tags origin` actually answer
+ * @param {boolean} facts.ghPresent         is the `gh` binary runnable at all
+ * @param {boolean} facts.openPrQueryFailed gh was present but the open-release-PR query failed
  * @returns {{ok: boolean, problems: string[], notes: string[]}}
  */
 export function verdict({
@@ -66,9 +74,27 @@ export function verdict({
   pendingMergedPrs,
   extraFiles = [],
   openReleasePr = null,
+  tagsReadable = true,
+  ghPresent = false,
+  openPrQueryFailed = false,
 }) {
   const problems = [];
   const notes = [];
+
+  // Every downstream check keys on the remote tag list, so a failed read means
+  // NOTHING below was verified — and "could not see the remote" must not be
+  // allowed to impersonate "the remote has no tags", which takes the benign
+  // never-released early exit. Red with the real reason beats green over an
+  // unchecked repo, even offline: a check of REMOTE state cannot succeed
+  // without the remote.
+  if (!tagsReadable) {
+    problems.push(
+      "`git ls-remote --tags origin` failed, so the remote's release state could not be read " +
+        "and none of the tag/Release checks ran. Fix connectivity or auth to origin and re-run " +
+        "— this result verifies nothing.",
+    );
+    return { ok: false, problems, notes };
+  }
 
   // An OPEN release PR must touch every extra-file, and this is not paranoia:
   // release-please decides whether to refresh an existing release PR by
@@ -98,7 +124,14 @@ export function verdict({
       );
     }
   } else if (extraFiles.length > 0 && openReleasePr === null) {
-    notes.push("no open release PR to check extra-files against");
+    // Two very different reasons to have no PR to check: there is none, or the
+    // query for one failed. The note must not claim the first when the truth
+    // is the second.
+    notes.push(
+      openPrQueryFailed
+        ? "the open-release-PR query failed — the extra-files check was skipped this run"
+        : "no open release PR to check extra-files against",
+    );
   }
 
   if (!anyTagsExist) {
@@ -123,11 +156,30 @@ export function verdict({
         `${expectedTag} --notes "<the CHANGELOG section>".`,
     );
   } else if (releaseExists === null) {
-    notes.push(`GitHub Release for ${expectedTag} not checked (gh unavailable)`);
+    // gh absent is a legitimate local state and stays a note; gh PRESENT with
+    // no answer means the check itself failed to run, which in CI (where gh
+    // always exists) is exactly the silent self-disable this script hunts.
+    if (ghPresent) {
+      problems.push(
+        `gh is installed but the GitHub Release lookup for ${expectedTag} failed, so the ` +
+          `published-Release check did NOT run. Re-run; if it persists, check gh auth and ` +
+          `GitHub API health.`,
+      );
+    } else {
+      notes.push(`GitHub Release for ${expectedTag} not checked (gh unavailable)`);
+    }
   }
 
   if (pendingMergedPrs === null) {
-    notes.push("merged-but-untagged release PRs not checked (gh unavailable)");
+    if (ghPresent) {
+      problems.push(
+        "gh is installed but the merged-release-PR query failed, so the untagged-release " +
+          "check did NOT run — this is the check that catches the v1.0.0 silent abort. " +
+          "Re-run; if it persists, check gh auth and GitHub API health.",
+      );
+    } else {
+      notes.push("merged-but-untagged release PRs not checked (gh unavailable)");
+    }
   } else if (pendingMergedPrs.length > 0) {
     problems.push(
       `merged release PR(s) with no tag for their version: ${pendingMergedPrs.join(", ")}. ` +
@@ -202,8 +254,14 @@ function gatherFacts() {
   const expectedTag = `v${manifest["."]}`;
 
   // `git ls-remote` asks the REMOTE, so a stale local tag cache cannot make a
-  // missing release look present — the exact way this check could lie.
-  const remoteTags = tryRun("git", ["ls-remote", "--tags", "origin"]) ?? "";
+  // missing release look present — the exact way this check could lie. A null
+  // (the command FAILED) is carried as `tagsReadable: false` rather than
+  // coerced to "", because an empty tag list means "never released" and a
+  // failed read means "verified nothing" — conflating them let a network blip
+  // take the benign early exit.
+  const remoteTagsRaw = tryRun("git", ["ls-remote", "--tags", "origin"]);
+  const tagsReadable = remoteTagsRaw !== null;
+  const remoteTags = remoteTagsRaw ?? "";
   const anyTagsExist = /refs\/tags\/v\d/.test(remoteTags);
   const tagExists = remoteTags.includes(`refs/tags/${expectedTag}`);
 
@@ -242,6 +300,7 @@ function gatherFacts() {
   const extraFiles = (config.packages?.["."]?.["extra-files"] ?? []).map((f) => f.path);
 
   let openReleasePr = null;
+  let openPrQueryFailed = false;
   if (gh) {
     const raw = tryRun("gh", [
       "pr",
@@ -255,6 +314,9 @@ function gatherFacts() {
       "--limit",
       "5",
     ]);
+    // "The query failed" and "no PR is open" are different facts; the verdict
+    // words its note differently for each.
+    openPrQueryFailed = raw === null;
     const prs = raw === null ? [] : safeJson(raw, []);
     if (prs.length > 0) {
       const number = prs[0].number;
@@ -273,6 +335,9 @@ function gatherFacts() {
     pendingMergedPrs,
     extraFiles,
     openReleasePr,
+    tagsReadable,
+    ghPresent: gh,
+    openPrQueryFailed,
   };
 }
 

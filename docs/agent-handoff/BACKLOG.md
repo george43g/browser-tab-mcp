@@ -1614,6 +1614,22 @@ note, or a fix plus a test that goes RED when the selector matches nothing.
 A sweep that reports "no instances found" without naming what it checked is
 itself an instance of the class.
 
+> **CLOSED 2026-09-02** — audit executed; full verdict table (14 sites, one
+> row each with file:line evidence) in
+> `docs/agent-handoff/audits/2026-09-02-partition-vs-iterate.md`. 4 real hits
+> fixed with red-when-empty tests: `verify-release.mjs` (a failed
+> `git ls-remote` impersonated "never released" and took the ok early-exit;
+> gh-present-but-query-failed wore the "gh unavailable" note),
+> `readme-check.yml` (a failed `git diff` ≡ "no source changes" → exit 0),
+> `check-usage-freshness.mjs` (a deleted checked-in artifact soft-passed as
+> "not yet generated"), and `correlate.ts`'s diag trigger (a fully-boundless
+> browser was invisible to the degradation log — `noBounds` +
+> `correlationDegraded()`). `history.ts` confirmed as the reference GOOD
+> pattern, as predicted; `surface-coverage.contract.test.ts` and
+> `run-guard-core.ts` confirmed exemplary (both assert their own selectors).
+> One correction to this row: the sweep lives at `scripts/sweep-macos.mjs`
+> (repo root), not under `apps/browser-tab-mcp/scripts/`.
+
 ### B22 (trap). The next real `.mcp.json` write will land as a WHOLE-FILE diff — say so in the message
 
 **Queued, not avoided.** `.mcp.json` currently holds expanded arrays

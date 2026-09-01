@@ -41,12 +41,20 @@ jobs:
         if: github.event_name == 'pull_request' && steps.skip.outputs.skip == 'false'
         run: |
           DIFF_RANGE="origin/${{ github.base_ref }}...HEAD"
-          SRC_CHANGED=$(git diff --name-only $DIFF_RANGE | grep -cE '^(apps|packages)/[^/]+/src/' || true)
+          # A failed `git diff` (unfetched base, bad range) must go RED, not
+          # read as an empty diff — "cannot see what changed" is not "nothing
+          # changed", and piping straight into grep conflated the two, which
+          # silently disabled this check on exactly the runs it couldn't see.
+          if ! CHANGED=$(git diff --name-only $DIFF_RANGE); then
+            echo "::error::git diff $DIFF_RANGE failed — the check cannot see what changed, so it cannot pass."
+            exit 1
+          fi
+          SRC_CHANGED=$(printf '%s\n' "$CHANGED" | grep -cE '^(apps|packages)/[^/]+/src/' || true)
           if [ "$SRC_CHANGED" -eq 0 ]; then
             echo "No source code changes — README check skipped."
             exit 0
           fi
-          README_CHANGED=$(git diff --name-only $DIFF_RANGE | grep -cE '(^|/)README\.md$' || true)
+          README_CHANGED=$(printf '%s\n' "$CHANGED" | grep -cE '(^|/)README\.md$' || true)
           if [ "$README_CHANGED" -eq 0 ]; then
             echo "::error::Source code changed but no README.md was updated."
             echo "Add a [skip-readme] tag to your commit/PR title if a docs update is genuinely not warranted."
@@ -63,12 +71,18 @@ jobs:
           else
             DIFF_RANGE="$BEFORE_SHA..HEAD"
           fi
-          SRC_CHANGED=$(git diff --name-only $DIFF_RANGE | grep -cE '^(apps|packages)/[^/]+/src/' || true)
+          # Same rule as the PR step: a diff that FAILED (e.g. BEFORE_SHA gone
+          # after a force push) is not a diff that was EMPTY.
+          if ! CHANGED=$(git diff --name-only $DIFF_RANGE); then
+            echo "::error::git diff $DIFF_RANGE failed — the check cannot see what changed, so it cannot pass."
+            exit 1
+          fi
+          SRC_CHANGED=$(printf '%s\n' "$CHANGED" | grep -cE '^(apps|packages)/[^/]+/src/' || true)
           if [ "$SRC_CHANGED" -eq 0 ]; then
             echo "No source code changes — README check skipped."
             exit 0
           fi
-          README_CHANGED=$(git diff --name-only $DIFF_RANGE | grep -cE '(^|/)README\.md$' || true)
+          README_CHANGED=$(printf '%s\n' "$CHANGED" | grep -cE '(^|/)README\.md$' || true)
           if [ "$README_CHANGED" -eq 0 ]; then
             echo "::error::Source code changed but no README.md was updated."
             exit 1
