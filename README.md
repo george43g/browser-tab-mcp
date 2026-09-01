@@ -39,6 +39,8 @@ browser-tab list --json      # windows + tabs + cgWindowId (yabai join key)
 browser-tab focus <tabId>    # activate a tab and raise its window
 browser-tab focus <tabId> --no-raise   # activate it in place, leave the window alone
 browser-tab move <tabId> --target-window <windowId>   # true move (extension)
+browser-tab move <tabId> --to -1                      # same-window: signed one-based position (-1 = end)
+browser-tab move <tabId> --by -3                      # same-window: relative move, clamps at the edges
 browser-tab open <url>       # open a tab
 browser-tab close <tabId>    # close a tab
 browser-tab group remove --group <groupId>   # dissolve a group, keeping every tab
@@ -105,7 +107,7 @@ highlights; the contract test `tool-annotations.contract.test.ts` enforces the f
 |---|---|---|
 | `list_tabs` | Windows + tabs across Chrome/Brave/Chromium/Edge/Safari with opaque handles, bounds, and `cgWindowId` (yabai join key). Filters: `browser`, `windowId`, `urlFilter`. | read-only, idempotent |
 | `focus_tab` | Activate a tab and — unless `raiseWindow:false` — un-minimize and raise its window. Returns the window's post-state for a window manager to act on. | |
-| `move_tab` | Move a tab across windows. True state-preserving move via the extension; Safari AppleScript fallback with `allowReload:true`. | |
+| `move_tab` | Move a tab: same-window with signed `to` (one-based, `-1` = end) or relative `by: ±N`, across windows with `targetWindowId`. Signed forms are resolved by the daemon against a live snapshot. True state-preserving move via the extension; Safari AppleScript fallback with `allowReload:true`. | |
 | `open_tab` | Open an http(s) URL, optionally in a specific window/browser or in the background. | open-world |
 | `close_tab` | Close a tab. | destructive |
 | `daemon_status` | Daemon reachability, poll interval, correlation tier, per-browser counts + extension connectivity. | read-only |

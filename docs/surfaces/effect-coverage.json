@@ -77,7 +77,7 @@
       "coverage": [
         {
           "tier": "chromium-e2e",
-          "covers": "extension pathway: cross-window move via chrome.tabs.move preserves scroll (roundtrip.e2e.test.ts, the crown jewel); plus --new-window landing in a window that did not previously exist, --index placing exactly, the append form reporting the tab's ACTUAL final index rather than tabs.move's echo, and a negative index refused at the boundary (move-tab.e2e.test.ts)",
+          "covers": "extension pathway: cross-window move via chrome.tabs.move preserves scroll (roundtrip.e2e.test.ts, the crown jewel); plus --new-window landing in a window that did not previously exist, --index placing exactly, the append form reporting the tab's ACTUAL final index rather than tabs.move's echo, and a negative index refused at the boundary (move-tab.e2e.test.ts). The signed/same-window forms (to/by) resolve daemon-side into this same absolute wire form before the effect boundary — the translation is pinned at unit tier (move-resolve.test.ts, daemon/index.test.ts), not re-proved here",
           "evidence": "apps/chrome-extension/e2e/roundtrip.e2e.test.ts"
         },
         {

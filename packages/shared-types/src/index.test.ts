@@ -3,6 +3,7 @@ import {
   GetLogsInputSchema,
   HealthSnapshotSchema,
   MIRRORED_SCHEMAS,
+  MoveTabInputSchema,
   NoopInputSchema,
   NoopOutputSchema,
   redactUrlUserinfo,
@@ -72,5 +73,52 @@ describe("redactUrlUserinfo", () => {
 
   it("returns unparseable input unchanged rather than throwing", () => {
     expect(redactUrlUserinfo("not a url @ all")).toBe("not a url @ all");
+  });
+});
+
+describe("MoveTabInputSchema signed forms", () => {
+  const base = { tabId: "t:chrome:x101" };
+
+  it("accepts to/by alone and the legacy targetIndex form", () => {
+    expect(MoveTabInputSchema.safeParse({ ...base, to: -1 }).success).toBe(true);
+    expect(MoveTabInputSchema.safeParse({ ...base, by: -3 }).success).toBe(true);
+    expect(
+      MoveTabInputSchema.safeParse({ ...base, targetWindowId: "w:chrome:x8", targetIndex: 0 })
+        .success,
+    ).toBe(true);
+    expect(
+      MoveTabInputSchema.safeParse({ ...base, targetWindowId: "w:chrome:x8", to: 2 }).success,
+    ).toBe(true);
+  });
+
+  it("rejects to: 0 and by: 0 with field-specific messages", () => {
+    const to0 = MoveTabInputSchema.safeParse({ ...base, to: 0 });
+    expect(to0.success).toBe(false);
+    if (!to0.success) expect(JSON.stringify(to0.error.issues)).toMatch(/one-based/);
+    expect(MoveTabInputSchema.safeParse({ ...base, by: 0 }).success).toBe(false);
+  });
+
+  it("rejects combining two positional spellings", () => {
+    expect(MoveTabInputSchema.safeParse({ ...base, to: 1, by: 1 }).success).toBe(false);
+    expect(MoveTabInputSchema.safeParse({ ...base, targetIndex: 0, to: 1 }).success).toBe(false);
+    expect(MoveTabInputSchema.safeParse({ ...base, targetIndex: 0, by: 1 }).success).toBe(false);
+  });
+
+  it("rejects by with a destination (same-window by definition)", () => {
+    expect(
+      MoveTabInputSchema.safeParse({ ...base, by: 1, targetWindowId: "w:chrome:x8" }).success,
+    ).toBe(false);
+    expect(MoveTabInputSchema.safeParse({ ...base, by: 1, newWindow: true }).success).toBe(false);
+  });
+
+  it("rejects to into a new window", () => {
+    expect(MoveTabInputSchema.safeParse({ ...base, to: 1, newWindow: true }).success).toBe(false);
+  });
+
+  it("still rejects a negative legacy targetIndex", () => {
+    expect(
+      MoveTabInputSchema.safeParse({ ...base, targetWindowId: "w:chrome:x8", targetIndex: -1 })
+        .success,
+    ).toBe(false);
   });
 });

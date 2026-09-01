@@ -11,6 +11,12 @@
  */
 
 import type { BrowserId } from "@george43g/shared-types";
+import {
+  makeBrowserState,
+  makeContractTab,
+  makeContractWindow,
+  makeSnapshot,
+} from "@george43g/test-kit";
 import { describe, expect, it } from "vitest";
 import { executeCommand } from "./index.js";
 import type { ExtensionServer } from "./ws-server.js";
@@ -150,5 +156,105 @@ describe("executeCommand still accepts same-browser handles", () => {
       deps(ext),
     );
     expect(sent[0]?.args.tabIds).toEqual([201, 202]);
+  });
+});
+
+describe("executeCommand resolves signed/same-window move_tab forms daemon-side", () => {
+  // Three tabs in w:chrome:x812 (the anchor tab sits at index 1), one in
+  // w:chrome:x900. Resolution runs against this snapshot; the wire must only
+  // ever carry the absolute form the deployed extension already speaks.
+  const snap = makeSnapshot({
+    browsers: [
+      makeBrowserState({
+        browser: "chrome",
+        extensionConnected: true,
+        dataSource: "extension",
+        windows: [
+          makeContractWindow({
+            windowId: "w:chrome:x812",
+            tabs: [
+              makeContractTab({ tabId: "t:chrome:x100", index: 0 }),
+              makeContractTab({ tabId: "t:chrome:x101", index: 1 }),
+              makeContractTab({ tabId: "t:chrome:x102", index: 2 }),
+            ],
+          }),
+          makeContractWindow({
+            windowId: "w:chrome:x900",
+            tabs: [makeContractTab({ tabId: "t:chrome:x201", index: 0 })],
+          }),
+        ],
+      }),
+    ],
+  });
+  const resolvingDeps = (ext: ExtensionServer) => ({ refresh: () => Promise.resolve(snap), ext });
+
+  it("bare same-window move fills the tab's own window and appends", async () => {
+    const { ext, sent } = fakeExt();
+    await executeCommand({ kind: "move_tab", tabId: "t:chrome:x101" }, resolvingDeps(ext));
+    expect(sent).toHaveLength(1);
+    expect(sent[0]?.args).toMatchObject({ tabId: 101, targetWindowId: 812 });
+    expect(sent[0]?.args.targetIndex, "append travels as no targetIndex").toBeUndefined();
+  });
+
+  it("to: 1 resolves to index 0 in the tab's own window", async () => {
+    const { ext, sent } = fakeExt();
+    await executeCommand({ kind: "move_tab", tabId: "t:chrome:x101", to: 1 }, resolvingDeps(ext));
+    expect(sent[0]?.args).toMatchObject({ tabId: 101, targetWindowId: 812, targetIndex: 0 });
+  });
+
+  it("by: -1 resolves relative to the tab's snapshot position", async () => {
+    const { ext, sent } = fakeExt();
+    await executeCommand({ kind: "move_tab", tabId: "t:chrome:x101", by: -1 }, resolvingDeps(ext));
+    expect(sent[0]?.args).toMatchObject({ tabId: 101, targetWindowId: 812, targetIndex: 0 });
+  });
+
+  it("cross-window to: -1 appends to the destination window", async () => {
+    const { ext, sent } = fakeExt();
+    await executeCommand(
+      { kind: "move_tab", tabId: "t:chrome:x101", targetWindowId: "w:chrome:x900", to: -1 },
+      resolvingDeps(ext),
+    );
+    expect(sent[0]?.args).toMatchObject({ tabId: 101, targetWindowId: 900 });
+    expect(sent[0]?.args.targetIndex).toBeUndefined();
+  });
+
+  it("cross-window to: 1 resolves against the destination's slots", async () => {
+    const { ext, sent } = fakeExt();
+    await executeCommand(
+      { kind: "move_tab", tabId: "t:chrome:x101", targetWindowId: "w:chrome:x900", to: 1 },
+      resolvingDeps(ext),
+    );
+    expect(sent[0]?.args).toMatchObject({ tabId: 101, targetWindowId: 900, targetIndex: 0 });
+  });
+
+  it("a stale tab handle errors actionably instead of dispatching", async () => {
+    const { ext, sent } = fakeExt();
+    await expect(
+      executeCommand({ kind: "move_tab", tabId: "t:chrome:x999", to: 1 }, resolvingDeps(ext)),
+    ).rejects.toThrow(/not in the current snapshot .* list_tabs/s);
+    expect(sent).toEqual([]);
+  });
+
+  it("an unknown destination window errors actionably instead of dispatching", async () => {
+    const { ext, sent } = fakeExt();
+    await expect(
+      executeCommand(
+        { kind: "move_tab", tabId: "t:chrome:x101", targetWindowId: "w:chrome:x777", to: 1 },
+        resolvingDeps(ext),
+      ),
+    ).rejects.toThrow(/not in the current snapshot/);
+    expect(sent).toEqual([]);
+  });
+
+  it("explicit absolute moves still skip resolution entirely", async () => {
+    const { ext, sent } = fakeExt();
+    // deps() rejects refresh with "refresh must not be called" (and the
+    // post-command reconcile swallows it) — so this passing proves the
+    // legacy form never touches the snapshot.
+    await executeCommand(
+      { kind: "move_tab", tabId: "t:chrome:x101", targetWindowId: "w:chrome:x812", targetIndex: 2 },
+      deps(ext),
+    );
+    expect(sent[0]?.args).toMatchObject({ tabId: 101, targetWindowId: 812, targetIndex: 2 });
   });
 });

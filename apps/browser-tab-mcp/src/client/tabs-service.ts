@@ -140,9 +140,25 @@ export function closeTab(tabId: string): Promise<CommandResult> {
 }
 
 export function moveTab(input: MoveTabInput): Promise<CommandResult> {
-  return command("move_tab", { ...input }, () =>
-    makeAdapter(browserOf(input.tabId)).moveTab(input),
-  );
+  return command("move_tab", { ...input }, () => {
+    // Signed (`to`/`by`) and bare same-window forms need a live snapshot to
+    // resolve against, and that resolution lives in the daemon — the direct
+    // adapter path has nothing to resolve with, so refuse actionably rather
+    // than hand the adapter fields it would silently ignore.
+    if (input.to !== undefined || input.by !== undefined) {
+      throw new Error(
+        "Signed moves (to/by) are resolved by the daemon against a live snapshot. " +
+          "Start it with `browser-tab daemon run`, or pass targetWindowId with a 0-based targetIndex.",
+      );
+    }
+    if (input.targetWindowId === undefined && !input.newWindow) {
+      throw new Error(
+        "Same-window moves are resolved by the daemon. Start it with `browser-tab daemon run`, " +
+          "or pass targetWindowId (the tab's own window) explicitly.",
+      );
+    }
+    return makeAdapter(browserOf(input.tabId)).moveTab(input);
+  });
 }
 
 export function openTab(input: OpenTabInput): Promise<CommandResult> {

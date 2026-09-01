@@ -55,6 +55,7 @@ import { IpcServer } from "./ipc-server.js";
 import { JournalStore } from "./journal.js";
 import { buildSeedRecords, ingestExtEvent, ingestStoreEvent } from "./journal-ingest.js";
 import { SourceMerger } from "./merge.js";
+import { findTabLocation, findWindowTabCount, resolveSignedIndex } from "./move-resolve.js";
 import { socketPath } from "./paths.js";
 import { ShotRateLimiter, screenshot } from "./screenshot.js";
 import { ShotStore } from "./shots.js";
@@ -303,16 +304,70 @@ export async function executeCommand(
     case "move_tab": {
       const tabId = params.tabId as string;
       const parsed = parseHandle(tabId);
-      const targetWindowId = params.targetWindowId as string | undefined;
+      let targetWindowId = params.targetWindowId as string | undefined;
+      let targetIndex = params.targetIndex as number | undefined;
+      const to = params.to as number | undefined;
+      const by = params.by as number | undefined;
+      const wantsNewWindow = (params.newWindow as boolean | undefined) ?? false;
+      // Cross-browser guards stay BEFORE any I/O — the signed-form resolution
+      // below refreshes the snapshot, and a foreign handle must not get that far.
+      if (targetWindowId !== undefined) {
+        const wp = parseHandle(targetWindowId);
+        if (wp.browser !== parsed.browser) {
+          throw crossBrowserError("targetWindowId", targetWindowId, wp.browser, parsed.browser);
+        }
+      }
+      if (params.targetGroupId !== undefined) {
+        groupNumOf(parsed.browser, params.targetGroupId as string, "targetGroupId");
+      }
+      // Signed (`to`/`by`) and bare same-window forms resolve HERE, against a
+      // fresh snapshot, into the absolute form both executors already speak —
+      // so the wire and the deployed extension bundle stay unchanged. The
+      // snapshot can lag the browser; the extension's settled `tabs.get` at
+      // the end of the move reports the ACTUAL final position either way.
+      if (
+        to !== undefined ||
+        by !== undefined ||
+        (targetWindowId === undefined && !wantsNewWindow)
+      ) {
+        const snap = await deps.refresh();
+        const loc = findTabLocation(snap, tabId);
+        if (!loc) {
+          throw new Error(
+            `Tab "${tabId}" is not in the current snapshot — it may have closed or its handle ` +
+              `may be stale. Re-run list_tabs.`,
+          );
+        }
+        if (targetWindowId === undefined && !wantsNewWindow) targetWindowId = loc.windowId;
+        const sameWindow = targetWindowId === loc.windowId;
+        if (to !== undefined || by !== undefined) {
+          const destTabCount = sameWindow
+            ? loc.windowTabCount
+            : findWindowTabCount(snap, targetWindowId as string);
+          if (destTabCount === null) {
+            throw new Error(
+              `Window "${targetWindowId}" is not in the current snapshot — re-run list_tabs ` +
+                `for current window handles.`,
+            );
+          }
+          targetIndex = resolveSignedIndex({
+            to,
+            by,
+            currentIndex: loc.index,
+            sameWindow,
+            destTabCount,
+          });
+        }
+      }
       if (parsed.ext && ext?.isConnected(parsed.browser)) {
         const args: Record<string, unknown> = {
           tabId: extNum(parsed, "tabId"),
-          newWindow: (params.newWindow as boolean | undefined) ?? false,
+          newWindow: wantsNewWindow,
         };
         if (targetWindowId !== undefined) {
           args.targetWindowId = extNumOf(parsed.browser, targetWindowId, "targetWindowId");
         }
-        if (params.targetIndex !== undefined) args.targetIndex = params.targetIndex;
+        if (targetIndex !== undefined) args.targetIndex = targetIndex;
         if (params.targetGroupId !== undefined) {
           args.targetGroupId = groupNumOf(
             parsed.browser,
@@ -331,8 +386,8 @@ export async function executeCommand(
         result = await makeAdapter(parsed.browser).moveTab({
           tabId,
           targetWindowId,
-          targetIndex: params.targetIndex as number | undefined,
-          newWindow: (params.newWindow as boolean | undefined) ?? false,
+          targetIndex,
+          newWindow: wantsNewWindow,
           allowReload: (params.allowReload as boolean | undefined) ?? false,
         });
       }

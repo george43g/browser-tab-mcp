@@ -3,7 +3,7 @@
 
 - **Usage**: `browser-tab move [FLAGS] <tabId>`
 
-Move a tab to another window (true moves need daemon + extension)
+Move a tab within its window (--to/--by) or to another (true moves need daemon + extension)
 
 ## Arguments
 
@@ -17,7 +17,15 @@ Destination windowId
 
 ### `--index <n>`
 
-0-based destination position
+0-based destination position (legacy; prefer --to)
+
+### `--to <pos>`
+
+Signed one-based position: 1 = first, -1 = last (same-window without --target-window)
+
+### `--by <n>`
+
+Signed relative displacement within the tab's own window (e.g. -1, 3)
 
 ### `--new-window`
 

@@ -590,16 +590,30 @@ export function buildProgram(): Command {
 
   program
     .command("move")
-    .description("Move a tab to another window (true moves need daemon + extension)")
+    .description(
+      "Move a tab within its window (--to/--by) or to another (true moves need daemon + extension)",
+    )
     .argument("<tabId>", "Opaque tabId from `browser-tab list`")
     .option("--target-window <id>", "Destination windowId")
-    .option("--index <n>", "0-based destination position")
+    .option("--index <n>", "0-based destination position (legacy; prefer --to)")
+    .option(
+      "--to <pos>",
+      "Signed one-based position: 1 = first, -1 = last (same-window without --target-window)",
+    )
+    .option("--by <n>", "Signed relative displacement within the tab's own window (e.g. -1, 3)")
     .option("--new-window", "Move into a newly created window", false)
     .option("--allow-reload", "Safari: accept the reload-based AppleScript move", false)
     .action(
       async (
         tabId: string,
-        opts: { targetWindow?: string; index?: string; newWindow: boolean; allowReload: boolean },
+        opts: {
+          targetWindow?: string;
+          index?: string;
+          to?: string;
+          by?: string;
+          newWindow: boolean;
+          allowReload: boolean;
+        },
       ) => {
         const json = program.opts<{ json?: boolean }>().json ?? false;
         const result = await callMcpTool("move_tab", {
@@ -608,6 +622,8 @@ export function buildProgram(): Command {
           allowReload: opts.allowReload,
           ...str("targetWindowId", "--target-window", opts.targetWindow),
           ...(opts.index !== undefined ? { targetIndex: Number.parseInt(opts.index, 10) } : {}),
+          ...(opts.to !== undefined ? { to: Number.parseInt(opts.to, 10) } : {}),
+          ...(opts.by !== undefined ? { by: Number.parseInt(opts.by, 10) } : {}),
         });
         await printResult(result, json, "move_tab");
       },

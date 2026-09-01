@@ -188,11 +188,17 @@ cmd open help="Open an http(s) URL in a new tab" {
     flag --no-activate help="Open in the background"
     arg <url>
 }
-cmd move help="Move a tab to another window (true moves need daemon + extension)" {
+cmd move help="Move a tab within its window (--to/--by) or to another (true moves need daemon + extension)" {
     flag --target-window help="Destination windowId" {
         arg <id>
     }
-    flag --index help="0-based destination position" {
+    flag --index help="0-based destination position (legacy; prefer --to)" {
+        arg <n>
+    }
+    flag --to help="Signed one-based position: 1 = first, -1 = last (same-window without --target-window)" {
+        arg <pos>
+    }
+    flag --by help="Signed relative displacement within the tab's own window (e.g. -1, 3)" {
         arg <n>
     }
     flag --new-window help="Move into a newly created window"
