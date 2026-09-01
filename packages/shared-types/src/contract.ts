@@ -110,6 +110,24 @@ export const SnapshotSchema = z.object({
   version: z
     .literal(2)
     .describe("Contract version. Bumped to 2 for the capability/enrichment surface."),
+  revision: z
+    .number()
+    .int()
+    .nonnegative()
+    .optional()
+    .describe(
+      "Monotonic state revision within one daemon run — bumps whenever observable " +
+        "snapshot content changes. NOT the contract version (that is `version`, fixed at 2). " +
+        "Absent on degraded osascript-direct snapshots.",
+    ),
+  snapshotToken: z
+    .string()
+    .optional()
+    .describe(
+      "Opaque snapshot identity: '<bootId>:<revision>'. Survives comparison by EQUALITY " +
+        "ONLY — a daemon restart changes bootId, so tokens never falsely match across runs. " +
+        "Do not parse or order tokens.",
+    ),
   generatedAt: z.number().int().describe("Epoch milliseconds when the snapshot was assembled."),
   source: z
     .enum(["daemon", "osascript-direct"])
