@@ -1,5 +1,18 @@
 # Changelog
 
+## [1.5.0](https://github.com/george43g/browser-tab-mcp/compare/v1.4.1...v1.5.0) (2026-09-01)
+
+
+### Features
+
+* **groups:** dissolve a tab group by groupId, keeping every tab ([#125](https://github.com/george43g/browser-tab-mcp/issues/125)) ([932dc63](https://github.com/george43g/browser-tab-mcp/commit/932dc63fbee54e39a361660c27baec3d03f578fb))
+* **macos:** effect-verify the AppleScript tier against a real browser ([#117](https://github.com/george43g/browser-tab-mcp/issues/117)) ([2692bcd](https://github.com/george43g/browser-tab-mcp/commit/2692bcdc743870e00d644a6f617ad0950d50bf8a))
+
+
+### Bug Fixes
+
+* **daemon,e2e:** close three backlog rows — leaked daemons, dead coverage, unthrottled respawn ([#122](https://github.com/george43g/browser-tab-mcp/issues/122)) ([f22b8db](https://github.com/george43g/browser-tab-mcp/commit/f22b8db91d920c6282adbc0e1b1f4342a8c9d1b5))
+
 ## [1.4.1](https://github.com/george43g/browser-tab-mcp/compare/v1.4.0...v1.4.1) (2026-08-23)
 
 
