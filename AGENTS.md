@@ -86,6 +86,9 @@ packages/
   vitest-config/      # shared/app/extension coverage presets (two-flag COVERAGE/COVERAGE_GATE)
   test-kit/           # test fixtures + fakes (make* factories, installFakeChrome,
                       # withDaemonEnv, installNodeWebSocket). Raw TS, no build. See its README.
+  control-language/   # pure domain-agnostic selection language: versioned selector AST (Zod),
+                      # signed positions, same-kind ordered-set algebra, snapshot-bound resolver.
+                      # Phase 1 of the selection-DSL workstream. See its README.
 ```
 
 **The kit packages are npm dependencies, not workspace code.** `@george43g/robustness`

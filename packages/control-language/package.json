@@ -1,0 +1,36 @@
+{
+  "name": "@george43g/control-language",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Pure, domain-agnostic selection language: versioned Zod selector AST, signed positional semantics, same-kind ordered-set algebra, explicit member projection, and snapshot-bound resolution over a SelectionDomain ordered view. Selection only — no effects, no daemons, no MCP.",
+  "type": "module",
+  "license": "MIT",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run",
+    "clean": "node ../../scripts/rimraf.mjs dist coverage"
+  },
+  "dependencies": {
+    "zod": "^3.23.0"
+  },
+  "devDependencies": {
+    "@george43g/tsconfig": "workspace:*",
+    "@george43g/vitest-config": "workspace:*",
+    "@types/node": "^24.13.3",
+    "fast-check": "^4.0.0",
+    "typescript": "^5.7.0",
+    "vitest": "^3.2.7"
+  }
+}
