@@ -2757,3 +2757,58 @@ question.
 folded into its plan, not run separately.** Start by reading B10's gate: no
 implementation begins until those four choices are accepted or revised.
 
+---
+
+# Checkpoint #12 — 2026-09-02 (session `browser-tab-mcp`, post-crash recovery)
+
+**Where this file and a conversation summary disagree, THIS FILE IS CORRECT.**
+
+## State
+
+The machine crashed ~2026-09-01; nothing durable was lost. PR #125 (dissolve a
+tab group by groupId) was the only interrupted action — CI finished SUCCESS
+7/7 while the machine was down, and it is now merged (`932dc63`). `main` is
+clean, in sync, and the build stamps `1.4.1+123.932dc63` with no `.dirty`.
+
+## Done
+
+- **#125 merged post-crash** (`932dc63`) — the dissolve feature, its 4
+  sabotage-verified unit tests, the e2e bystander test, and the test-kit
+  `tabs.query` groupId-filter fix.
+- **#124 merged pre-crash** (`76fb159`) — tmux MCP removed from this repo's
+  configs on George's instruction, with per-file provenance in the message.
+
+## Corrections
+
+- **Checkpoint #11's pointer to the watchdog handoff test is DEAD.** It cited
+  `$CLAUDE_JOB_DIR/../scratchpad/handoff/watchdog-starvation.test.ts` and said
+  "copy it before it ages out"; the reboot cleared `/private/tmp` and it was
+  never copied. **Regenerable, not lost:** the four-row matrix, the injectable
+  readers, and the `Atomics.wait` off-CPU-wedge fixture (0.01% vs 74% duty,
+  measured) are all recorded in `UPSTREAM-KIT-BRIEF.md` item 4 and checkpoint
+  #11. Whether `mcp-cli-toolkit` copied it before the crash is unknown — their
+  session died too. If they need it re-cut, it is ~30 minutes from the brief.
+
+## Open
+
+- The daemon still lag-kills occasionally post-reboot (launchd `runs = 4` over
+  ~25h at load 7-9, vs ~10/hour at load 20-24 pre-crash) — consistent with
+  B15's starvation diagnosis, still pending the upstream robustness fix.
+- The dissolve feature is live in the daemon/CLI but NOT in George's browser
+  until he reloads the extension (the code runs in the extension bundle;
+  user-gated).
+- `agentpipe-group-restore` — George never answered the pre-crash offer to
+  re-create the `🌐 AgentPipe DNS` group around its surviving tab.
+
+## Tree
+
+`main` = `932dc63`, clean, in sync. Open PRs: only release-please's rolling
+`1.5.0` (#118), which now also carries #125's feat commit.
+
+## Resume
+
+Nothing mid-flight. Next is whichever George picks of: release #118, `daemon
+install` (ThrottleInterval), extension reload, the B10 selection-DSL gate
+review (the named large workstream — fold **B21** into its plan per his
+standing instruction).
+
