@@ -234,6 +234,17 @@
       ]
     },
     {
+      "surface": "select_tabs",
+      "kind": "tool",
+      "coverage": [
+        {
+          "tier": "chromium-e2e",
+          "covers": "selector resolution against a REAL browser's tabs: a host-predicate selection and a signed-position selection each verified against BOTH the daemon result and chrome.tabs.query truth (the dual-truth rule), plus resolution metadata (snapshotToken present, live-move-domain uniformity true for a same-window selection)",
+          "evidence": "apps/chrome-extension/e2e/select.e2e.test.ts"
+        }
+      ]
+    },
+    {
       "surface": "journal",
       "kind": "tool",
       "coverage": [

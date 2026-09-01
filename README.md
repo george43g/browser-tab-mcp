@@ -106,6 +106,7 @@ highlights; the contract test `tool-annotations.contract.test.ts` enforces the f
 | Tool | Description | Annotations |
 |---|---|---|
 | `list_tabs` | Windows + tabs across Chrome/Brave/Chromium/Edge/Safari with opaque handles, bounds, and `cgWindowId` (yabai join key). Filters: `browser`, `windowId`, `urlFilter`. | read-only, idempotent |
+| `select_tabs` | Resolve a control-language selector (identity/position/predicate/temporal + set algebra, signed one-based positions) against the live snapshot. Pure read: rows/ids/count plus resolution metadata — snapshotToken, warnings, live-move-domain uniformity — and a short-lived `selectionId` for follow-up planning calls. CLI: `browser-tab select --selector <json\|@file\|->`. | read-only, idempotent |
 | `focus_tab` | Activate a tab and — unless `raiseWindow:false` — un-minimize and raise its window. Returns the window's post-state for a window manager to act on. | |
 | `move_tab` | Move a tab: same-window with signed `to` (one-based, `-1` = end) or relative `by: ±N`, across windows with `targetWindowId`. Signed forms are resolved by the daemon against a live snapshot. True state-preserving move via the extension; Safari AppleScript fallback with `allowReload:true`. | |
 | `open_tab` | Open an http(s) URL, optionally in a specific window/browser or in the background. | open-world |

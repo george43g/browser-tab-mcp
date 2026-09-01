@@ -84,6 +84,9 @@ List open browser windows and tabs (Chrome/Brave/Chromium/Edge/Safari)
 \fBreload\-extension\fR
 Restart a browser's connector extension from disk (dev deploy loop)
 .TP
+\fBselect\fR
+Resolve a control\-language selector against the live snapshot (needs daemon)
+.TP
 \fBjournal\fR
 Show recorded focus/navigation history
 .TP
@@ -236,6 +239,19 @@ Restart a browser's connector extension from disk (dev deploy loop)
 .TP
 \fB\-\-browser\fR \fI<name>\fR
 Which browser's extension to reload
+.SH "BROWSER-TAB SELECT"
+Resolve a control\-language selector against the live snapshot (needs daemon)
+.PP
+\fBUsage:\fR browser\-tab select [OPTIONS]
+.PP
+\fBOptions:\fR
+.PP
+.TP
+\fB\-\-selector\fR \fI<json>\fR
+Selector AST as JSON; @<file> reads a file, \- reads stdin
+.TP
+\fB\-\-projection\fR \fI<p>\fR
+Result shape
 .SH "BROWSER-TAB JOURNAL"
 Show recorded focus/navigation history
 .PP

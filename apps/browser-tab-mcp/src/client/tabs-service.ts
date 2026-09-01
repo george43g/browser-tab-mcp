@@ -297,6 +297,30 @@ export async function bookmarks(params: Record<string, unknown>): Promise<Bookma
 }
 
 /**
+ * Resolve a control-language selector against the live merged snapshot.
+ * Daemon-only: resolution needs the merged snapshot plus the journal's
+ * session temporal state, so a down daemon (or fixture mode) is an actionable
+ * ERROR, not an empty selection — an empty selection is a real result a
+ * caller may act on (§7 emptySelection policy), and "the daemon is down"
+ * must never impersonate it.
+ */
+export async function selectTabs(params: Record<string, unknown>): Promise<unknown> {
+  if (fakeAdapterEnabled()) {
+    throw new Error(
+      "select_tabs requires the daemon (merged snapshot + journal state) — not available in fixture mode.",
+    );
+  }
+  try {
+    return await viaDaemon((c) => c.request<unknown>("selectTabs", params));
+  } catch (err) {
+    if (err instanceof DaemonUnavailableError) {
+      throw new Error("select_tabs requires the daemon. Start it with `browser-tab daemon run`.");
+    }
+    throw err;
+  }
+}
+
+/**
  * Extract page content/state. Extension-only + daemon-only — there's no
  * AppleScript path and the cache lives in the daemon, so fixture mode and a
  * down daemon both surface an actionable error (not a silent empty).

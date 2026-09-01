@@ -12,7 +12,7 @@
  * To remove TUI support: delete the `tui` subcommand below + `src/tui/`.
  */
 
-import { copyFileSync } from "node:fs";
+import { copyFileSync, readFileSync } from "node:fs";
 import {
   applyEnvFromFlags,
   bindEnvFlags,
@@ -465,6 +465,41 @@ export function buildProgram(): Command {
         force: opts.force ?? false,
       });
       await printResult(result, json, "get_page");
+    });
+
+  program
+    .command("select")
+    .description("Resolve a control-language selector against the live snapshot (needs daemon)")
+    .requiredOption(
+      "--selector <json>",
+      "Selector AST as JSON; @<file> reads a file, `-` reads stdin (shell-quote-free)",
+    )
+    .addOption(
+      new Option("--projection <p>", "Result shape")
+        .choices(["core", "ids", "count"])
+        .default("core"),
+    )
+    .action(async (opts: { selector: string; projection?: string }) => {
+      const json = program.opts<{ json?: boolean }>().json ?? false;
+      // Lossless JSON input per the plan: inline, @file, or stdin — an AI or
+      // script should never have to shell-quote a nested selector.
+      let raw = opts.selector;
+      if (raw === "-") {
+        raw = readFileSync(0, "utf8");
+      } else if (raw.startsWith("@")) {
+        raw = readFileSync(raw.slice(1), "utf8");
+      }
+      let selector: unknown;
+      try {
+        selector = JSON.parse(raw);
+      } catch (err) {
+        throw new Error(`--selector is not valid JSON: ${(err as Error).message}`);
+      }
+      const result = await callMcpTool("select_tabs", {
+        selector,
+        projection: opts.projection ?? "core",
+      });
+      await printResult(result, json, "select_tabs");
     });
 
   program

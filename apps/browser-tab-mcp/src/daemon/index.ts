@@ -58,6 +58,8 @@ import { SourceMerger } from "./merge.js";
 import { findTabLocation, findWindowTabCount, resolveSignedIndex } from "./move-resolve.js";
 import { socketPath } from "./paths.js";
 import { ShotRateLimiter, screenshot } from "./screenshot.js";
+import { selectTabs as runSelectTabs } from "./select.js";
+import { SelectionStore } from "./selections.js";
 import { ShotStore } from "./shots.js";
 import { SnapshotWriter } from "./snapshot-writer.js";
 import { StateStore } from "./state.js";
@@ -778,6 +780,7 @@ export async function startDaemon(): Promise<DaemonHandle> {
   // the beat rather than keep reporting "alive" (see SnapshotWriter.heartbeat).
   loop.setOnTick(() => writer.heartbeat());
   const journal = new JournalStore();
+  const selections = new SelectionStore();
   journal.warmFromDisk();
   const contentCache = new ContentCache();
   const annotations = new AnnotationStore();
@@ -877,6 +880,18 @@ export async function startDaemon(): Promise<DaemonHandle> {
             .browsers.filter((b) => b.extensionConnected)
             .map((b) => b.browser),
       }),
+    onSelectTabs: async (params) => runSelectTabs(params, { store, journal, selections }),
+    onGetSelection: async (params) => {
+      const id = String((params as { selectionId?: unknown }).selectionId ?? "");
+      const rec = selections.get(id, store.getSnapshot().snapshotToken);
+      if (rec === undefined) {
+        throw new Error(
+          `selection "${id}" is unknown or expired — selections are snapshot-bound and ` +
+            `short-lived; re-run select_tabs.`,
+        );
+      }
+      return rec;
+    },
   });
 
   await ipc.start();

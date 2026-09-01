@@ -131,69 +131,78 @@ export type Predicate =
   | { kind: "or"; predicates: Predicate[] }
   | { kind: "not"; predicate: Predicate };
 
-export const PredicateSchema: z.ZodType<Predicate> = z.lazy(() =>
-  z.discriminatedUnion("kind", [
-    z
-      .object({
-        kind: z.literal("cmp").describe("Compare one declared field against a literal."),
-        field: z.string().min(1).describe("Field name from the domain's typed field catalog."),
-        op: z
-          .enum([
-            "eq",
-            "ne",
-            "lt",
-            "le",
-            "gt",
-            "ge",
-            "contains",
-            "prefix",
-            "suffix",
-            "glob",
-            "regex",
-          ])
-          .describe(
-            "Comparison operator. String operators (contains/prefix/suffix/glob/regex) require a string-typed field.",
-          ),
-        value: PredicateValue,
-      })
-      .strict(),
-    z
-      .object({
-        kind: z
-          .literal("inSet")
-          .describe("True when the field's value is one of the listed literals."),
-        field: z.string().min(1).describe("Field name from the domain's typed field catalog."),
-        values: z
-          .array(z.union([z.string(), z.number()]))
-          .min(1)
-          .describe("Allowed values."),
-      })
-      .strict(),
-    z
-      .object({
-        kind: z.literal("exists").describe("True when the field has a value for this entity."),
-        field: z.string().min(1).describe("Field name from the domain's typed field catalog."),
-      })
-      .strict(),
-    z
-      .object({
-        kind: z.literal("and").describe("All sub-predicates must hold."),
-        predicates: z.array(PredicateSchema).min(1).describe("Conjuncts."),
-      })
-      .strict(),
-    z
-      .object({
-        kind: z.literal("or").describe("At least one sub-predicate must hold."),
-        predicates: z.array(PredicateSchema).min(1).describe("Disjuncts."),
-      })
-      .strict(),
-    z
-      .object({
-        kind: z.literal("not").describe("Negates one sub-predicate."),
-        predicate: PredicateSchema,
-      })
-      .strict(),
-  ]),
+// The lazy bodies below are MEMOIZED on purpose: ZodLazy calls its getter on
+// every `.schema` access, and a getter that builds a fresh discriminatedUnion
+// each time defeats zod-to-json-schema's identity-based cycle detection —
+// the converter recurses forever and tools/list dies with a stack overflow
+// (caught by apps/browser-tab-mcp/src/tools/select-tabs.test.ts the first
+// time a tool embedded this schema). Returning the same instance turns the
+// recursion into a $ref.
+let predicateUnion: z.ZodType<Predicate> | undefined;
+export const PredicateSchema: z.ZodType<Predicate> = z.lazy(
+  () =>
+    (predicateUnion ??= z.discriminatedUnion("kind", [
+      z
+        .object({
+          kind: z.literal("cmp").describe("Compare one declared field against a literal."),
+          field: z.string().min(1).describe("Field name from the domain's typed field catalog."),
+          op: z
+            .enum([
+              "eq",
+              "ne",
+              "lt",
+              "le",
+              "gt",
+              "ge",
+              "contains",
+              "prefix",
+              "suffix",
+              "glob",
+              "regex",
+            ])
+            .describe(
+              "Comparison operator. String operators (contains/prefix/suffix/glob/regex) require a string-typed field.",
+            ),
+          value: PredicateValue,
+        })
+        .strict(),
+      z
+        .object({
+          kind: z
+            .literal("inSet")
+            .describe("True when the field's value is one of the listed literals."),
+          field: z.string().min(1).describe("Field name from the domain's typed field catalog."),
+          values: z
+            .array(z.union([z.string(), z.number()]))
+            .min(1)
+            .describe("Allowed values."),
+        })
+        .strict(),
+      z
+        .object({
+          kind: z.literal("exists").describe("True when the field has a value for this entity."),
+          field: z.string().min(1).describe("Field name from the domain's typed field catalog."),
+        })
+        .strict(),
+      z
+        .object({
+          kind: z.literal("and").describe("All sub-predicates must hold."),
+          predicates: z.array(PredicateSchema).min(1).describe("Conjuncts."),
+        })
+        .strict(),
+      z
+        .object({
+          kind: z.literal("or").describe("At least one sub-predicate must hold."),
+          predicates: z.array(PredicateSchema).min(1).describe("Disjuncts."),
+        })
+        .strict(),
+      z
+        .object({
+          kind: z.literal("not").describe("Negates one sub-predicate."),
+          predicate: PredicateSchema,
+        })
+        .strict(),
+    ])),
 );
 
 // ---------------------------------------------------------------------------
@@ -250,236 +259,240 @@ const SortKeySchema = z
   })
   .strict();
 
-export const SelectorSchema: z.ZodType<Selector> = z.lazy(() =>
-  z.discriminatedUnion("kind", [
-    z
-      .object({
-        kind: z
-          .literal("ids")
-          .describe(
-            "Explicit identity list. Selection order is list order after duplicate removal.",
+let selectorUnion: z.ZodType<Selector> | undefined;
+export const SelectorSchema: z.ZodType<Selector> = z.lazy(
+  () =>
+    (selectorUnion ??= z.discriminatedUnion("kind", [
+      z
+        .object({
+          kind: z
+            .literal("ids")
+            .describe(
+              "Explicit identity list. Selection order is list order after duplicate removal.",
+            ),
+          ids: z
+            .array(z.string().min(1))
+            .min(1)
+            .describe("Stable identity keys, in the order the selection should carry."),
+          missing: z
+            .enum(["error", "skip"])
+            .default("error")
+            .describe(
+              'Unknown-key policy: "error" (default) rejects, "skip" drops the key and records a warning.',
+            ),
+        })
+        .strict(),
+      z
+        .object({
+          kind: z
+            .literal("scope")
+            .describe(
+              "A named finite scope declared by the domain (e.g. every leaf entity, a focused branch).",
+            ),
+          scope: z.string().min(1).describe("Scope name from the domain's declared scope list."),
+        })
+        .strict(),
+      z
+        .object({
+          kind: z
+            .literal("members")
+            .describe(
+              "Explicit structural projection: expand structural nodes to their ordered members. Never inferred (spec §24.1).",
+            ),
+          nodes: SelectorSchema.describe(
+            "Structural selection to project. Each node contributes its members in order.",
           ),
-        ids: z
-          .array(z.string().min(1))
-          .min(1)
-          .describe("Stable identity keys, in the order the selection should carry."),
-        missing: z
-          .enum(["error", "skip"])
-          .default("error")
-          .describe(
-            'Unknown-key policy: "error" (default) rejects, "skip" drops the key and records a warning.',
+          relation: z
+            .string()
+            .min(1)
+            .describe("Member relation name from the domain's declared relation list."),
+        })
+        .strict(),
+      z
+        .object({
+          kind: z
+            .literal("positions")
+            .describe("Signed one-based element positions within a scope's ordered sequence."),
+          scope: SelectorSchema.optional().describe(
+            "Sequence to index into. Omit ONLY inside withinEach, where the current branch's members are the scope.",
           ),
-      })
-      .strict(),
-    z
-      .object({
-        kind: z
-          .literal("scope")
-          .describe(
-            "A named finite scope declared by the domain (e.g. every leaf entity, a focused branch).",
+          positions: z
+            .array(PositionExprSchema)
+            .min(1)
+            .describe("Discrete positions and/or inclusive ranges, kept in the order listed."),
+          bounds: BoundsSchema.default("clamp"),
+        })
+        .strict(),
+      z
+        .object({
+          kind: z
+            .literal("offset")
+            .describe(
+              "Zero-based relative neighbourhood around a single anchor, within the anchor's sibling order.",
+            ),
+          anchor: SelectorSchema.describe("Selector that must resolve to exactly one member."),
+          offsets: OffsetRangeSchema,
+        })
+        .strict(),
+      z
+        .object({
+          kind: z
+            .literal("expand")
+            .describe(
+              "Include the offset neighbourhood around EVERY selected member, then deduplicate (first occurrence wins).",
+            ),
+          selector: SelectorSchema.describe("Base selection to expand."),
+          offsets: OffsetRangeSchema,
+        })
+        .strict(),
+      z
+        .object({
+          kind: z
+            .literal("between")
+            .describe(
+              "The run bounded by two single-member anchors in their common ordered parent, in anchor order.",
+            ),
+          anchors: z
+            .tuple([SelectorSchema, SelectorSchema])
+            .describe(
+              "Two selectors, each resolving to exactly one member; both must share a parent.",
+            ),
+          inclusive: z
+            .boolean()
+            .default(true)
+            .describe("Include the anchors themselves (default true)."),
+        })
+        .strict(),
+      z
+        .object({
+          kind: z
+            .literal("siblings")
+            .describe(
+              "The full ordered sibling sequence of every selected member (the members themselves included), deduplicated.",
+            ),
+          selector: SelectorSchema.describe("Base selection."),
+        })
+        .strict(),
+      z
+        .object({
+          kind: z
+            .literal("where")
+            .describe("Filter a scope's members by a typed predicate, preserving scope order."),
+          scope: SelectorSchema.optional().describe(
+            "Members to filter. Omit ONLY inside withinEach, where the current branch's members are the scope.",
           ),
-        scope: z.string().min(1).describe("Scope name from the domain's declared scope list."),
-      })
-      .strict(),
-    z
-      .object({
-        kind: z
-          .literal("members")
-          .describe(
-            "Explicit structural projection: expand structural nodes to their ordered members. Never inferred (spec §24.1).",
+          predicate: PredicateSchema,
+          unknown: z
+            .enum(["exclude", "error"])
+            .default("exclude")
+            .describe(
+              'Policy when a field read has no value: "exclude" (default) fails the member, "error" rejects the resolution (spec §24.6).',
+            ),
+        })
+        .strict(),
+      z
+        .object({
+          kind: z
+            .literal("union")
+            .describe(
+              "Left-biased ordered union: A then previously-unseen members of B, and so on.",
+            ),
+          selectors: z
+            .array(SelectorSchema)
+            .min(2)
+            .describe("Operands, all resolving to the same kind."),
+        })
+        .strict(),
+      z
+        .object({
+          kind: z
+            .literal("intersect")
+            .describe("Members present in every operand, in the FIRST operand's order."),
+          selectors: z
+            .array(SelectorSchema)
+            .min(2)
+            .describe("Operands, all resolving to the same kind."),
+        })
+        .strict(),
+      z
+        .object({
+          kind: z
+            .literal("subtract")
+            .describe(
+              "Members of `from` not present in `remove`, in `from` order. Roles are explicit — no unordered operand array (spec §24.4).",
+            ),
+          from: SelectorSchema.describe("Base selection."),
+          remove: SelectorSchema.describe("Members to exclude."),
+        })
+        .strict(),
+      z
+        .object({
+          kind: z
+            .literal("complement")
+            .describe(
+              "Members of the finite `within` scope not selected by `selector`, in `within` order (spec §7.7: complement MUST have a finite scope).",
+            ),
+          selector: SelectorSchema.describe("Selection to complement."),
+          within: SelectorSchema.describe(
+            "Finite scope supplying both the universe and the result order.",
           ),
-        nodes: SelectorSchema.describe(
-          "Structural selection to project. Each node contributes its members in order.",
-        ),
-        relation: z
-          .string()
-          .min(1)
-          .describe("Member relation name from the domain's declared relation list."),
-      })
-      .strict(),
-    z
-      .object({
-        kind: z
-          .literal("positions")
-          .describe("Signed one-based element positions within a scope's ordered sequence."),
-        scope: SelectorSchema.optional().describe(
-          "Sequence to index into. Omit ONLY inside withinEach, where the current branch's members are the scope.",
-        ),
-        positions: z
-          .array(PositionExprSchema)
-          .min(1)
-          .describe("Discrete positions and/or inclusive ranges, kept in the order listed."),
-        bounds: BoundsSchema.default("clamp"),
-      })
-      .strict(),
-    z
-      .object({
-        kind: z
-          .literal("offset")
-          .describe(
-            "Zero-based relative neighbourhood around a single anchor, within the anchor's sibling order.",
+        })
+        .strict(),
+      z
+        .object({
+          kind: z
+            .literal("sort")
+            .describe(
+              "Stable sort by one or more declared fields. Undefined field values sort last within their direction.",
+            ),
+          selector: SelectorSchema.describe("Selection to sort."),
+          by: z.array(SortKeySchema).min(1).describe("Sort keys, most significant first."),
+        })
+        .strict(),
+      z
+        .object({
+          kind: z
+            .literal("slice")
+            .describe(
+              "Inclusive signed sub-range of an already-resolved selection's order (take/drop/limit compile to this).",
+            ),
+          selector: SelectorSchema.describe("Selection to slice."),
+          range: PositionRangeSchema,
+          bounds: BoundsSchema.default("clamp"),
+        })
+        .strict(),
+      z
+        .object({
+          kind: z
+            .literal("withinEach")
+            .describe(
+              "Evaluate `select` once per resolved branch, against that branch's ordered members; concatenate in branch order (spec §24.2). Distinct from selecting over the flattened combined sequence.",
+            ),
+          branches: SelectorSchema.describe(
+            "Structural selection supplying the branches, in caller/scope order.",
           ),
-        anchor: SelectorSchema.describe("Selector that must resolve to exactly one member."),
-        offsets: OffsetRangeSchema,
-      })
-      .strict(),
-    z
-      .object({
-        kind: z
-          .literal("expand")
-          .describe(
-            "Include the offset neighbourhood around EVERY selected member, then deduplicate (first occurrence wins).",
+          relation: z
+            .string()
+            .min(1)
+            .describe(
+              "Member relation used to enumerate each branch's ordered members — explicit because a generic evaluator must not infer a projection.",
+            ),
+          select: SelectorSchema.describe(
+            "Inner selector. Leaf `positions`/`where` nodes inside it may omit `scope`; the current branch's members are the scope.",
           ),
-        selector: SelectorSchema.describe("Base selection to expand."),
-        offsets: OffsetRangeSchema,
-      })
-      .strict(),
-    z
-      .object({
-        kind: z
-          .literal("between")
-          .describe(
-            "The run bounded by two single-member anchors in their common ordered parent, in anchor order.",
-          ),
-        anchors: z
-          .tuple([SelectorSchema, SelectorSchema])
-          .describe(
-            "Two selectors, each resolving to exactly one member; both must share a parent.",
-          ),
-        inclusive: z
-          .boolean()
-          .default(true)
-          .describe("Include the anchors themselves (default true)."),
-      })
-      .strict(),
-    z
-      .object({
-        kind: z
-          .literal("siblings")
-          .describe(
-            "The full ordered sibling sequence of every selected member (the members themselves included), deduplicated.",
-          ),
-        selector: SelectorSchema.describe("Base selection."),
-      })
-      .strict(),
-    z
-      .object({
-        kind: z
-          .literal("where")
-          .describe("Filter a scope's members by a typed predicate, preserving scope order."),
-        scope: SelectorSchema.optional().describe(
-          "Members to filter. Omit ONLY inside withinEach, where the current branch's members are the scope.",
-        ),
-        predicate: PredicateSchema,
-        unknown: z
-          .enum(["exclude", "error"])
-          .default("exclude")
-          .describe(
-            'Policy when a field read has no value: "exclude" (default) fails the member, "error" rejects the resolution (spec §24.6).',
-          ),
-      })
-      .strict(),
-    z
-      .object({
-        kind: z
-          .literal("union")
-          .describe("Left-biased ordered union: A then previously-unseen members of B, and so on."),
-        selectors: z
-          .array(SelectorSchema)
-          .min(2)
-          .describe("Operands, all resolving to the same kind."),
-      })
-      .strict(),
-    z
-      .object({
-        kind: z
-          .literal("intersect")
-          .describe("Members present in every operand, in the FIRST operand's order."),
-        selectors: z
-          .array(SelectorSchema)
-          .min(2)
-          .describe("Operands, all resolving to the same kind."),
-      })
-      .strict(),
-    z
-      .object({
-        kind: z
-          .literal("subtract")
-          .describe(
-            "Members of `from` not present in `remove`, in `from` order. Roles are explicit — no unordered operand array (spec §24.4).",
-          ),
-        from: SelectorSchema.describe("Base selection."),
-        remove: SelectorSchema.describe("Members to exclude."),
-      })
-      .strict(),
-    z
-      .object({
-        kind: z
-          .literal("complement")
-          .describe(
-            "Members of the finite `within` scope not selected by `selector`, in `within` order (spec §7.7: complement MUST have a finite scope).",
-          ),
-        selector: SelectorSchema.describe("Selection to complement."),
-        within: SelectorSchema.describe(
-          "Finite scope supplying both the universe and the result order.",
-        ),
-      })
-      .strict(),
-    z
-      .object({
-        kind: z
-          .literal("sort")
-          .describe(
-            "Stable sort by one or more declared fields. Undefined field values sort last within their direction.",
-          ),
-        selector: SelectorSchema.describe("Selection to sort."),
-        by: z.array(SortKeySchema).min(1).describe("Sort keys, most significant first."),
-      })
-      .strict(),
-    z
-      .object({
-        kind: z
-          .literal("slice")
-          .describe(
-            "Inclusive signed sub-range of an already-resolved selection's order (take/drop/limit compile to this).",
-          ),
-        selector: SelectorSchema.describe("Selection to slice."),
-        range: PositionRangeSchema,
-        bounds: BoundsSchema.default("clamp"),
-      })
-      .strict(),
-    z
-      .object({
-        kind: z
-          .literal("withinEach")
-          .describe(
-            "Evaluate `select` once per resolved branch, against that branch's ordered members; concatenate in branch order (spec §24.2). Distinct from selecting over the flattened combined sequence.",
-          ),
-        branches: SelectorSchema.describe(
-          "Structural selection supplying the branches, in caller/scope order.",
-        ),
-        relation: z
-          .string()
-          .min(1)
-          .describe(
-            "Member relation used to enumerate each branch's ordered members — explicit because a generic evaluator must not infer a projection.",
-          ),
-        select: SelectorSchema.describe(
-          "Inner selector. Leaf `positions`/`where` nodes inside it may omit `scope`; the current branch's members are the scope.",
-        ),
-      })
-      .strict(),
-    z
-      .object({
-        kind: z
-          .literal("flatten")
-          .describe(
-            "Erase branch provenance, leaving one plain combined sequence in the existing order. Order is unchanged — partitions never alter behaviour silently, this only normalizes the metadata.",
-          ),
-        selector: SelectorSchema.describe("Selection whose provenance to erase."),
-      })
-      .strict(),
-  ]),
+        })
+        .strict(),
+      z
+        .object({
+          kind: z
+            .literal("flatten")
+            .describe(
+              "Erase branch provenance, leaving one plain combined sequence in the existing order. Order is unchanged — partitions never alter behaviour silently, this only normalizes the metadata.",
+            ),
+          selector: SelectorSchema.describe("Selection whose provenance to erase."),
+        })
+        .strict(),
+    ])),
 );
 
 /** Versioned document envelope: what tools and files should carry. */

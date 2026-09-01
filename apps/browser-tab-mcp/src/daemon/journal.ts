@@ -196,6 +196,25 @@ export class JournalStore {
     return out;
   }
 
+  /**
+   * Per-tab temporal maps for the selection binding's TemporalProvider
+   * (src/select/temporal.ts, ruling R4): last tab-focus ts and last committed
+   * navigation ts, keyed by tab handle. One O(ring) pass per call — the
+   * select pathway takes a snapshot per resolution rather than the binding
+   * scanning the logs per field read. Session-scoped like navEpoch: a tab
+   * neither log has seen is simply absent, which the language's unknown
+   * policy excludes rather than misclassifies.
+   */
+  temporalSnapshot(): { focused: Map<string, number>; navigated: Map<string, number> } {
+    const focused = new Map<string, number>();
+    for (const rec of this.focusLog) {
+      if (rec.kind === "tab-focus" && rec.tabId) focused.set(rec.tabId, rec.ts);
+    }
+    const navigated = new Map<string, number>();
+    for (const rec of this.navLog) navigated.set(rec.tabId, rec.ts);
+    return { focused, navigated };
+  }
+
   query(params: Record<string, unknown>): JournalOutput {
     const input: JournalInput = JournalInputSchema.parse(params);
     switch (input.view) {
