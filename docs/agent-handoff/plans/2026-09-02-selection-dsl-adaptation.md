@@ -106,7 +106,7 @@ boosted-limits window, four parallel worktree agents.
 |---|---|---|---|
 | 0.a | Snapshot `revision` + opaque `snapshotToken`, additive; `version` stays 2 | **in flight** | spec §23.1 gap 1 |
 | 0.b | B21 partition-vs-iterate audit (folded in per standing instruction) | **in flight** | BACKLOG B21 acceptance criteria verbatim |
-| 0.c | Edge-policy freeze table (§24.6) — one doc section + fixtures beside the schemas | queued (Phase 1 PR review gate) | emptySelection, overlap, unknown-temporal, evaluationTime, non-reconstructable URLs |
+| 0.c | Edge-policy freeze table (§24.6) | **done — §7 below** | binding on every schema/planner PR |
 | 0.d | `move_tab` signed/relative/same-window conveniences (R2) | **in flight** | wire-compatible |
 | 1 | `packages/control-language` — pure selection core, property-tested | **in flight** | architecture §13 Phase 1 scope exactly |
 | 2 | Browser binding in-app (R1): node kinds, field catalog, temporal fields (R4), live-move domains (R3), materialized selections + revision binding | queued | needs 0.a + 1 merged |
@@ -142,3 +142,22 @@ tools, e2e where the surface has a real-browser pathway.
 - Capability truth is runtime-probed; never branch on browser name (contract invariant 2).
 - `handles are not uniformly stable` (spec §23.1 gap 2): materialized selections are
   snapshot-bound, never durable identity, until an identity layer exists.
+
+## 7. Edge-policy freeze (§24.6) — binding defaults
+
+Frozen 2026-09-02. Every schema and planner PR implements these exactly; changing one is a
+recorded decision, not a drive-by.
+
+| Policy | Default | Alternatives (explicit) | Reason |
+|---|---|---|---|
+| `emptySelection` | queries: valid empty result; mutations: **error** | `"noOp"` | §24.6's own recommendation; an empty mutation is usually a selector mistake |
+| Position bounds | **clamp** | `bounds: "error"` | §5.1 verbatim |
+| `emptySourceWindows` | **error** | `"close"`, `"keepWithNewTab"` (side effect disclosed) | §24.3; TUI "merge windows" convenience compiles to `close` after preview |
+| Destination anchor inside the moved selection | **error** with hint | none in v1 | ambiguous post-move meaning; revisit only with a stable-gap rule |
+| Anchor/selection member vanishes between resolve and apply | index-sensitive or destructive ops: **conflict error**; identity-based non-destructive ops: skip + report per item | `conflict: "replan"`, `"best-effort"` per §14.1 | splits along the spec's conflict-policy line; the skip+report half follows the existing `group_tabs` `skippedTabIds` precedent |
+| Pin-region crossing | **error** | `pinPolicy: "unpin-first" \| "skip"` | §14.3: silent policy invention forbidden |
+| Group preservation on member movement | **tabsOnly** + warning naming the groups left behind | `"preserveGroupsWherePossible"`, or a declarative end state | §24.3 |
+| Unknown temporal field value | **exclude** + count reported in resolution metadata | `unknown: "include" \| "error"` | §24.6's `not visited within 3d` rule; ruling R4 |
+| `evaluationTime` | frozen once per resolution, echoed in resolution metadata | none | §24.6 |
+| Non-reconstructable URLs in copy/cut (chrome://, about: internals, file:, extension pages) | **skip + per-item outcome**; cut never closes a source it could not reconstruct | `"error"` for strict callers | §9.4 already mandates the source-stays-open half; skip+report is the honest bulk default |
+| Branch order across instances/windows | directly-listed selectors: caller order; predicate-selected: snapshot tree order as the merge layer emits it, pinned by a contract test | explicit `sort` | §24.2: raw browser API array order must not be assumed — the contract test is what makes our order a fact |
