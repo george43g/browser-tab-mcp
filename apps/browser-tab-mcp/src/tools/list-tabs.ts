@@ -168,6 +168,7 @@ export const listTabsTool: ToolDefinition<typeof ListTabsInputSchema, typeof Sna
   input: ListTabsInputSchema,
   output: SnapshotSchema,
   annotations: {
+    title: "List tabs",
     readOnlyHint: true,
     destructiveHint: false,
     idempotentHint: true,

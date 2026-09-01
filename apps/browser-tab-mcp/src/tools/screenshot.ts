@@ -38,10 +38,12 @@ export const screenshotTool: ToolDefinition<
   input: ScreenshotInputSchema,
   output: ScreenshotOutputSchema,
   annotations: {
+    title: "Capture screenshot",
     readOnlyHint: false, // focus:true activates a tab
     destructiveHint: false,
     idempotentHint: false,
-    openWorldHint: true,
+    // Captures what the browser has already rendered; no network interaction.
+    openWorldHint: false,
   },
   timeoutMs: 15_000,
   handler: async (input, signal) => {

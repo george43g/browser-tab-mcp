@@ -21,6 +21,7 @@ export const setWindowTool: ToolDefinition<
   input: SetWindowInputSchema,
   output: CommandResultSchema,
   annotations: {
+    title: "Set window state",
     readOnlyHint: false,
     destructiveHint: false,
     idempotentHint: false,

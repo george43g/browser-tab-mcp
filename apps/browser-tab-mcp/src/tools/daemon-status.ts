@@ -21,6 +21,7 @@ export const daemonStatusTool: ToolDefinition<
   input: DaemonStatusInputSchema,
   output: DaemonStatusOutputSchema,
   annotations: {
+    title: "Daemon status",
     readOnlyHint: true,
     destructiveHint: false,
     idempotentHint: true,

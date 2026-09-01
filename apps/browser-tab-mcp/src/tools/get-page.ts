@@ -24,10 +24,13 @@ export const getPageTool: ToolDefinition<typeof GetPageInputSchema, typeof GetPa
   input: GetPageInputSchema,
   output: GetPageOutputSchema,
   annotations: {
+    title: "Read page content",
     readOnlyHint: true,
     destructiveHint: false,
     idempotentHint: false,
-    openWorldHint: true,
+    // Extracts from the page the browser has ALREADY loaded; it never loads a
+    // URL itself, so its interaction domain is the local browser, not the web.
+    openWorldHint: false,
   },
   timeoutMs: 15_000,
   handler: async (input, signal) => {

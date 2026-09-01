@@ -95,6 +95,11 @@ Identical JSON snippet — they all consume the same shape under `mcpServers`. S
 ## Tools
 
 Every MCP tool is also a CLI subcommand and a REPL command (one in-process dispatcher).
+Every tool ships a complete MCP annotations block — a human title plus explicit
+`readOnlyHint` / `destructiveHint` / `idempotentHint` / `openWorldHint` — surfaced in
+`tools/list` so hosts can gate risk truthfully (`tab_action` counts as destructive:
+navigate/discard can irreversibly lose in-page state). The column below shows the
+highlights; the contract test `tool-annotations.contract.test.ts` enforces the full set.
 
 | Tool | Description | Annotations |
 |---|---|---|

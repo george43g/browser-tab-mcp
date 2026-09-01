@@ -25,6 +25,7 @@ export const focusTabTool: ToolDefinition<typeof FocusTabInputSchema, typeof Com
     input: FocusTabInputSchema,
     output: CommandResultSchema,
     annotations: {
+      title: "Focus tab",
       readOnlyHint: false,
       destructiveHint: false,
       idempotentHint: true,

@@ -26,8 +26,12 @@ export const tabActionTool: ToolDefinition<typeof TabActionInput, typeof Command
   input: TabActionInput,
   output: CommandResultSchema,
   annotations: {
+    title: "Tab action",
     readOnlyHint: false,
-    destructiveHint: false,
+    // navigate replaces the page and discard unloads it — both can irreversibly
+    // lose in-page state (unsaved forms, scroll, JS state). Conservative per
+    // the spec's "prefer overstating risk to understating it".
+    destructiveHint: true,
     idempotentHint: false,
     openWorldHint: true,
   },

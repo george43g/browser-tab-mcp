@@ -21,6 +21,7 @@ export const groupTabsTool: ToolDefinition<
   input: GroupTabsInputSchema,
   output: CommandResultSchema,
   annotations: {
+    title: "Manage tab groups",
     readOnlyHint: false,
     destructiveHint: false,
     idempotentHint: false,

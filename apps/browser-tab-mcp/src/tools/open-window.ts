@@ -27,6 +27,7 @@ export const openWindowTool: ToolDefinition<typeof OpenWindowInput, typeof Comma
   input: OpenWindowInput,
   output: CommandResultSchema,
   annotations: {
+    title: "Open window",
     readOnlyHint: false,
     destructiveHint: false,
     idempotentHint: false,

@@ -30,6 +30,7 @@ export const noopTool: ToolDefinition<typeof NoopInputSchema, typeof NoopOutputS
   input: NoopInputSchema,
   output: NoopOutputSchema,
   annotations: {
+    title: "No-op probe",
     readOnlyHint: true,
     destructiveHint: false,
     idempotentHint: true,

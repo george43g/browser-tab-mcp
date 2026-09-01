@@ -18,6 +18,7 @@ export const closeWindowTool: ToolDefinition<
   input: CloseWindowInputSchema,
   output: CommandResultSchema,
   annotations: {
+    title: "Close window",
     readOnlyHint: false,
     destructiveHint: true,
     idempotentHint: false,

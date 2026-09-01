@@ -17,6 +17,7 @@ export const closeTabTool: ToolDefinition<typeof CloseTabInputSchema, typeof Com
     input: CloseTabInputSchema,
     output: CommandResultSchema,
     annotations: {
+      title: "Close tab",
       readOnlyHint: false,
       destructiveHint: true,
       idempotentHint: false,

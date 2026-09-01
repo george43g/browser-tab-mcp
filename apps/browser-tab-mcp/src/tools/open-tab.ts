@@ -22,6 +22,7 @@ export const openTabTool: ToolDefinition<typeof OpenTabInput, typeof CommandResu
   input: OpenTabInput,
   output: CommandResultSchema,
   annotations: {
+    title: "Open tab",
     readOnlyHint: false,
     destructiveHint: false,
     idempotentHint: false,
