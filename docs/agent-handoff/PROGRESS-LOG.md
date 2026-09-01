@@ -2812,3 +2812,95 @@ install` (ThrottleInterval), extension reload, the B10 selection-DSL gate
 review (the named large workstream — fold **B21** into its plan per his
 standing instruction).
 
+---
+
+# Checkpoint #13 — 2026-09-02 (session `browser-tab-mcp`)
+
+**Where this file and a conversation summary disagree, THIS FILE IS CORRECT.**
+
+## State
+
+v1.5.0 is released, verified and running everywhere that matters; the repo is
+clean; the session is parked waiting for George to paste the selection-DSL
+workstream overview.
+
+## Constraints
+
+New from George this turn, verbatim, and BINDING on the incoming workstream:
+
+> "There's going to be one main overview I'll paste in, that links to a few in
+> depth planning documents - you job is not to take those plans as gospel -
+> they were designed with limited context as to the existing source code and
+> tool - you need to adapt those plans and the ultimate spirit of those ideas
+> in the best way to this source code."
+
+And: *"wait for me to properly introduce it to you"* — do NOT plan from the
+repo's in-tree DSL documents alone; the overview is the entry point.
+
+Also this turn: *"You have my permission to merge in the PR as long as it
+passes CI"* (consumed — #118 merged; release PRs have no CI by design, diff
+verified as release-please-owned files only).
+
+## Done
+
+- **v1.5.0 released** — #118 merged (`c290bd7`); tag + GitHub Release verified
+  to exist; four version files in lockstep; `pnpm release:check` ok; daemon
+  restarted onto it (reports 1.5.0).
+- **Dissolve live-verified on George's real Chrome** after he reloaded the
+  extension: `group remove --group` → `ungroupedCount: 1`, tab survived
+  ungrouped, emptied group deleted by Chrome, probe tab closed. Closes the
+  "not live-verified" caveat in #125's PR body.
+- **Root duplicate DSL spec deletion committed in its own PR (#128)** — George,
+  verbatim: *"commit that deletion on its own so no future agents are confused
+  by it"*. Deletion was his; canonical `docs/` copy retained.
+
+## Open
+
+- `b10-selection-dsl-intro · browser-tab-mcp` — waiting on George's overview
+  paste. Evidence: he said "I will submit it in the next turn"; nothing pasted
+  yet.
+- `b21-partition-audit · browser-tab-mcp` — parked by instruction, fold into
+  the B10 workstream's plan; widen scope to session tooling and CI glue (three
+  instances found there, incl. this session's own CI watcher reading "no checks
+  reported" as done). Never attempted.
+- `daemon-install-throttle · browser-tab-mcp` — ThrottleInterval shipped in
+  1.5.0 but a LaunchAgent only picks it up on `daemon install`, which is
+  George's (ground rule 4). His plist verified without it pre-release.
+- `watchdog-test-regen · browser-tab-mcp` — CONDITIONAL: the handoff test file
+  died with /private/tmp in the crash; regenerate from UPSTREAM-KIT-BRIEF item
+  4 only if the kit session asks.
+
+## Corrections
+
+- `agentpipe-group-restore` is CLOSED — George, this turn: *"that was already
+  resolved!"*. Stop carrying it.
+- The fleet was re-created post-crash; `mcp-cli-toolkit` no longer exists as a
+  session name — the kit repo's session is now `mcp-starter-template`.
+
+## Tree
+
+`main` (this branch `chore/precompact-13` = main + spec deletion + this file),
+otherwise clean, in sync. Zero open PRs; release-please will open a fresh
+rolling PR on the next feat/fix commit. George's loaded Chrome extension shows
+1.4.1 until his next reload — cosmetic only, dist is 1.5.0.
+
+## Blocked on you
+
+- Paste the workstream overview (`b10-selection-dsl-intro`).
+- `daemon install` whenever you want ThrottleInterval live.
+
+## Elsewhere
+
+- `robustness-release-approval · mcp-starter-template` — changed this turn only
+  in that its state is now UNKNOWN: the owning session died in the crash and
+  whether the two-signal watchdog fix was implemented before that is
+  unverified. Its owner raises it; this session holds the regen-able test.
+
+## Resume
+
+Merge this PR on green, pull main, then WAIT. The next action is reading
+George's pasted overview and adapting its linked plans to this codebase under
+the verbatim constraint above — surfacing conflicts with load-bearing
+architecture (handle scheme, merge authority, effect-coverage ledger,
+runtime-probed capabilities) rather than following either side silently.
+
