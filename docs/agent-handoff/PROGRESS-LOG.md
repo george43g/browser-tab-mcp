@@ -2984,3 +2984,71 @@ anything load-bearing is restated above or in the adaptation record.
 `.claude/worktrees/` pending removal (branches already merged+deleted on
 origin). Dirty after this checkpoint: only this file + BACKLOG.md (B23), on
 branch `docs/checkpoint-14`.
+
+# Checkpoint #15 — 2026-09-02 (session `browser-tab-mcp`)
+
+Where this entry and the compaction summary disagree, this entry is correct.
+
+## State
+
+**DSL Phase 2 is COMPLETE and released as v1.7.0** (tag verified via
+`pnpm release:check`, baseline v1.7.0, ok). The five-tool surface has its
+first tool live: `select_tabs` resolves control-language selectors against
+the real merged snapshot, end to end across MCP/CLI/REPL, with materialized
+snapshot-bound selections ready for Phase 3's `plan_tab_change`. Repo clean,
+`main` @ `37c3ed2`, zero open PRs.
+
+## Done (all merged, CI green 7/7 each)
+
+- **#140** `9dfbc1d` — Phase 2 plan (two-PR shape; select_tabs moved forward
+  from Phase 3 as the binding's verification surface, reason recorded).
+- **#141** `a21a9d4` — browser binding (`src/select/`): snapshot-backed
+  SelectionDomain, 23-field typed catalog, tree-order contract pinned, R4
+  temporal seam, R3 live-move domains + §24.5 uniformity summary. 25 tests.
+- **#143** `ab522cb` — select_tabs: daemon orchestration (one snapshot read),
+  `SelectionStore` (LRU 64/TTL 5m/token-inequality staleness),
+  `journal.temporalSnapshot()`, IPC selectTabs/getSelection, app-local tool
+  schemas (shared-types stays extension-clean), CLI `select
+  --selector <json|@file|->` + regenerated usage artifacts, dual-truth e2e
+  (floor 61→62, ledger evidence flipped same-PR), stress 39/0.
+- **#138/#139** — robustness 0.12.0→0.14.1: the ^0.12.0 caret was STARVED
+  (our own taxonomy) so the B15 watchdog fix was unreachable by any install;
+  0.14.1's corrected 0.05 starvation duty-cycle verified in the installed
+  artifact. Evidence loop with `mcp-starter-template` stays open until the
+  daemon redeploys (their ask: a verbatim `event_loop_starved_not_killed`
+  line, or its dated absence).
+- **Cross-package catch** (in #143): control-language's `z.lazy` getters
+  built a fresh discriminatedUnion per access, defeating zod-to-json-schema's
+  identity-based cycle detection — tools/list stack-overflowed and the WHOLE
+  catalog emptied. Stress case 1 caught it; lazy bodies memoized
+  (`packages/control-language/src/schema.ts`), regression-pinned by
+  `src/tools/select-tabs.test.ts`. The general lesson: a recursive schema is
+  only convertible if recursion resolves to the SAME instance.
+
+## Open
+
+- `dsl-phase-3 · browser-tab-mcp` — plan_tab_change / apply_tab_layout /
+  copy_tabs / cut_tabs + effect IR + setOrder + resources. Not started; next
+  on the adaptation-record map.
+- `b23-cache-file-vanish · browser-tab-mcp` — unchanged, never attempted.
+- `dsl-forgotten-mode · browser-tab-mcp` — still awaiting George's scan.
+- `control-language-npm · browser-tab-mcp` — Q2, George's call.
+- `daemon-restart-1.7 · browser-tab-mcp` — the running daemon predates
+  v1.6/v1.7 AND robustness 0.14.1; one rebuild+restart picks up revision
+  fields, select_tabs, and the fixed watchdog. George's authorization
+  required (ground rule 4). Slug supersedes `daemon-restart-1.6`.
+
+## Traps (new this stretch)
+
+- Rebuilding `dist/` while a Playwright e2e run is live breaks the run with
+  ERR_MODULE_NOT_FOUND on hashed chunks — the CLI under test resolves chunks
+  the rebuild just replaced. One writer to dist at a time.
+- Every new e2e spec file needs its own WS port band (`e2e/ports.ts`
+  E2E_SPEC_SLOTS, append-only) — the guard errors loudly by design.
+- e2e fixture helpers `tabHandle`/`windowHandle`/`waitForTab` live on
+  `stack`, not `stack.daemon`.
+
+## Tree
+
+`main` @ `37c3ed2` (v1.7.0), clean, 0/0 vs origin. Dirty after this
+checkpoint: only this file, on branch `docs/checkpoint-15`.
