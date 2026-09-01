@@ -121,34 +121,99 @@ export const CloseTabInputSchema = z.object({
 });
 export type CloseTabInput = z.infer<typeof CloseTabInputSchema>;
 
-export const MoveTabInputSchema = z.object({
-  tabId: z.string().describe("Opaque tab handle from list_tabs."),
-  targetWindowId: z
-    .string()
-    .optional()
-    .describe("Destination window. Omit with newWindow=true to split into a new window."),
-  targetIndex: z
-    .number()
-    .int()
-    .min(0)
-    .optional()
-    .describe("0-based destination position. Omit to append at the end."),
-  newWindow: z.boolean().default(false).describe("Move the tab into a newly created window."),
-  targetGroupId: z
-    .string()
-    .optional()
-    .describe(
-      "After moving, add the tab to this existing tab group (opaque g:<browser>:x<id> handle). " +
-        "Extension pathway only (Chrome-family).",
-    ),
-  allowReload: z
-    .boolean()
-    .default(false)
-    .describe(
-      "Safari only: permit the AppleScript move, which reloads the page (loses scroll/form/JS " +
-        "state). Without the Safari extension connected, Safari moves require this flag.",
-    ),
-});
+export const MoveTabInputSchema = z
+  .object({
+    tabId: z.string().describe("Opaque tab handle from list_tabs."),
+    targetWindowId: z
+      .string()
+      .optional()
+      .describe(
+        "Destination window. Omit for a same-window move (with to/by), or with newWindow=true " +
+          "to split into a new window.",
+      ),
+    targetIndex: z
+      .number()
+      .int()
+      .min(0)
+      .optional()
+      .describe("0-based destination position. Omit to append at the end. Legacy; prefer `to`."),
+    to: z
+      .number()
+      .int()
+      .optional()
+      .describe(
+        "Signed one-based destination position: 1 = first, -1 = last, negatives count from the " +
+          "end; 0 is invalid; out-of-range clamps to the boundary. Without targetWindowId this " +
+          "is a same-window move. Needs the daemon (resolved against a live snapshot).",
+      ),
+    by: z
+      .number()
+      .int()
+      .optional()
+      .describe(
+        "Signed relative displacement within the tab's own window: -1 = one position left/earlier, " +
+          "2 = two later. Clamps at the window edges. Same-window by definition — cannot combine " +
+          "with targetWindowId or newWindow. Needs the daemon.",
+      ),
+    newWindow: z.boolean().default(false).describe("Move the tab into a newly created window."),
+    targetGroupId: z
+      .string()
+      .optional()
+      .describe(
+        "After moving, add the tab to this existing tab group (opaque g:<browser>:x<id> handle). " +
+          "Extension pathway only (Chrome-family).",
+      ),
+    allowReload: z
+      .boolean()
+      .default(false)
+      .describe(
+        "Safari only: permit the AppleScript move, which reloads the page (loses scroll/form/JS " +
+          "state). Without the Safari extension connected, Safari moves require this flag.",
+      ),
+  })
+  .superRefine((v, ctx) => {
+    // Reject bad combinations at schema validation, not in the executor — an
+    // AI caller gets a field-specific error it can correct in one turn.
+    if (v.to === 0) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["to"],
+        message: "`to` is one-based and signed: 1 = first, -1 = last. 0 is invalid.",
+      });
+    }
+    if (v.by === 0) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["by"],
+        message: "`by: 0` would be a no-op — omit `by` instead.",
+      });
+    }
+    const positional = [v.targetIndex, v.to, v.by].filter((x) => x !== undefined).length;
+    if (positional > 1) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message:
+          "Set at most one of targetIndex, to, by — they are three spellings of one position.",
+      });
+    }
+    if (v.by !== undefined && (v.targetWindowId !== undefined || v.newWindow)) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["by"],
+        message:
+          "`by` moves the tab relative to its current position in its own window — it cannot " +
+          "combine with targetWindowId or newWindow. Use `to` for absolute positions.",
+      });
+    }
+    if (v.to !== undefined && v.newWindow) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["to"],
+        message:
+          "`to` has no meaning in a newly created window (it has exactly one slot). Omit it.",
+      });
+    }
+  });
 export type MoveTabInput = z.infer<typeof MoveTabInputSchema>;
 
 export const OpenTabInputSchema = z.object({

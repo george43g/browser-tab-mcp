@@ -17,10 +17,12 @@ import { moveTab } from "../client/tabs-service.js";
 export const moveTabTool: ToolDefinition<typeof MoveTabInputSchema, typeof CommandResultSchema> = {
   name: "move_tab",
   description:
-    "Moves a tab to another window (targetWindowId) or into a new window (newWindow:true). " +
-    "State-preserving moves require the daemon + browser extension; Safari can move via " +
-    "AppleScript with allowReload:true (page reloads). Handles come from list_tabs; a moved " +
-    "tab may get a new tabId — re-run list_tabs afterwards.",
+    "Moves a tab: within its own window (to: signed one-based position, or by: ±N relative), " +
+    "to another window (targetWindowId, optionally with to), or into a new window " +
+    "(newWindow:true). to/by are signed and one-based: 1 = first, -1 = last, 0 invalid, " +
+    "out-of-range clamps. State-preserving moves require the daemon + browser extension; " +
+    "Safari can move via AppleScript with allowReload:true (page reloads, append-only). " +
+    "Handles come from list_tabs; a moved tab may get a new tabId — re-run list_tabs afterwards.",
   input: MoveTabInputSchema,
   output: CommandResultSchema,
   annotations: {

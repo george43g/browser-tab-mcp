@@ -461,6 +461,21 @@ async function caseWriteCommandsFakeAdapter(): Promise<void> {
       "unsupported tab_action errors cleanly",
       /extension/i.test(await text("tab_action", { tabId: "t:chrome:9900", action: "mute" })),
     );
+    // move_tab's signed forms resolve in the daemon; without one they must
+    // error cleanly with the daemon hint, and the schema refusals must fire
+    // over the real transport (mirrors the screenshot neither/both check).
+    record(
+      "move_tab by without daemon errors cleanly with the daemon hint",
+      /daemon/i.test(await text("move_tab", { tabId: "t:chrome:9900", by: -1 })),
+    );
+    record(
+      "move_tab to: 0 is schema-rejected",
+      /one-based/i.test(await text("move_tab", { tabId: "t:chrome:9900", to: 0 })),
+    );
+    record(
+      "move_tab to+by together is schema-rejected",
+      /at most one/i.test(await text("move_tab", { tabId: "t:chrome:9900", to: 1, by: 1 })),
+    );
   } finally {
     c.kill();
     await c.waitExit();
