@@ -1667,3 +1667,19 @@ churn, it *launders* it. The tell that broke the case open is worth keeping: a
 `tmux-rust` deletion cannot touch the neighbouring `mise` entry, and that hunk
 was sitting in the PR body as disproof of the claim the PR was making.
 
+
+### B23. `diffSnapshots` never notices a browser vanishing wholesale — `snapshot.json` not rewritten on that transition
+
+Found 2026-09-02 by the snapshot-revision agent (PR #132) while pinning what
+the event diff ignores: `state.ts diffSnapshots` emits per-window/per-tab
+events for browsers present in BOTH snapshots, so a browser disappearing
+entirely (quit, extension disconnect + adapter loss) produces ZERO events —
+and the cache-file write rides the event stream, so `snapshot.json` keeps the
+dead browser until some OTHER change fires. Pre-existing, not introduced by
+#132; the revision counter is immune (it keys on normalized content, and
+`state.test.ts` pins "bumps when a browser vanishes wholesale (zero events
+emitted)"). Impact: a wm-stack consumer reading the cache file — not IPC —
+can see a quit browser as still present indefinitely on an otherwise idle
+machine. Fix shape: either emit synthetic remove events for vanished
+browsers, or key the cache-file write on the revision rather than the event
+stream (the second also closes the class, not the instance). Owner: unclaimed.
