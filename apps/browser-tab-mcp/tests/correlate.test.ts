@@ -6,7 +6,11 @@ import type { CgWindowInfo, Snapshot } from "@george43g/shared-types";
 import { makeBrowserState, makeContractWindow, makeSnapshot } from "@george43g/test-kit";
 import { describe, expect, it } from "vitest";
 import type { CorrelationDiag } from "../src/detect/correlate.js";
-import { correlateSnapshot, needsTitleTiebreak } from "../src/detect/correlate.js";
+import {
+  correlateSnapshot,
+  correlationDegraded,
+  needsTitleTiebreak,
+} from "../src/detect/correlate.js";
 
 function snapshotWith(
   windows: {
@@ -500,5 +504,55 @@ describe("correlation diagnostics", () => {
     const withDiag = correlateSnapshot(tiledSnapshot(), tiledCg, false, titles, [], emptyDiag());
     const withoutDiag = correlateSnapshot(tiledSnapshot(), tiledCg, false, titles, []);
     expect(withDiag).toEqual(withoutDiag);
+  });
+
+  // --- B21 (partition-vs-iterate, 2026-09-02): `windows` counts only
+  // bounds-carrying windows, so before `noBounds` existed a browser whose
+  // windows ALL lost bounds tallied `windows: 0` — indistinguishable from a
+  // browser with nothing to correlate — and the degradation log never fired.
+  // The trigger predicate is exported as `correlationDegraded` so this exact
+  // shape stays pinned.
+
+  it("counts bounds-less windows and flags a fully-boundless browser as degraded", () => {
+    const snap = snapshotWith([
+      { windowId: "w:chrome:x1", bounds: null, title: "A" },
+      { windowId: "w:chrome:x2", bounds: null, title: "B" },
+    ]);
+    const diag = emptyDiag();
+    correlateSnapshot(snap, tiledCg, false, undefined, [], diag);
+    expect(diag.browsers[0]).toMatchObject({ windows: 0, noBounds: 2, candidates: 3 });
+    // The red-when-empty assertion: an empty eligible set is DEGRADATION, not
+    // a quiet browser. Before the fix this predicate (then inline in
+    // enrichWithCgWindowIds) was false here.
+    expect(correlationDegraded(diag)).toBe(true);
+  });
+
+  it("does not call a healthy full resolution degraded", () => {
+    const diag = emptyDiag();
+    correlateSnapshot(tiledSnapshot(), tiledCg, false, titles, [], diag);
+    expect(correlationDegraded(diag)).toBe(false);
+  });
+
+  it("still flags the pre-existing degradation shapes through the same predicate", () => {
+    // nulled (tier exhaustion, no titles) …
+    const nulledDiag = emptyDiag();
+    correlateSnapshot(tiledSnapshot(), tiledCg, false, undefined, [], nulledDiag);
+    expect(correlationDegraded(nulledDiag)).toBe(true);
+    // … claim collisions …
+    const collisionDiag = emptyDiag();
+    correlateSnapshot(twoWindowsOneCg(), oneCg, false, undefined, [], collisionDiag);
+    expect(correlationDegraded(collisionDiag)).toBe(true);
+    // … and bounds-carrying windows with zero CG candidates for the pid.
+    const noCandidatesDiag = emptyDiag();
+    correlateSnapshot(
+      tiledSnapshot(),
+      [cg(1, 999, 0, 0, 10, 10)],
+      false,
+      undefined,
+      [],
+      noCandidatesDiag,
+    );
+    expect(noCandidatesDiag.browsers[0]).toMatchObject({ windows: 3, candidates: 0 });
+    expect(correlationDegraded(noCandidatesDiag)).toBe(true);
   });
 });

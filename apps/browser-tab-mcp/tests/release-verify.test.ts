@@ -166,4 +166,46 @@ describe("release verdict", () => {
     expect(v.ok).toBe(false);
     expect(v.problems).toHaveLength(2);
   });
+
+  // --- B21 (partition-vs-iterate, 2026-09-02): a selector that fails EMPTY
+  // must not impersonate a selector that matched nothing. Before these facts
+  // existed, a failed `git ls-remote` coerced to "" and took the benign
+  // "no release tags exist yet" early exit — green over a repo with a dozen
+  // releases — and a failed gh query wore the "gh unavailable" note while gh
+  // sat right there on PATH.
+
+  it("fails, rather than reporting a never-released repo, when the remote tag list could not be read", () => {
+    const v = verdict({ ...healthy, tagsReadable: false });
+    expect(v.ok).toBe(false);
+    expect(v.problems[0]).toContain("ls-remote");
+    expect(v.problems[0]).toContain("verifies nothing");
+    // The lie this guards against: the never-released note must NOT appear.
+    expect(v.notes.join(" ")).not.toContain("no release tags exist yet");
+  });
+
+  it("fails when gh is present but the merged-release-PR query failed", () => {
+    // Presence of the binary is not the capability to answer. In CI gh always
+    // exists, so a null here means the v1.0.0-abort check silently did not run.
+    const v = verdict({ ...healthy, pendingMergedPrs: null, ghPresent: true });
+    expect(v.ok).toBe(false);
+    expect(v.problems.join(" ")).toContain("did NOT run");
+  });
+
+  it("fails when gh is present but the release lookup failed", () => {
+    const v = verdict({ ...healthy, releaseExists: null, ghPresent: true });
+    expect(v.ok).toBe(false);
+    expect(v.problems.join(" ")).toContain("did NOT run");
+  });
+
+  it("notes an open-PR query failure instead of claiming no release PR is open", () => {
+    const v = verdict({
+      ...healthy,
+      extraFiles: ["a/package.json"],
+      openReleasePr: null,
+      openPrQueryFailed: true,
+    });
+    expect(v.ok).toBe(true);
+    expect(v.notes.join(" ")).toContain("query failed");
+    expect(v.notes.join(" ")).not.toContain("no open release PR");
+  });
 });

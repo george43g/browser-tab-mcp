@@ -411,6 +411,16 @@ export interface BrowserCorrelationDiag {
   nulled: number;
   /** Dropped because two windows both claimed the same CG id — counted separately from `nulled`. */
   claimCollisions: number;
+  /**
+   * Windows with NO bounds — never eligible to correlate at all. Counted
+   * because `windows` counts only bounds-carrying windows, so without this a
+   * browser whose windows ALL lost bounds (a mapper regression, say) tallies
+   * `windows: 0` and reads identically to a browser with nothing to
+   * correlate — the degradation log never fires and correlation goes dark
+   * silently (B21: an empty selector match must not impersonate an empty
+   * universe).
+   */
+  noBounds: number;
 }
 
 export interface CorrelationDiag {
@@ -430,7 +440,29 @@ function emptyBrowserDiag(browser: string): BrowserCorrelationDiag {
     tiebroken: 0,
     nulled: 0,
     claimCollisions: 0,
+    noBounds: 0,
   };
+}
+
+/**
+ * Did correlation degrade anywhere — the single predicate deciding whether the
+ * `cg_correlate` diag line fires. Exported (and pure) so the trigger itself is
+ * testable: the failure mode this guards is precisely a degradation shape the
+ * trigger doesn't recognise, and an inline condition at the call site is how
+ * the `noBounds` blind spot shipped in the first place.
+ *
+ * Degraded means: an id was nulled or claim-collided; a browser had
+ * bounds-carrying windows but zero CG candidates for its pid; or a browser had
+ * windows and NONE carried bounds (so nothing was ever in the running — the
+ * previously invisible case).
+ */
+export function correlationDegraded(diag: CorrelationDiag): boolean {
+  return diag.browsers.some(
+    (b) =>
+      b.nulled + b.claimCollisions > 0 ||
+      (b.candidates === 0 && b.windows > 0) ||
+      (b.windows === 0 && b.noBounds > 0),
+  );
 }
 
 /**
@@ -471,6 +503,7 @@ export function correlateSnapshot(
         // windows were degraded by it — otherwise it reads identically to a
         // browser with nothing to correlate at all.
         browserDiag.windows = b.windows.filter((w) => w.bounds).length;
+        browserDiag.noBounds = b.windows.length - browserDiag.windows;
       }
       if (candidates.length === 0) return b;
       // undefined = window has no bounds, leave its id untouched.
@@ -545,15 +578,12 @@ export async function enrichWithCgWindowIds(
     const origins = [...new Set(listDisplays().map((d) => d.y))];
     const diag: CorrelationDiag = { browsers: [], titlesAvailable: false, originsCount: 0 };
     const result = correlateSnapshot(snapshot, cg.windows, cg.zOrdered, titles, origins, diag);
-    // Fires whenever an id degraded — nulled/claim-collided, OR a browser had
-    // windows but zero CG candidates for its pid (every one of its ids was
-    // never even in the running to resolve, which is degradation just as
-    // real as a failed tiebreak) — or unconditionally when
+    // Fires whenever correlation degraded anywhere (see correlationDegraded —
+    // exported and unit-tested precisely because an inline condition here is
+    // how the noBounds blind spot shipped), or unconditionally when
     // BROWSER_TAB_CG_DIAG=1. Steady state (every id resolved, diag off)
     // stays silent.
-    const nulled = diag.browsers.reduce((n, b) => n + b.nulled + b.claimCollisions, 0);
-    const candidatesZero = diag.browsers.some((b) => b.candidates === 0 && b.windows > 0);
-    if (nulled > 0 || candidatesZero || cgDiagEnabled()) {
+    if (correlationDegraded(diag) || cgDiagEnabled()) {
       info("cg_correlate", {
         borrowed: borrowedTitles,
         titlesAvailable: diag.titlesAvailable,

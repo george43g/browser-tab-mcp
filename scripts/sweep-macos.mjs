@@ -1522,6 +1522,18 @@ function targetVersion() {
   }
 }
 
+// A summary over ZERO rows is a harness that collected nothing, and this repo
+// has shipped that exact green-while-proving-nothing shape before (the TUI
+// soak's "0 samples" run). Unreachable today — the Automation TCC probe
+// records a row in every arm before control gets here — but the guard costs
+// three lines and outlives the next restructuring. (B21 audit, 2026-09-02.)
+if (results.length === 0) {
+  process.stderr.write(
+    `${RED}sweep:macos recorded ZERO surfaces — the harness ran nothing, which is a failure, not a clean run.${OFF}\n`,
+  );
+  process.exit(1);
+}
+
 const failed = results.filter((r) => r.status === "fail");
 const passed = results.filter((r) => r.status === "pass");
 const skipped = results.filter((r) => r.status === "skip");

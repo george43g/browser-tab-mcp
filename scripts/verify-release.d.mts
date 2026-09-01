@@ -19,6 +19,20 @@ export interface ReleaseFacts {
   extraFiles?: string[];
   /** The open release PR and the paths its diff touches; `null` = none open / unknown. */
   openReleasePr?: { number: number; files: string[] } | null;
+  /**
+   * Did `git ls-remote --tags origin` actually answer (default true). False
+   * fails the verdict outright: an unreadable remote must not impersonate a
+   * never-released repo (B21 audit, 2026-09-02).
+   */
+  tagsReadable?: boolean;
+  /**
+   * Is the `gh` binary runnable (default false). With it true, a `null`
+   * releaseExists/pendingMergedPrs is a FAILED check rather than an absent
+   * tool, and the verdict goes red instead of noting "gh unavailable".
+   */
+  ghPresent?: boolean;
+  /** gh was present but the open-release-PR list query failed (default false). */
+  openPrQueryFailed?: boolean;
 }
 
 export interface ReleaseVerdict {
