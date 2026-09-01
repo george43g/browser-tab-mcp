@@ -527,6 +527,18 @@ async function caseContentFakeAdapter(): Promise<void> {
       "history with out-of-range maxResults is rejected by schema",
       /Invalid arguments/i.test(await text("history", { maxResults: 9999 })),
     );
+    // select_tabs is daemon-only like get_page: fixture mode must error
+    // actionably (an empty selection is a REAL result callers can act on, so
+    // "daemon down" must never impersonate it), and a malformed selector is a
+    // schema rejection before any dispatch.
+    record(
+      "select_tabs without daemon errors cleanly (never an empty selection)",
+      /daemon/i.test(await text("select_tabs", { selector: { kind: "scope", scope: "allTabs" } })),
+    );
+    record(
+      "select_tabs with an invalid selector is rejected by schema",
+      /Invalid arguments/i.test(await text("select_tabs", { selector: { kind: "nonsense" } })),
+    );
   } finally {
     c.kill();
     await c.waitExit();

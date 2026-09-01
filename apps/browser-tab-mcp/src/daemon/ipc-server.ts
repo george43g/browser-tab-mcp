@@ -2,7 +2,7 @@
  * Unix-socket IPC server — the client API for MCP/CLI/TUI/wm-stack.
  *
  * Protocol: NDJSON, one JSON object per line.
- *   request:  { id, method: "getSnapshot"|"subscribe"|"unsubscribe"|"command"|"status"|"refresh"|"journal"|"getPage"|"annotate"|"screenshot"|"history"|"bookmarks", params? }
+ *   request:  { id, method: "getSnapshot"|"subscribe"|"unsubscribe"|"command"|"status"|"refresh"|"journal"|"getPage"|"annotate"|"screenshot"|"history"|"bookmarks"|"selectTabs"|"getSelection", params? }
  *   response: { id, ok: true, result } | { id, ok: false, error, hint? }
  *   events (after subscribe): DaemonEvent objects (see state.ts)
  *
@@ -37,6 +37,8 @@ export interface IpcServerOptions {
   onScreenshot: (params: Record<string, unknown>) => Promise<unknown>;
   onHistory: (params: Record<string, unknown>) => Promise<unknown>;
   onBookmarks: (params: Record<string, unknown>) => Promise<unknown>;
+  onSelectTabs: (params: Record<string, unknown>) => Promise<unknown>;
+  onGetSelection: (params: Record<string, unknown>) => Promise<unknown>;
 }
 
 export class IpcServer {
@@ -163,6 +165,12 @@ export class IpcServer {
           break;
         case "bookmarks":
           reply({ ok: true, result: await this.opts.onBookmarks(req.params ?? {}) });
+          break;
+        case "selectTabs":
+          reply({ ok: true, result: await this.opts.onSelectTabs(req.params ?? {}) });
+          break;
+        case "getSelection":
+          reply({ ok: true, result: await this.opts.onGetSelection(req.params ?? {}) });
           break;
         default:
           reply({ ok: false, error: `unknown method "${req.method}"` });

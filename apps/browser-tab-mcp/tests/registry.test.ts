@@ -23,6 +23,7 @@ const EXPECTED = [
   "get_page",
   "annotate",
   "screenshot",
+  "select_tabs",
   "journal",
   "history",
   "bookmarks",

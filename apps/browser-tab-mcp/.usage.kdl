@@ -117,6 +117,17 @@ cmd "reload-extension" help="Restart a browser's connector extension from disk (
     }
 }
 
+cmd "select" help="Resolve a control-language selector against the live snapshot (needs daemon)" {
+    flag "--selector" required=#true help="Selector AST as JSON; @<file> reads a file, - reads stdin" {
+        arg "<json>"
+    }
+    flag "--projection" help="Result shape" {
+        arg "<p>" default="core" {
+            choices "core" "ids" "count"
+        }
+    }
+}
+
 cmd "journal" help="Show recorded focus/navigation history" {
     flag "--view" help="Which journal view to show" {
         arg "<view>" default="recent" {

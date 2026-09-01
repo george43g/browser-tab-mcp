@@ -53,6 +53,7 @@ export const E2E_SPEC_SLOTS: readonly string[] = [
   "journal-history-bookmarks.e2e.test.ts",
   "daemon-surfaces.e2e.test.ts",
   "reload-extension.e2e.test.ts",
+  "select.e2e.test.ts",
 ];
 
 export interface PortBand {

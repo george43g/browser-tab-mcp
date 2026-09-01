@@ -63,6 +63,48 @@ describe("daemon IPC", () => {
     }
   });
 
+  it("selectTabs resolves over IPC and getSelection reads the materialized record back", async () => {
+    await startTestDaemon();
+    const client = new DaemonClient();
+    try {
+      const out = await client.request<{
+        count: number;
+        ids?: string[];
+        resolution: { selectionId: string; snapshotToken?: string; kind: string };
+      }>("selectTabs", {
+        selector: { kind: "scope", scope: "allTabs" },
+        projection: "ids",
+      });
+      expect(out.resolution.kind).toBe("tab");
+      expect(out.count).toBeGreaterThan(0);
+      expect(out.ids?.length).toBe(out.count);
+      // The materialized record survives the wire round-trip, non-stale.
+      const rec = await client.request<{ keys: string[]; stale: boolean }>("getSelection", {
+        selectionId: out.resolution.selectionId,
+      });
+      expect(rec.keys).toEqual(out.ids);
+      expect(rec.stale).toBe(false);
+      // An unknown id is an actionable IPC error, not a null.
+      await expect(client.request("getSelection", { selectionId: "ffffffff" })).rejects.toThrow(
+        /unknown or expired/,
+      );
+    } finally {
+      client.close();
+    }
+  });
+
+  it("selectTabs rejects an invalid selector with the language's own error shape", async () => {
+    await startTestDaemon();
+    const client = new DaemonClient();
+    try {
+      await expect(
+        client.request("selectTabs", { selector: { kind: "scope", scope: "allTabz" } }),
+      ).rejects.toThrow(/allTabs/);
+    } finally {
+      client.close();
+    }
+  });
+
   it("answers status with poll interval and per-browser counts", async () => {
     await startTestDaemon();
     const client = new DaemonClient();
