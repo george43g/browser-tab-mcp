@@ -24,10 +24,12 @@ export const historyTool: ToolDefinition<typeof HistoryInputSchema, typeof Histo
   input: HistoryInputSchema,
   output: HistoryOutputSchema,
   annotations: {
+    title: "Search browser history",
     readOnlyHint: true,
     destructiveHint: false,
     idempotentHint: true,
-    openWorldHint: true,
+    // Queries the browser's local history store; it never touches the network.
+    openWorldHint: false,
   },
   timeoutMs: 15_000,
   handler: async (input, signal) => {

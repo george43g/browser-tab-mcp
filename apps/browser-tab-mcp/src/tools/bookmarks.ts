@@ -31,11 +31,14 @@ export const bookmarksTool: ToolDefinition<
   input: BookmarksInputSchema,
   output: BookmarksOutputSchema,
   annotations: {
+    title: "Manage bookmarks",
     readOnlyHint: false,
     // remove() deletes a folder's whole subtree, which no other tool here does.
     destructiveHint: true,
     idempotentHint: false,
-    openWorldHint: true,
+    // chrome.bookmarks is a closed local store; a bookmark's URL is data, not
+    // an interaction with the web.
+    openWorldHint: false,
   },
   timeoutMs: 15_000,
   handler: async (input, signal) => {

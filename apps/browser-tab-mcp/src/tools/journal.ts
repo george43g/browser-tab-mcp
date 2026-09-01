@@ -21,6 +21,7 @@ export const journalTool: ToolDefinition<typeof JournalInputSchema, typeof Journ
   input: JournalInputSchema,
   output: JournalOutputSchema,
   annotations: {
+    title: "Query focus journal",
     readOnlyHint: true,
     destructiveHint: false,
     idempotentHint: true,

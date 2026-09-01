@@ -24,6 +24,7 @@ export const moveTabTool: ToolDefinition<typeof MoveTabInputSchema, typeof Comma
   input: MoveTabInputSchema,
   output: CommandResultSchema,
   annotations: {
+    title: "Move tab",
     readOnlyHint: false,
     destructiveHint: false,
     idempotentHint: false,

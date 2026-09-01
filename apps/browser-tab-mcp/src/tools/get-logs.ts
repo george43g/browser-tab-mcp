@@ -24,6 +24,7 @@ export const getLogsTool: ToolDefinition<typeof GetLogsInputSchema, typeof GetLo
   input: GetLogsInputSchema,
   output: GetLogsOutputSchema,
   annotations: {
+    title: "Read server logs",
     readOnlyHint: true,
     destructiveHint: false,
     idempotentHint: true,

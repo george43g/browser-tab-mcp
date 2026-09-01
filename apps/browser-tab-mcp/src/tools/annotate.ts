@@ -19,6 +19,7 @@ export const annotateTool: ToolDefinition<typeof AnnotateInputSchema, typeof Ann
     input: AnnotateInputSchema,
     output: AnnotateOutputSchema,
     annotations: {
+      title: "Annotate URL",
       readOnlyHint: false,
       destructiveHint: false,
       idempotentHint: true,

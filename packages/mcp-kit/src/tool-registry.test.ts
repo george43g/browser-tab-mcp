@@ -47,4 +47,27 @@ describe("makeRegistry", () => {
     // @ts-expect-error — outputSchema is on the SDK Tool type
     expect(tool?.outputSchema).toBeDefined();
   });
+
+  it("passes annotations through to tools/list verbatim, title included", () => {
+    const annotated: ToolDefinition = {
+      ...prod,
+      name: "annotated_tool",
+      annotations: {
+        title: "Annotated tool",
+        readOnlyHint: false,
+        destructiveHint: true,
+        idempotentHint: false,
+        openWorldHint: true,
+      },
+    };
+    const r = makeRegistry([annotated]);
+    const [tool] = r.toMcpTools();
+    expect(tool?.annotations).toEqual({
+      title: "Annotated tool",
+      readOnlyHint: false,
+      destructiveHint: true,
+      idempotentHint: false,
+      openWorldHint: true,
+    });
+  });
 });
