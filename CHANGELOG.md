@@ -1,5 +1,15 @@
 # Changelog
 
+## [1.6.0](https://github.com/george43g/browser-tab-mcp/compare/v1.5.0...v1.6.0) (2026-09-01)
+
+
+### Features
+
+* **control-language:** pure selection-language package — Phase 1 of the DSL workstream ([#136](https://github.com/george43g/browser-tab-mcp/issues/136)) ([ec124a4](https://github.com/george43g/browser-tab-mcp/commit/ec124a4f2a1aedf9da3ed89c437aced0b3e5eee4))
+* **daemon:** monotonic snapshot revision + opaque token, separate from contract version ([#132](https://github.com/george43g/browser-tab-mcp/issues/132)) ([b859565](https://github.com/george43g/browser-tab-mcp/commit/b859565e5878258ab732b31551a3a3609465cf21))
+* **mcp-kit:** titles for every tool + truthful annotation audit, contract-tested ([#131](https://github.com/george43g/browser-tab-mcp/issues/131)) ([d2acd99](https://github.com/george43g/browser-tab-mcp/commit/d2acd9909fc19ba5397e54f31630fcedeb315903))
+* **move:** signed absolute + relative + same-window move_tab, wire-compatible ([#135](https://github.com/george43g/browser-tab-mcp/issues/135)) ([d4ba072](https://github.com/george43g/browser-tab-mcp/commit/d4ba0724c906642306508e52b67ae28b5ddbd27e))
+
 ## [1.5.0](https://github.com/george43g/browser-tab-mcp/compare/v1.4.1...v1.5.0) (2026-09-01)
 
 
