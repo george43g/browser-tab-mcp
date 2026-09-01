@@ -63,6 +63,7 @@
     "@george43g/extension-core": "workspace:*",
     "@george43g/mcp-kit": "workspace:*",
     "@george43g/robustness": "^0.14.1",
+    "@george43g/control-language": "workspace:*",
     "@george43g/shared-types": "workspace:*",
     "@george43g/test-kit": "workspace:*",
     "@george43g/tsconfig": "workspace:*",

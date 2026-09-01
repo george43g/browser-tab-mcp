@@ -57,6 +57,9 @@ importers:
       '@george43g/cli-kit':
         specifier: ^2.0.1
         version: 2.0.1(commander@14.0.3)
+      '@george43g/control-language':
+        specifier: workspace:*
+        version: link:../../packages/control-language
       '@george43g/extension-core':
         specifier: workspace:*
         version: link:../../packages/extension-core
