@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.7.0](https://github.com/george43g/browser-tab-mcp/compare/v1.6.0...v1.7.0) (2026-09-01)
+
+
+### Features
+
+* **select:** browser binding for control-language — domain, temporal seam, live-move domains ([#141](https://github.com/george43g/browser-tab-mcp/issues/141)) ([a21a9d4](https://github.com/george43g/browser-tab-mcp/commit/a21a9d4948192849695b82d347786f59d465242c))
+* **select:** select_tabs — materialized selections + the first tool of the five-tool surface ([#143](https://github.com/george43g/browser-tab-mcp/issues/143)) ([ab522cb](https://github.com/george43g/browser-tab-mcp/commit/ab522cb6ffa845b9e0b46f296784e32a864d27c4))
+
 ## [1.6.0](https://github.com/george43g/browser-tab-mcp/compare/v1.5.0...v1.6.0) (2026-09-01)
 
 
