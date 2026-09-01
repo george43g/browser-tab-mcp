@@ -341,7 +341,10 @@ apps/
 
 packages/
   mcp-kit, extension-core, env-loader, shared-types, test-kit,
-  control-language (pure selection-language core — selector AST + resolver),
+  control-language (pure selection-language core — selector AST + resolver;
+  the browser binding lives in-app at src/select/: snapshot-backed
+  SelectionDomain with typed fields, journal-fed temporal fields, and
+  runtime-probed live-move-domain metadata),
   tsconfig, biome-config, vitest-config
   (robustness ^0.7.0 / cli-kit ^2.0.1 / tui-kit ^0.4.1 are npm deps published
    from mcp-cli-starter-template — no longer vendored here, and bundled inline
