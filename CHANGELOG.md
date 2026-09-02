@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.10.1](https://github.com/george43g/browser-tab-mcp/compare/v1.10.0...v1.10.1) (2026-09-02)
+
+
+### Bug Fixes
+
+* **docs:** act on the harness-drift audit — retire false claims, symlink skills, docs-integrity check [skip-readme] ([#168](https://github.com/george43g/browser-tab-mcp/issues/168)) ([670715f](https://github.com/george43g/browser-tab-mcp/commit/670715f42f8df50eceeeb4f4e1da18bf7bcc4f5a))
+
 ## [1.10.0](https://github.com/george43g/browser-tab-mcp/compare/v1.9.0...v1.10.0) (2026-09-02)
 
 
