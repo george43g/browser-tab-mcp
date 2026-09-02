@@ -1,5 +1,22 @@
 # Changelog
 
+## [1.10.0](https://github.com/george43g/browser-tab-mcp/compare/v1.9.0...v1.10.0) (2026-09-02)
+
+
+### Features
+
+* **deploy:** deploy:local — build, restart, reload, VERIFY, auto on main (PR-H) ([#161](https://github.com/george43g/browser-tab-mcp/issues/161)) ([d7ebce2](https://github.com/george43g/browser-tab-mcp/commit/d7ebce28177ac3cefadcd70984f8de52950d2832))
+* **endstate:** declarative §11 end-state planning on plan_tab_change (PR-J) ([#165](https://github.com/george43g/browser-tab-mcp/issues/165)) ([f8f84fe](https://github.com/george43g/browser-tab-mcp/commit/f8f84febbfd72e663353ed61fcb63975a50b1aea))
+* **eval:** Claude-only model-facing eval corpus + runner (PR-K); PR-L deferred on measured evidence ([#166](https://github.com/george43g/browser-tab-mcp/issues/166)) ([c940db2](https://github.com/george43g/browser-tab-mcp/commit/c940db2138d47c95e9d2b05a9c2d96bec7cf41bb))
+* **operations:** operation journal + §15 undo records + apply conflict modes (PR-I) ([#163](https://github.com/george43g/browser-tab-mcp/issues/163)) ([8ad6530](https://github.com/george43g/browser-tab-mcp/commit/8ad653095b33af36f8f77801239102e6cfdf7759))
+
+
+### Bug Fixes
+
+* **deploy:** accept a dirty-tree build stamp for the right commit; silence DEP0190 [skip-readme] ([#164](https://github.com/george43g/browser-tab-mcp/issues/164)) ([bcc064a](https://github.com/george43g/browser-tab-mcp/commit/bcc064a1ca7e16c825c7d80b21d86e79d21f07f4))
+* **deploy:** reload extensions only after they reconnect to the restarted daemon [skip-readme] ([#162](https://github.com/george43g/browser-tab-mcp/issues/162)) ([bfe687f](https://github.com/george43g/browser-tab-mcp/commit/bfe687fe3ac782c4ea2d979f4424b33e40ac75e3))
+* **e2e:** poll the minimize precondition instead of racing it [skip-readme] ([#159](https://github.com/george43g/browser-tab-mcp/issues/159)) ([8bf0f6e](https://github.com/george43g/browser-tab-mcp/commit/8bf0f6e32f8604fb73a0f70e727e35e4a35221d6))
+
 ## [1.9.0](https://github.com/george43g/browser-tab-mcp/compare/v1.8.0...v1.9.0) (2026-09-02)
 
 
