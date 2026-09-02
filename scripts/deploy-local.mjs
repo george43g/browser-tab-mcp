@@ -50,7 +50,14 @@ const allowBranch = process.argv.includes("--allow-branch");
 const say = (line) => process.stdout.write(`deploy:local ${line}\n`);
 
 function git(...args) {
-  const run = spawnSync("git", args, { cwd: repoRoot, encoding: "utf8", shell: true });
+  // One command string: spawnSync(cmd, argsArray, {shell:true}) trips Node's
+  // DEP0190 (args are concatenated unescaped under a shell). These are fixed
+  // words, never user input.
+  const run = spawnSync(["git", ...args].join(" "), {
+    cwd: repoRoot,
+    encoding: "utf8",
+    shell: true,
+  });
   return run.status === 0 ? run.stdout.trim() : undefined;
 }
 
@@ -121,10 +128,17 @@ if (restart.status !== 0) {
   process.exit(1);
 }
 const sha = git("rev-parse", "--short", "HEAD");
+// A dirty working tree stamps `<v>+<n>.<sha>.dirty.<ts>` (measured on the
+// first post-merge firing with an agent's WIP files present — the daemon was
+// on the right commit and the verifier called it a failure). Accept the
+// dirty form, but say so: the deploy is the declared commit plus whatever
+// uncommitted state the tree held at build time.
+const onBuild = (b) =>
+  typeof b === "string" && (b.endsWith(`.${sha}`) || b.includes(`.${sha}.dirty.`));
 let live;
 for (let i = 0; i < tries; i++) {
   live = daemonStatus();
-  if (live?.reachable === true && String(live.build ?? "").endsWith(`.${sha}`)) break;
+  if (live?.reachable === true && onBuild(live.build)) break;
   live = undefined;
   await sleep(pollMs);
 }
@@ -184,6 +198,12 @@ if (expected.length > 0) {
   }
 }
 
+if (String(live.build ?? "").includes(".dirty.")) {
+  say(
+    `warning: deployed from a DIRTY tree (build ${live.build}) — the daemon runs this ` +
+      "commit plus uncommitted local state.",
+  );
+}
 const extNote =
   unreloaded.length > 0
     ? `extensions reloaded except [${unreloaded.join(", ")}] — reconnected but running the previous bundle; retry with \`browser-tab reload-extension\``
