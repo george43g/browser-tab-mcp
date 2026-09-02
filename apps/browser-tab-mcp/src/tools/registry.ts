@@ -16,6 +16,7 @@ import { bookmarksTool } from "./bookmarks.js";
 import { closeTabTool } from "./close-tab.js";
 import { closeWindowTool } from "./close-window.js";
 import { copyTabsTool } from "./copy-tabs.js";
+import { cutTabsTool } from "./cut-tabs.js";
 import { daemonStatusTool } from "./daemon-status.js";
 import { focusTabTool } from "./focus-tab.js";
 import { getLogsTool } from "./get-logs.js";
@@ -55,6 +56,7 @@ export function makeAppRegistry(): ToolRegistry {
     planTabChangeTool,
     applyTabLayoutTool,
     copyTabsTool,
+    cutTabsTool,
     journalTool,
     historyTool,
     bookmarksTool,

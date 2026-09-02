@@ -141,6 +141,29 @@ cmd copy help="Reconstruct selected tabs at a destination; sources stay open (ne
         arg <key>
     }
 }
+cmd cut help="DESTRUCTIVE: reconstruct selected tabs elsewhere, then close the sources" {
+    flag --selector help="Selector AST as JSON; @<file> or - for stdin" {
+        arg <json>
+    }
+    flag --selection help="A current select_tabs selectionId (instead of --selector)" {
+        arg <id>
+    }
+    flag --to-window help="Transfer into an existing window" {
+        arg <windowId>
+    }
+    flag --new-window help="Transfer into a new window in this browser" {
+        arg <browser>
+    }
+    flag --confirm-destruction help="REQUIRED: acknowledge sources will close"
+    flag --mode help="Close policy" {
+        arg "[m]" required=#false default=after-each-success {
+            choices after-each-success all-before-close
+        }
+    }
+    flag --idempotency-key help="Retry-safe: same key replays the stored outcome" {
+        arg <key>
+    }
+}
 cmd plan help="Plan one tab transform without applying it (needs daemon)" {
     flag --selector help="Selector AST as JSON; @<file> or - for stdin" {
         arg <json>

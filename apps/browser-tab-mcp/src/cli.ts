@@ -595,6 +595,71 @@ export function buildProgram(): Command {
     );
 
   program
+    .command("cut")
+    .description("DESTRUCTIVE: reconstruct selected tabs elsewhere, then close the sources")
+    .option("--selector <json>", "Selector AST as JSON; @<file> or `-` for stdin")
+    .option("--selection <id>", "A current select_tabs selectionId (instead of --selector)")
+    .option("--to-window <windowId>", "Transfer into an existing window")
+    .option("--new-window <browser>", "Transfer into a new window in this browser")
+    .option(
+      "--confirm-destruction",
+      "REQUIRED: acknowledge sources will close (their live page state is unrecoverable)",
+      false,
+    )
+    .addOption(
+      new Option("--mode <m>", "Close policy")
+        .choices(["after-each-success", "all-before-close"])
+        .default("after-each-success"),
+    )
+    .option("--idempotency-key <key>", "Retry-safe: same key replays the stored outcome")
+    .action(
+      async (opts: {
+        selector?: string;
+        selection?: string;
+        toWindow?: string;
+        newWindow?: string;
+        confirmDestruction?: boolean;
+        mode?: string;
+        idempotencyKey?: string;
+      }) => {
+        const json = program.opts<{ json?: boolean }>().json ?? false;
+        if ((opts.toWindow === undefined) === (opts.newWindow === undefined)) {
+          throw new Error("provide exactly one of --to-window | --new-window");
+        }
+        if (opts.confirmDestruction !== true) {
+          throw new Error(
+            "cut closes source tabs; pass --confirm-destruction to acknowledge that their " +
+              "live page state cannot be recovered.",
+          );
+        }
+        const readJsonArg = (raw: string, flag: string): unknown => {
+          let text = raw;
+          if (raw === "-") text = readFileSync(0, "utf8");
+          else if (raw.startsWith("@")) text = readFileSync(raw.slice(1), "utf8");
+          try {
+            return JSON.parse(text);
+          } catch (err) {
+            throw new Error(`${flag} is not valid JSON: ${(err as Error).message}`);
+          }
+        };
+        const result = await callMcpTool("cut_tabs", {
+          ...(opts.selector !== undefined
+            ? { selector: readJsonArg(opts.selector, "--selector") }
+            : {}),
+          ...(opts.selection !== undefined ? { selectionId: opts.selection } : {}),
+          destination:
+            opts.toWindow !== undefined
+              ? { kind: "window", windowId: opts.toWindow }
+              : { kind: "newWindow", browser: opts.newWindow },
+          confirmDestruction: true,
+          mode: opts.mode ?? "after-each-success",
+          ...(opts.idempotencyKey !== undefined ? { idempotencyKey: opts.idempotencyKey } : {}),
+        });
+        await printResult(result, json, "cut_tabs");
+      },
+    );
+
+  program
     .command("annotate")
     .description("Read or write a URL-keyed note in the daemon annotation store")
     .argument("<url>", "The page URL to annotate")

@@ -93,6 +93,9 @@ Apply a live\-layout plan from browser\-tab plan (needs daemon + extension)
 \fBcopy\fR
 Reconstruct selected tabs at a destination; sources stay open (needs daemon)
 .TP
+\fBcut\fR
+DESTRUCTIVE: reconstruct selected tabs elsewhere, then close the sources
+.TP
 \fBplan\fR
 Plan one tab transform without applying it (needs daemon)
 .TP
@@ -290,6 +293,34 @@ Copy into an existing window
 .TP
 \fB\-\-new\-window\fR \fI<browser>\fR
 Copy into a new window in this browser
+.TP
+\fB\-\-idempotency\-key\fR \fI<key>\fR
+Retry\-safe: same key replays the stored outcome
+.SH "BROWSER-TAB CUT"
+DESTRUCTIVE: reconstruct selected tabs elsewhere, then close the sources
+.PP
+\fBUsage:\fR browser\-tab cut [OPTIONS]
+.PP
+\fBOptions:\fR
+.PP
+.TP
+\fB\-\-selector\fR \fI<json>\fR
+Selector AST as JSON; @<file> or \- for stdin
+.TP
+\fB\-\-selection\fR \fI<id>\fR
+A current select_tabs selectionId (instead of \-\-selector)
+.TP
+\fB\-\-to\-window\fR \fI<windowId>\fR
+Transfer into an existing window
+.TP
+\fB\-\-new\-window\fR \fI<browser>\fR
+Transfer into a new window in this browser
+.TP
+\fB\-\-confirm\-destruction\fR
+REQUIRED: acknowledge sources will close
+.TP
+\fB\-\-mode\fR \fI<m>\fR
+Close policy
 .TP
 \fB\-\-idempotency\-key\fR \fI<key>\fR
 Retry\-safe: same key replays the stored outcome

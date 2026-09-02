@@ -362,6 +362,23 @@ export async function copyTabs(params: Record<string, unknown>): Promise<unknown
 }
 
 /**
+ * Destructive reconstructive transfer (cut). Daemon-only.
+ */
+export async function cutTabs(params: Record<string, unknown>): Promise<unknown> {
+  if (fakeAdapterEnabled()) {
+    throw new Error("cut_tabs requires the daemon — not available in fixture mode.");
+  }
+  try {
+    return await viaDaemon((c) => c.request<unknown>("cutTabs", params));
+  } catch (err) {
+    if (err instanceof DaemonUnavailableError) {
+      throw new Error("cut_tabs requires the daemon. Start it with `browser-tab daemon run`.");
+    }
+    throw err;
+  }
+}
+
+/**
  * Apply a live-layout plan. Daemon-only; the daemon refuses stale plans and
  * any plan whose riskClass is not live-layout.
  */
