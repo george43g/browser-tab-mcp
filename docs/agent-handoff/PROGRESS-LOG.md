@@ -3167,3 +3167,77 @@ resource_link, conflict:replan/undo, model-eval corpus (R6, Claude-only).
 
 `main` @ `68f0d76` (v1.9.0), clean, 0/0. Dirty after this checkpoint: only
 this file on `docs/checkpoint-17`.
+
+# Checkpoint #18 — 2026-09-02 22:22 AEST (session `browser-tab-mcp`, precompact)
+
+Where this file and any compaction summary disagree, THIS FILE is correct.
+
+## State
+
+At rest and fully shipped: the accepted five-tool DSL surface is released as
+v1.9.0, all registers current through checkpoint #17, repo clean, zero open
+PRs, nothing mid-flight.
+
+## Constraints
+
+All standing constraints are already promoted: George's accepted workstream
+decisions verbatim in `plans/2026-09-02-selection-dsl-adaptation.md` §1, his
+2026-09-02 answers verbatim in its §5 ("dsl-forgotten-mode - yes" · the npm
+question), the edge-policy freeze in §7. The boosted-limits window he granted
+this morning is OVER (relayed by the `dotfiles` session) — parallel agent
+fan-outs need fresh authorization.
+
+## Done
+
+Everything is anchored in checkpoints #14–#17 (this file, above) and the
+release tags v1.6.0–v1.9.0 (`pnpm release:check` last verified ok at baseline
+v1.9.0, this checkpoint's session). No work exists outside those records.
+
+## Open
+
+- `daemon-restart-1.9 · browser-tab-mcp` — George's daemon verified RIGHT NOW
+  at build `1.7.0+142.57c1b2d` (pid 30762, uptime ~12.5h): plan/apply/copy/cut
+  IPC methods don't exist in it. One rebuild is NOT needed (dist is v1.9.0 on
+  main); one `daemon restart` on his word puts the full surface live.
+- `npm-publish-or-readme · browser-tab-mcp` — unanswered. Registry evidence
+  in adaptation record §5: repo public, both packages E404 on npm, README
+  advertises an install that 404s.
+- `dsl-staged-tail · browser-tab-mcp` — end-state solver, MCP resources +
+  resource_link widening, conflict:replan/undo, model-eval corpus. Staged by
+  design in `plans/2026-09-02-dsl-phase-3-planner.md`; never attempted.
+- `b23-cache-file-vanish · browser-tab-mcp` — BACKLOG B23, never attempted.
+
+## Corrections
+
+None new since #17.
+
+## Traps
+
+None new since #16/#17 (their trap lists remain the current set).
+
+## Tree
+
+`main` @ `20e7408` (v1.9.0), clean, 0/0 vs origin, zero open PRs, no local
+feature branches from this workstream remaining. The only dirty path after
+this checkpoint is this file, on `docs/checkpoint-18`, this session's.
+
+## Blocked on you
+
+- `daemon-restart-1.9` — say go.
+- `npm-publish-or-readme` — publish, or I fix the README.
+
+## Elsewhere
+
+- `robustness-starvation-evidence · mcp-starter-template` — unchanged today;
+  one weak positive datum accrued (the daemon survived 12.5h on 0.14.1 with
+  zero watchdog kills, though no genuine load storm occurred). Their session
+  raises its own asks.
+
+## Resume
+
+No background tasks, watchers, or agents are running. The exact next action
+is whichever George gives first: (a) `daemon restart` authorization →
+restart, verify `daemon_status.build` = 1.9.0, live-verify one plan/apply
+round-trip, close `daemon-restart-1.9`; (b) the npm decision → execute it;
+(c) a new planning round for `dsl-staged-tail`, Phase 4 TUI, or tmux — each
+starts from its named plan document, not from memory.
