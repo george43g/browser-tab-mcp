@@ -217,7 +217,15 @@ test.describe("tab lifecycle", () => {
       const target = await c.windows.create({ url, focused: true });
       await c.windows.create({ url: "about:blank", focused: true });
       await c.windows.update(target.id as number, { state: "minimized" });
-      const after = await c.windows.get(target.id as number);
+      // The state change is applied asynchronously: a single immediate read
+      // raced it on CI (2026-09-03, run 33654820357 — read "normal", the skip
+      // fired, and the run-guard floor rightly failed the run). Poll bounded:
+      // either the minimize lands, or two seconds without it is a real refusal.
+      let after = await c.windows.get(target.id as number);
+      for (let i = 0; i < 20 && after.state !== "minimized"; i++) {
+        await new Promise((r) => setTimeout(r, 100));
+        after = await c.windows.get(target.id as number);
+      }
       return {
         targetTabId: target.tabs?.[0]?.id as number,
         targetWinId: target.id as number,
