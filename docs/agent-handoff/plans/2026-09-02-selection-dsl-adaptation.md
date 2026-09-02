@@ -132,6 +132,23 @@ tools, e2e where the surface has a real-browser pathway.
 - **Q4:** tmux spike timing — Phase 5 exists on the map but does not start without a separate
   go-ahead.
 
+### §5 answers (2026-09-02, George)
+
+- **Q1 CLOSED** — George: *"dsl-forgotten-mode - yes"*. Read as: the accepted
+  selector set covers the addressing mode he forgot in August; the carried
+  check from the 2026-08-21 parking is satisfied. (If "yes" meant something
+  else, this is the line to correct.)
+- **Q2 premise corrected, decision still his** — George: *"hmm.... arent we
+  already public and published?"* Measured answer: the REPO is public, but
+  nothing from this repo is on npm — `npm view @george43g/browser-tab-mcp`
+  and `@george43g/control-language` both E404 while `@george43g/robustness`
+  resolves (so not a network artifact). Release-please versions without
+  publishing by deliberate design (no publish step in release.yml). Note the
+  README's install section advertises `npm install -g
+  @george43g/browser-tab-mcp` and wears an npm badge — instructions that
+  404 today. Publishing vs. correcting the README is one decision, his.
+- **Q3/Q4** — still open (model-eval scope; tmux timing).
+
 ## 6. Traps carried into this workstream
 
 - Snapshot schema `version` must never be bumped for additive fields; revision ≠ version (0.a

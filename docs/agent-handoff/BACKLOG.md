@@ -1683,3 +1683,23 @@ can see a quit browser as still present indefinitely on an otherwise idle
 machine. Fix shape: either emit synthetic remove events for vanished
 browsers, or key the cache-file write on the revision rather than the event
 stream (the second also closes the class, not the instance). Owner: unclaimed.
+
+### B24. `focusedWindow` selector scope is empty on a real desktop whenever the user is not IN a browser
+
+Found 2026-09-02 within minutes of v1.7.0 going live on George's Mac. Measured:
+`focusedBrowser: safari` (CG frontmost-browser truth), but BOTH running
+browsers (chrome, safari, extension-sourced) report zero `focused:true`
+windows — Chromium and Safari extensions correctly report every window
+unfocused when their app is not the OS-frontmost app. The user driving an AI
+from a terminal is exactly that state, so the `focusedWindow` /
+`tabsInFocusedWindow` scopes resolve empty in the tool's PRIMARY use case.
+The binding's empty-not-picked ambiguity rule is behaving as designed
+(`src/select/browser-domain.ts` focusedWindow()); the gap is that "focused"
+should degrade to "most recently focused" — which the journal's
+`windowMru(1)` already knows. Fix shape: daemon injects a
+`focusedWindowHint` (from journal MRU) into `makeBrowserDomain` options,
+same seam as the TemporalProvider, so the binding stays pure; the hint is
+used ONLY when no window is OS-focused, and the resolution metadata says so
+(a warning naming the fallback). Belongs in Phase 3's plan (spec §7.2 makes
+focused-window the default scope for tab positions, so planner ergonomics
+depend on it). Owner: unclaimed.
