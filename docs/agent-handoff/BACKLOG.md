@@ -1741,6 +1741,20 @@ message, and check the Windows runner's resource pressure at that timestamp.
 Frequency so far: 2 in roughly a day of CI runs across ~15 PRs. Owner:
 unclaimed.
 
+### B28. AGENTS.md line budget — George's call, with an agreed proposal
+
+Filed 2026-09-03 from the harness-drift audit's sharpest cross-repo finding
+(entry points without a line budget accumulated false claims; 508 lines
+here) and the follow-up exchange with the auditing session, which WITHDREW
+the shrink recommendation for this repo: the long sections are measured
+post-mortems the audit itself praised, and the false claims clustered in
+CI/testing summaries now held mechanically (docs-integrity contract test +
+the count-pointer regressions). Both sessions converged on: record the
+decision to stay long, WITH the boundary — proposed wording for the top of
+AGENTS.md: "this file is long by decision; post-mortem sections stay, and
+anything with a count or a path is pinned by test rather than prose."
+George approves, rewords, or overrules toward shrink-to-map. Owner: George.
+
 ### B27. readme-check cannot demand the RELEVANT readme; adopt the check-registry convention
 
 Filed 2026-09-03 from the harness-drift audit (dotfiles session, finding 6,

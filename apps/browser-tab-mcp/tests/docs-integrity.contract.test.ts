@@ -100,22 +100,37 @@ describe("docs integrity", () => {
     ).toEqual([]);
   });
 
-  it(".agents/skills entries are symlinks into .claude/skills, and they resolve", () => {
-    // The audit's root cause for the diverged PR SOP: two byte-copies, one
-    // edited. The repo's own CLAUDE.md→AGENTS.md pattern is the fix; this
-    // pins it so a future skill lands as a link, not a copy.
+  it(".agents/skills entries link into .claude/skills — never a divergeable copy", () => {
+    // The audit's root cause for the diverged PR SOP: an independent copy of
+    // the skill that only one tool's edits reached. The invariant is
+    // NON-DIVERGENCE, and its on-disk shape is platform-dependent: POSIX
+    // checks out a symlink; Windows runners (`core.symlinks=false` — this
+    // test's first CI run proved it) materialize the same git object as a
+    // PLAIN FILE whose content is the link target. Both forms are the one
+    // git object and both are asserted; a real DIRECTORY is the hazard and
+    // always fails.
     const dir = join(ROOT, ".agents/skills");
     const entries = readdirSync(dir).filter((e) => !e.startsWith("."));
     expect(entries.length).toBeGreaterThan(0);
     for (const e of entries) {
       const p = join(dir, e);
+      const st = lstatSync(p);
+      let target: string;
+      if (st.isSymbolicLink()) {
+        target = readlinkSync(p);
+      } else if (st.isFile()) {
+        target = readFileSync(p, "utf8").trim();
+      } else {
+        expect.fail(
+          `${p} is a real directory — .agents/skills/* must be links into .claude/skills ` +
+            `(an independent copy is how the PR SOP silently diverged; 2026-09-02 audit)`,
+        );
+      }
+      expect(target.replaceAll("\\", "/")).toBe(`../../.claude/skills/${e}`);
       expect(
-        lstatSync(p).isSymbolicLink(),
-        `${p} is a real directory — .agents/skills/* must be symlinks into .claude/skills ` +
-          `(a byte-copy is how the PR SOP silently diverged; see the 2026-09-02 audit)`,
+        existsSync(join(ROOT, ".claude/skills", e, "SKILL.md")),
+        `link target .claude/skills/${e} must hold a SKILL.md`,
       ).toBe(true);
-      expect(readlinkSync(p)).toMatch(/^\.\.\/\.\.\/\.claude\/skills\//);
-      expect(existsSync(join(p, "SKILL.md")), `${p} must resolve to a SKILL.md`).toBe(true);
     }
   });
 
