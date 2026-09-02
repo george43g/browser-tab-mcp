@@ -188,6 +188,27 @@ describe("deploy-local", () => {
     expect(run.stdout).toMatch(/running the previous bundle/);
   });
 
+  it("accepts a dirty-tree stamp for the right commit, warning about the dirt", () => {
+    const w = makeWorld({
+      statuses: [
+        installedStatus("1.0.0+1.0ldsha0", ["chrome"]),
+        installedStatus("1.0.0+2.abc1234.dirty.0903T0307", ["chrome"]),
+      ],
+    });
+    const run = runDeploy(w);
+    expect(run.status).toBe(0);
+    expect(run.stdout).toMatch(/DIRTY tree/);
+    expect(run.stdout).toMatch(/ok — daemon 1\.0\.0\+2\.abc1234\.dirty/);
+  });
+
+  it("does NOT accept a dirty stamp for a DIFFERENT commit", () => {
+    const stale = installedStatus("1.0.0+1.0ldsha0.dirty.0903T0307");
+    const w = makeWorld({ statuses: [stale, stale] });
+    const run = runDeploy(w);
+    expect(run.status).toBe(1);
+    expect(run.stdout).toMatch(/did not come up on build \.abc1234/);
+  });
+
   it("FAILS when the restarted daemon never reports this commit's build line", () => {
     const stale = installedStatus("1.0.0+1.0ldsha0");
     const w = makeWorld({ statuses: [stale, stale] });
