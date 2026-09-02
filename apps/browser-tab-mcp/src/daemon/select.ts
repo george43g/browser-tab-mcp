@@ -68,12 +68,26 @@ export function selectTabs(params: Record<string, unknown>, deps: SelectDeps): S
 
   const snapshot = deps.store.getSnapshot();
   const temporal = deps.journal.temporalSnapshot();
+  // B24: when no browser window is OS-focused (user in a terminal — the
+  // primary use case), `focusedWindow` degrades to the journal's MRU window.
+  // The fallback's use is disclosed as a warning below.
+  let focusFellBack = false;
   const domain = makeBrowserDomain(snapshot, {
     temporal: mapTemporalProvider(temporal.focused, temporal.navigated),
+    focusedWindowHint: deps.journal.windowMru(1)[0]?.windowId,
+    onFocusFallback: () => {
+      focusFellBack = true;
+    },
   });
 
   assertValid(selector, domain);
   const resolved = resolveSelector(selector, domain);
+  const extraWarnings = focusFellBack
+    ? [
+        "no browser window is OS-focused — focusedWindow resolved to the most recently " +
+          "focused window from the journal.",
+      ]
+    : [];
 
   const refs = resolved.occurrences.map((o) => o.entity);
   const keys = resolved.occurrences.map((o) => o.key);
@@ -81,7 +95,7 @@ export function selectTabs(params: Record<string, unknown>, deps: SelectDeps): S
     kind: resolved.kind,
     keys,
     snapshotToken: snapshot.snapshotToken ?? "",
-    warnings: [...resolved.warnings],
+    warnings: [...resolved.warnings, ...extraWarnings],
   });
 
   const base: SelectTabsResult = {
@@ -92,7 +106,7 @@ export function selectTabs(params: Record<string, unknown>, deps: SelectDeps): S
       selectionId: record.selectionId,
       snapshotToken: snapshot.snapshotToken,
       revision: snapshot.revision,
-      warnings: [...resolved.warnings],
+      warnings: [...resolved.warnings, ...extraWarnings],
       liveMoveDomains: summarizeLiveMoveDomains(refs),
     },
   };

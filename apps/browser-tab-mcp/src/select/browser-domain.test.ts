@@ -206,6 +206,54 @@ describe("makeBrowserDomain — focused window", () => {
   });
 });
 
+describe("makeBrowserDomain — B24 focusedWindow vacancy fallback", () => {
+  it("uses the hint when focusedBrowser is named but NO window is focused (the terminal case)", () => {
+    const snap = fixtureSnapshot();
+    for (const b of snap.browsers) for (const w of b.windows) w.focused = false;
+    let fired = 0;
+    const domain = makeBrowserDomain(snap, {
+      focusedWindowHint: "w:chrome:x2",
+      onFocusFallback: () => {
+        fired += 1;
+      },
+    });
+    expect(domain.scopeMembers("focusedWindow").map((r) => domain.stableKey(r))).toEqual([
+      "w:chrome:x2",
+    ]);
+    expect(fired).toBe(1);
+  });
+
+  it("never settles a CONTEST: multiple focused windows stay empty despite a hint", () => {
+    const snap = fixtureSnapshot();
+    snap.focusedBrowser = undefined;
+    const safari = snap.browsers[1];
+    if (safari?.windows[0]) safari.windows[0].focused = true; // chrome w1 also focused
+    let fired = 0;
+    const domain = makeBrowserDomain(snap, {
+      focusedWindowHint: "w:chrome:x2",
+      onFocusFallback: () => {
+        fired += 1;
+      },
+    });
+    expect(domain.scopeMembers("focusedWindow")).toEqual([]);
+    expect(fired).toBe(0);
+  });
+
+  it("a hint naming a vanished window leaves the scope empty, callback unfired", () => {
+    const snap = fixtureSnapshot();
+    for (const b of snap.browsers) for (const w of b.windows) w.focused = false;
+    let fired = 0;
+    const domain = makeBrowserDomain(snap, {
+      focusedWindowHint: "w:chrome:x404",
+      onFocusFallback: () => {
+        fired += 1;
+      },
+    });
+    expect(domain.scopeMembers("focusedWindow")).toEqual([]);
+    expect(fired).toBe(0);
+  });
+});
+
 describe("makeBrowserDomain — field catalog coverage (selector, not result)", () => {
   const domain = makeBrowserDomain(fixtureSnapshot(), {
     temporal: mapTemporalProvider(
