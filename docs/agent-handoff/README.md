@@ -22,6 +22,8 @@
 | `BACKLOG.md` | Deferred tasks, parked ideas, open questions for the user | Add / strike items as they land or get answered |
 | `DECISIONS.md` | Decision log — what was chosen and why | Append new decisions; never rewrite old ones |
 | `GOTCHAS.md` | Operational traps (this machine + this repo's CI) | Append when you hit a new one |
+| `plans/` | Dated execution plans (one per workstream; the newest for an area supersedes older ones — history stays) | Add a plan doc BEFORE implementing a multi-PR workstream; never delete superseded ones |
+| `UPSTREAM-KIT-BRIEF.md` | Defects/asks for the published kits (fixed upstream, never re-vendored) | Append when a kit defect is found |
 
 Rule of thumb: **if you learn something the repo can't re-teach, write it
 here.** Nothing about this work may live only in an agent's private memory.
