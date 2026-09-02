@@ -1,0 +1,4 @@
+{
+  "status": "pending",
+  "note": "No baseline run yet: the runner needs ANTHROPIC_API_KEY and real spend. Run `pnpm --filter @george43g/browser-tab-mcp eval:claude -- --write-report` with a key to replace this stub. Money guards (skip without key, call ceiling) are test-pinned in tests/eval-claude.test.ts."
+}

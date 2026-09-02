@@ -100,6 +100,17 @@ feature-set completeness review: docs pass + full tool exploration) fires when i
   `browser-tab://` resources for snapshots/selections/plans/operations(+residual),
   compact inline fallback always retained.
 
+### PR-L: DEFERRED 2026-09-03 — the gate said measure first, and the numbers say inline fits
+
+Measured against the live daemon (George's real session, v1.9.0+162): `select`
+core projection = 7,330 bytes for a 23-tab window (~320 B/tab, ~32 KB projected
+at 100 tabs), `plan` of a ~23-tab reverse = 3,983 bytes, `operations` list
+scales with the same shapes. Every number is comfortably inside MCP hosts'
+inline budgets, so per this plan's own condition ("if inline fits comfortably,
+DEFER the PR and close this row with the numbers") PR-L does not get built this
+cycle. Re-open when a real payload measurably hurts — the §26.3 resource URIs
+and the workspace-mcp-kit widening are designed and waiting in this document.
+
 ## Standing gates (every PR)
 
 Tests per surface (George's rule), effect-coverage ledger rows + contract test,
