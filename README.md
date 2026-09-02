@@ -66,6 +66,15 @@ respawn on launchd's 10s default and add load to the machine that caused it.
 Re-run `daemon install` after upgrading to pick up changes to the service
 definition.
 
+After pulling new code, `pnpm deploy:local` puts it live in one step: build →
+`daemon restart` → `reload-extension` for every connected browser → verify the
+daemon's build line actually carries the current commit (a daemon restarted
+from a stale build reports healthy while running old code — the verification
+is the point). It refuses to run off `main` (`--allow-branch` overrides,
+loudly) and skips cleanly where no daemon is installed. With the repo's hooks
+active (`pnpm hooks:install`), a `git pull` on `main` that touched code runs
+it automatically — advisorily, so a failed deploy never breaks the pull.
+
 ## One-click install
 
 Paste these into your MCP host's config, replacing `/path/to/browser-tab-mcp`
