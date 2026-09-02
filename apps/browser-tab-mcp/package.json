@@ -47,7 +47,8 @@
     "check:usage": "node scripts/check-usage-freshness.mjs",
     "pack:mcpb": "pnpm build && node scripts/build-mcpb.mjs",
     "verify": "pnpm lint && pnpm typecheck && pnpm test && pnpm build",
-    "clean": "node ../../scripts/rimraf.mjs dist coverage"
+    "clean": "node ../../scripts/rimraf.mjs dist coverage",
+    "eval:claude": "node scripts/eval-claude.mjs"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.29.0",
