@@ -3241,3 +3241,65 @@ restart, verify `daemon_status.build` = 1.9.0, live-verify one plan/apply
 round-trip, close `daemon-restart-1.9`; (b) the npm decision → execute it;
 (c) a new planning round for `dsl-staged-tail`, Phase 4 TUI, or tmux — each
 starts from its named plan document, not from memory.
+
+# Checkpoint #19 — 2026-09-03 02:24 AEST (session `browser-tab-mcp`)
+
+## State
+
+George answered every open question; v1.9.0 is DEPLOYED AND LIVE-VERIFIED on
+his machine; next phase is the staged DSL tail, go-ahead given.
+
+## Constraints
+
+George's three post-compact answers are quoted verbatim in the adaptation
+record (`plans/2026-09-02-selection-dsl-adaptation.md` §5 + the new
+"Post-§5 decisions" block): Q1 forgotten-mode explained and closed, Q2 npm
+CLOSED (no publishing; consumers stay in-monorepo), deploy-automation
+directive. Q3 CLOSED Claude-only. Q4 tmux still parked. Standing merge
+approval, ground rules, and the per-surface-tests rule all unchanged.
+
+## Done
+
+- PR #156 (checkpoint #18 + B24 closure + B25 filed) merged on green as
+  `f04db06`.
+- **v1.9.0 deployed live**: built main (`1.9.0+154.f04db06`), `daemon
+  restart` (pid 81838), `reload-extension` chrome + safari — both
+  reconnected. Live-verified: `select` scope `tabsInFocusedWindow` → 100
+  tabs with the B24 journal-MRU warning firing exactly as shipped; `plan`
+  reverse → 99 LIS-minimal relocations (planId `fe3563d3`). Read-only
+  verification; no apply against his real session.
+- README install section made truthful (branch `docs/readme-no-npm`): npm
+  badge → GitHub-release badge, CI badge repo path fixed
+  (starter-template leftover), install-from-source instructions, MCP host
+  configs npx → node path. Consequence of Q2's answer.
+- B26 filed (workstream-end completeness review, parked, George's quote).
+
+## Open
+
+- `dsl-staged-tail · browser-tab-mcp` — GO given 2026-09-03. Starts with its
+  plan doc per the rhythm; scope = Phase 3 plan's "Staged out" list + the
+  deploy-automation task (auto on main only — design in the adaptation
+  record's Post-§5 block). Evidence still open: plan doc not yet written.
+- `b23-cache-file-vanish · browser-tab-mcp` — never attempted.
+- B20, B25 — parked with recorded evidence, not blocking.
+
+## Tree
+
+`browser-tab-mcp`, branch `docs/readme-no-npm` (this entry + README +
+adaptation record + BACKLOG edits, about to PR), main clean at `f04db06`.
+
+## Blocked on you
+
+Nothing — all prior blocks cleared this turn.
+
+## Elsewhere
+
+- `robustness-starvation-evidence · mcp-starter-template` — unchanged
+  (awaiting a load-storm line or its dated absence; daemon restart resets
+  the uptime clock, noted for that loop).
+
+## Resume
+
+Merge the `docs/readme-no-npm` PR on green, then write the staged-tail plan
+doc (`docs/agent-handoff/plans/`) and open it as a plan PR before any
+implementation.
