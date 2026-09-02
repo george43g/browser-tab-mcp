@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.9.0](https://github.com/george43g/browser-tab-mcp/compare/v1.8.0...v1.9.0) (2026-09-02)
+
+
+### Features
+
+* **copy:** copy_tabs — additive reconstructive transfer, sources untouched by construction ([#152](https://github.com/george43g/browser-tab-mcp/issues/152)) ([c915000](https://github.com/george43g/browser-tab-mcp/commit/c915000990e75900e57bce600a5edcd754a3704a))
+* **cut:** cut_tabs — explicitly destructive transfer; the five-tool surface is complete ([#154](https://github.com/george43g/browser-tab-mcp/issues/154)) ([92c1edc](https://github.com/george43g/browser-tab-mcp/commit/92c1edce6479a1effc0016fd15aae86dc1b06ec1))
+
 ## [1.8.0](https://github.com/george43g/browser-tab-mcp/compare/v1.7.0...v1.8.0) (2026-09-02)
 
 
