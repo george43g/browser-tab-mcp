@@ -161,6 +161,41 @@ describe("daemon IPC", () => {
     }
   });
 
+  it("planTabChange endState: prepared copy request crosses the wire; bare cross-domain refuses", async () => {
+    await startTestDaemon();
+    const client = new DaemonClient();
+    try {
+      const snapshot = await client.request<Snapshot>("getSnapshot");
+      const chrome = snapshot.browsers.find((b) => b.browser === "chrome");
+      const win = chrome?.windows[0];
+      const tab = win?.tabs[0];
+
+      // The fake adapter has NO live-move domains (no extension), so a bare
+      // entry cannot live-move — §11.2 demands a declared transport.
+      await expect(
+        client.request("planTabChange", {
+          endState: { windows: [{ windowId: win?.windowId, tabs: [tab?.tabId] }] },
+        }),
+      ).rejects.toThrow(/transport/);
+
+      const planned = (await client.request("planTabChange", {
+        endState: {
+          windows: [{ windowId: win?.windowId, tabs: [{ tabId: tab?.tabId, transport: "copy" }] }],
+        },
+      })) as {
+        planId: string;
+        effects: unknown[];
+        endState?: { additive: Array<{ tool: string }>; counts: { copy: number } };
+      };
+      expect(planned.planId).toMatch(/^[0-9a-f]{8}$/);
+      expect(planned.effects).toEqual([]);
+      expect(planned.endState?.additive[0]?.tool).toBe("copy_tabs");
+      expect(planned.endState?.counts.copy).toBe(1);
+    } finally {
+      client.close();
+    }
+  });
+
   it("selectTabs rejects an invalid selector with the language's own error shape", async () => {
     await startTestDaemon();
     const client = new DaemonClient();

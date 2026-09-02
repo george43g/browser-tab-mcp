@@ -182,7 +182,10 @@ cmd plan help="Plan one tab transform without applying it (needs daemon)" {
     flag --selection help="A current select_tabs selectionId (instead of --selector)" {
         arg <id>
     }
-    flag --transform help="Transform as JSON; @<file> or - for stdin" required=#true {
+    flag --transform help="Transform as JSON; @<file> or - for stdin" {
+        arg <json>
+    }
+    flag --end-state help="Declarative end state (instead of selection+transform)" {
         arg <json>
     }
     flag --pin-policy help="Pinned members policy" {

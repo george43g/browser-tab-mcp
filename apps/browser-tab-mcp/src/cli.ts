@@ -512,13 +512,15 @@ export function buildProgram(): Command {
     .description("Plan one tab transform without applying it (needs daemon)")
     .option("--selector <json>", "Selector AST as JSON; @<file> or `-` for stdin")
     .option("--selection <id>", "A current select_tabs selectionId (instead of --selector)")
-    .requiredOption("--transform <json>", "Transform as JSON; @<file> or `-` for stdin")
+    .option("--transform <json>", "Transform as JSON; @<file> or `-` for stdin")
+    .option("--end-state <json>", "Declarative §11 end state (instead of selection+transform)")
     .addOption(new Option("--pin-policy <p>", "Pinned members policy").choices(["skip"]))
     .action(
       async (opts: {
         selector?: string;
         selection?: string;
-        transform: string;
+        transform?: string;
+        endState?: string;
         pinPolicy?: string;
       }) => {
         const json = program.opts<{ json?: boolean }>().json ?? false;
@@ -537,7 +539,12 @@ export function buildProgram(): Command {
             ? { selector: readJsonArg(opts.selector, "--selector") }
             : {}),
           ...(opts.selection !== undefined ? { selectionId: opts.selection } : {}),
-          transform: readJsonArg(opts.transform, "--transform"),
+          ...(opts.transform !== undefined
+            ? { transform: readJsonArg(opts.transform, "--transform") }
+            : {}),
+          ...(opts.endState !== undefined
+            ? { endState: readJsonArg(opts.endState, "--end-state") }
+            : {}),
           ...(opts.pinPolicy !== undefined ? { pinPolicy: opts.pinPolicy } : {}),
         });
         await printResult(result, json, "plan_tab_change");

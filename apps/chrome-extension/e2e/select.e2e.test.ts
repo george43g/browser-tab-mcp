@@ -399,4 +399,80 @@ test.describe("select_tabs", () => {
       { w1: made.w1, w2: made.w2 },
     );
   });
+
+  test("endState declares a two-window layout; apply makes the browser's own truth match", async () => {
+    test.info().annotations.push({ type: "surface", description: "plan_tab_change" });
+    test.info().annotations.push({ type: "surface", description: "apply_tab_layout" });
+
+    // Two fresh windows: w1 [a, b] and w2 [c, d].
+    const made = await stack.sw.evaluate(
+      async (urls) => {
+        const c = (globalThis as unknown as { chrome: typeof chrome }).chrome;
+        const w1 = await c.windows.create({ url: urls[0], focused: true });
+        const a = w1.tabs?.[0]?.id as number;
+        const b = (await c.tabs.create({ windowId: w1.id as number, url: urls[1] })).id as number;
+        const w2 = await c.windows.create({ url: urls[2], focused: false });
+        const cc = w2.tabs?.[0]?.id as number;
+        const d = (await c.tabs.create({ windowId: w2.id as number, url: urls[3] })).id as number;
+        return { w1: w1.id as number, w2: w2.id as number, a, b, c: cc, d };
+      },
+      [server.url("/u/es-a"), server.url("/u/es-b"), server.url("/u/es-c"), server.url("/u/es-d")],
+    );
+    await stack.waitForTab(stack.tabHandle(made.d));
+
+    // Declare: w1's leading run is [b, c] (c pulled across live), w2's is [d].
+    // Partial semantics ⇒ final w1 = [b, c, a], final w2 = [d].
+    const planned = JSON.parse(
+      await stack.daemon.cli([
+        "plan",
+        "--end-state",
+        JSON.stringify({
+          windows: [
+            {
+              windowId: stack.windowHandle(made.w1),
+              tabs: [stack.tabHandle(made.b), stack.tabHandle(made.c)],
+            },
+            { windowId: stack.windowHandle(made.w2), tabs: [stack.tabHandle(made.d)] },
+          ],
+        }),
+        "--json",
+      ]),
+    ) as {
+      planId: string;
+      riskClass: string;
+      endState?: { counts: { live: number; copy: number; cut: number } };
+    };
+    expect(planned.riskClass).toBe("live-layout");
+    expect(planned.endState?.counts).toMatchObject({ copy: 0, cut: 0 });
+
+    const applied = JSON.parse(
+      await stack.daemon.cli(["apply", "--plan", planned.planId, "--json"]),
+    ) as { status: string; residual: unknown[] };
+    expect(applied.status).toBe("success");
+    expect(applied.residual).toEqual([]);
+
+    // BROWSER truth, both windows: the declared layout, exactly.
+    const truth = await stack.sw.evaluate(
+      async (args) => {
+        const c = (globalThis as unknown as { chrome: typeof chrome }).chrome;
+        const order = async (winId: number) =>
+          (await c.tabs.query({ windowId: winId }))
+            .sort((x, y) => x.index - y.index)
+            .map((t) => t.id as number);
+        return { w1: await order(args.w1), w2: await order(args.w2) };
+      },
+      { w1: made.w1, w2: made.w2 },
+    );
+    expect(truth.w1).toEqual([made.b, made.c, made.a]);
+    expect(truth.w2).toEqual([made.d]);
+
+    await stack.sw.evaluate(
+      async (args) => {
+        const c = (globalThis as unknown as { chrome: typeof chrome }).chrome;
+        await c.windows.remove(args.w1);
+        await c.windows.remove(args.w2);
+      },
+      { w1: made.w1, w2: made.w2 },
+    );
+  });
 });
