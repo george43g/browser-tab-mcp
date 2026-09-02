@@ -1686,6 +1686,13 @@ stream (the second also closes the class, not the instance). Owner: unclaimed.
 
 ### B24. `focusedWindow` selector scope is empty on a real desktop whenever the user is not IN a browser
 
+> **CLOSED 2026-09-02** by PR #147 (`bf0b76c`), exactly the fix shape below:
+> `makeBrowserDomain` gained `focusedWindowHint`/`onFocusFallback`
+> (`src/select/browser-domain.ts:130-132`, consumed at `:219-222`), the daemon
+> injects `journal.windowMru(1)` as the hint (e.g. `src/daemon/cut.ts:89`),
+> the fallback fires ONLY when no window is OS-focused, and `select.ts`
+> surfaces a warning naming it. Unit-pinned in the browser-domain tests.
+
 Found 2026-09-02 within minutes of v1.7.0 going live on George's Mac. Measured:
 `focusedBrowser: safari` (CG frontmost-browser truth), but BOTH running
 browsers (chrome, safari, extension-sourced) report zero `focused:true`
@@ -1703,3 +1710,25 @@ used ONLY when no window is OS-focused, and the resolution metadata says so
 (a warning naming the fallback). Belongs in Phase 3's plan (spec §7.2 makes
 focused-window the default scope for tab positions, so planner ergonomics
 depend on it). Owner: unclaimed.
+
+### B25. Windows stress harness flake — a spawned server exits code 1 before the handshake
+
+Promoted to a row 2026-09-02 on its second occurrence, per the ruling made at
+the first ("rerun green; one recurrence makes it a B-row"). Two instances,
+both `windows-latest · node 24`, both on DOCS-ONLY PRs (so not caused by the
+diff): PR #145 (2026-09-02, rerun green) and PR #156 (2026-09-02, run
+33629612478 / job 100245533957). Identical signature both times, from
+`scripts/stress-mcp.ts:97`: `server exited (code 1, signal null) before
+responding` — the per-case child process died before answering the JSON-RPC
+handshake. In #156 the crash landed immediately after the
+`MCP_TOOL_TIMEOUT_FORCE_MS=1` case passed, so the victim is the next spawn in
+case order (inferred from the log's last PASS line, not observed directly).
+Not reproduced locally or on any POSIX leg. One diagnostic fact already in
+hand: the harness DOES append captured stderr to this message when there is
+any (`stress-mcp.ts:97-99`), and neither instance carried a `— stderr:`
+suffix — the child exited 1 having written NOTHING to stderr, which rules
+out an ordinary uncaught exception (Node prints those). Next step when it
+fires again: log the child's env/spawn args and the case name in the crash
+message, and check the Windows runner's resource pressure at that timestamp.
+Frequency so far: 2 in roughly a day of CI runs across ~15 PRs. Owner:
+unclaimed.
