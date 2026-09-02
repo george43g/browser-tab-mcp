@@ -549,6 +549,15 @@ async function caseContentFakeAdapter(): Promise<void> {
       ),
     );
     record(
+      "cut_tabs without confirmDestruction is rejected by schema",
+      /Invalid arguments/i.test(
+        await text("cut_tabs", {
+          selector: { kind: "scope", scope: "allTabs" },
+          destination: { kind: "newWindow", browser: "chrome" },
+        }),
+      ),
+    );
+    record(
       "copy_tabs without daemon errors cleanly",
       /daemon/i.test(
         await text("copy_tabs", {

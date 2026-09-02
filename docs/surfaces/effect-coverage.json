@@ -256,6 +256,17 @@
       ]
     },
     {
+      "surface": "cut_tabs",
+      "kind": "tool",
+      "coverage": [
+        {
+          "tier": "chromium-e2e",
+          "covers": "the destructive §9.4 sequence against a REAL browser: predicate-selected sources transferred cross-window, chrome.tabs.query confirms the sources GONE, a same-window bystander alive, and the replacements carrying the source URLs; the source-stays-open-on-failure half is pinned at unit tier over the recorded command stream (a per-item creation failure cannot be forced deterministically in a real run)",
+          "evidence": "apps/chrome-extension/e2e/select.e2e.test.ts"
+        }
+      ]
+    },
+    {
       "surface": "plan_tab_change",
       "kind": "tool",
       "coverage": [

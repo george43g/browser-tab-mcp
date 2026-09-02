@@ -19,12 +19,12 @@
  * duplicate tabs (spec §9.4's retry rule, applied to copy).
  */
 
-import { assertValid, parseSelector, resolveSelector } from "@george43g/control-language";
 import { z } from "zod";
-import { type BrowserRef, makeBrowserDomain } from "../select/browser-domain.js";
+import { makeBrowserDomain } from "../select/browser-domain.js";
 import { mapTemporalProvider } from "../select/temporal.js";
 import { checkUrl } from "../tools/url-policy.js";
 import type { JournalStore } from "./journal.js";
+import { resolveTabSelection } from "./reconstruct.js";
 import type { SelectionStore } from "./selections.js";
 import type { StateStore } from "./state.js";
 
@@ -139,40 +139,12 @@ export async function copyTabs(
     focusedWindowHint: deps.journal.windowMru(1)[0]?.windowId,
   });
 
-  let refs: BrowserRef[];
-  const warnings: string[] = [];
-  if (input.selector !== undefined) {
-    const selector = parseSelector(input.selector);
-    assertValid(selector, domain);
-    const resolved = resolveSelector(selector, domain);
-    refs = resolved.occurrences.map((o) => o.entity);
-    warnings.push(...resolved.warnings);
-  } else {
-    const rec = deps.selections.get(input.selectionId as string, snapshot.snapshotToken);
-    if (rec === undefined) {
-      throw new Error(
-        `selection "${input.selectionId}" is unknown or expired — re-run select_tabs.`,
-      );
-    }
-    if (rec.stale) {
-      throw new Error(
-        `selection "${input.selectionId}" was resolved against a different snapshot — ` +
-          `re-run select_tabs and copy again.`,
-      );
-    }
-    refs = rec.keys.map((k) => domain.byKey(k)).filter((r): r is BrowserRef => r !== undefined);
-  }
-
-  const tabs = refs.filter((r): r is Extract<BrowserRef, { kind: "tab" }> => r.kind === "tab");
-  if (tabs.length === 0) {
-    throw new Error(
-      "the selection contains no tabs — copy reconstructs tabs; project structural nodes " +
-        'through "members" first.',
-    );
-  }
-  if (tabs.length !== refs.length) {
-    warnings.push(`${refs.length - tabs.length} non-tab member(s) ignored.`);
-  }
+  const { tabs, warnings } = resolveTabSelection(
+    { selector: input.selector, selectionId: input.selectionId },
+    domain,
+    deps.selections,
+    snapshot.snapshotToken,
+  );
   if (tabs.some((t) => t.tab.groupId !== undefined)) {
     warnings.push(
       "group membership is not recreated by copy in this version — copies arrive ungrouped.",

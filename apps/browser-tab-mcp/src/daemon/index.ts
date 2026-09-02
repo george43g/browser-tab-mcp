@@ -50,6 +50,7 @@ import { applyTabLayout as runApplyTabLayout } from "./apply.js";
 import { bookmarks } from "./bookmarks.js";
 import { ContentCache } from "./content-cache.js";
 import { makeIdempotencyCache, copyTabs as runCopyTabs } from "./copy.js";
+import { cutTabs as runCutTabs } from "./cut.js";
 import { EngineLoop, pollMs } from "./engine-loop.js";
 import { history } from "./history.js";
 import { HttpServer, httpPort } from "./http-server.js";
@@ -891,6 +892,14 @@ export async function startDaemon(): Promise<DaemonHandle> {
       runPlanTabChange(params, { store, journal, selections, plans }),
     onCopyTabs: (params) =>
       runCopyTabs(params, {
+        store,
+        journal,
+        selections,
+        idempotency: copyIdempotency,
+        runCommand: (p) => executeCommand(p, { refresh: () => loop.refresh(), ext }),
+      }),
+    onCutTabs: (params) =>
+      runCutTabs(params, {
         store,
         journal,
         selections,

@@ -70,6 +70,12 @@ describe("tool annotations contract", () => {
     // tab_action navigate/discard irreversibly lose in-page state. Growing
     // this set is a deliberate act — update the expectation WITH the reason
     // in the tool's own annotations comment.
-    expect(destructive).toEqual(["bookmarks", "close_tab", "close_window", "tab_action"]);
+    expect(destructive).toEqual([
+      "bookmarks",
+      "close_tab",
+      "close_window",
+      "cut_tabs",
+      "tab_action",
+    ]);
   });
 });
