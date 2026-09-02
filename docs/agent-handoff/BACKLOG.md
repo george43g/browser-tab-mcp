@@ -1732,3 +1732,17 @@ fires again: log the child's env/spawn args and the case name in the crash
 message, and check the Windows runner's resource pressure at that timestamp.
 Frequency so far: 2 in roughly a day of CI runs across ~15 PRs. Owner:
 unclaimed.
+
+### B26 (parked — fires at DSL-workstream end). George's feature-set completeness review
+
+Filed 2026-09-03 from George's own words (2026-09-02, answering the
+dsl-forgotten-mode thread): *"In general, I need to think further about all
+the things this extension gives control, and mentally decide if the feature
+set is complete. But I will do this once the workstream is complete - we
+would need to update the docs, and do a full exploration of the tool and its
+available commands."* Two deliverables when the staged DSL tail ships, in
+this order: (1) a docs pass so every command surface is current and
+discoverable, (2) a guided full exploration of the tool and its commands —
+the input to HIS review, which is the actual gate. Do not start early: the
+review is explicitly gated on workstream completion. Owner: unclaimed until
+the staged tail is done.

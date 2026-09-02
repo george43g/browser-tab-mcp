@@ -138,6 +138,19 @@ tools, e2e where the surface has a real-browser pathway.
   selector set covers the addressing mode he forgot in August; the carried
   check from the 2026-08-21 parking is satisfied. (If "yes" meant something
   else, this is the line to correct.)
+  - **Confirmed and explained, 2026-09-02 (later, post-compact):** *"the idea
+    i forgot is what lead to this all - I couldnt remember it, which made me
+    realise that if I created a mathematically and logically complete and
+    consistent 'language' (DSL) it would not only cover the forgotten idea,
+    but it would provide a truly complete control surface. I assume we have
+    covered it by now."* The forgotten mode was never recovered and never
+    needs to be — completeness of the language is the cover. He also deferred
+    a feature-set completeness review to workstream end: *"I need to think
+    further about all the things this extension gives control, and mentally
+    decide if the feature set is complete. But I will do this once the
+    workstream is complete - we would need to update the docs, and do a full
+    exploration of the tool and its available commands."* Tracked as a parked
+    workstream-end task in BACKLOG (B26).
 - **Q2 premise corrected, decision still his** — George: *"hmm.... arent we
   already public and published?"* Measured answer: the REPO is public, but
   nothing from this repo is on npm — `npm view @george43g/browser-tab-mcp`
@@ -147,7 +160,38 @@ tools, e2e where the surface has a real-browser pathway.
   README's install section advertises `npm install -g
   @george43g/browser-tab-mcp` and wears an npm badge — instructions that
   404 today. Publishing vs. correcting the README is one decision, his.
-- **Q3/Q4** — still open (model-eval scope; tmux timing).
+- **Q2 CLOSED, 2026-09-02 (post-compact)** — George: *"for now, we are not
+  publishing that package. for the near future, any consumers of that package
+  will live inside this monorepo."* No npm publish for `control-language` (or
+  anything else here); consequence executed the same day — the README's
+  install section now documents install-from-source and says the no-npm state
+  is deliberate.
+- **Q3 CLOSED, 2026-09-03** — Claude-only, confirming R6 (picked from
+  Claude-only / full matrix / defer-entirely; the matrix can be widened later
+  without rework).
+- **Q4** — still open: tmux stays parked. Offered as a next-phase choice
+  2026-09-03; George picked the staged DSL tail instead, so the spike still
+  needs its own go-ahead.
+
+### Post-§5 decisions (2026-09-03, George — asked while settling remaining questions)
+
+- **Next phase: the staged DSL tail** (end-state solver, MCP resources +
+  `resource_link` widening, conflict:replan/undo/operation journal,
+  Claude-only eval corpus — the Phase 3 plan's "Staged out" list). His
+  workstream-end review gate sits at its end: docs update + full exploration
+  of the tool, then a mental feature-completeness pass (quote under Q1).
+- **Deploy automation: auto on main only.** George's directive, verbatim:
+  *"i would hope that for the daemon and for the running extensions inside
+  safari and chrome, we now have a fully automated means of restarting and
+  deploying updated code - this should probably be automated as a step that
+  happens after every time a build is run."* The primitives already exist
+  (`daemon restart`; `reload-extension`, a deliberately CLI-only surface —
+  `cli.ts` keeps it off MCP so a model can't cut its own transport). Ruling
+  accepted on the hazard that "after every build" would hot-deploy
+  feature-branch builds: one `deploy:local` script (build → daemon restart →
+  extension reload → verify build line), auto-run after merge/pull of main,
+  never on feature branches. Scoped as an early task of the staged-tail
+  cycle.
 
 ## 6. Traps carried into this workstream
 

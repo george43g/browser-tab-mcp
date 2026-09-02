@@ -4,8 +4,8 @@
 
 **macOS browser-tab detection & management for window-manager stacks — daemon + MCP server + CLI + TUI from a single bin.**
 
-[![CI](https://github.com/george43g/mcp-cli-starter-template/actions/workflows/ci.yml/badge.svg)](https://github.com/george43g/mcp-cli-starter-template/actions/workflows/ci.yml)
-[![npm version](https://img.shields.io/npm/v/@george43g/browser-tab-mcp.svg)](https://www.npmjs.com/package/@george43g/browser-tab-mcp)
+[![CI](https://github.com/george43g/browser-tab-mcp/actions/workflows/ci.yml/badge.svg)](https://github.com/george43g/browser-tab-mcp/actions/workflows/ci.yml)
+[![GitHub release](https://img.shields.io/github/v/release/george43g/browser-tab-mcp)](https://github.com/george43g/browser-tab-mcp/releases)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Node.js >=24](https://img.shields.io/badge/node-%3E%3D24-brightgreen.svg)](https://nodejs.org)
 
@@ -21,16 +21,22 @@ Knows which tabs are open in which browser windows (Chrome, Brave, Chromium, Edg
 
 ## Install
 
-```bash
-# Run directly (no install needed)
-npx @george43g/browser-tab-mcp mcp
+Not published to npm — versioning is deliberately decoupled from distribution
+(release-please tags GitHub Releases; see [`docs/RELEASE.md`](docs/RELEASE.md)).
+Install from source:
 
-# Or install globally
-npm  install -g @george43g/browser-tab-mcp
-pnpm add  -g @george43g/browser-tab-mcp
+```bash
+git clone https://github.com/george43g/browser-tab-mcp.git
+cd browser-tab-mcp
+pnpm install && pnpm build   # Node >=24, pnpm 10.x
+
+node apps/browser-tab-mcp/dist/cli.js --version   # the single bin
+
+# optional: put it on your PATH as `browser-tab`
+alias browser-tab="node $PWD/apps/browser-tab-mcp/dist/cli.js"
 ```
 
-After install, `browser-tab` is on your PATH. All subcommands route through that single bin:
+All subcommands route through that single bin:
 
 ```bash
 browser-tab daemon install   # launchd daemon: polling + extension socket + IPC
@@ -62,7 +68,8 @@ definition.
 
 ## One-click install
 
-Paste these into your MCP host's config. The bin name is `browser-tab` once installed via npm; the `npx` form works without a local install.
+Paste these into your MCP host's config, replacing `/path/to/browser-tab-mcp`
+with your clone (the package is not on npm, so there is no `npx` form).
 
 ### Claude Desktop / Code (`claude_desktop_config.json` or `.mcp.json`)
 
@@ -70,8 +77,8 @@ Paste these into your MCP host's config. The bin name is `browser-tab` once inst
 {
   "mcpServers": {
     "browser-tab": {
-      "command": "npx",
-      "args": ["-y", "@george43g/browser-tab-mcp", "mcp"]
+      "command": "node",
+      "args": ["/path/to/browser-tab-mcp/apps/browser-tab-mcp/dist/cli.js", "mcp"]
     }
   }
 }
@@ -83,8 +90,8 @@ Paste these into your MCP host's config. The bin name is `browser-tab` once inst
 {
   "mcpServers": {
     "browser-tab": {
-      "command": "npx",
-      "args": ["-y", "@george43g/browser-tab-mcp", "mcp"]
+      "command": "node",
+      "args": ["/path/to/browser-tab-mcp/apps/browser-tab-mcp/dist/cli.js", "mcp"]
     }
   }
 }
