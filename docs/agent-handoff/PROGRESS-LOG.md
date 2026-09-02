@@ -3303,3 +3303,85 @@ Nothing — all prior blocks cleared this turn.
 Merge the `docs/readme-no-npm` PR on green, then write the staged-tail plan
 doc (`docs/agent-handoff/plans/`) and open it as a plan PR before any
 implementation.
+
+# Checkpoint #20 — 2026-09-03 04:04 AEST (session `browser-tab-mcp`)
+
+## State
+
+THE DSL WORKSTREAM'S IMPLEMENTATION IS COMPLETE: the staged tail shipped as
+v1.10.0, released, live-deployed, and verified — B26 (George's completeness
+review) is now armed.
+
+## Constraints
+
+Unchanged from checkpoint #19 (adaptation record §5 + Post-§5 decisions hold
+the verbatim quotes). New this session: none from George; every ruling made
+tonight is recorded in the PR it shipped in and the staged-tail plan doc.
+
+## Done
+
+- PR-H `deploy:local` + auto-on-main post-merge hook — #161 (`bcc064a`'s
+  ancestor), plus three fast-follows each found by a REAL firing: #162
+  (reload only after reconnect), #164 (dirty-stamp acceptance for the right
+  commit). Every subsequent merge tonight deployed itself; final state
+  `1.10.0+164.af16fc7`, both extensions reloaded (safari re-acked manually
+  once, `"acked": true`).
+- PR-I operation journal + §15 undo records + apply `conflict:
+  replan|best-effort` — #163. Identity-preserving replan (recorded
+  deviation: stored keys, never the original selector).
+- PR-J §11 end-state solver on `plan_tab_change` — #165. Risk-decomposed:
+  live half = LIS relocate plan; cross-domain halves = prepared copy/cut
+  requests (recorded deviation from the planId-input sketch; §16
+  authorization stays schema-level). e2e dual-truth two-window layout;
+  run-guard floor 67.
+- PR-K Claude-only eval corpus + runner, money-guarded — #166. Baseline
+  report committed as an HONEST `pending` (needs a key).
+- PR-L DEFERRED by its own evidence gate, live numbers in the plan doc
+  (select core ≈320 B/tab; plan ≈4 KB — inline fits).
+- Release v1.10.0 (#160) merged without the 7-check set — structural, not
+  an exception: release-please updates its branch with GITHUB_TOKEN, whose
+  events cannot trigger workflows, so a release PR NEVER shows checks
+  (matches v1.6.0–v1.9.0 precedent). `pnpm release:check` → ok.
+- B25 evidence note: tonight's ~12 CI runs showed no third Windows stress
+  flake.
+
+## Open
+
+- `eval-baseline-run · browser-tab-mcp` — BLOCKED ON GEORGE (key + spend):
+  `pnpm --filter @george43g/browser-tab-mcp eval:claude -- --write-report`.
+  Evidence open: baseline-report.json says `"status": "pending"`.
+- `b26-completeness-review · browser-tab-mcp` — ARMED, George's gate: docs
+  pass + full tool exploration, then his feature-set decision (BACKLOG B26,
+  his quote). Never attempted, by his instruction ("once the workstream is
+  complete" — it now is).
+- `b23-cache-file-vanish · browser-tab-mcp` — never attempted.
+- B20, B25 — parked with evidence.
+
+## Traps
+
+- A watcher asserting "≥7 checks" waits forever on a release PR — the
+  GITHUB_TOKEN rule above. Check `gh pr checks` exit text, not just counts.
+- The auto-deploy loop finds its own bugs only by firing: three shipped
+  fixes came from its first three real runs. Treat its next surprise as a
+  finding, not a failure.
+
+## Tree
+
+`browser-tab-mcp`, branch `docs/checkpoint-20` (this entry), main clean at
+`af16fc7` (v1.10.0), zero open PRs, daemon `1.10.0+164.af16fc7` live.
+
+## Blocked on you
+
+- `eval-baseline-run` and `b26-completeness-review`, above.
+
+## Elsewhere
+
+- `robustness-starvation-evidence · mcp-starter-template` — unchanged; note
+  the daemon restarted five times tonight (deploys), so uptime-based
+  absence evidence resets from ~04:00 2026-09-03.
+
+## Resume
+
+Merge this checkpoint on green. Then WAIT: everything remaining is George's
+— the eval baseline, B26, or a new phase (Phase 4 TUI / tmux Q4 both still
+need his word).
