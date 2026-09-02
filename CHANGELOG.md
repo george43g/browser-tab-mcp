@@ -1,5 +1,14 @@
 # Changelog
 
+## [1.8.0](https://github.com/george43g/browser-tab-mcp/compare/v1.7.0...v1.8.0) (2026-09-02)
+
+
+### Features
+
+* **apply:** apply_tab_layout — the live-layout executor ([#150](https://github.com/george43g/browser-tab-mcp/issues/150)) ([106a16f](https://github.com/george43g/browser-tab-mcp/commit/106a16f5d24585ac596e92799c937f6b1cce3e99))
+* **plan:** effect IR + pure transform planner + B24 focusedWindow fallback ([#147](https://github.com/george43g/browser-tab-mcp/issues/147)) ([bf0b76c](https://github.com/george43g/browser-tab-mcp/commit/bf0b76caca5ab8f397e2b74b981100b2c3e6c433))
+* **plan:** plan_tab_change — read-only planning tool over the Phase 3 planner ([#149](https://github.com/george43g/browser-tab-mcp/issues/149)) ([5d93250](https://github.com/george43g/browser-tab-mcp/commit/5d93250ae096c1b30a09d366e276f49e2e765821))
+
 ## [1.7.0](https://github.com/george43g/browser-tab-mcp/compare/v1.6.0...v1.7.0) (2026-09-01)
 
 
