@@ -20,6 +20,7 @@ const EXPECTED = [
   "open_window",
   "set_window",
   "close_window",
+  "copy_tabs",
   "get_page",
   "annotate",
   "apply_tab_layout",

@@ -344,6 +344,24 @@ export async function planTabChange(params: Record<string, unknown>): Promise<un
 }
 
 /**
+ * Reconstructive copy — additive; sources untouched by construction.
+ * Daemon-only for the same reasons as the other selection tools.
+ */
+export async function copyTabs(params: Record<string, unknown>): Promise<unknown> {
+  if (fakeAdapterEnabled()) {
+    throw new Error("copy_tabs requires the daemon — not available in fixture mode.");
+  }
+  try {
+    return await viaDaemon((c) => c.request<unknown>("copyTabs", params));
+  } catch (err) {
+    if (err instanceof DaemonUnavailableError) {
+      throw new Error("copy_tabs requires the daemon. Start it with `browser-tab daemon run`.");
+    }
+    throw err;
+  }
+}
+
+/**
  * Apply a live-layout plan. Daemon-only; the daemon refuses stale plans and
  * any plan whose riskClass is not live-layout.
  */

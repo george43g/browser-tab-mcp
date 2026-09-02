@@ -550,6 +550,51 @@ export function buildProgram(): Command {
     });
 
   program
+    .command("copy")
+    .description("Reconstruct selected tabs at a destination; sources stay open (needs daemon)")
+    .option("--selector <json>", "Selector AST as JSON; @<file> or `-` for stdin")
+    .option("--selection <id>", "A current select_tabs selectionId (instead of --selector)")
+    .option("--to-window <windowId>", "Copy into an existing window")
+    .option("--new-window <browser>", "Copy into a new window in this browser")
+    .option("--idempotency-key <key>", "Retry-safe: same key replays the stored outcome")
+    .action(
+      async (opts: {
+        selector?: string;
+        selection?: string;
+        toWindow?: string;
+        newWindow?: string;
+        idempotencyKey?: string;
+      }) => {
+        const json = program.opts<{ json?: boolean }>().json ?? false;
+        if ((opts.toWindow === undefined) === (opts.newWindow === undefined)) {
+          throw new Error("provide exactly one of --to-window | --new-window");
+        }
+        const readJsonArg = (raw: string, flag: string): unknown => {
+          let text = raw;
+          if (raw === "-") text = readFileSync(0, "utf8");
+          else if (raw.startsWith("@")) text = readFileSync(raw.slice(1), "utf8");
+          try {
+            return JSON.parse(text);
+          } catch (err) {
+            throw new Error(`${flag} is not valid JSON: ${(err as Error).message}`);
+          }
+        };
+        const result = await callMcpTool("copy_tabs", {
+          ...(opts.selector !== undefined
+            ? { selector: readJsonArg(opts.selector, "--selector") }
+            : {}),
+          ...(opts.selection !== undefined ? { selectionId: opts.selection } : {}),
+          destination:
+            opts.toWindow !== undefined
+              ? { kind: "window", windowId: opts.toWindow }
+              : { kind: "newWindow", browser: opts.newWindow },
+          ...(opts.idempotencyKey !== undefined ? { idempotencyKey: opts.idempotencyKey } : {}),
+        });
+        await printResult(result, json, "copy_tabs");
+      },
+    );
+
+  program
     .command("annotate")
     .description("Read or write a URL-keyed note in the daemon annotation store")
     .argument("<url>", "The page URL to annotate")

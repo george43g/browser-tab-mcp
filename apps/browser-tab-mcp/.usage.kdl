@@ -134,6 +134,24 @@ cmd "apply" help="Apply a live-layout plan from browser-tab plan (needs daemon +
     }
 }
 
+cmd "copy" help="Reconstruct selected tabs at a destination; sources stay open (needs daemon)" {
+    flag "--selector" help="Selector AST as JSON; @<file> or - for stdin" {
+        arg "<json>"
+    }
+    flag "--selection" help="A current select_tabs selectionId (instead of --selector)" {
+        arg "<id>"
+    }
+    flag "--to-window" help="Copy into an existing window" {
+        arg "<windowId>"
+    }
+    flag "--new-window" help="Copy into a new window in this browser" {
+        arg "<browser>"
+    }
+    flag "--idempotency-key" help="Retry-safe: same key replays the stored outcome" {
+        arg "<key>"
+    }
+}
+
 cmd "plan" help="Plan one tab transform without applying it (needs daemon)" {
     flag "--selector" help="Selector AST as JSON; @<file> or - for stdin" {
         arg "<json>"
