@@ -400,6 +400,29 @@ export async function applyTabLayout(params: Record<string, unknown>): Promise<u
   }
 }
 
+/** Operation journal reads (PR-I) — daemon-only, CLI-only surface. */
+export async function listOperations(params: Record<string, unknown>): Promise<unknown> {
+  try {
+    return await viaDaemon((c) => c.request<unknown>("listOperations", params));
+  } catch (err) {
+    if (err instanceof DaemonUnavailableError) {
+      throw new Error("operations requires the daemon. Start it with `browser-tab daemon run`.");
+    }
+    throw err;
+  }
+}
+
+export async function getOperation(params: Record<string, unknown>): Promise<unknown> {
+  try {
+    return await viaDaemon((c) => c.request<unknown>("getOperation", params));
+  } catch (err) {
+    if (err instanceof DaemonUnavailableError) {
+      throw new Error("operations requires the daemon. Start it with `browser-tab daemon run`.");
+    }
+    throw err;
+  }
+}
+
 /**
  * Extract page content/state. Extension-only + daemon-only — there's no
  * AppleScript path and the cache lives in the daemon, so fixture mode and a

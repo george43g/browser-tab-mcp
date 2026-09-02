@@ -18,6 +18,13 @@ export interface MaterializedPlan {
   selectionKeys: string[];
   snapshotToken: string;
   createdAt: number;
+  /**
+   * The validated transform (+ pinPolicy) the plan compiled, kept so
+   * conflict:"replan" (PR-I) can re-plan the SAME intent over the stored
+   * selectionKeys. Additive; absent on records from older callers.
+   */
+  transform?: unknown;
+  pinPolicy?: "skip" | undefined;
 }
 
 export interface PlanStoreOptions {

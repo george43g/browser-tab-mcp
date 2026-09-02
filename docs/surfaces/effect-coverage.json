@@ -419,6 +419,17 @@
       ]
     },
     {
+      "surface": "operations",
+      "kind": "cli",
+      "coverage": [
+        {
+          "tier": "cli-process",
+          "covers": "the built bin's `operations` against a real spawned daemon: an empty journal answers [] over a real IPC round-trip, --id on an unknown record exits 1 with the ring-vs-archive hint, and a down daemon names itself as the missing dependency. Record-MINTING (copy_tabs writing a created-ids undo record that listOperations/getOperation then serve) is proven at the integration tier in tests/daemon-ipc.test.ts — the CLI client refuses copy/cut under BROWSER_TAB_FAKE_ADAPTER by design, so the built bin cannot mint here",
+          "evidence": "apps/browser-tab-mcp/tests/cli-surfaces.integration.test.ts"
+        }
+      ]
+    },
+    {
       "surface": "daemon run",
       "kind": "cli",
       "coverage": [

@@ -305,6 +305,44 @@ describe("daemon install / uninstall / stop / restart (CLI-only)", () => {
   }, 30_000);
 });
 
+describe("operations (CLI-only)", () => {
+  it("round-trips the operation journal over real IPC and errors actionably", async () => {
+    const env = isolated();
+    const proc = spawn("node", [CLI, "daemon", "run"], { env, stdio: "ignore" });
+    try {
+      const deadline = Date.now() + 20_000;
+      let up = false;
+      while (Date.now() < deadline && !up) {
+        const r = await run(["daemon", "status", "--json"], env);
+        up = (JSON.parse(r.stdout || "{}") as { reachable?: boolean }).reachable === true;
+        if (!up) await new Promise((r2) => setTimeout(r2, 250));
+      }
+      expect(up, "the daemon became reachable").toBe(true);
+
+      // A fresh daemon has executed nothing: the honest answer is [], served
+      // over a REAL IPC round-trip (record-minting through copy/cut/apply is
+      // proven at the daemon-ipc integration tier — the CLI client refuses
+      // those tools under BROWSER_TAB_FAKE_ADAPTER by design).
+      const list = await run(["operations", "--json"], env);
+      expect(list.code).toBe(0);
+      expect(JSON.parse(list.stdout)).toEqual([]);
+
+      const missing = await run(["operations", "--id", "ffffffff", "--json"], env);
+      expect(missing.code).toBe(1);
+      expect(missing.stdout).toMatch(/not in the ring/);
+    } finally {
+      if (proc.exitCode === null) proc.kill("SIGKILL");
+    }
+  }, 60_000);
+
+  it("names the daemon as the missing dependency when nothing listens", async () => {
+    const env = isolated();
+    const r = await run(["operations", "--json"], env);
+    expect(r.code).toBe(1);
+    expect(r.stdout).toMatch(/requires the daemon/);
+  });
+});
+
 describe("reload-extension (CLI-only, no-daemon path)", () => {
   it("errors clearly when no daemon is running", async () => {
     // The success path is chromium-e2e; this is the half that needs no

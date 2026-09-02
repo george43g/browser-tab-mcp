@@ -73,6 +73,7 @@ describe("MCP ↔ CLI parity", () => {
       "window",
       "help",
       "reload-extension",
+      "operations",
       "annotate",
       "screenshot",
       "journal",

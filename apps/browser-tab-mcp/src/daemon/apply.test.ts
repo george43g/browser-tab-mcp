@@ -201,4 +201,114 @@ describe("applyTabLayout", () => {
     expect(out.residual).toHaveLength(1);
     expect(out.residual[0]?.expected).toEqual(["d", "c", "b", "a"]);
   });
+
+  it('conflict:"replan" re-plans a stale plan by identity and applies the fresh one', async () => {
+    const world = makeWorld({ "w:chrome:x1": ["a", "b", "c"] });
+    const plans = new PlanStore();
+    const stalePlan = planOf(world, plans, [relocate("a", "w:chrome:x1", "c")]);
+    // State moves under the plan: token changes, the plan goes stale.
+    world.model.get("w:chrome:x1")?.push("d");
+    await world.refresh();
+    const replan = (stale: { selectionKeys: string[] }) => {
+      expect(stale.selectionKeys).toEqual(["a"]);
+      return planOf(world, plans, [relocate("a", "w:chrome:x1", "c")]);
+    };
+    const out = await applyTabLayout(
+      { planId: stalePlan.planId, conflict: "replan" },
+      { store: world.store, plans, runCommand: world.runCommand, refresh: world.refresh, replan },
+    );
+    expect(out.status).toBe("success");
+    expect(out.replanned).toBe(true);
+    expect(out.appliedPlanId).not.toBe(stalePlan.planId);
+    expect(world.model.get("w:chrome:x1")).toEqual(["b", "c", "a", "d"]);
+  });
+
+  it('conflict:"replan" refuses when the fresh plan changes riskClass, and without wiring', async () => {
+    const world = makeWorld({ "w:chrome:x1": ["a", "b"] });
+    const plans = new PlanStore();
+    const stalePlan = planOf(world, plans, [relocate("a", "w:chrome:x1", "b")]);
+    world.model.get("w:chrome:x1")?.push("c");
+    await world.refresh();
+    await expect(
+      applyTabLayout(
+        { planId: stalePlan.planId, conflict: "replan" },
+        { store: world.store, plans, runCommand: world.runCommand, refresh: world.refresh },
+      ),
+    ).rejects.toThrow(/not available on this pathway/);
+    const riskChanger = () =>
+      plans.materialize({
+        riskClass: "destructive",
+        effects: [],
+        warnings: [],
+        selectionKeys: ["a"],
+        snapshotToken: world.store.getSnapshot().snapshotToken ?? "",
+      });
+    await expect(
+      applyTabLayout(
+        { planId: stalePlan.planId, conflict: "replan" },
+        {
+          store: world.store,
+          plans,
+          runCommand: world.runCommand,
+          refresh: world.refresh,
+          replan: riskChanger,
+        },
+      ),
+    ).rejects.toThrow(/replan changed riskClass/);
+  });
+
+  it('conflict:"best-effort" applies what still holds on a stale plan and skips the rest', async () => {
+    const world = makeWorld({ "w:chrome:x1": ["a", "b", "c"] });
+    const plans = new PlanStore();
+    const plan = planOf(world, plans, [
+      relocate("zz", "w:chrome:x1", "c"),
+      relocate("a", "w:chrome:x1", "c"),
+    ]);
+    // "zz" never existed; state also moves so the plan is stale.
+    world.model.get("w:chrome:x1")?.push("d");
+    await world.refresh();
+    const out = await applyTabLayout(
+      { planId: plan.planId, conflict: "best-effort" },
+      { store: world.store, plans, runCommand: world.runCommand, refresh: world.refresh },
+    );
+    expect(out.status).toBe("partial");
+    expect(out.results.map((r) => r.status)).toEqual(["skipped", "applied"]);
+    expect(out.results[0]?.error).toMatch(/precondition/);
+    expect(world.model.get("w:chrome:x1")).toEqual(["b", "c", "a", "d"]);
+  });
+
+  it("records the operation with a §15 pre-state undo when a store is wired", async () => {
+    const { OperationStore } = await import("./operations.js");
+    const { mkdtempSync, rmSync } = await import("node:fs");
+    const { tmpdir } = await import("node:os");
+    const { join } = await import("node:path");
+    const dir = mkdtempSync(join(tmpdir(), "bt-apply-ops-"));
+    try {
+      const operations = new OperationStore({ dir, ringSize: 10 });
+      const world = makeWorld({ "w:chrome:x1": ["a", "b", "c"] });
+      const plans = new PlanStore();
+      const plan = planOf(world, plans, [relocate("a", "w:chrome:x1", "c")]);
+      const out = await applyTabLayout(
+        { planId: plan.planId },
+        {
+          store: world.store,
+          plans,
+          runCommand: world.runCommand,
+          refresh: world.refresh,
+          operations,
+        },
+      );
+      expect(out.operationId).toMatch(/^[0-9a-f]{8}$/);
+      const rec = operations.get(out.operationId as string);
+      expect(rec?.tool).toBe("apply_tab_layout");
+      expect(rec?.conflictMode).toBe("error");
+      // The BEFORE-position no later snapshot can recover (§15).
+      expect(rec?.undo).toEqual({
+        kind: "pre-state",
+        moves: [{ tabId: "a", fromWindowId: "w:chrome:x1", fromIndex: 0 }],
+      });
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
 });

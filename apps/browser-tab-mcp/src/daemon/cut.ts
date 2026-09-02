@@ -27,6 +27,7 @@ import { checkUrl } from "../tools/url-policy.js";
 import type { IdempotencyCache } from "./copy.js";
 import { CopyDestinationSchema } from "./copy.js";
 import type { JournalStore } from "./journal.js";
+import type { OperationStore } from "./operations.js";
 import { resolveTabSelection } from "./reconstruct.js";
 import type { SelectionStore } from "./selections.js";
 import type { StateStore } from "./state.js";
@@ -68,6 +69,8 @@ export interface CutDeps {
   selections: SelectionStore;
   runCommand: (params: Record<string, unknown>) => Promise<unknown>;
   idempotency: IdempotencyCache;
+  /** Operation journal (PR-I). Optional so focused unit tests stay small. */
+  operations?: OperationStore | undefined;
 }
 
 export async function cutTabs(
@@ -246,5 +249,21 @@ export async function cutTabs(
   if (input.idempotencyKey !== undefined) {
     deps.idempotency.set(input.idempotencyKey, result as never);
   }
+  // §15: cut cannot restore lost live page state even if URLs reopen — the
+  // undo record says so EXPLICITLY instead of leaving an executor to imply a
+  // restoration it cannot perform (restoration vs reconstructive compensation).
+  deps.operations?.record({
+    tool: "cut_tabs",
+    status,
+    ...(input.selectionId !== undefined ? { selectionId: input.selectionId } : {}),
+    request: input,
+    outcomes: items,
+    snapshotTokenBefore: snapshot.snapshotToken,
+    undo: {
+      kind: "unrecoverable",
+      liveStateUnrecoverable: true,
+      closedSourceUrls: items.flatMap((i) => (i.status === "transferred" ? [i.url] : [])),
+    },
+  });
   return result;
 }

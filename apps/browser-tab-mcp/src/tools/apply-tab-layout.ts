@@ -18,6 +18,15 @@ export const ApplyTabLayoutInputSchema = z.object({
       "A current plan_tab_change planId with riskClass live-layout. Stale plans (state " +
         "changed since planning) are refused — re-plan and apply fresh.",
     ),
+  conflict: z
+    .enum(["error", "replan", "best-effort"])
+    .optional()
+    .describe(
+      'Stale-plan policy (default "error", refuse). "replan": re-plan the SAME members by ' +
+        "identity against the fresh snapshot (budget 1, riskClass must not change) and apply. " +
+        '"best-effort": apply each effect whose preconditions still hold; skip and report the ' +
+        "rest without aborting.",
+    ),
 });
 
 export const ApplyTabLayoutOutputSchema = z.object({
@@ -45,6 +54,12 @@ export const ApplyTabLayoutOutputSchema = z.object({
   ),
   snapshotTokenBefore: z.string().optional(),
   snapshotTokenAfter: z.string().optional(),
+  replanned: z.boolean().optional(),
+  appliedPlanId: z.string().optional(),
+  operationId: z
+    .string()
+    .optional()
+    .describe("Durable operation-journal id (CLI: browser-tab operations)."),
 });
 
 export const applyTabLayoutTool: ToolDefinition<
@@ -72,8 +87,9 @@ export const applyTabLayoutTool: ToolDefinition<
   timeoutMs: 30_000,
   handler: async (input, signal) => {
     if (signal?.aborted) throw new Error("Cancelled by client");
-    return (await applyTabLayout({ planId: input.planId })) as z.infer<
-      typeof ApplyTabLayoutOutputSchema
-    >;
+    return (await applyTabLayout({
+      planId: input.planId,
+      ...(input.conflict !== undefined ? { conflict: input.conflict } : {}),
+    })) as z.infer<typeof ApplyTabLayoutOutputSchema>;
   },
 };
