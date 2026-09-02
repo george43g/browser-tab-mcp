@@ -59,6 +59,7 @@ import { JournalStore } from "./journal.js";
 import { buildSeedRecords, ingestExtEvent, ingestStoreEvent } from "./journal-ingest.js";
 import { SourceMerger } from "./merge.js";
 import { findTabLocation, findWindowTabCount, resolveSignedIndex } from "./move-resolve.js";
+import { OperationStore } from "./operations.js";
 import { socketPath } from "./paths.js";
 import { planTabChange as runPlanTabChange } from "./plan-change.js";
 import { PlanStore } from "./plans.js";
@@ -788,6 +789,8 @@ export async function startDaemon(): Promise<DaemonHandle> {
   const selections = new SelectionStore();
   const plans = new PlanStore();
   const copyIdempotency = makeIdempotencyCache();
+  const operations = new OperationStore();
+  operations.warmFromDisk();
   journal.warmFromDisk();
   const contentCache = new ContentCache();
   const annotations = new AnnotationStore();
@@ -896,6 +899,7 @@ export async function startDaemon(): Promise<DaemonHandle> {
         journal,
         selections,
         idempotency: copyIdempotency,
+        operations,
         runCommand: (p) => executeCommand(p, { refresh: () => loop.refresh(), ext }),
       }),
     onCutTabs: (params) =>
@@ -904,15 +908,42 @@ export async function startDaemon(): Promise<DaemonHandle> {
         journal,
         selections,
         idempotency: copyIdempotency,
+        operations,
         runCommand: (p) => executeCommand(p, { refresh: () => loop.refresh(), ext }),
       }),
     onApplyTabLayout: (params) =>
       runApplyTabLayout(params, {
         store,
         plans,
+        operations,
         runCommand: (p) => executeCommand(p, { refresh: () => loop.refresh(), ext }),
         refresh: () => loop.refresh(),
+        // conflict:"replan" — identity-preserving by design: the SAME members
+        // (stored keys, missing ⇒ error), never the original selector, so a
+        // conflict retry cannot silently widen scope.
+        replan: (stale) =>
+          runPlanTabChange(
+            {
+              selector: { kind: "ids", ids: stale.selectionKeys },
+              transform: stale.transform,
+              ...(stale.pinPolicy !== undefined ? { pinPolicy: stale.pinPolicy } : {}),
+            },
+            { store, journal, selections, plans },
+          ),
       }),
+    onListOperations: async (params) =>
+      operations.list(Number((params as { limit?: unknown }).limit ?? 20)),
+    onGetOperation: async (params) => {
+      const id = String((params as { operationId?: unknown }).operationId ?? "");
+      const rec = operations.get(id);
+      if (rec === undefined) {
+        throw new Error(
+          `operation "${id}" is not in the ring — older operations live in ` +
+            "operations.ndjson under the journal directory.",
+        );
+      }
+      return rec;
+    },
     onGetPlan: async (params) => {
       const id = String((params as { planId?: unknown }).planId ?? "");
       const rec = plans.get(id, store.getSnapshot().snapshotToken);

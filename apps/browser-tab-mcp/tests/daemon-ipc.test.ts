@@ -121,6 +121,46 @@ describe("daemon IPC", () => {
     }
   });
 
+  it("copyTabs mints an operation record; listOperations/getOperation serve it over IPC", async () => {
+    await startTestDaemon();
+    const client = new DaemonClient();
+    try {
+      expect(await client.request("listOperations", {})).toEqual([]);
+
+      const snapshot = await client.request<Snapshot>("getSnapshot");
+      const chrome = snapshot.browsers.find((b) => b.browser === "chrome");
+      const tab = chrome?.windows[0]?.tabs[0];
+      const destWindow = chrome?.windows[1] ?? chrome?.windows[0];
+      const copy = (await client.request("copyTabs", {
+        selector: { kind: "ids", ids: [tab?.tabId] },
+        destination: { kind: "window", windowId: destWindow?.windowId },
+      })) as { status: string; items: Array<{ createdTabId?: string }> };
+      expect(copy.status).toBe("success");
+
+      const ops = (await client.request("listOperations", {})) as Array<{
+        operationId: string;
+        tool: string;
+        undo: { kind: string; tabIds?: string[] };
+      }>;
+      expect(ops).toHaveLength(1);
+      expect(ops[0]?.tool).toBe("copy_tabs");
+      // §15 undo record: a copy reverses by closing exactly what it created.
+      expect(ops[0]?.undo.kind).toBe("created");
+      expect(ops[0]?.undo.tabIds).toEqual([copy.items[0]?.createdTabId]);
+
+      const one = (await client.request("getOperation", {
+        operationId: ops[0]?.operationId,
+      })) as { operationId: string };
+      expect(one.operationId).toBe(ops[0]?.operationId);
+
+      await expect(client.request("getOperation", { operationId: "ffffffff" })).rejects.toThrow(
+        /not in the ring/,
+      );
+    } finally {
+      client.close();
+    }
+  });
+
   it("selectTabs rejects an invalid selector with the language's own error shape", async () => {
     await startTestDaemon();
     const client = new DaemonClient();

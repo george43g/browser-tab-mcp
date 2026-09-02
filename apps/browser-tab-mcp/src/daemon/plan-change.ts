@@ -186,6 +186,10 @@ export function planTabChange(
     warnings: [...warnings, ...plan.warnings],
     selectionKeys: refs.map((r) => keyOf(r)),
     snapshotToken: snapshot.snapshotToken ?? "",
+    // Kept for conflict:"replan" (PR-I): the same intent, re-planned over the
+    // stored identity keys against a fresh snapshot.
+    transform,
+    ...(input.pinPolicy !== undefined ? { pinPolicy: input.pinPolicy } : {}),
   });
 
   return {

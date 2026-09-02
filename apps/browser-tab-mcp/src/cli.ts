@@ -33,7 +33,12 @@ import {
   formatAccessReport,
 } from "./access-check.js";
 import { compareBuilds } from "./build-compare.js";
-import { daemonStatus, reloadExtension } from "./client/tabs-service.js";
+import {
+  daemonStatus,
+  getOperation,
+  listOperations,
+  reloadExtension,
+} from "./client/tabs-service.js";
 import { registerDaemonCommand } from "./commands/daemon.js";
 import { callMcpTool } from "./dispatcher.js";
 import { ENV_FLAG_OPTS, ENV_FLAGS } from "./env-flags.js";
@@ -543,10 +548,45 @@ export function buildProgram(): Command {
     .command("apply")
     .description("Apply a live-layout plan from `browser-tab plan` (needs daemon + extension)")
     .requiredOption("--plan <id>", "planId from plan_tab_change (must still be current)")
-    .action(async (opts: { plan: string }) => {
+    .option(
+      "--conflict <mode>",
+      "Stale-plan policy: error (default) | replan (same members, budget 1) | best-effort",
+    )
+    .action(async (opts: { plan: string; conflict?: string }) => {
       const json = program.opts<{ json?: boolean }>().json ?? false;
-      const result = await callMcpTool("apply_tab_layout", { planId: opts.plan });
+      const result = await callMcpTool("apply_tab_layout", {
+        planId: opts.plan,
+        ...(opts.conflict !== undefined ? { conflict: opts.conflict } : {}),
+      });
       await printResult(result, json, "apply_tab_layout");
+    });
+
+  /**
+   * Deliberately CLI-only, like reload-extension: the MCP-visible form of the
+   * operation journal is PR-L's evidence-gated resources question, and every
+   * mutation result already carries its own operationId inline.
+   */
+  program
+    .command("operations")
+    .description("Read the daemon's operation journal (apply/copy/cut executions)")
+    .option("--id <operationId>", "Fetch one operation record")
+    .option("--limit <n>", "How many recent operations to list", "20")
+    .action(async (opts: { id?: string; limit?: string }) => {
+      const json = program.opts<{ json?: boolean }>().json ?? false;
+      try {
+        const result =
+          opts.id !== undefined
+            ? await getOperation({ operationId: opts.id })
+            : await listOperations({ limit: Number(opts.limit ?? 20) });
+        printJson(result);
+      } catch (err) {
+        if (json) {
+          printJson({ error: { message: (err as Error).message } });
+        } else {
+          process.stderr.write(`${(err as Error).message}\n`);
+        }
+        process.exitCode = 1;
+      }
     });
 
   program

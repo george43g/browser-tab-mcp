@@ -24,11 +24,23 @@
 import type { Snapshot } from "@george43g/shared-types";
 import { z } from "zod";
 import type { Effect, RelocateEffect } from "../select/plan/effects.js";
-import type { PlanStore } from "./plans.js";
+import type { OperationStore, OperationUndo } from "./operations.js";
+import type { MaterializedPlan, PlanStore } from "./plans.js";
 import type { StateStore } from "./state.js";
 
 export const ApplyParamsSchema = z.object({
   planId: z.string().describe("A current plan_tab_change planId with riskClass live-layout."),
+  conflict: z
+    .enum(["error", "replan", "best-effort"])
+    .default("error")
+    .describe(
+      'Stale-plan policy (§14.1). "error" refuses (default). "replan" re-plans the SAME ' +
+        "members (by stored identity keys, never by re-running the original selector — a " +
+        "conflict retry must not silently widen scope) against the fresh snapshot, budget 1, " +
+        'and applies only if riskClass is unchanged. "best-effort" applies each effect whose ' +
+        "preconditions still hold against the CURRENT snapshot and reports the rest as " +
+        "skipped; failures do not cascade-abort.",
+    ),
 });
 
 export interface EffectResult {
@@ -47,6 +59,12 @@ export interface ApplyResult {
   residual: Array<{ windowId: string; expected: string[]; actual: string[] }>;
   snapshotTokenBefore?: string | undefined;
   snapshotTokenAfter?: string | undefined;
+  /** Set when conflict:"replan" re-planned a stale plan before applying. */
+  replanned?: boolean | undefined;
+  /** The fresh plan replan executed (the input planId names the stale one). */
+  appliedPlanId?: string | undefined;
+  /** Durable operation-journal id for this execution. */
+  operationId?: string | undefined;
 }
 
 export interface ApplyDeps {
@@ -56,6 +74,14 @@ export interface ApplyDeps {
   runCommand: (params: Record<string, unknown>) => Promise<unknown>;
   /** Force a fresh scan and return the merged snapshot. */
   refresh: () => Promise<Snapshot>;
+  /** Operation journal (PR-I). Optional so pure planning tests stay small. */
+  operations?: OperationStore | undefined;
+  /**
+   * Re-plan by identity for conflict:"replan": given the stale plan record,
+   * produce a fresh one against the CURRENT snapshot (daemon wires this to
+   * planTabChange with `{kind:"ids"}` over the stored selectionKeys).
+   */
+  replan?: ((stale: MaterializedPlan) => { planId: string }) | undefined;
 }
 
 function stripsOf(snapshot: Snapshot): Map<string, string[]> {
@@ -93,19 +119,45 @@ export async function applyTabLayout(
   deps: ApplyDeps,
 ): Promise<ApplyResult> {
   const input = ApplyParamsSchema.parse(params);
+  const bestEffort = input.conflict === "best-effort";
   const before = deps.store.getSnapshot();
-  const rec = deps.plans.get(input.planId, before.snapshotToken);
+  let rec = deps.plans.get(input.planId, before.snapshotToken);
   if (rec === undefined) {
     throw new Error(
       `plan "${input.planId}" is unknown or expired — plans are snapshot-bound and ` +
         `short-lived; re-run plan_tab_change.`,
     );
   }
-  if (rec.stale) {
+  let replanned = false;
+  if (rec.stale && input.conflict === "error") {
     throw new Error(
       `plan "${input.planId}" was computed against a different snapshot (state has changed ` +
-        `since) — re-run plan_tab_change and apply the fresh plan.`,
+        `since) — re-run plan_tab_change and apply the fresh plan, or pass ` +
+        `conflict:"replan"/"best-effort".`,
     );
+  }
+  if (rec.stale && input.conflict === "replan") {
+    // Budget 1 (plan PR-I): one identity-preserving re-plan, then apply or
+    // error — never a loop against a busy browser.
+    if (deps.replan === undefined) {
+      throw new Error('conflict:"replan" is not available on this pathway — re-plan manually.');
+    }
+    const staleRisk = rec.riskClass;
+    const fresh = deps.replan(rec);
+    const freshRec = deps.plans.get(fresh.planId, before.snapshotToken);
+    if (freshRec === undefined || freshRec.stale) {
+      throw new Error(
+        "replan raced another state change (budget 1 spent) — re-run plan_tab_change.",
+      );
+    }
+    if (freshRec.riskClass !== staleRisk) {
+      throw new Error(
+        `replan changed riskClass ("${staleRisk}" → "${freshRec.riskClass}") — the situation ` +
+          `moved under the plan; re-plan and re-authorize deliberately.`,
+      );
+    }
+    rec = { ...freshRec };
+    replanned = true;
   }
   if (rec.riskClass !== "live-layout") {
     throw new Error(
@@ -114,11 +166,12 @@ export async function applyTabLayout(
     );
   }
 
-  // Local translation state + the expected end arrangement, both seeded from
-  // the apply-start snapshot (token-equal to the plan's world).
+  // Local translation state, seeded from the apply-start snapshot (token-equal
+  // to the plan's world — except under best-effort on a stale plan, where the
+  // CURRENT snapshot is deliberately the world effects are checked against).
   const sim = stripsOf(before);
-  const expected = stripsOf(before);
   const affected = new Set<string>();
+  const preState: Array<{ tabId: string; fromWindowId: string; fromIndex: number }> = [];
   for (const e of rec.effects) {
     if (e.kind !== "relocate") {
       throw new Error(
@@ -127,25 +180,44 @@ export async function applyTabLayout(
       );
     }
     affected.add(e.targetWindowId);
-    for (const [wid, order] of expected) {
-      if (order.includes(e.tabId)) affected.add(wid);
+    for (const [wid, order] of sim) {
+      const i = order.indexOf(e.tabId);
+      if (i >= 0) {
+        affected.add(wid);
+        // §15 undo record: the BEFORE-position no later snapshot can recover.
+        preState.push({ tabId: e.tabId, fromWindowId: wid, fromIndex: i });
+      }
     }
-    simulate(expected, e);
+  }
+  // Expected end arrangement: whole-plan under strict modes (any invalid
+  // effect fails HERE, before mutation); under best-effort it is computed
+  // AFTER execution from the applied subset, because a stale plan may carry
+  // effects whose members are gone and those must skip, not abort.
+  let expected: Map<string, string[]> | undefined;
+  if (!bestEffort) {
+    expected = stripsOf(before);
+    for (const e of rec.effects as RelocateEffect[]) simulate(expected, e);
   }
 
   const results: EffectResult[] = [];
   let failed = false;
   for (const e of rec.effects as RelocateEffect[]) {
-    if (failed) {
+    if (failed && !bestEffort) {
       results.push({ effect: e, status: "skipped" });
       continue;
     }
+    // Translate neighbor identity → concrete final index in the SIM world. A
+    // precondition miss (window/member/neighbor gone) is a SKIP under
+    // best-effort — nothing was attempted — and an abort otherwise.
+    let targetIndex: number;
     try {
-      // Translate neighbor identity → concrete final index in the SIM world.
       const dest = sim.get(e.targetWindowId);
       if (!dest) throw new Error(`window ${e.targetWindowId} is gone`);
+      if (bestEffort && ![...sim.values()].some((order) => order.includes(e.tabId))) {
+        throw new Error(`tab ${e.tabId} is gone`);
+      }
       const survivors = dest.filter((id) => id !== e.tabId);
-      const targetIndex =
+      targetIndex =
         e.after === null
           ? 0
           : (() => {
@@ -153,6 +225,16 @@ export async function applyTabLayout(
               if (at < 0) throw new Error(`neighbor ${e.after} is gone from ${e.targetWindowId}`);
               return at + 1;
             })();
+    } catch (err) {
+      results.push({
+        effect: e,
+        status: bestEffort ? "skipped" : "failed",
+        error: `precondition: ${(err as Error).message}`,
+      });
+      failed = true;
+      continue;
+    }
+    try {
       await deps.runCommand({
         kind: "move_tab",
         tabId: e.tabId,
@@ -165,6 +247,9 @@ export async function applyTabLayout(
       results.push({ effect: e, status: "failed", error: (err as Error).message });
       failed = true;
     }
+  }
+  if (expected === undefined) {
+    expected = new Map([...sim].map(([wid, order]) => [wid, [...order]]));
   }
 
   // ACTUAL final state — never report the intent as the outcome (§15).
@@ -204,7 +289,7 @@ export async function applyTabLayout(
       ? "partial"
       : "success";
 
-  return {
+  const result: ApplyResult = {
     status,
     planId: input.planId,
     results,
@@ -212,5 +297,22 @@ export async function applyTabLayout(
     residual,
     snapshotTokenBefore: before.snapshotToken,
     snapshotTokenAfter: after.snapshotToken,
+    ...(replanned ? { replanned: true, appliedPlanId: rec.planId } : {}),
   };
+  const undo: OperationUndo = { kind: "pre-state", moves: preState };
+  const op = deps.operations?.record({
+    tool: "apply_tab_layout",
+    status,
+    planId: input.planId,
+    request: input,
+    outcomes: results,
+    residual,
+    snapshotTokenBefore: before.snapshotToken,
+    snapshotTokenAfter: after.snapshotToken,
+    conflictMode: input.conflict,
+    ...(replanned ? { replanned: true } : {}),
+    undo,
+  });
+  if (op !== undefined) result.operationId = op.operationId;
+  return result;
 }

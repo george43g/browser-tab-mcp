@@ -123,6 +123,17 @@ cmd apply help="Apply a live-layout plan from browser-tab plan (needs daemon + e
     flag --plan help="planId from plan_tab_change (must still be current)" required=#true {
         arg <id>
     }
+    flag --conflict help="Stale-plan policy: error (default) | replan (same members, budget 1) | best-effort" {
+        arg <mode>
+    }
+}
+cmd operations help="Read the daemon's operation journal (apply/copy/cut executions)" {
+    flag --id help="Fetch one operation record" {
+        arg <operationId>
+    }
+    flag --limit help="How many recent operations to list (default 20)" {
+        arg <n>
+    }
 }
 cmd copy help="Reconstruct selected tabs at a destination; sources stay open (needs daemon)" {
     flag --selector help="Selector AST as JSON; @<file> or - for stdin" {

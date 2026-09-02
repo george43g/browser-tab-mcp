@@ -52,6 +52,7 @@ browser-tab close <tabId>    # close a tab
 browser-tab group remove --group <groupId>   # dissolve a group, keeping every tab
 browser-tab tui              # live tab manager (Ink)
 browser-tab mcp              # run the MCP server (stdio)
+browser-tab operations       # read the daemon's operation journal (apply/copy/cut executions)
 browser-tab doctor           # preflight: Automation permission, correlation tier
 browser-tab repl             # interactive REPL — same dispatcher as MCP
 ```
@@ -124,7 +125,7 @@ highlights; the contract test `tool-annotations.contract.test.ts` enforces the f
 | `list_tabs` | Windows + tabs across Chrome/Brave/Chromium/Edge/Safari with opaque handles, bounds, and `cgWindowId` (yabai join key). Filters: `browser`, `windowId`, `urlFilter`. | read-only, idempotent |
 | `select_tabs` | Resolve a control-language selector (identity/position/predicate/temporal + set algebra, signed one-based positions) against the live snapshot. Pure read: rows/ids/count plus resolution metadata — snapshotToken, warnings, live-move-domain uniformity — and a short-lived `selectionId` for follow-up planning calls. CLI: `browser-tab select --selector <json\|@file\|->`. | read-only, idempotent |
 | `plan_tab_change` | Plan ONE transform (move/setOrder/reverse/sort/pack) over a selection without applying it: ordered primitive effects, warnings, risk class, and a short-lived `planId` for `apply_tab_layout`. Policy violations fail at plan time with stable codes. CLI: `browser-tab plan`. | read-only |
-| `apply_tab_layout` | Apply a live-layout plan: state-preserving moves only, never reloads or closures. Not transactional — per-effect outcomes, actual final arrangements, residual reported honestly; stale plans refused. CLI: `browser-tab apply --plan <id>`. | |
+| `apply_tab_layout` | Apply a live-layout plan: state-preserving moves only, never reloads or closures. Not transactional — per-effect outcomes, actual final arrangements, residual reported honestly. Stale plans refused by default; `conflict:"replan"` re-plans the same members (budget 1), `"best-effort"` applies what still holds. Every execution lands in the operation journal with a §15 undo record (`browser-tab operations`). CLI: `browser-tab apply --plan <id> [--conflict <mode>]`. | |
 | `copy_tabs` | Reconstruct selected tabs at another window or browser; every source stays open. Copies load fresh; pinned intent carried; policy-refused URLs skipped per-item; `idempotencyKey` makes retries safe. CLI: `browser-tab copy --to-window\|--new-window`. | open-world |
 | `cut_tabs` | DESTRUCTIVE transfer: reconstruct at the destination, verify, then close the source — a source whose replacement did not verify is never closed. Requires `confirmDestruction:true` in the arguments. CLI: `browser-tab cut --confirm-destruction`. | destructive, open-world |
 | `focus_tab` | Activate a tab and — unless `raiseWindow:false` — un-minimize and raise its window. Returns the window's post-state for a window manager to act on. | |
