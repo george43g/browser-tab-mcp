@@ -18,6 +18,7 @@ import { assertValid, parseSelector, resolveSelector } from "@george43g/control-
 import { z } from "zod";
 import { type BrowserRef, makeBrowserDomain } from "../select/browser-domain.js";
 import type { Effect } from "../select/plan/effects.js";
+import { type EndStateInput, type PreparedRequest, planEndState } from "../select/plan/endstate.js";
 import { planTransform, type Transform } from "../select/plan/planner.js";
 import { mapTemporalProvider } from "../select/temporal.js";
 import type { JournalStore } from "./journal.js";
@@ -93,6 +94,47 @@ export const TransformSchema = z.discriminatedUnion("kind", [
     .strict(),
 ]);
 
+export const EndStateSchema = z
+  .object({
+    strict: z
+      .boolean()
+      .optional()
+      .describe(
+        "true = the listed tabs must be exactly each window's final content (§11.1); " +
+          "unlisted survivors are validation errors, never implied closes.",
+      ),
+    windows: z
+      .array(
+        z
+          .object({
+            windowId: z.string().describe("An EXISTING window handle."),
+            tabs: z
+              .array(
+                z.union([
+                  z.string().describe("Tab handle — implies move within one live-move domain."),
+                  z
+                    .object({
+                      tabId: z.string(),
+                      transport: z
+                        .enum(["copy", "cut", "auto"])
+                        .optional()
+                        .describe(
+                          'Required across a live-move-domain boundary. "auto" = move within ' +
+                            "a domain, copy across — never cut (§11.2).",
+                        ),
+                    })
+                    .strict(),
+                ]),
+              )
+              .min(1)
+              .describe("Desired leading run, in order; unlisted tabs keep relative order after."),
+          })
+          .strict(),
+      )
+      .min(1),
+  })
+  .strict();
+
 export const PlanTabChangeParamsSchema = z
   .object({
     selector: z.unknown().optional().describe("Inline selector AST (control-language)."),
@@ -100,15 +142,30 @@ export const PlanTabChangeParamsSchema = z
       .string()
       .optional()
       .describe("A select_tabs materialized selection — must still be current."),
-    transform: z.unknown().describe("One transform (validated against TransformSchema)."),
+    transform: z
+      .unknown()
+      .optional()
+      .describe("One transform (validated against TransformSchema)."),
+    endState: z
+      .unknown()
+      .optional()
+      .describe(
+        "Declarative §11 end state (validated against EndStateSchema) — INSTEAD of a selection+transform.",
+      ),
     pinPolicy: z
       .enum(["skip"])
       .optional()
       .describe('How to treat pinned members: "skip" drops them (reported). Default: error.'),
   })
-  .refine((v) => (v.selector === undefined) !== (v.selectionId === undefined), {
-    message: "provide exactly one of selector | selectionId",
-  });
+  .refine(
+    (v) =>
+      v.endState !== undefined
+        ? v.selector === undefined && v.selectionId === undefined && v.transform === undefined
+        : (v.selector === undefined) !== (v.selectionId === undefined) && v.transform !== undefined,
+    {
+      message: "provide (exactly one of selector | selectionId) + transform, OR endState alone",
+    },
+  );
 
 export interface PlanTabChangeResult {
   planId: string;
@@ -119,6 +176,15 @@ export interface PlanTabChangeResult {
   selectionKeys: string[];
   snapshotToken?: string | undefined;
   revision?: number | undefined;
+  /** Present when planned from an endState: the reconstructive halves as
+   * prepared requests, and the §11.5 live/copy/cut counts. */
+  endState?:
+    | {
+        additive: PreparedRequest[];
+        destructive: PreparedRequest[];
+        counts: { live: number; copy: number; cut: number };
+      }
+    | undefined;
 }
 
 export interface PlanChangeDeps {
@@ -133,7 +199,6 @@ export function planTabChange(
   deps: PlanChangeDeps,
 ): PlanTabChangeResult {
   const input = PlanTabChangeParamsSchema.parse(params);
-  const transform = TransformSchema.parse(input.transform) as Transform;
 
   const snapshot = deps.store.getSnapshot();
   const temporal = deps.journal.temporalSnapshot();
@@ -141,6 +206,42 @@ export function planTabChange(
     temporal: mapTemporalProvider(temporal.focused, temporal.navigated),
     focusedWindowHint: deps.journal.windowMru(1)[0]?.windowId,
   });
+
+  if (input.endState !== undefined) {
+    const endState = EndStateSchema.parse(input.endState) as EndStateInput;
+    const plan = planEndState(endState, snapshot, domain);
+    // Only the LIVE half materializes as an applyable plan; the prepared
+    // copy/cut requests ride the result for the caller to submit
+    // deliberately (§26.2 risk coherence — the solver's own header).
+    // No transform is stored: an end-state plan is not replannable by
+    // ids+transform; conflict:"replan" on it is refused with a pointer here.
+    const liveTabIds = [
+      ...new Set(plan.effects.flatMap((e) => (e.kind === "relocate" ? [e.tabId] : []))),
+    ];
+    const record = deps.plans.materialize({
+      riskClass: "live-layout",
+      effects: plan.effects,
+      warnings: plan.warnings,
+      selectionKeys: liveTabIds,
+      snapshotToken: snapshot.snapshotToken ?? "",
+    });
+    return {
+      planId: record.planId,
+      riskClass: record.riskClass,
+      effects: record.effects,
+      effectCount: record.effects.length,
+      warnings: record.warnings,
+      selectionKeys: record.selectionKeys,
+      snapshotToken: snapshot.snapshotToken,
+      revision: snapshot.revision,
+      endState: {
+        additive: plan.additive,
+        destructive: plan.destructive,
+        counts: plan.counts,
+      },
+    };
+  }
+  const transform = TransformSchema.parse(input.transform) as Transform;
 
   let refs: BrowserRef[];
   const warnings: string[] = [];

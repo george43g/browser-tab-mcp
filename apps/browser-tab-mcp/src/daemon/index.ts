@@ -921,15 +921,24 @@ export async function startDaemon(): Promise<DaemonHandle> {
         // conflict:"replan" — identity-preserving by design: the SAME members
         // (stored keys, missing ⇒ error), never the original selector, so a
         // conflict retry cannot silently widen scope.
-        replan: (stale) =>
-          runPlanTabChange(
+        replan: (stale) => {
+          if (stale.transform === undefined) {
+            // End-state plans store no ids+transform intent — re-declaring
+            // the layout against fresh state is the caller's call, not ours.
+            throw new Error(
+              'this plan was made from an endState — conflict:"replan" cannot re-derive it; ' +
+                "re-run plan_tab_change with the end state.",
+            );
+          }
+          return runPlanTabChange(
             {
               selector: { kind: "ids", ids: stale.selectionKeys },
               transform: stale.transform,
               ...(stale.pinPolicy !== undefined ? { pinPolicy: stale.pinPolicy } : {}),
             },
             { store, journal, selections, plans },
-          ),
+          );
+        },
       }),
     onListOperations: async (params) =>
       operations.list(Number((params as { limit?: unknown }).limit ?? 20)),
