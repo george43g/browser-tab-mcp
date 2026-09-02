@@ -234,6 +234,17 @@
       ]
     },
     {
+      "surface": "apply_tab_layout",
+      "kind": "tool",
+      "coverage": [
+        {
+          "tier": "chromium-e2e",
+          "covers": "the full plan→apply loop against a REAL browser: a planned reverse applied through the daemon flips chrome.tabs.query's own order exactly, status success with empty residual, and a re-apply of the consumed plan is refused as stale (its own application moved the state it was planned against)",
+          "evidence": "apps/chrome-extension/e2e/select.e2e.test.ts"
+        }
+      ]
+    },
+    {
       "surface": "plan_tab_change",
       "kind": "tool",
       "coverage": [

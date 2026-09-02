@@ -116,6 +116,11 @@ cmd select help="Resolve a control-language selector against the live snapshot (
         }
     }
 }
+cmd apply help="Apply a live-layout plan from browser-tab plan (needs daemon + extension)" {
+    flag --plan help="planId from plan_tab_change (must still be current)" required=#true {
+        arg <id>
+    }
+}
 cmd plan help="Plan one tab transform without applying it (needs daemon)" {
     flag --selector help="Selector AST as JSON; @<file> or - for stdin" {
         arg <json>

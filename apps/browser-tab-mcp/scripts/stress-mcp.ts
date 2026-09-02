@@ -549,6 +549,10 @@ async function caseContentFakeAdapter(): Promise<void> {
       ),
     );
     record(
+      "apply_tab_layout without daemon errors cleanly",
+      /daemon/i.test(await text("apply_tab_layout", { planId: "deadbeef" })),
+    );
+    record(
       "plan_tab_change with an unknown transform is rejected by schema",
       /Invalid arguments/i.test(
         await text("plan_tab_change", {

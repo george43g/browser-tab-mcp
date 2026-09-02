@@ -46,6 +46,7 @@ import {
 import { callMcpTool } from "../dispatcher.js";
 import { APP_VERSION, buildStamp } from "../meta.js";
 import { AnnotationStore } from "./annotations.js";
+import { applyTabLayout as runApplyTabLayout } from "./apply.js";
 import { bookmarks } from "./bookmarks.js";
 import { ContentCache } from "./content-cache.js";
 import { EngineLoop, pollMs } from "./engine-loop.js";
@@ -886,6 +887,13 @@ export async function startDaemon(): Promise<DaemonHandle> {
     onSelectTabs: async (params) => runSelectTabs(params, { store, journal, selections }),
     onPlanTabChange: async (params) =>
       runPlanTabChange(params, { store, journal, selections, plans }),
+    onApplyTabLayout: (params) =>
+      runApplyTabLayout(params, {
+        store,
+        plans,
+        runCommand: (p) => executeCommand(p, { refresh: () => loop.refresh(), ext }),
+        refresh: () => loop.refresh(),
+      }),
     onGetPlan: async (params) => {
       const id = String((params as { planId?: unknown }).planId ?? "");
       const rec = plans.get(id, store.getSnapshot().snapshotToken);
