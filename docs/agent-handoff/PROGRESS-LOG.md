@@ -3052,3 +3052,62 @@ snapshot-bound selections ready for Phase 3's `plan_tab_change`. Repo clean,
 
 `main` @ `37c3ed2` (v1.7.0), clean, 0/0 vs origin. Dirty after this
 checkpoint: only this file, on branch `docs/checkpoint-15`.
+
+# Checkpoint #16 — 2026-09-02 (session `browser-tab-mcp`)
+
+Where this entry and the compaction summary disagree, this entry is correct.
+
+## State
+
+**v1.8.0 released and verified** (`release:check` ok). Phase 3 is 3-of-5 PRs
+in: the DSL now selects, plans, AND applies — `apply_tab_layout` moved real
+tabs in e2e (64/64), and the full loop is ledger-evidenced. `main` @
+`e940c2f`, clean, zero open PRs. George's daemon still runs v1.7.0 — the
+plan/apply IPC methods need a restart to be live on his box; batching that
+offer with the F/G completion rather than churning restarts.
+
+## Done (all merged on green, this checkpoint's span)
+
+- **#147** `bf0b76c` — PR-C: effect IR (neighbor-identity positioning, §14.2),
+  LIS-minimal relocations (verified against an independent O(n²) reference
+  over 60 seeded permutations), §7 policy table at plan time with stable
+  PlanError codes, §9.6 example pinned verbatim, PlanStore, **B24 shipped**
+  (journal-MRU focused-window fallback — vacancy-only, disclosed).
+- **#149** `5d93250` — PR-D: plan_tab_change (stale-selection refusal,
+  discriminated transform schemas, CLI `plan`, e2e proves planning implies
+  exactly the target arrangement AND leaves the browser untouched).
+- **#150** — PR-E: apply_tab_layout (risk-class gate, local-simulation index
+  translation incl. the remove-then-insert off-by-one, abort-with-skips,
+  honest residual). **Real-browser catch:** the batch-level read-after-write
+  race — per-move settled reads held, but the post-apply refresh merged an
+  extension snapshot predating the last push; fixed with a bounded
+  settle-retry (≤3×150ms), pinned at unit + e2e tiers.
+- **#148** `e940c2f` — release 1.8.0, verified.
+- Earlier same session (checkpoint #15 covers): v1.6.0, v1.7.0, robustness
+  0.14.1, daemon restart + starvation evidence to `mcp-starter-template`,
+  B21 closed, B23/B24 filed, George's three answers executed.
+
+## Open
+
+- `dsl-phase-3-fg · browser-tab-mcp` — copy_tabs (PR-F) then cut_tabs (PR-G),
+  per the phase plan; not started.
+- `npm-publish-or-readme · browser-tab-mcp` — George's call: publish, or fix
+  the README's 404 install instructions. Asked 2026-09-02, unanswered.
+- `daemon-restart-1.8 · browser-tab-mcp` — after F/G (supersedes -1.7's
+  completion; his daemon serves 1.7.0).
+- `b23-cache-file-vanish · browser-tab-mcp` — unchanged, never attempted.
+
+## Traps (new this span)
+
+- An UNASSERTED string-replace in session tooling no-ops silently against
+  lint-wrapped text — the B21 assert-the-selector rule applies to one's own
+  python edits; typecheck caught the missing daemon wiring within a minute.
+- exec-style CLI failures carry the error envelope on STDOUT — assert
+  against `e.message + e.stdout`, not message alone.
+- Playwright + a concurrent `pnpm build` = ERR_MODULE_NOT_FOUND on hashed
+  chunks (recorded #15, bitten again — one writer to dist, always).
+
+## Tree
+
+`main` @ `e940c2f` (v1.8.0), clean, 0/0. Dirty after this checkpoint: only
+this file on `docs/checkpoint-16`.
