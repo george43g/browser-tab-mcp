@@ -28,6 +28,7 @@
     "verify": "pnpm lint && pnpm typecheck && pnpm test && pnpm build",
     "verify:macos": "node scripts/verify-macos.mjs",
     "sweep:macos": "node scripts/sweep-macos.mjs",
+    "deploy:local": "node scripts/deploy-local.mjs",
     "hooks:install": "git config core.hooksPath .githooks",
     "clean": "turbo run clean && node scripts/rimraf.mjs node_modules .turbo coverage"
   },

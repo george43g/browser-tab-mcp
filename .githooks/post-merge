@@ -1,0 +1,19 @@
+#!/bin/sh
+# Auto-deploy on main (George's 2026-09-03 directive; plan PR-H, ruled
+# auto-on-main-only). After a merge/pull ON MAIN that touched build inputs,
+# run the build → daemon restart → extension reload → verify loop so the
+# machine's live daemon never lags the code.
+#
+# ADVISORY BY CONSTRUCTION: this hook always exits 0. A failed deploy prints
+# how to retry, but it must never make `git pull` look broken — the pull
+# succeeded; only the deploy did not.
+#
+# Skips: not on main; CI; docs-only merges (nothing under apps/, packages/,
+# or scripts/ changed — a checkpoint merge must not restart the daemon).
+[ -n "$CI" ] && exit 0
+[ "$(git branch --show-current)" = "main" ] || exit 0
+if git diff-tree -r --name-only ORIG_HEAD HEAD 2>/dev/null | grep -qE '^(apps|packages|scripts)/'; then
+  node "$(git rev-parse --show-toplevel)/scripts/deploy-local.mjs" \
+    || echo "deploy:local failed (advisory) — retry with: pnpm deploy:local" >&2
+fi
+exit 0
