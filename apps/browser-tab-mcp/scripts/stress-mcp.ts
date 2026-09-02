@@ -549,6 +549,15 @@ async function caseContentFakeAdapter(): Promise<void> {
       ),
     );
     record(
+      "copy_tabs without daemon errors cleanly",
+      /daemon/i.test(
+        await text("copy_tabs", {
+          selector: { kind: "scope", scope: "allTabs" },
+          destination: { kind: "newWindow", browser: "chrome" },
+        }),
+      ),
+    );
+    record(
       "apply_tab_layout without daemon errors cleanly",
       /daemon/i.test(await text("apply_tab_layout", { planId: "deadbeef" })),
     );

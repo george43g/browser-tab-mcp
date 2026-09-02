@@ -245,6 +245,17 @@
       ]
     },
     {
+      "surface": "copy_tabs",
+      "kind": "tool",
+      "coverage": [
+        {
+          "tier": "chromium-e2e",
+          "covers": "additive reconstruction against a REAL browser: predicate-selected sources copied cross-window, chrome.tabs.query confirms every SOURCE still alive, the copies carry the source URLs under NEW tab identities, and the bystander window arrangement is otherwise untouched",
+          "evidence": "apps/chrome-extension/e2e/select.e2e.test.ts"
+        }
+      ]
+    },
+    {
       "surface": "plan_tab_change",
       "kind": "tool",
       "coverage": [

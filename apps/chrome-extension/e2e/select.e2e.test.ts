@@ -259,4 +259,73 @@ test.describe("select_tabs", () => {
       await c.windows.remove(winId);
     }, made.win);
   });
+
+  test("copy_tabs reconstructs at the destination and every source survives", async () => {
+    test.info().annotations.push({ type: "surface", description: "copy_tabs" });
+
+    const made = await stack.sw.evaluate(
+      async (urls) => {
+        const c = (globalThis as unknown as { chrome: typeof chrome }).chrome;
+        const w1 = await c.windows.create({ url: urls[0], focused: true });
+        const a = w1.tabs?.[0]?.id as number;
+        const b = (await c.tabs.create({ windowId: w1.id as number, url: urls[1] })).id as number;
+        const w2 = await c.windows.create({ url: "about:blank", focused: false });
+        return { w1: w1.id as number, w2: w2.id as number, a, b };
+      },
+      [server.url("/u/cp-a"), server.url("/u/cp-b")],
+    );
+    await stack.waitForTab(stack.tabHandle(made.b));
+    const w1Handle = stack.windowHandle(made.w1);
+    const w2Handle = stack.windowHandle(made.w2);
+
+    const out = JSON.parse(
+      await stack.daemon.cli([
+        "copy",
+        "--selector",
+        JSON.stringify({
+          kind: "where",
+          scope: { kind: "members", nodes: { kind: "ids", ids: [w1Handle] }, relation: "tabs" },
+          predicate: { kind: "cmp", field: "path", op: "prefix", value: "/u/cp-" },
+        }),
+        "--to-window",
+        w2Handle,
+        "--json",
+      ]),
+    ) as { status: string; items: Array<{ status: string; createdTabId?: string }> };
+    expect(out.status).toBe("success");
+    expect(out.items.map((i) => i.status)).toEqual(["created", "created"]);
+
+    // BROWSER truth: sources still live in w1; copies exist in w2 with the
+    // same URLs; and the copies are NEW tab identities.
+    const truth = await stack.sw.evaluate(
+      async (args) => {
+        const c = (globalThis as unknown as { chrome: typeof chrome }).chrome;
+        const w1tabs = await c.tabs.query({ windowId: args.w1 });
+        const w2tabs = await c.tabs.query({ windowId: args.w2 });
+        const path = (u?: string) => new URL(u ?? "about:blank").pathname;
+        return {
+          sourcesAlive: [args.a, args.b].every((id) => w1tabs.some((t) => t.id === id)),
+          copyPaths: w2tabs
+            .map((t) => path(t.url || (t as { pendingUrl?: string }).pendingUrl))
+            .filter((p) => p.startsWith("/u/cp-"))
+            .sort(),
+          copyIds: w2tabs.map((t) => t.id as number),
+        };
+      },
+      { w1: made.w1, w2: made.w2, a: made.a, b: made.b },
+    );
+    expect(truth.sourcesAlive).toBe(true);
+    expect(truth.copyPaths).toEqual(["/u/cp-a", "/u/cp-b"]);
+    expect(truth.copyIds).not.toContain(made.a);
+    expect(truth.copyIds).not.toContain(made.b);
+
+    await stack.sw.evaluate(
+      async (args) => {
+        const c = (globalThis as unknown as { chrome: typeof chrome }).chrome;
+        await c.windows.remove(args.w1);
+        await c.windows.remove(args.w2);
+      },
+      { w1: made.w1, w2: made.w2 },
+    );
+  });
 });

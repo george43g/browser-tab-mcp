@@ -90,6 +90,9 @@ Resolve a control\-language selector against the live snapshot (needs daemon)
 \fBapply\fR
 Apply a live\-layout plan from browser\-tab plan (needs daemon + extension)
 .TP
+\fBcopy\fR
+Reconstruct selected tabs at a destination; sources stay open (needs daemon)
+.TP
 \fBplan\fR
 Plan one tab transform without applying it (needs daemon)
 .TP
@@ -268,6 +271,28 @@ Apply a live\-layout plan from browser\-tab plan (needs daemon + extension)
 .TP
 \fB\-\-plan\fR \fI<id>\fR
 planId from plan_tab_change (must still be current)
+.SH "BROWSER-TAB COPY"
+Reconstruct selected tabs at a destination; sources stay open (needs daemon)
+.PP
+\fBUsage:\fR browser\-tab copy [OPTIONS]
+.PP
+\fBOptions:\fR
+.PP
+.TP
+\fB\-\-selector\fR \fI<json>\fR
+Selector AST as JSON; @<file> or \- for stdin
+.TP
+\fB\-\-selection\fR \fI<id>\fR
+A current select_tabs selectionId (instead of \-\-selector)
+.TP
+\fB\-\-to\-window\fR \fI<windowId>\fR
+Copy into an existing window
+.TP
+\fB\-\-new\-window\fR \fI<browser>\fR
+Copy into a new window in this browser
+.TP
+\fB\-\-idempotency\-key\fR \fI<key>\fR
+Retry\-safe: same key replays the stored outcome
 .SH "BROWSER-TAB PLAN"
 Plan one tab transform without applying it (needs daemon)
 .PP

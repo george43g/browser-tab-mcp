@@ -49,6 +49,7 @@ import { AnnotationStore } from "./annotations.js";
 import { applyTabLayout as runApplyTabLayout } from "./apply.js";
 import { bookmarks } from "./bookmarks.js";
 import { ContentCache } from "./content-cache.js";
+import { makeIdempotencyCache, copyTabs as runCopyTabs } from "./copy.js";
 import { EngineLoop, pollMs } from "./engine-loop.js";
 import { history } from "./history.js";
 import { HttpServer, httpPort } from "./http-server.js";
@@ -785,6 +786,7 @@ export async function startDaemon(): Promise<DaemonHandle> {
   const journal = new JournalStore();
   const selections = new SelectionStore();
   const plans = new PlanStore();
+  const copyIdempotency = makeIdempotencyCache();
   journal.warmFromDisk();
   const contentCache = new ContentCache();
   const annotations = new AnnotationStore();
@@ -887,6 +889,14 @@ export async function startDaemon(): Promise<DaemonHandle> {
     onSelectTabs: async (params) => runSelectTabs(params, { store, journal, selections }),
     onPlanTabChange: async (params) =>
       runPlanTabChange(params, { store, journal, selections, plans }),
+    onCopyTabs: (params) =>
+      runCopyTabs(params, {
+        store,
+        journal,
+        selections,
+        idempotency: copyIdempotency,
+        runCommand: (p) => executeCommand(p, { refresh: () => loop.refresh(), ext }),
+      }),
     onApplyTabLayout: (params) =>
       runApplyTabLayout(params, {
         store,
