@@ -3111,3 +3111,59 @@ offer with the F/G completion rather than churning restarts.
 
 `main` @ `e940c2f` (v1.8.0), clean, 0/0. Dirty after this checkpoint: only
 this file on `docs/checkpoint-16`.
+
+# Checkpoint #17 — 2026-09-02 (session `browser-tab-mcp`)
+
+Where this entry and the compaction summary disagree, this entry is correct.
+
+## State
+
+**The accepted five-tool MCP surface is COMPLETE and released as v1.9.0**
+(`release:check` ok): select_tabs → plan_tab_change → apply_tab_layout for
+live layout, copy_tabs/cut_tabs for reconstructive transfer. Every tool is
+ledger-evidenced at the chromium-e2e tier (66 e2e tests, floor-pinned),
+stress covers 44 checks, and the destructive-set contract now pins
+{bookmarks, close_tab, close_window, cut_tabs, tab_action}. `main` @
+`68f0d76`, clean, zero open PRs. George's daemon runs v1.7.0 — one restart
+(his call) puts the whole surface live on his box.
+
+## Done (this checkpoint's span, all merged on green)
+
+- **#152** `c915000` — copy_tabs: sources untouched BY CONSTRUCTION (no
+  close pathway in the module, pinned over the recorded command stream),
+  per-item policy skips, native pinned intent, one-new-window-per-call,
+  idempotent replay.
+- **#154** `dd8eb5c` — cut_tabs: the §9.4 sequence as seven unit contracts
+  (create→verify→close ordering; schema-level confirmDestruction with no
+  truthy substitute; per-item source survival; all-before-close holdback;
+  loud close-failures) + dual-truth e2e (sources GONE, bystander alive,
+  replacements verified). `daemon/reconstruct.ts` extracted as the shared
+  resolution for both reconstructive tools.
+- **#153** `68f0d76` — release 1.9.0, verified.
+
+## Phase 3 register vs the plan (plans/2026-09-02-dsl-phase-3-planner.md)
+
+All five PRs (C–G) landed. Deviations, each recorded in its PR: setOrder
+compiles to relocates rather than joining the IR; newWindow move
+destinations, unpin-first, and group-by-predicate staged; cut's
+failure-half e2e replaced by unit-tier command-stream pinning (a per-item
+creation failure cannot be forced deterministically in a real run).
+Still staged by design: end-state solver, MCP resources +
+resource_link, conflict:replan/undo, model-eval corpus (R6, Claude-only).
+
+## Open
+
+- `daemon-restart-1.9 · browser-tab-mcp` — supersedes -1.8: one restart
+  puts select/plan/apply/copy/cut live on George's box. HIS CALL (ground
+  rule 4 adjacent — daemon lifecycle).
+- `npm-publish-or-readme · browser-tab-mcp` — unanswered since asked.
+- `dsl-staged-tail · browser-tab-mcp` — the staged items above; next
+  planning round when George wants them.
+- `b23-cache-file-vanish · browser-tab-mcp` — unchanged, never attempted.
+- `robustness-starvation-evidence · mcp-starter-template` (elsewhere) —
+  awaiting the next real load storm on 0.14.1.
+
+## Tree
+
+`main` @ `68f0d76` (v1.9.0), clean, 0/0. Dirty after this checkpoint: only
+this file on `docs/checkpoint-17`.
