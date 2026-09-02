@@ -503,6 +503,43 @@ export function buildProgram(): Command {
     });
 
   program
+    .command("plan")
+    .description("Plan one tab transform without applying it (needs daemon)")
+    .option("--selector <json>", "Selector AST as JSON; @<file> or `-` for stdin")
+    .option("--selection <id>", "A current select_tabs selectionId (instead of --selector)")
+    .requiredOption("--transform <json>", "Transform as JSON; @<file> or `-` for stdin")
+    .addOption(new Option("--pin-policy <p>", "Pinned members policy").choices(["skip"]))
+    .action(
+      async (opts: {
+        selector?: string;
+        selection?: string;
+        transform: string;
+        pinPolicy?: string;
+      }) => {
+        const json = program.opts<{ json?: boolean }>().json ?? false;
+        const readJsonArg = (raw: string, flag: string): unknown => {
+          let text = raw;
+          if (raw === "-") text = readFileSync(0, "utf8");
+          else if (raw.startsWith("@")) text = readFileSync(raw.slice(1), "utf8");
+          try {
+            return JSON.parse(text);
+          } catch (err) {
+            throw new Error(`${flag} is not valid JSON: ${(err as Error).message}`);
+          }
+        };
+        const result = await callMcpTool("plan_tab_change", {
+          ...(opts.selector !== undefined
+            ? { selector: readJsonArg(opts.selector, "--selector") }
+            : {}),
+          ...(opts.selection !== undefined ? { selectionId: opts.selection } : {}),
+          transform: readJsonArg(opts.transform, "--transform"),
+          ...(opts.pinPolicy !== undefined ? { pinPolicy: opts.pinPolicy } : {}),
+        });
+        await printResult(result, json, "plan_tab_change");
+      },
+    );
+
+  program
     .command("annotate")
     .description("Read or write a URL-keyed note in the daemon annotation store")
     .argument("<url>", "The page URL to annotate")

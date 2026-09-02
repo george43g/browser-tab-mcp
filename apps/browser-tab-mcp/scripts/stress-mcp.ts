@@ -539,6 +539,24 @@ async function caseContentFakeAdapter(): Promise<void> {
       "select_tabs with an invalid selector is rejected by schema",
       /Invalid arguments/i.test(await text("select_tabs", { selector: { kind: "nonsense" } })),
     );
+    record(
+      "plan_tab_change without daemon errors cleanly",
+      /daemon/i.test(
+        await text("plan_tab_change", {
+          selector: { kind: "scope", scope: "allTabs" },
+          transform: { kind: "reverse" },
+        }),
+      ),
+    );
+    record(
+      "plan_tab_change with an unknown transform is rejected by schema",
+      /Invalid arguments/i.test(
+        await text("plan_tab_change", {
+          selector: { kind: "scope", scope: "allTabs" },
+          transform: { kind: "interleave" },
+        }),
+      ),
+    );
   } finally {
     c.kill();
     await c.waitExit();

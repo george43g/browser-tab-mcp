@@ -93,6 +93,34 @@ describe("daemon IPC", () => {
     }
   });
 
+  it("planTabChange over IPC carries the live-move-domain refusal; getPlan errors actionably", async () => {
+    // The fake-adapter daemon has NO extension-connected browser, so zero
+    // live-move domains exist and the §24.5 gate must refuse ALL live
+    // planning — the refusal crossing the wire intact IS the transport
+    // proof. The success path is unit-proven (plan-change.test.ts, an
+    // extension-connected fixture) and e2e-proven (select.e2e.test.ts
+    // against a real extension).
+    await startTestDaemon();
+    const client = new DaemonClient();
+    try {
+      const sel = await client.request<{ resolution: { selectionId: string } }>("selectTabs", {
+        selector: { kind: "scope", scope: "allTabs" },
+        projection: "ids",
+      });
+      await expect(
+        client.request("planTabChange", {
+          selectionId: sel.resolution.selectionId,
+          transform: { kind: "reverse" },
+        }),
+      ).rejects.toThrow(/live-move domain/);
+      await expect(client.request("getPlan", { planId: "ffffffff" })).rejects.toThrow(
+        /unknown or expired/,
+      );
+    } finally {
+      client.close();
+    }
+  });
+
   it("selectTabs rejects an invalid selector with the language's own error shape", async () => {
     await startTestDaemon();
     const client = new DaemonClient();

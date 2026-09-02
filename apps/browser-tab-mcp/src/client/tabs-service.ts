@@ -321,6 +321,29 @@ export async function selectTabs(params: Record<string, unknown>): Promise<unkno
 }
 
 /**
+ * Plan one transform over a selection. Read-only planning; daemon-only for
+ * the same reasons as select_tabs, with the same never-impersonate-an-empty
+ * rule.
+ */
+export async function planTabChange(params: Record<string, unknown>): Promise<unknown> {
+  if (fakeAdapterEnabled()) {
+    throw new Error(
+      "plan_tab_change requires the daemon (merged snapshot + selection/plan stores) — not available in fixture mode.",
+    );
+  }
+  try {
+    return await viaDaemon((c) => c.request<unknown>("planTabChange", params));
+  } catch (err) {
+    if (err instanceof DaemonUnavailableError) {
+      throw new Error(
+        "plan_tab_change requires the daemon. Start it with `browser-tab daemon run`.",
+      );
+    }
+    throw err;
+  }
+}
+
+/**
  * Extract page content/state. Extension-only + daemon-only — there's no
  * AppleScript path and the cache lives in the daemon, so fixture mode and a
  * down daemon both surface an actionable error (not a silent empty).

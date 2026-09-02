@@ -57,6 +57,8 @@ import { buildSeedRecords, ingestExtEvent, ingestStoreEvent } from "./journal-in
 import { SourceMerger } from "./merge.js";
 import { findTabLocation, findWindowTabCount, resolveSignedIndex } from "./move-resolve.js";
 import { socketPath } from "./paths.js";
+import { planTabChange as runPlanTabChange } from "./plan-change.js";
+import { PlanStore } from "./plans.js";
 import { ShotRateLimiter, screenshot } from "./screenshot.js";
 import { selectTabs as runSelectTabs } from "./select.js";
 import { SelectionStore } from "./selections.js";
@@ -781,6 +783,7 @@ export async function startDaemon(): Promise<DaemonHandle> {
   loop.setOnTick(() => writer.heartbeat());
   const journal = new JournalStore();
   const selections = new SelectionStore();
+  const plans = new PlanStore();
   journal.warmFromDisk();
   const contentCache = new ContentCache();
   const annotations = new AnnotationStore();
@@ -881,6 +884,19 @@ export async function startDaemon(): Promise<DaemonHandle> {
             .map((b) => b.browser),
       }),
     onSelectTabs: async (params) => runSelectTabs(params, { store, journal, selections }),
+    onPlanTabChange: async (params) =>
+      runPlanTabChange(params, { store, journal, selections, plans }),
+    onGetPlan: async (params) => {
+      const id = String((params as { planId?: unknown }).planId ?? "");
+      const rec = plans.get(id, store.getSnapshot().snapshotToken);
+      if (rec === undefined) {
+        throw new Error(
+          `plan "${id}" is unknown or expired — plans are snapshot-bound and short-lived; ` +
+            `re-run plan_tab_change.`,
+        );
+      }
+      return rec;
+    },
     onGetSelection: async (params) => {
       const id = String((params as { selectionId?: unknown }).selectionId ?? "");
       const rec = selections.get(id, store.getSnapshot().snapshotToken);

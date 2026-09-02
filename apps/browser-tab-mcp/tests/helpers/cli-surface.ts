@@ -79,6 +79,7 @@ export const TOOL_CLI_FORM: Readonly<Record<string, string>> = {
   group_tabs: "group",
   get_page: "page",
   select_tabs: "select",
+  plan_tab_change: "plan",
   get_logs: "logs",
   bookmarks: "bookmark",
   // Subcommand forms — still fully reachable, just not the identity mapping.
