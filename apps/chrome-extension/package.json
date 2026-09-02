@@ -1,6 +1,6 @@
 {
   "name": "@george43g/chrome-extension",
-  "version": "1.8.0",
+  "version": "1.9.0",
   "private": true,
   "description": "browser-tab connector — Chrome MV3 extension. Streams tab/window state to the browser-tab daemon over a localhost WebSocket and executes true state-preserving tab moves (chrome.tabs.move). Load dist/ unpacked via chrome://extensions.",
   "type": "module",
