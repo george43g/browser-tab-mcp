@@ -56,6 +56,7 @@ function deps(temporal?: { focused?: Map<string, number>; navigated?: Map<string
       focused: temporal?.focused ?? new Map<string, number>(),
       navigated: temporal?.navigated ?? new Map<string, number>(),
     }),
+    windowMru: () => [],
   } as unknown as JournalStore;
   const selections = new SelectionStore();
   return { store, journal, selections };
@@ -126,6 +127,26 @@ describe("selectTabs", () => {
     expect(() => selectTabs({ selector: { kind: "scope", scope: "allTabz" } }, deps())).toThrow(
       /allTabs/,
     );
+  });
+
+  it("B24: focusedWindow falls back to the journal MRU window with a disclosed warning", () => {
+    const d = deps();
+    // No window is OS-focused (the user is in a terminal)…
+    const snap = d.store.getSnapshot();
+    for (const b of snap.browsers) for (const w of b.windows) w.focused = false;
+    // …and the journal knows the MRU window.
+    (d.journal as unknown as { windowMru: unknown }).windowMru = () => [
+      { windowId: "w:chrome:x1" },
+    ];
+    const out = selectTabs(
+      {
+        selector: { kind: "scope", scope: "tabsInFocusedWindow" },
+        projection: "ids",
+      },
+      d,
+    );
+    expect(out.ids).toEqual(["t:chrome:x10", "t:chrome:x11"]);
+    expect(out.resolution.warnings.join(" ")).toMatch(/most recently focused window/);
   });
 
   it("temporal predicates read the journal maps; unknown tabs are excluded", () => {

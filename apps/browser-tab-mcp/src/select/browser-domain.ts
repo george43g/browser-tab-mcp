@@ -120,6 +120,16 @@ function urlParts(url: string): UrlParts {
 
 export interface BrowserDomainOptions {
   temporal?: TemporalProvider;
+  /**
+   * B24 fallback: the most-recently-focused window (journal `windowMru(1)`),
+   * consulted ONLY when no window is OS-focused — on a real desktop, the
+   * user driving from a terminal means every browser window truthfully
+   * reports focused:false, which would otherwise empty the `focusedWindow`
+   * scope in the tool's primary use case.
+   */
+  focusedWindowHint?: string | undefined;
+  /** Fired when the hint was actually used, so callers can disclose it. */
+  onFocusFallback?: (() => void) | undefined;
 }
 
 export function makeBrowserDomain(
@@ -190,12 +200,30 @@ export function makeBrowserDomain(
       const b = snapshot.browsers.find((x) => x.browser === snapshot.focusedBrowser);
       const w = b?.windows.find((x) => x.focused);
       const ref = w === undefined ? undefined : byKey.get(w.windowId);
-      return ref ? [ref] : [];
+      if (ref) return [ref];
+      // focusedBrowser names a browser whose windows all report unfocused —
+      // measured live 2026-09-02 (B24): CG says "safari is frontmost among
+      // browsers" while the user is actually in a terminal, so no window is
+      // focused. Fall through to the vacancy fallback below.
+    } else {
+      const focusedRefs = windows.filter(
+        (r) => r.kind === "window" && r.window.focused && r.browser.running,
+      );
+      if (focusedRefs.length === 1) return focusedRefs;
+      // MULTIPLE focused windows is a contest, and a hint must not settle a
+      // contest — only fill a vacancy. Empty is the honest answer there.
+      if (focusedRefs.length > 1) return [];
     }
-    const focusedRefs = windows.filter(
-      (r) => r.kind === "window" && r.window.focused && r.browser.running,
-    );
-    return focusedRefs.length === 1 ? focusedRefs : [];
+    // B24 vacancy fallback: no window is OS-focused anywhere — degrade to
+    // the journal's most-recently-focused window, disclosed via callback.
+    if (opts.focusedWindowHint !== undefined) {
+      const hinted = byKey.get(opts.focusedWindowHint);
+      if (hinted?.kind === "window") {
+        opts.onFocusFallback?.();
+        return [hinted];
+      }
+    }
+    return [];
   };
 
   const groupMembers = (g: Extract<BrowserRef, { kind: "group" }>): BrowserRef[] => {
