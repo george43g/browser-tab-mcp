@@ -138,14 +138,15 @@ if (live === undefined) {
   process.exit(1);
 }
 
-// 5. Reload every connected extension from disk, then re-assert reconnection.
+// 5. Reload every extension from disk — but only AFTER it has reconnected to
+// the restarted daemon. Measured on the first live firing (2026-09-03): the
+// restart drops every extension session, they re-handshake over a few
+// seconds, and a reload issued before that lands on "session not connected" —
+// the browser then reconnects still running the PREVIOUS bundle while a
+// connection-only check calls the deploy ok. So: wait for reconnect, reload,
+// re-assert, and name any browser left un-reloaded in the verdict.
 const expected = Array.isArray(before.extensions) ? before.extensions : [];
-for (const browser of expected) {
-  const reload = cli("reload-extension", "--browser", String(browser), "--json");
-  if (reload.status !== 0) {
-    say(`warning: reload-extension ${browser} failed: ${reload.stderr || reload.stdout}`);
-  }
-}
+const unreloaded = [];
 if (expected.length > 0) {
   let connected = [];
   for (let i = 0; i < tries; i++) {
@@ -156,11 +157,35 @@ if (expected.length > 0) {
   const missing = expected.filter((b) => !connected.includes(b));
   if (missing.length > 0) {
     say(
-      `FAILED: extension(s) did not reconnect after reload: ${missing.join(", ")} ` +
+      `FAILED: extension(s) did not reconnect after the daemon restart: ${missing.join(", ")} ` +
+        `(connected: ${connected.join(", ") || "none"}).`,
+    );
+    process.exit(1);
+  }
+  for (const browser of expected) {
+    const reload = cli("reload-extension", "--browser", String(browser), "--json");
+    if (reload.status !== 0) {
+      unreloaded.push(browser);
+      say(`warning: reload-extension ${browser} failed: ${reload.stderr || reload.stdout}`);
+    }
+  }
+  for (let i = 0; i < tries; i++) {
+    connected = daemonStatus()?.extensions ?? [];
+    if (expected.every((b) => connected.includes(b))) break;
+    await sleep(pollMs);
+  }
+  const gone = expected.filter((b) => !connected.includes(b));
+  if (gone.length > 0) {
+    say(
+      `FAILED: extension(s) did not reconnect after reload: ${gone.join(", ")} ` +
         `(connected: ${connected.join(", ") || "none"}).`,
     );
     process.exit(1);
   }
 }
 
-say(`ok — daemon ${live.build}, extensions [${expected.join(", ") || "none"}] reconnected.`);
+const extNote =
+  unreloaded.length > 0
+    ? `extensions reloaded except [${unreloaded.join(", ")}] — reconnected but running the previous bundle; retry with \`browser-tab reload-extension\``
+    : `extensions [${expected.join(", ") || "none"}] reloaded and reconnected`;
+say(`ok — daemon ${live.build}, ${extNote}.`);

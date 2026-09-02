@@ -80,7 +80,7 @@ if (args.startsWith("daemon status")) {
 }
 if (args.startsWith("daemon restart")) process.exit(${world.restartExit ?? 0});
 if (args.startsWith("reload-extension")) {
-  state.reloads.push(args);
+  state.reloads.push(args + " @" + state.statusCalls);
   writeFileSync(stateFile, JSON.stringify(state));
   process.exit(${world.reloadExit ?? 0});
 }
@@ -158,12 +158,34 @@ describe("deploy-local", () => {
     const run = runDeploy(w);
     expect(run.status).toBe(0);
     expect(run.stdout).toMatch(/ok — daemon 1\.0\.0\+2\.abc1234/);
+    expect(run.stdout).toMatch(/reloaded and reconnected/);
     expect(readFileSync(join(w.dir, "pnpm-ran"), "utf8")).toBe("build");
     const state = JSON.parse(readFileSync(w.stateFile, "utf8"));
     expect(state.reloads).toEqual([
       expect.stringContaining("--browser chrome"),
       expect.stringContaining("--browser safari"),
     ]);
+    // Reload-after-reconnect ordering (the first live firing's finding): every
+    // reload must land after the post-restart reconnect wait has read status —
+    // ≥3 reads (presence probe, build-line verify, reconnect wait) before any.
+    for (const entry of state.reloads) {
+      expect(Number(entry.split("@")[1])).toBeGreaterThanOrEqual(3);
+    }
+  });
+
+  it("names a browser whose reload failed in the verdict, without failing the deploy", () => {
+    const w = makeWorld({
+      statuses: [
+        installedStatus("1.0.0+1.0ldsha0", ["chrome"]),
+        installedStatus("1.0.0+2.abc1234", ["chrome"]),
+      ],
+      reloadExit: 1,
+    });
+    const run = runDeploy(w);
+    expect(run.status).toBe(0);
+    expect(run.stdout).toMatch(/warning: reload-extension chrome failed/);
+    expect(run.stdout).toMatch(/reloaded except \[chrome\]/);
+    expect(run.stdout).toMatch(/running the previous bundle/);
   });
 
   it("FAILS when the restarted daemon never reports this commit's build line", () => {
