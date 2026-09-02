@@ -119,6 +119,22 @@ cmd select help="Resolve a control-language selector against the live snapshot (
         }
     }
 }
+cmd plan help="Plan one tab transform without applying it (needs daemon)" {
+    flag --selector help="Selector AST as JSON; @<file> or - for stdin" {
+        arg <json>
+    }
+    flag --selection help="A current select_tabs selectionId (instead of --selector)" {
+        arg <id>
+    }
+    flag --transform help="Transform as JSON; @<file> or - for stdin" required=#true {
+        arg <json>
+    }
+    flag --pin-policy help="Pinned members policy" {
+        arg <p> {
+            choices skip
+        }
+    }
+}
 cmd journal help="Show recorded focus/navigation history" {
     flag --view help="Which journal view to show" {
         arg "[view]" required=#false default=recent {

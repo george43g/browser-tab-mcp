@@ -27,6 +27,7 @@ import { moveTabTool } from "./move-tab.js";
 import { noopTool } from "./noop.js";
 import { openTabTool } from "./open-tab.js";
 import { openWindowTool } from "./open-window.js";
+import { planTabChangeTool } from "./plan-tab-change.js";
 import { screenshotTool } from "./screenshot.js";
 import { selectTabsTool } from "./select-tabs.js";
 import { setWindowTool } from "./set-window.js";
@@ -49,6 +50,7 @@ export function makeAppRegistry(): ToolRegistry {
     annotateTool,
     screenshotTool,
     selectTabsTool,
+    planTabChangeTool,
     journalTool,
     historyTool,
     bookmarksTool,

@@ -87,6 +87,9 @@ Restart a browser's connector extension from disk (dev deploy loop)
 \fBselect\fR
 Resolve a control\-language selector against the live snapshot (needs daemon)
 .TP
+\fBplan\fR
+Plan one tab transform without applying it (needs daemon)
+.TP
 \fBjournal\fR
 Show recorded focus/navigation history
 .TP
@@ -252,6 +255,25 @@ Selector AST as JSON; @<file> reads a file, \- reads stdin
 .TP
 \fB\-\-projection\fR \fI<p>\fR
 Result shape
+.SH "BROWSER-TAB PLAN"
+Plan one tab transform without applying it (needs daemon)
+.PP
+\fBUsage:\fR browser\-tab plan [OPTIONS]
+.PP
+\fBOptions:\fR
+.PP
+.TP
+\fB\-\-selector\fR \fI<json>\fR
+Selector AST as JSON; @<file> or \- for stdin
+.TP
+\fB\-\-selection\fR \fI<id>\fR
+A current select_tabs selectionId (instead of \-\-selector)
+.TP
+\fB\-\-transform\fR \fI<json>\fR
+Transform as JSON; @<file> or \- for stdin
+.TP
+\fB\-\-pin\-policy\fR \fI<p>\fR
+Pinned members policy
 .SH "BROWSER-TAB JOURNAL"
 Show recorded focus/navigation history
 .PP

@@ -234,6 +234,17 @@
       ]
     },
     {
+      "surface": "plan_tab_change",
+      "kind": "tool",
+      "coverage": [
+        {
+          "tier": "chromium-e2e",
+          "covers": "read-only planning against a REAL browser's window: the returned effects imply exactly the arrangement chrome.tabs.query shows would result, riskClass is live-layout, the browser state is asserted UNCHANGED after planning (a planner that mutates is the defect this row guards), and the planId round-trips",
+          "evidence": "apps/chrome-extension/e2e/select.e2e.test.ts"
+        }
+      ]
+    },
+    {
       "surface": "select_tabs",
       "kind": "tool",
       "coverage": [

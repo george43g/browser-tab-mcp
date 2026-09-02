@@ -117,4 +117,74 @@ test.describe("select_tabs", () => {
       await c.windows.remove(winId);
     }, made.win);
   });
+
+  test("plan_tab_change plans a reverse without touching the browser", async () => {
+    test.info().annotations.push({ type: "surface", description: "plan_tab_change" });
+
+    const made = await stack.sw.evaluate(
+      async (urls) => {
+        const c = (globalThis as unknown as { chrome: typeof chrome }).chrome;
+        const w = await c.windows.create({ url: urls[0], focused: true });
+        const a = w.tabs?.[0]?.id as number;
+        const b = (await c.tabs.create({ windowId: w.id as number, url: urls[1] })).id as number;
+        const o = (await c.tabs.create({ windowId: w.id as number, url: urls[2] })).id as number;
+        return { win: w.id as number, a, b, o };
+      },
+      [server.url("/u/pl-a"), server.url("/u/pl-b"), server.url("/u/pl-c")],
+    );
+    await stack.waitForTab(stack.tabHandle(made.o));
+    const winHandle = stack.windowHandle(made.win);
+
+    const before = await stack.sw.evaluate(async (winId) => {
+      const c = (globalThis as unknown as { chrome: typeof chrome }).chrome;
+      const tabs = await c.tabs.query({ windowId: winId });
+      return tabs.sort((x, y) => x.index - y.index).map((t) => t.id as number);
+    }, made.win);
+
+    const plan = JSON.parse(
+      await stack.daemon.cli([
+        "plan",
+        "--selector",
+        JSON.stringify({
+          kind: "members",
+          nodes: { kind: "ids", ids: [winHandle] },
+          relation: "tabs",
+        }),
+        "--transform",
+        JSON.stringify({ kind: "reverse" }),
+        "--json",
+      ]),
+    ) as {
+      planId: string;
+      riskClass: string;
+      effectCount: number;
+      effects: Array<{ kind: string; tabId: string; after: string | null }>;
+    };
+    expect(plan.riskClass).toBe("live-layout");
+    expect(plan.planId).toMatch(/^[0-9a-f]{8}$/);
+
+    // The effects imply EXACTLY the reversed arrangement: simulate the
+    // after-chain onto the browser-truth order.
+    const strip = before.map((id) => stack.tabHandle(id));
+    for (const e of plan.effects) {
+      expect(e.kind).toBe("relocate");
+      strip.splice(strip.indexOf(e.tabId), 1);
+      if (e.after === null) strip.unshift(e.tabId);
+      else strip.splice(strip.indexOf(e.after) + 1, 0, e.tabId);
+    }
+    expect(strip).toEqual([...before].reverse().map((id) => stack.tabHandle(id)));
+
+    // Planning must not have MOVED anything — browser truth unchanged.
+    const after = await stack.sw.evaluate(async (winId) => {
+      const c = (globalThis as unknown as { chrome: typeof chrome }).chrome;
+      const tabs = await c.tabs.query({ windowId: winId });
+      return tabs.sort((x, y) => x.index - y.index).map((t) => t.id as number);
+    }, made.win);
+    expect(after).toEqual(before);
+
+    await stack.sw.evaluate(async (winId) => {
+      const c = (globalThis as unknown as { chrome: typeof chrome }).chrome;
+      await c.windows.remove(winId);
+    }, made.win);
+  });
 });
