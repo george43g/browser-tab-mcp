@@ -540,6 +540,16 @@ export function buildProgram(): Command {
     );
 
   program
+    .command("apply")
+    .description("Apply a live-layout plan from `browser-tab plan` (needs daemon + extension)")
+    .requiredOption("--plan <id>", "planId from plan_tab_change (must still be current)")
+    .action(async (opts: { plan: string }) => {
+      const json = program.opts<{ json?: boolean }>().json ?? false;
+      const result = await callMcpTool("apply_tab_layout", { planId: opts.plan });
+      await printResult(result, json, "apply_tab_layout");
+    });
+
+  program
     .command("annotate")
     .description("Read or write a URL-keyed note in the daemon annotation store")
     .argument("<url>", "The page URL to annotate")

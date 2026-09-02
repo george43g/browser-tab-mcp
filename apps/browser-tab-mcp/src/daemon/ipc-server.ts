@@ -2,7 +2,7 @@
  * Unix-socket IPC server — the client API for MCP/CLI/TUI/wm-stack.
  *
  * Protocol: NDJSON, one JSON object per line.
- *   request:  { id, method: "getSnapshot"|"subscribe"|"unsubscribe"|"command"|"status"|"refresh"|"journal"|"getPage"|"annotate"|"screenshot"|"history"|"bookmarks"|"selectTabs"|"getSelection"|"planTabChange"|"getPlan", params? }
+ *   request:  { id, method: "getSnapshot"|"subscribe"|"unsubscribe"|"command"|"status"|"refresh"|"journal"|"getPage"|"annotate"|"screenshot"|"history"|"bookmarks"|"selectTabs"|"getSelection"|"planTabChange"|"getPlan"|"applyTabLayout", params? }
  *   response: { id, ok: true, result } | { id, ok: false, error, hint? }
  *   events (after subscribe): DaemonEvent objects (see state.ts)
  *
@@ -41,6 +41,7 @@ export interface IpcServerOptions {
   onGetSelection: (params: Record<string, unknown>) => Promise<unknown>;
   onPlanTabChange: (params: Record<string, unknown>) => Promise<unknown>;
   onGetPlan: (params: Record<string, unknown>) => Promise<unknown>;
+  onApplyTabLayout: (params: Record<string, unknown>) => Promise<unknown>;
 }
 
 export class IpcServer {
@@ -179,6 +180,9 @@ export class IpcServer {
           break;
         case "getPlan":
           reply({ ok: true, result: await this.opts.onGetPlan(req.params ?? {}) });
+          break;
+        case "applyTabLayout":
+          reply({ ok: true, result: await this.opts.onApplyTabLayout(req.params ?? {}) });
           break;
         default:
           reply({ ok: false, error: `unknown method "${req.method}"` });

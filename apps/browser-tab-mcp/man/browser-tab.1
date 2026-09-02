@@ -87,6 +87,9 @@ Restart a browser's connector extension from disk (dev deploy loop)
 \fBselect\fR
 Resolve a control\-language selector against the live snapshot (needs daemon)
 .TP
+\fBapply\fR
+Apply a live\-layout plan from browser\-tab plan (needs daemon + extension)
+.TP
 \fBplan\fR
 Plan one tab transform without applying it (needs daemon)
 .TP
@@ -255,6 +258,16 @@ Selector AST as JSON; @<file> reads a file, \- reads stdin
 .TP
 \fB\-\-projection\fR \fI<p>\fR
 Result shape
+.SH "BROWSER-TAB APPLY"
+Apply a live\-layout plan from browser\-tab plan (needs daemon + extension)
+.PP
+\fBUsage:\fR browser\-tab apply [OPTIONS]
+.PP
+\fBOptions:\fR
+.PP
+.TP
+\fB\-\-plan\fR \fI<id>\fR
+planId from plan_tab_change (must still be current)
 .SH "BROWSER-TAB PLAN"
 Plan one tab transform without applying it (needs daemon)
 .PP

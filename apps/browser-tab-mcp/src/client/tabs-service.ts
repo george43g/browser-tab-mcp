@@ -344,6 +344,28 @@ export async function planTabChange(params: Record<string, unknown>): Promise<un
 }
 
 /**
+ * Apply a live-layout plan. Daemon-only; the daemon refuses stale plans and
+ * any plan whose riskClass is not live-layout.
+ */
+export async function applyTabLayout(params: Record<string, unknown>): Promise<unknown> {
+  if (fakeAdapterEnabled()) {
+    throw new Error(
+      "apply_tab_layout requires the daemon and a live plan — not available in fixture mode.",
+    );
+  }
+  try {
+    return await viaDaemon((c) => c.request<unknown>("applyTabLayout", params));
+  } catch (err) {
+    if (err instanceof DaemonUnavailableError) {
+      throw new Error(
+        "apply_tab_layout requires the daemon. Start it with `browser-tab daemon run`.",
+      );
+    }
+    throw err;
+  }
+}
+
+/**
  * Extract page content/state. Extension-only + daemon-only — there's no
  * AppleScript path and the cache lives in the daemon, so fixture mode and a
  * down daemon both surface an actionable error (not a silent empty).

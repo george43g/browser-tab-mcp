@@ -187,4 +187,76 @@ test.describe("select_tabs", () => {
       await c.windows.remove(winId);
     }, made.win);
   });
+
+  test("apply_tab_layout applies a planned reverse — the browser's own order flips", async () => {
+    test.info().annotations.push({ type: "surface", description: "apply_tab_layout" });
+
+    const made = await stack.sw.evaluate(
+      async (urls) => {
+        const c = (globalThis as unknown as { chrome: typeof chrome }).chrome;
+        const w = await c.windows.create({ url: urls[0], focused: true });
+        const a = w.tabs?.[0]?.id as number;
+        const b = (await c.tabs.create({ windowId: w.id as number, url: urls[1] })).id as number;
+        const o = (await c.tabs.create({ windowId: w.id as number, url: urls[2] })).id as number;
+        return { win: w.id as number, a, b, o };
+      },
+      [server.url("/u/ap-a"), server.url("/u/ap-b"), server.url("/u/ap-c")],
+    );
+    await stack.waitForTab(stack.tabHandle(made.o));
+    const winHandle = stack.windowHandle(made.win);
+
+    const before = await stack.sw.evaluate(async (winId) => {
+      const c = (globalThis as unknown as { chrome: typeof chrome }).chrome;
+      const tabs = await c.tabs.query({ windowId: winId });
+      return tabs.sort((x, y) => x.index - y.index).map((t) => t.id as number);
+    }, made.win);
+
+    const plan = JSON.parse(
+      await stack.daemon.cli([
+        "plan",
+        "--selector",
+        JSON.stringify({
+          kind: "members",
+          nodes: { kind: "ids", ids: [winHandle] },
+          relation: "tabs",
+        }),
+        "--transform",
+        JSON.stringify({ kind: "reverse" }),
+        "--json",
+      ]),
+    ) as { planId: string };
+
+    const applied = JSON.parse(
+      await stack.daemon.cli(["apply", "--plan", plan.planId, "--json"]),
+    ) as { status: string; residual: unknown[] };
+    expect(applied.status).toBe("success");
+    expect(applied.residual).toEqual([]);
+
+    // BROWSER truth: the window's real order is now the reverse.
+    const after = await stack.sw.evaluate(async (winId) => {
+      const c = (globalThis as unknown as { chrome: typeof chrome }).chrome;
+      const tabs = await c.tabs.query({ windowId: winId });
+      return tabs.sort((x, y) => x.index - y.index).map((t) => t.id as number);
+    }, made.win);
+    expect(after).toEqual([...before].reverse());
+
+    // A second apply of the SAME plan must be refused as stale — the state
+    // it was planned against is gone (its own application moved it).
+    const rerun = await stack.daemon
+      .cli(["apply", "--plan", plan.planId, "--json"])
+      .then(() => "UNEXPECTED_SUCCESS")
+      .catch(
+        // exec-style errors carry the CLI's stdout (where the error envelope
+        // prints) alongside message; the refusal reason lives there.
+        (e: Error & { stdout?: string; stderr?: string }) =>
+          `${e.message} ${e.stdout ?? ""} ${e.stderr ?? ""}`,
+      );
+    expect(rerun).not.toBe("UNEXPECTED_SUCCESS");
+    expect(rerun).toMatch(/different snapshot|unknown or expired/);
+
+    await stack.sw.evaluate(async (winId) => {
+      const c = (globalThis as unknown as { chrome: typeof chrome }).chrome;
+      await c.windows.remove(winId);
+    }, made.win);
+  });
 });

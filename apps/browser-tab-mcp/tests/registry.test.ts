@@ -22,6 +22,7 @@ const EXPECTED = [
   "close_window",
   "get_page",
   "annotate",
+  "apply_tab_layout",
   "plan_tab_change",
   "screenshot",
   "select_tabs",
