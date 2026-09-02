@@ -47,8 +47,12 @@ yarn-error.log*
 *.swp
 *.swo
 
-# Per-developer agent tooling scaffolding (not part of the project)
-.agents/
+# Per-developer agent tooling scaffolding (not part of the project) — EXCEPT
+# .agents/skills, which Codex actually reads: those are tracked symlinks into
+# .claude/skills so both tools get the same bytes (the untracked byte-copy is
+# how the PR SOP silently diverged; 2026-09-02 harness audit).
+.agents/*
+!.agents/skills
 .codex/
 
 # Generated Safari Xcode project (regenerate with

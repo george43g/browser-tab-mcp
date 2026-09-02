@@ -1047,6 +1047,14 @@ in CI rather than rediscovered. Proven feasible — see R2/E2.
   clears, so the reported trigger may differ. Needs one live TUI check.
 
 ### B10. Pointer: the selection-DSL + deep-control-architecture work is UNTRACKED and USER-GATED
+
+> **STALE 2026-09-03 (row kept as history — it is another agent's record).**
+> Every fact this row was written to carry has since resolved: the artifacts
+> were TRACKED verbatim by `a93b853` (#123), the root-level duplicate was
+> deleted by `e482ad6`, and the user gate CLOSED 2026-09-02 with George's
+> kickoff (adaptation record §1). The workstream itself shipped v1.6.0→v1.10.0
+> (checkpoints #13–#20). Surfaced by the 2026-09-02 harness-drift audit.
+
 Recorded here because BACKLOG.md did not mention it at all, so it was invisible
 to any register built from this file. **This is another agent's work — a Codex
 session, 2026-08-22 — and this row is a POINTER, not a restatement; do not edit
@@ -1731,6 +1739,37 @@ out an ordinary uncaught exception (Node prints those). Next step when it
 fires again: log the child's env/spawn args and the case name in the crash
 message, and check the Windows runner's resource pressure at that timestamp.
 Frequency so far: 2 in roughly a day of CI runs across ~15 PRs. Owner:
+unclaimed.
+
+### B28. AGENTS.md line budget — George's call, with an agreed proposal
+
+Filed 2026-09-03 from the harness-drift audit's sharpest cross-repo finding
+(entry points without a line budget accumulated false claims; 508 lines
+here) and the follow-up exchange with the auditing session, which WITHDREW
+the shrink recommendation for this repo: the long sections are measured
+post-mortems the audit itself praised, and the false claims clustered in
+CI/testing summaries now held mechanically (docs-integrity contract test +
+the count-pointer regressions). Both sessions converged on: record the
+decision to stay long, WITH the boundary — proposed wording for the top of
+AGENTS.md: "this file is long by decision; post-mortem sections stay, and
+anything with a count or a path is pinned by test rather than prose."
+George approves, rewords, or overrules toward shrink-to-map. Owner: George.
+
+### B27. readme-check cannot demand the RELEVANT readme; adopt the check-registry convention
+
+Filed 2026-09-03 from the harness-drift audit (dotfiles session, finding 6,
+verified): `readme-check.yml:57` counts ANY changed `README.md` — editing the
+ROOT readme satisfies a change under `packages/extension-core/src/`. The
+check does what its own header claims ("a README"), but not what its NAME
+implies (the readme covering the changed code). Fix shape: require the
+nearest README up-tree from each changed source file, falling back to root —
+needs care not to manufacture false failures for cross-cutting changes, so
+it was not rushed at audit time. Fold into the same PR: George's accepted
+check-registry convention (one composing entry point CI and hooks both
+invoke; every check named; an orphaned-check enforcer whose exemptions carry
+machine-evaluable reasons) — `pnpm verify` is the natural entry point and
+this repo's checks (verify, check:usage, docs-integrity, readme-check,
+release:check, verify:macos) are the inventory to register. Owner:
 unclaimed.
 
 ### B26 (parked — fires at DSL-workstream end). George's feature-set completeness review

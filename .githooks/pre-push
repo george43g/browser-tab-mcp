@@ -1,11 +1,12 @@
 #!/bin/sh
-# Runs the checks CI no longer can.
+# Runs the macOS checks more strictly than CI does.
 #
-# ci.yml has no macos-latest leg (see the comment on its matrix: 10x billing,
-# 71% of spend, ~nothing Linux did not already cover). The one real gap is
-# rust-accel's `#[cfg(target_os = "macos")]` CoreGraphics code, which no
-# non-Darwin runner compiles. This hook closes that gap at the last moment
-# before the code leaves the machine.
+# ci.yml HAS a macos-latest leg again — conditional on this repo being public
+# (free on public repos; 10x billing killed it while private, and it dies again
+# the day the repo goes private — see the matrix comment in ci.yml). This hook
+# stays either way because it does what no runner leg does: it LOADS the built
+# `.node` and calls listCgWindows()/listDisplays() for real, rather than just
+# compiling the `#[cfg(target_os = "macos")]` CoreGraphics code.
 #
 # It is deliberately NOT the whole bar: lint, typecheck, stress, coverage and
 # the Windows leg all still run in CI, and duplicating them here would make
