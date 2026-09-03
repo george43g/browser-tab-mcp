@@ -11,6 +11,13 @@
 
 This repo was generated from `mcp-cli-starter-template` via `mcp-scaffold init`.
 
+> **Length is a decision, not drift** (George, 2026-09-04, closing BACKLOG
+> B28): this file is long by decision; post-mortem sections stay, and anything
+> with a count or a path is pinned by test rather than prose
+> (`apps/browser-tab-mcp/tests/docs-integrity.contract.test.ts`). Adding prose
+> that restates what a file already says is the drift to resist — not the line
+> count.
+
 ## What This Repo Is
 
 macOS browser-tab detection & management for the yabai/Hammerspoon wm-stack (`~/dotfiles/wm-stack`): which tabs are open in which browser windows (Chrome, Brave, Chromium, Edge, Safari), joined to yabai window ids via `cgWindowId` (== CGWindowID), plus tab commands — including true state-preserving cross-window moves via the connector browser extension. The consumer contract lives in `docs/WM_STACK_CONTRACT.md`.

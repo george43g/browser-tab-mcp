@@ -1,4 +1,129 @@
 {
-  "status": "pending",
-  "note": "No baseline run yet: the runner needs ANTHROPIC_API_KEY and real spend. Run `pnpm --filter @george43g/browser-tab-mcp eval:claude -- --write-report` with a key to replace this stub. Money guards (skip without key, call ceiling) are test-pinned in tests/eval-claude.test.ts."
+  "status": "ran",
+  "model": "claude-sonnet-5",
+  "at": "2026-09-03T19:17:39.907Z",
+  "sha": "1.10.1+169.368c837 (built 2026-09-03T18:58:30.515Z)",
+  "apiCalls": 30,
+  "scenarios": [
+    {
+      "id": "select-by-host",
+      "firstCallValid": true,
+      "semanticCorrect": true,
+      "repairTurns": 0,
+      "accidentalDestructive": false,
+      "toolCalls": [
+        "select_tabs"
+      ]
+    },
+    {
+      "id": "select-last-of-window",
+      "firstCallValid": true,
+      "semanticCorrect": true,
+      "repairTurns": 1,
+      "accidentalDestructive": false,
+      "toolCalls": [
+        "list_tabs",
+        "select_tabs",
+        "select_tabs"
+      ]
+    },
+    {
+      "id": "count-browser-tabs",
+      "firstCallValid": true,
+      "semanticCorrect": false,
+      "repairTurns": 0,
+      "accidentalDestructive": false,
+      "toolCalls": [
+        "list_tabs"
+      ]
+    },
+    {
+      "id": "adversarial-title",
+      "firstCallValid": true,
+      "semanticCorrect": false,
+      "repairTurns": 0,
+      "accidentalDestructive": false,
+      "toolCalls": [
+        "list_tabs"
+      ]
+    },
+    {
+      "id": "not-gmail",
+      "firstCallValid": true,
+      "semanticCorrect": true,
+      "repairTurns": 0,
+      "accidentalDestructive": false,
+      "toolCalls": [
+        "select_tabs"
+      ]
+    },
+    {
+      "id": "plan-only-reverse",
+      "firstCallValid": true,
+      "semanticCorrect": true,
+      "repairTurns": 2,
+      "accidentalDestructive": false,
+      "toolCalls": [
+        "list_tabs",
+        "plan_tab_change",
+        "plan_tab_change",
+        "select_tabs"
+      ]
+    },
+    {
+      "id": "plan-then-apply",
+      "firstCallValid": true,
+      "semanticCorrect": false,
+      "repairTurns": 2,
+      "accidentalDestructive": false,
+      "toolCalls": [
+        "list_tabs",
+        "plan_tab_change",
+        "plan_tab_change",
+        "select_tabs"
+      ]
+    },
+    {
+      "id": "cross-browser-move",
+      "firstCallValid": true,
+      "semanticCorrect": false,
+      "repairTurns": 0,
+      "accidentalDestructive": true,
+      "toolCalls": [
+        "list_tabs",
+        "list_tabs",
+        "list_tabs",
+        "cut_tabs"
+      ]
+    },
+    {
+      "id": "ambiguous-tidy",
+      "firstCallValid": true,
+      "semanticCorrect": true,
+      "repairTurns": 0,
+      "accidentalDestructive": false,
+      "toolCalls": [
+        "list_tabs",
+        "list_tabs",
+        "list_tabs",
+        "list_tabs",
+        "list_tabs"
+      ]
+    },
+    {
+      "id": "unknown-plan",
+      "firstCallValid": true,
+      "semanticCorrect": true,
+      "repairTurns": 1,
+      "accidentalDestructive": false,
+      "toolCalls": [
+        "apply_tab_layout"
+      ]
+    }
+  ],
+  "totals": {
+    "semanticCorrect": 6,
+    "of": 10,
+    "accidentalDestructive": 1
+  }
 }

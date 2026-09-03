@@ -253,6 +253,10 @@ console.log(
     `${summary.totals.accidentalDestructive} accidental-destructive, ${apiCalls} API calls.`,
 );
 if (writeReport) {
+  // The report is TOOL-OWNED and therefore Biome-excluded (biome.json
+  // files.includes) — same principle as the mcpsync/napi/release-please
+  // files: this writer owns the format, so the formatter doesn't. Without
+  // that entry a real run turns `pnpm lint` red on expanded arrays.
   writeFileSync(REPORT, `${JSON.stringify(summary, null, 2)}\n`);
   console.log(`eval: report written to ${REPORT}`);
 }
