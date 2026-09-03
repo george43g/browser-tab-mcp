@@ -132,6 +132,17 @@ highlights; the contract test `tool-annotations.contract.test.ts` enforces the f
 | `move_tab` | Move a tab: same-window with signed `to` (one-based, `-1` = end) or relative `by: ±N`, across windows with `targetWindowId`. Signed forms are resolved by the daemon against a live snapshot. True state-preserving move via the extension; Safari AppleScript fallback with `allowReload:true`. | |
 | `open_tab` | Open an http(s) URL, optionally in a specific window/browser or in the background. | open-world |
 | `close_tab` | Close a tab. | destructive |
+| `tab_action` | Act on one tab: `mute`/`unmute`, `pin`/`unpin`, `discard`, `reload`, `navigate`, `back`/`forward`, `duplicate`. Extension covers all of them; the AppleScript path covers navigate/reload (+ back/forward on Chromium) and throws an actionable "needs the extension" error for the rest. `navigate` obeys the URL allowlist. CLI: `browser-tab act`. | destructive, open-world |
+| `group_tabs` | Chrome tab groups: `create`/`add`/`remove`/`update`/`move`, with title and colour. Extension-only (no AppleScript equivalent). `create` pins the group to the first live tab's own window — omitting that made Chrome group into the FOCUSED window and drag the tabs there. Stale ids are skipped per-item and returned in `payload.skippedTabIds`. CLI: `browser-tab group`. | |
+| `open_window` | Open a new browser window, optionally at explicit `bounds` or on a named `display`, optionally with a starting URL. Display targeting resolves through the native module; without it, explicit bounds still work. CLI: `browser-tab window open`. | open-world |
+| `set_window` | Move/resize a window (`bounds` or `display`) or set its state (`normal`/`minimized`/`maximized`/`fullscreen`). Under a tiling WM the WM wins — the call succeeds and the tiler re-tiles. CLI: `browser-tab window set`. | |
+| `close_window` | Close a window and every tab in it. CLI: `browser-tab window close`. | destructive |
+| `get_page` | Read a tab's content or live state — `metadata`, `text` (reader-mode via Readability), or `state` (dirty forms, media, scroll, selection, word count). Extension-only; cached per navigation epoch; the text is returned wrapped as untrusted content. CLI: `browser-tab page`. | read-only |
+| `annotate` | Read or write a URL-keyed note in the daemon's annotation store (ndjson, LRU 500 × 16KB). A cache substrate for whatever you decide notes mean — never intelligence of its own. CLI: `browser-tab annotate`. | idempotent |
+| `screenshot` | Capture a tab (`captureVisibleTab`, extension, 2/s per browser, fail-fast with a retry hint) or a whole window (`screencapture -l`, opt-in behind `BROWSER_TAB_WINDOW_CAPTURE=1` + Screen Recording consent). Returns an MCP image block; the base64 never rides the structured result. CLI: `browser-tab screenshot`. | |
+| `journal` | The daemon's session memory of where you have been: window/tab focus and committed navigations, as `windowMru`/`tabMru`/`journey`/`recent`. Distinct from `history` — this is focus memory, that is durable URL history. CLI: `browser-tab journal`. | read-only, idempotent |
+| `history` | The browser's own persisted URL history. Chrome-family via the extension; Safari via its `History.db` (opt-in behind `BROWSER_TAB_SAFARI_HISTORY=1` + Full Disk Access). Every result carries `sources` — one row per source considered, including the ones it never asked — so "Chrome-only rows" is never confused with "Safari had nothing". CLI: `browser-tab history`. | read-only, idempotent |
+| `bookmarks` | Search, list, create, update and remove bookmarks. Extension-only, and annotated destructive because `remove` is: a deleted bookmark has no undo. CLI: `browser-tab bookmark`. | destructive |
 | `daemon_status` | Daemon reachability, poll interval, correlation tier, per-browser counts + extension connectivity. | read-only |
 | `health_check` | Server/runtime snapshot. Never touches external I/O. | read-only, idempotent |
 | `noop` | Echo demo (Rust acceleration path). | read-only, idempotent |
@@ -334,6 +345,7 @@ ln -s "$(pwd)/skills/browser-tab/SKILL.md" ~/.claude/skills/browser-tab/SKILL.md
 | File | What it covers |
 |---|---|
 | [`AGENTS.md`](AGENTS.md) | Canonical agent guide (also `CLAUDE.md`, `.cursorrules` as symlinks) |
+| [`docs/CONTROL-SURFACE.md`](docs/CONTROL-SURFACE.md) | The whole control surface on one page — six axes, the deliberate boundaries, and the named gaps |
 | [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) | How packages fit together; which to delete if you don't need a surface |
 | [`docs/RUST_ACCELERATION.md`](docs/RUST_ACCELERATION.md) | napi-rs build, `.node` binary handling, drift-check between Zod and serde |
 | [`docs/TUI_DESIGN.md`](docs/TUI_DESIGN.md) | Theme system, keybindings, dev stats, cache invariants |

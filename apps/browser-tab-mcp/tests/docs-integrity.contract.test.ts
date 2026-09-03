@@ -18,6 +18,7 @@ import { existsSync, lstatSync, readdirSync, readFileSync, readlinkSync } from "
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
+import { makeAppRegistry } from "../src/tools/registry.js";
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "../../..");
 
@@ -141,6 +142,26 @@ describe("docs integrity", () => {
     const text = readFileSync(join(ROOT, "AGENTS.md"), "utf8");
     expect(text).not.toMatch(/runs the \d+ Playwright tests/);
     expect(text).toMatch(/EXPECTED_MIN_TESTS/);
+  });
+
+  it("README.md's Tools table lists EVERY registered tool — no silent omissions", () => {
+    // Measured 2026-09-04 during George's completeness review (B26): the table
+    // carried 14 of 25 tools while its own preamble reads "Every MCP tool is
+    // also a CLI subcommand" — so the omission read as a catalogue, not as a
+    // selection. The whole write-side (tab_action, group_tabs, the window
+    // trio), all of perception (get_page/annotate/screenshot) and all of
+    // memory (journal/history/bookmarks) were invisible to anyone entering
+    // through the front door. A prose table is allowed to be long; it is not
+    // allowed to be quietly partial.
+    const readme = readFileSync(join(ROOT, "README.md"), "utf8");
+    const section = readme.slice(readme.indexOf("\n## Tools\n"));
+    const table = section.slice(0, section.indexOf("\n### "));
+    const listed = new Set([...table.matchAll(/^\| `([a-z_]+)` \|/gm)].map((m) => m[1] as string));
+    const registered = makeAppRegistry().tools.map((t) => t.name);
+    const missing = registered.filter((n) => !listed.has(n));
+    const orphaned = [...listed].filter((n) => !registered.includes(n));
+    expect(missing, "tool(s) with no README row — add one, or the table is lying").toEqual([]);
+    expect(orphaned, "README row(s) for tools that no longer exist").toEqual([]);
   });
 
   it("AGENTS.md claims no enforcement it does not have for the stdout rule", () => {

@@ -26,7 +26,8 @@
       "!.mcp.json",
       "!.cursor/mcp.json",
       "!.warp/.mcp.json",
-      "!opencode.json"
+      "!opencode.json",
+      "!apps/browser-tab-mcp/evals/baseline-report.json"
     ]
   },
   "formatter": {
