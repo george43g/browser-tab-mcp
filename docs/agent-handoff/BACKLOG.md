@@ -1741,6 +1741,20 @@ message, and check the Windows runner's resource pressure at that timestamp.
 Frequency so far: 2 in roughly a day of CI runs across ~15 PRs. Owner:
 unclaimed.
 
+### B29. Model-eval baseline has never been RUN — the corpus ships, the numbers do not
+
+Filed 2026-09-04 so this lives in the register, not only in a checkpoint's
+Open section. `apps/browser-tab-mcp/evals/baseline-report.json` reads
+`"status": "pending"` — the corpus (10 scenarios) and runner shipped in PR
+#166, but no keyed run has happened, so this repo has ZERO evidence about
+whether a model understands the selection language (spec §26.4's whole
+point: MCP Inspector proves protocol, not comprehension). One command, needs
+George's key and real spend (≤60 API calls, refused above
+BROWSER_TAB_EVAL_MAX_CALLS before any spend):
+`pnpm --filter @george43g/browser-tab-mcp eval:claude -- --write-report`.
+The runner exits 1 if any scenario shows accidental destructive intent, so a
+first run is also a safety read on the tool descriptions. Owner: George.
+
 ### B28. AGENTS.md line budget — George's call, with an agreed proposal
 
 Filed 2026-09-03 from the harness-drift audit's sharpest cross-repo finding

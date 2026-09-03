@@ -3385,3 +3385,111 @@ tonight is recorded in the PR it shipped in and the staged-tail plan doc.
 Merge this checkpoint on green. Then WAIT: everything remaining is George's
 — the eval baseline, B26, or a new phase (Phase 4 TUI / tmux Q4 both still
 need his word).
+
+# Checkpoint #21 — 2026-09-04 04:57 AEST (session `browser-tab-mcp`, precompact)
+
+**Precedence: where this entry and any conversation summary disagree, this
+entry is correct.** It was written from the tree, not from memory.
+
+## State
+
+At rest, fully shipped and deployed: v1.10.1 released, daemon live on it,
+zero open PRs, nothing mid-flight — every remaining item is George's call.
+
+## Constraints
+
+No new instructions from George this session beyond the three answered
+2026-09-02, already promoted verbatim into
+`plans/2026-09-02-selection-dsl-adaptation.md` §5 + its "Post-§5 decisions"
+block (forgotten-mode closed; no npm publishing; deploy automation) and Q3
+(Claude-only eval). Standing rules unchanged — see this directory's
+README ground rules. One relayed constraint worth keeping, from the dotfiles
+session on George's behalf 2026-09-03: *"George asked to be consulted rather
+than have something forced"* — the reason B27/B28 are rows rather than
+patches.
+
+## Done
+
+- Staged DSL tail COMPLETE and released — PRs H–K (#161, #163, #165, #166),
+  PR-L deferred on measured evidence; v1.10.0 (`af16fc7`), then v1.10.1
+  (`d621fe6`) carrying the audit response. Detail: checkpoint #20.
+- Harness-drift audit answered end to end — #168 (`670715f`). All six
+  findings verified against the tree first (the auditor's line numbers were
+  off by a few; content confirmed every time). One finding RECLASSIFIED and
+  the auditor adopted it fleet-wide: the diverged Codex PR SOP was not a
+  tracked copy that drifted but an UNTRACKED file (`.gitignore` had ignored
+  `.agents/` since PR #1), so a symlink alone would not have fixed a clone —
+  the ignore had to be narrowed too. New `docs-integrity.contract.test.ts`
+  pins links + 45 backticked entry-point paths.
+- Peer commit verified, not assumed: `0da3b67` (dotfiles session, George's
+  instruction) tracks `.codex/config.toml`; inspected — MCP tables only, no
+  secrets, path-scoped to two files. It touches no build input, which is why
+  the deploy hook stayed quiet and the running build (`d621fe6`) is still
+  current code.
+
+## Open
+
+- `agents-md-line-budget · browser-tab-mcp` — BACKLOG **B28**. Evidence
+  open: no decision line in AGENTS.md. Both this session and the auditing
+  session converged on "record the decision to stay long, with the
+  boundary"; wording is in the row. George's to approve/reword/overrule.
+- `eval-baseline-run · browser-tab-mcp` — BACKLOG **B29** (filed this turn,
+  previously checkpoint-only). Evidence open: `evals/baseline-report.json`
+  reads `"status": "pending"`.
+- `b26-completeness-review · browser-tab-mcp` — BACKLOG **B26**, now ARMED
+  (its gate was workstream completion; that happened). Never attempted, by
+  George's own instruction to wait.
+- `readme-check-locality · browser-tab-mcp` — BACKLOG **B27**, deliberately
+  deferred to design (nearest-README risks false failures on cross-cutting
+  changes); bundled with the check-registry convention.
+- `b23-cache-file-vanish · browser-tab-mcp` — never attempted.
+- B20, B25 — parked with recorded evidence, not blocking.
+
+## Corrections
+
+- Checkpoint #20's line "B25 evidence note: tonight's ~12 CI runs showed no
+  third Windows stress flake" stands, but do NOT read the later
+  windows-latest failure on #168 as its third occurrence: that was my own
+  new test assuming POSIX checkout shape, fixed in `a116ee2`. B25's count
+  is still two.
+
+## Traps
+
+- A tracked symlink is NOT a symlink everywhere: Windows CI
+  (`core.symlinks=false`) materialises the same git object as a plain file
+  holding the target path. Assert the invariant (non-divergence), not the
+  on-disk shape.
+- A docs check that scans only markdown links is vacuous on a file that
+  carries its paths as prose backticks — AGENTS.md has ZERO markdown links.
+  Measure what a check considered before trusting it green.
+- The deploy hook's own first three real firings each exposed a genuine gap
+  (reload-before-reconnect, dirty-stamp verification, DEP0190). Treat its
+  next surprise as a finding.
+
+## Tree
+
+`browser-tab-mcp`, branch `docs/checkpoint-21` (this entry + B29), main
+clean at `0da3b67`, 0 ahead / 0 behind, zero open PRs. Daemon
+`1.10.1+167.d621fe6`, pid 9438, uptime ~22h, extensions [chrome, safari].
+
+## Blocked on you
+
+- B28 (line budget), B29 (eval baseline), B26 (completeness review) — and
+  the next-phase call: Phase 4 TUI, or the tmux spike (adaptation record Q4,
+  still parked, still needs its own go-ahead).
+
+## Elsewhere
+
+- `codex-config-tracking · dotfiles` — landed here as `0da3b67`; that
+  session owns the nine-repo rollout and raises anything about it with
+  George directly.
+- `robustness-starvation-evidence · mcp-starter-template` — unchanged;
+  note the daemon restarted repeatedly on 2026-09-03 (deploys), so any
+  uptime-based absence evidence starts from ~06:57 that day.
+
+## Resume
+
+Merge this checkpoint's PR on green, then WAIT. Every remaining item is
+George's decision, not work to start. If he gives a phase go-ahead, begin
+from the named plan document — paths are in checkpoint #18's Resume section
+and `docs/agent-handoff/plans/`.
