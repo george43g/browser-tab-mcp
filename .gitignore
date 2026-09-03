@@ -53,7 +53,6 @@ yarn-error.log*
 # how the PR SOP silently diverged; 2026-09-02 harness audit).
 .agents/*
 !.agents/skills
-.codex/
 
 # Generated Safari Xcode project (regenerate with
 # `pnpm --filter @george43g/safari-extension convert`; carries personal
@@ -102,3 +101,6 @@ apps/chrome-extension/e2e-coverage.json
 # Agent worktrees (isolated checkouts created by the Agent tool). They nest a
 # second root biome.json inside the repo; also excluded in biome.json.
 .claude/worktrees/
+
+# mcpsync pre-write backups of .codex/config.toml — churn, never content
+.codex/*.bak.*
