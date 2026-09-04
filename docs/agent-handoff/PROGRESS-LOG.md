@@ -3493,3 +3493,126 @@ Merge this checkpoint's PR on green, then WAIT. Every remaining item is
 George's decision, not work to start. If he gives a phase go-ahead, begin
 from the named plan document — paths are in checkpoint #18's Resume section
 and `docs/agent-handoff/plans/`.
+
+# Checkpoint #22 — 2026-09-04 12:38 AEST (session `browser-tab-mcp`)
+
+Where this file and any summary disagree, this file is correct.
+
+## State
+
+George's blanket approval closed B26/B28/B29, the completeness review named
+seven gaps, and Phase 5 (act on a selection) is approved and its first PR is
+merged — the language can now say what to do to the tabs it selects.
+
+## Constraints
+
+George, 2026-09-04, verbatim: *"all items that are simply waiting for a \"yes go
+ahead\" are approved - if there's anything that's an actual question - ask me
+the questions one-by-one, with full explanations and recomended options
+explained and why you think they're better."*
+
+And, closing the phase question with an idea dump: *"only include the features
+I mentioned that are relevant to the close the act gap step - for everything
+else, tidy it up, analyse it, flesh it out and triage the features to get built
+at the appropriate phase (i dont expect you to build every single thing I just
+mentioned in one turn now lol, I just wanted to record my ideas)"*. His full
+message is quoted verbatim in
+`docs/agent-handoff/plans/2026-09-04-control-surface-roadmap.md`.
+
+## Done
+
+- **B28 closed** — the agreed line-budget wording is a dated blockquote at the
+  top of `AGENTS.md` (`015c57e`). Length is a decision; counts and paths are
+  pinned by test rather than prose.
+- **B29 closed — the eval baseline RAN.** 6/10 semantically correct, 1
+  accidental destructive, 30 API calls, `claude-sonnet-5`, sha
+  `1.10.1+169.368c837` (`apps/browser-tab-mcp/evals/baseline-report.json`).
+  Exit 1 was the guard working. Key from 1Password, never printed.
+- **B26 deliverables done** (`015c57e`). The root README's Tools table carried
+  **14 of 25** tools under a preamble reading "Every MCP tool is also a CLI
+  subcommand" — the whole write-side, all of perception and all of memory were
+  invisible from the front door. All 25 rows present and pinned by
+  `docs-integrity.contract.test.ts`, which enumerates `makeAppRegistry()`.
+  `docs/CONTROL-SURFACE.md` is the guided tour: six axes, the boundaries that
+  are refusals rather than gaps, seven evidenced gaps.
+- **Phase 5 approved; PR-M merged as `ed832f0` (#173)** — the `act` transform
+  (`plans/2026-09-04-phase-5-act-on-selection.md`, `8f8de96`). `ActEffect` had
+  sat in the IR since Phase 3 with zero producers. Deployed and LIVE-verified
+  on George's daemon (`1.10.1+172.ed832f0`, chrome+safari reloaded): `act mute`
+  over a real window plans `live-layout`; `act discard` over the same 77 tabs
+  plans `destructive` and `apply` refuses it by name. Nothing was applied.
+  e2e 67 → 70 against real Chromium, run-guard green.
+- **Phases 6–10 recorded, analysed, triaged** (`8f8de96`, **B32**) with a
+  measured "what already exists" table — favicon, description, muted/audible/
+  discarded/pinned predicates, incognito as predicate AND live-move domain, and
+  single-node bookmark CRUD with folders are all already shipped, so several
+  asks are exposure rather than construction.
+
+## Open
+
+- `b31-gaps-g4-g7 · browser-tab-mcp` — G4 downloads, G5 reading list, G6 zoom,
+  G7 the undeclared cookies/site-data line. Evidence: `docs/CONTROL-SURFACE.md`
+  gap table; George answered G1/G2/G3 by approving Phase 5 and left these.
+- `phase-5-pr-n-o-p · browser-tab-mcp` — the destructive door, the closed-tab
+  store + `chrome.sessions`, `reopen`. Evidence: never attempted; PR-M is the
+  only merged PR of four in the plan.
+- `b30-descriptions-do-not-steer · browser-tab-mcp` — unclaimed. Evidence: the
+  baseline report's `cross-browser-move` scenario, `accidentalDestructive:true`.
+- `b32-phases-6-10 · browser-tab-mcp` — recorded, each needing its own
+  go-ahead. Evidence: BACKLOG B32, owner George.
+- `b20`, `b23`, `b25`, `b27` unchanged.
+
+## Corrections
+
+- Checkpoint #21 listed `eval-baseline-run` as blocked on George. It was, and
+  he unblocked it in one sentence; the report is no longer a stub. Any later
+  reading of #21 that still treats the eval as unrun is stale.
+
+## Traps
+
+- **A merge watcher that runs `git checkout main` will switch the working tree
+  out from under the session that started it.** PR 172's watcher did exactly
+  that mid-edit, and the next commit landed on local `main` instead of the
+  feature branch. Nothing reached the remote (the push targeted the branch,
+  which was still at its base), and it was recovered with `git branch -f` +
+  `git reset --hard origin/main`. A watcher in a SHARED worktree must merge and
+  `git fetch` — never `checkout`. **The corrected watcher hit the SAME CLASS of
+  trap one call later**: `gh pr merge --delete-branch` checks out the default
+  branch and pulls when the PR's branch is the one checked out locally, which
+  fired the post-merge deploy hook and moved HEAD again. Harmless with a clean
+  tree and it is how the deploy verified itself — but the general rule is that
+  ANY automation touching git in the session's own worktree can move HEAD, so
+  commit before dispatching one and re-read `git branch --show-current` after.
+- **The eval report is tool-owned and turns `pnpm lint` red on a real run.**
+  The stub happened to match Biome's formatting; a real report's expanded
+  arrays do not. It is now Biome-excluded with the reason recorded at the write
+  site in `scripts/eval-claude.mjs`.
+- **The effect-coverage ledger allows exactly ONE entry per tier per surface**
+  — a second `chromium-e2e` entry fails the contract test with "merge them, or
+  the second one silently never gets read". Extend the existing `covers` text.
+- **Guards written for relocation quietly apply to everything.** `planTransform`
+  refused multi-domain selections and pinned members for ALL transforms. Correct
+  for moves; for an act it would have shipped a language able to select across
+  browsers and refusing to act across them.
+
+## Tree
+
+`browser-tab-mcp` on `main`, clean. Merged this session: `015c57e` (#171),
+`8f8de96` (#172), plus #173 (PR-M). No other session's work in the tree.
+
+## Blocked on you
+
+- `b31-gaps-g4-g7` — four gaps awaiting a verdict, evidence in
+  `docs/CONTROL-SURFACE.md`.
+- `b32-phases-6-10` — five phases, each needing its own go-ahead.
+- `phase-5-continuation` — PR-N/O/P are approved as part of Phase 5; they are
+  work to start, not a decision, unless you want the order changed.
+
+## Resume
+
+Phase 5 continues at **PR-N** (the destructive executor) in
+`docs/agent-handoff/plans/2026-09-04-phase-5-act-on-selection.md`. PR-M's
+groundwork is merged: `ACT_VERB_RISK` already classifies `discard`/`reload` as
+destructive and `applyTabLayout` already refuses them by name, so PR-N is the
+executor plus `confirmDestruction`, and PR-O's closed-tab store is what `close`
+waits on.
