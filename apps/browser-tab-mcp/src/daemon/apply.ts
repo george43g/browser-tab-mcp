@@ -23,7 +23,7 @@
 
 import type { Snapshot } from "@george43g/shared-types";
 import { z } from "zod";
-import type { Effect, RelocateEffect } from "../select/plan/effects.js";
+import type { ActEffect, Effect, RelocateEffect } from "../select/plan/effects.js";
 import type { OperationStore, OperationUndo } from "./operations.js";
 import type { MaterializedPlan, PlanStore } from "./plans.js";
 import type { StateStore } from "./state.js";
@@ -114,6 +114,145 @@ function simulate(strips: Map<string, string[]>, e: RelocateEffect): void {
   }
 }
 
+/**
+ * Execute an all-`act` plan (Phase 5 PR-M).
+ *
+ * Two command shapes, deliberately not unified: pin/unpin/mute/unmute are
+ * per-tab `tab_action` calls, while group/ungroup are ONE `group_tabs` call
+ * over the whole member list — because that is what the browser offers, and
+ * fanning a group into N single-tab calls would create N groups instead of
+ * one. The effect list stays per-tab either way, so the plan a caller reads is
+ * the same shape regardless of how it is executed; a batch verb's outcome is
+ * recorded against every effect it covered.
+ *
+ * There is no expected-arrangement check here and no residual: an act does not
+ * move anything, so the relocation executor's whole verification model — which
+ * exists because a browser can clamp or reorder around a move — has nothing to
+ * verify. The honest report is the per-effect outcome plus the ACTUAL
+ * post-state, re-read from the browser rather than assumed.
+ */
+async function applyActs(
+  input: z.infer<typeof ApplyParamsSchema>,
+  rec: MaterializedPlan,
+  before: Snapshot,
+  deps: ApplyDeps,
+  replanned: boolean,
+): Promise<ApplyResult> {
+  const effects = rec.effects as ActEffect[];
+  const bestEffort = input.conflict === "best-effort";
+
+  // §15 undo: the BEFORE value of exactly the attribute each verb changes.
+  // Read from the apply-start snapshot, which is token-equal to the plan's
+  // world under both strict modes.
+  const byId = new Map<
+    string,
+    { pinned?: boolean; muted?: boolean; groupId?: string | undefined }
+  >();
+  for (const b of before.browsers) {
+    for (const w of b.windows) {
+      for (const t of w.tabs) {
+        byId.set(t.tabId, { pinned: t.pinned, muted: t.muted, groupId: t.groupId });
+      }
+    }
+  }
+  const attributes: Array<{
+    tabId: string;
+    pinned?: boolean;
+    muted?: boolean;
+    groupId?: string | null;
+  }> = [];
+  for (const e of effects) {
+    const prev = byId.get(e.tabId);
+    if (prev === undefined) continue;
+    if (e.action === "pin" || e.action === "unpin") {
+      attributes.push({ tabId: e.tabId, pinned: prev.pinned === true });
+    } else if (e.action === "mute" || e.action === "unmute") {
+      attributes.push({ tabId: e.tabId, muted: prev.muted === true });
+    } else if (e.action === "group" || e.action === "ungroup") {
+      attributes.push({ tabId: e.tabId, groupId: prev.groupId ?? null });
+    }
+  }
+
+  const results: EffectResult[] = [];
+  let failed = false;
+
+  const batchVerb = effects[0]?.action === "group" || effects[0]?.action === "ungroup";
+  if (batchVerb) {
+    const first = effects[0] as ActEffect;
+    const tabIds = effects.map((e) => e.tabId);
+    const params: Record<string, unknown> =
+      first.action === "ungroup"
+        ? { kind: "group_tabs", action: "remove", tabIds }
+        : first.groupId !== undefined
+          ? { kind: "group_tabs", action: "add", tabIds, groupId: first.groupId }
+          : { kind: "group_tabs", action: "create", tabIds };
+    try {
+      await deps.runCommand(params);
+      for (const e of effects) results.push({ effect: e, status: "applied" });
+    } catch (err) {
+      failed = true;
+      const error = (err as Error).message;
+      for (const e of effects) results.push({ effect: e, status: "failed", error });
+    }
+  } else {
+    for (const e of effects) {
+      if (failed && !bestEffort) {
+        results.push({ effect: e, status: "skipped" });
+        continue;
+      }
+      try {
+        await deps.runCommand({ kind: "tab_action", tabId: e.tabId, action: e.action });
+        results.push({ effect: e, status: "applied" });
+      } catch (err) {
+        results.push({ effect: e, status: "failed", error: (err as Error).message });
+        failed = true;
+      }
+    }
+  }
+
+  const after = await deps.refresh();
+  const affected = new Set(
+    effects
+      .map((e) => {
+        for (const b of after.browsers)
+          for (const w of b.windows) if (w.tabs.some((t) => t.tabId === e.tabId)) return w.windowId;
+        return undefined;
+      })
+      .filter((w): w is string => w !== undefined),
+  );
+  const actualStrips = stripsOf(after);
+  const actual: Record<string, string[]> = {};
+  for (const wid of affected) actual[wid] = actualStrips.get(wid) ?? [];
+
+  const applied = results.filter((r) => r.status === "applied").length;
+  const status: ApplyResult["status"] = failed ? (applied > 0 ? "partial" : "failed") : "success";
+  const result: ApplyResult = {
+    status,
+    planId: input.planId,
+    results,
+    actual,
+    residual: [],
+    snapshotTokenBefore: before.snapshotToken,
+    snapshotTokenAfter: after.snapshotToken,
+    ...(replanned ? { replanned: true, appliedPlanId: rec.planId } : {}),
+  };
+  const op = deps.operations?.record({
+    tool: "apply_tab_layout",
+    status,
+    planId: input.planId,
+    request: input,
+    outcomes: results,
+    residual: [],
+    snapshotTokenBefore: before.snapshotToken,
+    snapshotTokenAfter: after.snapshotToken,
+    conflictMode: input.conflict,
+    ...(replanned ? { replanned: true } : {}),
+    undo: { kind: "pre-attributes", attributes },
+  });
+  if (op !== undefined) result.operationId = op.operationId;
+  return result;
+}
+
 export async function applyTabLayout(
   params: Record<string, unknown>,
   deps: ApplyDeps,
@@ -160,10 +299,27 @@ export async function applyTabLayout(
     replanned = true;
   }
   if (rec.riskClass !== "live-layout") {
+    // The route out depends on WHY it is destructive, and pointing a discard
+    // plan at copy_tabs/cut_tabs would be confidently wrong advice.
+    const actVerbs = [...new Set(rec.effects.filter((e) => e.kind === "act").map((e) => e.action))];
     throw new Error(
       `plan "${input.planId}" has riskClass "${rec.riskClass}" — apply_tab_layout applies ` +
-        `only live-layout plans. Reconstructive transfer goes through copy_tabs/cut_tabs.`,
+        `only live-layout plans. ` +
+        (actVerbs.length > 0
+          ? `The verb(s) ${actVerbs.join("/")} throw away in-page state, and no batch executor ` +
+            `accepts them yet (Phase 5 PR-N) — run tab_action per tab, deliberately.`
+          : `Reconstructive transfer goes through copy_tabs/cut_tabs.`),
     );
+  }
+
+  // A plan carries exactly ONE transform, so its effects are homogeneous: an
+  // `act` plan is all acts and a relocation plan is all relocates. Acts get
+  // their own executor rather than a third branch inside the relocation loop —
+  // that loop is LIS-minimal neighbour-identity translation with a simulated
+  // strip and an expected-arrangement check, and NONE of it means anything for
+  // a verb that changes a tab's own state without moving it. (Phase 5 PR-M.)
+  if (rec.effects.length > 0 && rec.effects.every((e) => e.kind === "act")) {
+    return await applyActs(input, rec, before, deps, replanned);
   }
 
   // Local translation state, seeded from the apply-start snapshot (token-equal

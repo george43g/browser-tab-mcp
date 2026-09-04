@@ -5,6 +5,9 @@
  * residual reporting against a browser model that actually moves tabs.
  */
 
+import { mkdtempSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import type { Snapshot } from "@george43g/shared-types";
 import {
   makeBrowserState,
@@ -14,6 +17,7 @@ import {
 } from "@george43g/test-kit";
 import { describe, expect, it } from "vitest";
 import { applyTabLayout } from "./apply.js";
+import { OperationStore } from "./operations.js";
 import { PlanStore } from "./plans.js";
 import { StateStore } from "./state.js";
 
@@ -310,5 +314,170 @@ describe("applyTabLayout", () => {
     } finally {
       rmSync(dir, { recursive: true, force: true });
     }
+  });
+});
+
+/**
+ * The act executor (Phase 5 PR-M). A separate world, because acts change a
+ * tab's own attributes rather than the strip, and the relocation world models
+ * only position.
+ */
+function makeActWorld(tabs: Array<{ tabId: string; muted?: boolean; groupId?: string }>) {
+  const state = tabs.map((t) => ({ ...t }));
+  const snapshotOf = (): Snapshot =>
+    makeSnapshot({
+      browsers: [
+        makeBrowserState({
+          browser: "chrome",
+          extensionConnected: true,
+          dataSource: "extension",
+          windows: [
+            makeContractWindow({
+              windowId: "w:chrome:x1",
+              focused: true,
+              tabs: state.map((t, index) =>
+                makeContractTab({
+                  tabId: t.tabId,
+                  index,
+                  muted: t.muted === true,
+                  ...(t.groupId !== undefined ? { groupId: t.groupId } : {}),
+                }),
+              ),
+            }),
+          ],
+        }),
+      ],
+    });
+  const store = new StateStore();
+  store.update(snapshotOf());
+  const commands: Record<string, unknown>[] = [];
+  const failOn = new Set<string>();
+  const runCommand = async (p: Record<string, unknown>) => {
+    commands.push(p);
+    if (p.kind === "tab_action") {
+      const tabId = p.tabId as string;
+      if (failOn.has(tabId)) throw new Error(`tab ${tabId} is gone`);
+      const t = state.find((x) => x.tabId === tabId);
+      if (t) t.muted = p.action === "mute";
+    }
+    return { ok: true };
+  };
+  const refresh = async () => {
+    store.update(snapshotOf());
+    return store.getSnapshot();
+  };
+  return { state, store, commands, failOn, runCommand, refresh };
+}
+
+const actEffect = (tabId: string, action: string, groupId?: string) => ({
+  kind: "act" as const,
+  tabId,
+  action: action as "mute",
+  ...(groupId !== undefined ? { groupId } : {}),
+});
+
+describe("applyTabLayout — act plans", () => {
+  it("fans a per-tab verb into one tab_action each and records the BEFORE attribute", async () => {
+    const world = makeActWorld([
+      { tabId: "a", muted: false },
+      { tabId: "b", muted: true },
+    ]);
+    const plans = new PlanStore();
+    const operations = new OperationStore({ dir: mkdtempSync(join(tmpdir(), "bt-ops-")) });
+    const rec = plans.materialize({
+      riskClass: "live-layout",
+      effects: [actEffect("a", "mute"), actEffect("b", "mute")],
+      warnings: [],
+      selectionKeys: ["a", "b"],
+      snapshotToken: world.store.getSnapshot().snapshotToken ?? "",
+    });
+    const out = await applyTabLayout({ planId: rec.planId }, { ...world, plans, operations });
+
+    expect(out.status).toBe("success");
+    expect(world.commands).toEqual([
+      { kind: "tab_action", tabId: "a", action: "mute" },
+      { kind: "tab_action", tabId: "b", action: "mute" },
+    ]);
+    // No residual concept for acts: nothing moved, so there is no arrangement
+    // to diverge from. Reporting one would be inventing a verification.
+    expect(out.residual).toEqual([]);
+    const undo = operations.list(1)[0]?.undo;
+    expect(undo).toEqual({
+      kind: "pre-attributes",
+      attributes: [
+        { tabId: "a", muted: false },
+        { tabId: "b", muted: true },
+      ],
+    });
+  });
+
+  it("issues ONE group_tabs call for a batch verb, not one per member", async () => {
+    // Fanning group into N single-tab calls would create N groups. The effect
+    // list stays per-tab so the plan reads the same either way.
+    const world = makeActWorld([{ tabId: "a" }, { tabId: "b" }, { tabId: "c" }]);
+    const plans = new PlanStore();
+    const rec = plans.materialize({
+      riskClass: "live-layout",
+      effects: [actEffect("a", "group"), actEffect("b", "group"), actEffect("c", "group")],
+      warnings: [],
+      selectionKeys: ["a", "b", "c"],
+      snapshotToken: world.store.getSnapshot().snapshotToken ?? "",
+    });
+    const out = await applyTabLayout({ planId: rec.planId }, { ...world, plans });
+    expect(world.commands).toEqual([
+      { kind: "group_tabs", action: "create", tabIds: ["a", "b", "c"] },
+    ]);
+    expect(out.results.map((r) => r.status)).toEqual(["applied", "applied", "applied"]);
+  });
+
+  it("ungroup removes the whole member list in one call", async () => {
+    const world = makeActWorld([{ tabId: "a", groupId: "g:chrome:x7" }]);
+    const plans = new PlanStore();
+    const rec = plans.materialize({
+      riskClass: "live-layout",
+      effects: [actEffect("a", "ungroup")],
+      warnings: [],
+      selectionKeys: ["a"],
+      snapshotToken: world.store.getSnapshot().snapshotToken ?? "",
+    });
+    await applyTabLayout({ planId: rec.planId }, { ...world, plans });
+    expect(world.commands).toEqual([{ kind: "group_tabs", action: "remove", tabIds: ["a"] }]);
+  });
+
+  it("aborts the remainder on a per-tab failure, like the relocation executor", async () => {
+    const world = makeActWorld([{ tabId: "a" }, { tabId: "b" }, { tabId: "c" }]);
+    world.failOn.add("b");
+    const plans = new PlanStore();
+    const rec = plans.materialize({
+      riskClass: "live-layout",
+      effects: [actEffect("a", "mute"), actEffect("b", "mute"), actEffect("c", "mute")],
+      warnings: [],
+      selectionKeys: ["a", "b", "c"],
+      snapshotToken: world.store.getSnapshot().snapshotToken ?? "",
+    });
+    const out = await applyTabLayout({ planId: rec.planId }, { ...world, plans });
+    expect(out.results.map((r) => r.status)).toEqual(["applied", "failed", "skipped"]);
+    expect(out.status).toBe("partial");
+  });
+
+  it("refuses a destructive-classed act plan through the same gate as a cut", async () => {
+    const world = makeActWorld([{ tabId: "a" }]);
+    const plans = new PlanStore();
+    const rec = plans.materialize({
+      riskClass: "destructive",
+      effects: [actEffect("a", "discard")],
+      warnings: [],
+      selectionKeys: ["a"],
+      snapshotToken: world.store.getSnapshot().snapshotToken ?? "",
+    });
+    await expect(applyTabLayout({ planId: rec.planId }, { ...world, plans })).rejects.toThrow(
+      /applies\s+only live-layout plans/,
+    );
+    // …and the refusal names the ACT route, not copy/cut — pointing a discard
+    // at reconstructive transfer would be confidently wrong advice.
+    await expect(applyTabLayout({ planId: rec.planId }, { ...world, plans })).rejects.toThrow(
+      /discard[\s\S]*tab_action per tab/,
+    );
+    expect(world.commands).toEqual([]);
   });
 });

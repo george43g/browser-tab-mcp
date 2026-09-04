@@ -32,6 +32,22 @@ export type OperationUndo =
       kind: "pre-state";
       moves: Array<{ tabId: string; fromWindowId: string; fromIndex: number }>;
     }
+  | {
+      /**
+       * Phase 5: the BEFORE value of every attribute an `act` plan changed.
+       * A later snapshot cannot recover it — by the time anything reads back,
+       * the tab is already muted/pinned/grouped. Same reason `pre-state` exists
+       * for positions, and `wasMinimized` for focus.
+       */
+      kind: "pre-attributes";
+      attributes: Array<{
+        tabId: string;
+        pinned?: boolean;
+        muted?: boolean;
+        /** null = the tab was in NO group (distinct from "not recorded"). */
+        groupId?: string | null;
+      }>;
+    }
   | { kind: "created"; tabIds: string[] }
   | { kind: "unrecoverable"; liveStateUnrecoverable: true; closedSourceUrls: string[] };
 

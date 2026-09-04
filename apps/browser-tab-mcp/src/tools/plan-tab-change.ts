@@ -24,8 +24,9 @@ export const PlanTabChangeInputSchema = z
       ),
     transform: TransformSchema.optional().describe(
       'One transform: move (block, to a slot/anchor gap) · setOrder ("these tabs in this ' +
-        'relative order, unlisted stay put") · reverse · sort · pack. One transform per call; ' +
-        "composition lives in the selector. Omit when passing endState.",
+        'relative order, unlisted stay put") · reverse · sort · pack · act (apply one verb — ' +
+        "pin/unpin, mute/unmute, group/ungroup, discard, reload — to every member). One " +
+        "transform per call; composition lives in the selector. Omit when passing endState.",
     ),
     endState: EndStateSchema.optional().describe(
       "Declarative §11 end state INSTEAD of selection+transform: name windows and the leading " +
@@ -85,7 +86,7 @@ export const planTabChangeTool: ToolDefinition<
 > = {
   name: "plan_tab_change",
   description:
-    "Plan ONE tab transform (move/setOrder/reverse/sort/pack) over a selection WITHOUT applying " +
+    "Plan ONE tab transform (move/setOrder/reverse/sort/pack/act) over a selection WITHOUT applying " +
     "it: returns the ordered primitive effects, warnings, risk class, and a short-lived planId " +
     "for apply_tab_layout. Policy violations (pinned members, cross-domain live movement, " +
     "destination inside the selection) fail HERE with stable codes, before any browser is " +

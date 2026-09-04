@@ -24,7 +24,7 @@
 import type { Snapshot } from "@george43g/shared-types";
 import type { BrowserRef } from "../browser-domain.js";
 import { summarizeLiveMoveDomains } from "../domains.js";
-import { classifyRisk, type Effect, type RiskClass } from "./effects.js";
+import { type ActVerb, classifyRisk, type Effect, type RiskClass } from "./effects.js";
 import { relocationsFor } from "./order.js";
 
 export class PlanError extends Error {
@@ -54,7 +54,8 @@ export type Transform =
   | { kind: "setOrder"; windowId: string; tabs: string[] } // §25.3, unlisted stable
   | { kind: "reverse" } // §9.6 in-place, per window
   | { kind: "sort"; by: { field: string; direction?: "asc" | "desc" }[] } // stable, per window
-  | { kind: "pack"; destination?: Destination }; // §9.7; default: gap at first member
+  | { kind: "pack"; destination?: Destination } // §9.7; default: gap at first member
+  | { kind: "act"; action: ActVerb; groupId?: string }; // Phase 5: verb over every member
 
 export interface TransformPlan {
   effects: Effect[];
@@ -105,9 +106,18 @@ export function planTransform(
   }
   const tabs = refs as Extract<BrowserRef, { kind: "tab" }>[];
 
+  // Both guards below exist for RELOCATION and only for relocation. An `act`
+  // moves nothing: muting a selection that spans Chrome and Safari is a
+  // perfectly ordinary request, and unpinning one that contains pinned tabs is
+  // the entire point. Applying the relocation guards to acts would ship a
+  // language able to SELECT across browsers and refusing to ACT across them —
+  // which is the shape of the gap this phase exists to close, reintroduced one
+  // layer down. (Phase 5 PR-M.)
+  const relocating = transform.kind !== "act";
+
   // §24.5: ALL live relocation is blocked for a multi-domain selection.
   const domains = summarizeLiveMoveDomains(refs);
-  if (!domains.uniform) {
+  if (relocating && !domains.uniform) {
     throw new PlanError(
       "cross_domain_live_move",
       `the selection spans ${domains.domains.length} live-move domain(s) with ` +
@@ -119,7 +129,7 @@ export function planTransform(
   // Pinned members change index-space semantics and browsers clamp around
   // them; silent policy invention is forbidden (§14.3).
   let working = tabs;
-  const pinned = tabs.filter((t) => t.tab.pinned === true);
+  const pinned = relocating ? tabs.filter((t) => t.tab.pinned === true) : [];
   if (pinned.length > 0) {
     if (opts.pinPolicy === "skip") {
       working = tabs.filter((t) => t.tab.pinned !== true);
@@ -204,6 +214,31 @@ export function planTransform(
         listed.has(id) ? (transform.tabs[k++] as string) : id,
       );
       effects = relocationsFor(strip.order, desired, strip.windowId);
+      break;
+    }
+    case "act": {
+      // One effect per member, in selection order. No landing computation, no
+      // strip arithmetic: an act changes a tab's own state, not where it sits.
+      // Risk is the VERB's (ACT_VERB_RISK), so a discard plan comes back
+      // riskClass "destructive" and apply_tab_layout refuses it by the same
+      // gate that refuses a cut.
+      if (transform.action === "group" && transform.groupId === undefined) {
+        const windows = new Set(working.map((t) => t.window.windowId));
+        if (windows.size > 1) {
+          throw new PlanError(
+            "invalid_transform",
+            `action "group" with no groupId creates ONE group, but the selection spans ` +
+              `${windows.size} windows — a Chrome group cannot straddle windows. Narrow the ` +
+              `selection to one window, or pass an existing groupId.`,
+          );
+        }
+      }
+      effects = working.map((t) => ({
+        kind: "act" as const,
+        tabId: t.tab.tabId,
+        action: transform.action,
+        ...(transform.groupId !== undefined ? { groupId: transform.groupId } : {}),
+      }));
       break;
     }
     case "reverse":
