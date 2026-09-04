@@ -62,11 +62,46 @@ export interface SetMetadataEffect {
   color?: string;
 }
 
+/**
+ * Verbs an `act` transform can fan over a selection, and what each one COSTS.
+ *
+ * Phase 5 PR-M. Until 2026-09-04 this effect existed with four verbs and NO
+ * producer anywhere in `src/` — a declared capability the planner could not
+ * emit (completeness review, gap G2). Wiring it made one thing load-bearing
+ * that had not been before: **risk can no longer be read off the effect kind
+ * alone.** Pinning a tab and discarding it are the same `kind: "act"` and are
+ * not remotely the same act — `discard` and `reload` throw away in-page state
+ * that nothing can reconstruct, which is exactly why `tab_action` carries
+ * `destructiveHint: true`. So the risk of an act is a property of its VERB,
+ * and this table is where that lives.
+ *
+ * The consequence to protect: `apply_tab_layout` accepts only "live-layout"
+ * (`daemon/apply.ts`), so a verb landing in this table as live-layout becomes
+ * reachable through a tool that asks for no confirmation. `effects.test.ts`
+ * enumerates the table against this map so a verb added without a considered
+ * entry fails rather than defaulting into the safe-looking door.
+ */
+export const ACT_VERB_RISK = {
+  pin: "live-layout",
+  unpin: "live-layout",
+  mute: "live-layout",
+  unmute: "live-layout",
+  group: "live-layout",
+  ungroup: "live-layout",
+  discard: "destructive",
+  reload: "destructive",
+} as const satisfies Record<string, RiskClass>;
+
+export type ActVerb = keyof typeof ACT_VERB_RISK;
+export const ACT_VERBS = Object.keys(ACT_VERB_RISK) as ActVerb[];
+
 /** One bounded capability-declared tab action fanned by the caller. */
 export interface ActEffect {
   kind: "act";
   tabId: string;
-  action: "pin" | "unpin" | "mute" | "unmute";
+  action: ActVerb;
+  /** group: the group to join. Omitted = create a new group from the members. */
+  groupId?: string;
 }
 
 export type Effect =
@@ -89,6 +124,8 @@ export function classifyRisk(effects: readonly Effect[]): RiskClass {
   let additive = false;
   for (const e of effects) {
     if (e.kind === "closeVerified") return "destructive";
+    // An act is as risky as its verb, never as its kind — see ACT_VERB_RISK.
+    if (e.kind === "act" && ACT_VERB_RISK[e.action] === "destructive") return "destructive";
     if (e.kind === "createReconstructed") additive = true;
   }
   return additive ? "additive" : "live-layout";

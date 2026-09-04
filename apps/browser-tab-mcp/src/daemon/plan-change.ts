@@ -17,7 +17,7 @@
 import { assertValid, parseSelector, resolveSelector } from "@george43g/control-language";
 import { z } from "zod";
 import { type BrowserRef, makeBrowserDomain } from "../select/browser-domain.js";
-import type { Effect } from "../select/plan/effects.js";
+import { ACT_VERBS, type ActVerb, type Effect } from "../select/plan/effects.js";
 import { type EndStateInput, type PreparedRequest, planEndState } from "../select/plan/endstate.js";
 import { planTransform, type Transform } from "../select/plan/planner.js";
 import { mapTemporalProvider } from "../select/temporal.js";
@@ -90,6 +90,24 @@ export const TransformSchema = z.discriminatedUnion("kind", [
       destination: DestinationSchema.optional().describe(
         "Landing gap; omitted = where the first selected tab sits.",
       ),
+    })
+    .strict(),
+  z
+    .object({
+      kind: z
+        .literal("act")
+        .describe("Apply one verb to every member of the selection (Phase 5, §26.2 risk)."),
+      action: z
+        .enum(ACT_VERBS as [ActVerb, ...ActVerb[]])
+        .describe(
+          "pin/unpin · mute/unmute · group/ungroup are live-layout and applyable. " +
+            "discard/reload throw away in-page state, so the plan comes back riskClass " +
+            "destructive and apply_tab_layout refuses it.",
+        ),
+      groupId: z
+        .string()
+        .optional()
+        .describe('action "group": the group to join. Omitted = a new group from the members.'),
     })
     .strict(),
 ]);

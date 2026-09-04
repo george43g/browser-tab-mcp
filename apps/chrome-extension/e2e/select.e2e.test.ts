@@ -260,6 +260,162 @@ test.describe("select_tabs", () => {
     }, made.win);
   });
 
+  test("act mutes a whole selection — chrome.tabs.query's own mutedInfo agrees", async () => {
+    test.info().annotations.push({ type: "surface", description: "plan_tab_change" });
+    test.info().annotations.push({ type: "surface", description: "apply_tab_layout" });
+
+    const made = await stack.sw.evaluate(
+      async (urls) => {
+        const c = (globalThis as unknown as { chrome: typeof chrome }).chrome;
+        const w = await c.windows.create({ url: urls[0], focused: true });
+        const a = w.tabs?.[0]?.id as number;
+        const b = (await c.tabs.create({ windowId: w.id as number, url: urls[1] })).id as number;
+        return { win: w.id as number, a, b };
+      },
+      [server.url("/u/act-a"), server.url("/u/act-b")],
+    );
+    await stack.waitForTab(stack.tabHandle(made.b));
+    const winHandle = stack.windowHandle(made.win);
+    const members = {
+      kind: "members",
+      nodes: { kind: "ids", ids: [winHandle] },
+      relation: "tabs",
+    };
+
+    // Nothing is muted before — otherwise the assertion after would pass on a
+    // fixture rather than on the effect.
+    const before = await stack.sw.evaluate(async (winId) => {
+      const c = (globalThis as unknown as { chrome: typeof chrome }).chrome;
+      return (await c.tabs.query({ windowId: winId })).map((t) => t.mutedInfo?.muted === true);
+    }, made.win);
+    expect(before.some((m) => m)).toBe(false);
+
+    const plan = JSON.parse(
+      await stack.daemon.cli([
+        "plan",
+        "--selector",
+        JSON.stringify(members),
+        "--transform",
+        JSON.stringify({ kind: "act", action: "mute" }),
+        "--json",
+      ]),
+    ) as { planId: string; riskClass: string };
+    expect(plan.riskClass).toBe("live-layout");
+
+    const applied = JSON.parse(
+      await stack.daemon.cli(["apply", "--plan", plan.planId, "--json"]),
+    ) as { status: string };
+    expect(applied.status).toBe("success");
+
+    // BROWSER truth.
+    const after = await stack.sw.evaluate(async (winId) => {
+      const c = (globalThis as unknown as { chrome: typeof chrome }).chrome;
+      return (await c.tabs.query({ windowId: winId })).map((t) => t.mutedInfo?.muted === true);
+    }, made.win);
+    expect(after.length).toBeGreaterThan(1);
+    expect(after.every((m) => m)).toBe(true);
+
+    await stack.sw.evaluate(async (winId) => {
+      const c = (globalThis as unknown as { chrome: typeof chrome }).chrome;
+      await c.windows.remove(winId);
+    }, made.win);
+  });
+
+  test("act group puts the whole selection in ONE real tab group", async () => {
+    test.info().annotations.push({ type: "surface", description: "apply_tab_layout" });
+
+    const made = await stack.sw.evaluate(
+      async (urls) => {
+        const c = (globalThis as unknown as { chrome: typeof chrome }).chrome;
+        const w = await c.windows.create({ url: urls[0], focused: true });
+        const b = (await c.tabs.create({ windowId: w.id as number, url: urls[1] })).id as number;
+        return { win: w.id as number, b };
+      },
+      [server.url("/u/grp-a"), server.url("/u/grp-b")],
+    );
+    await stack.waitForTab(stack.tabHandle(made.b));
+    const winHandle = stack.windowHandle(made.win);
+
+    const plan = JSON.parse(
+      await stack.daemon.cli([
+        "plan",
+        "--selector",
+        JSON.stringify({
+          kind: "members",
+          nodes: { kind: "ids", ids: [winHandle] },
+          relation: "tabs",
+        }),
+        "--transform",
+        JSON.stringify({ kind: "act", action: "group" }),
+        "--json",
+      ]),
+    ) as { planId: string };
+    const applied = JSON.parse(
+      await stack.daemon.cli(["apply", "--plan", plan.planId, "--json"]),
+    ) as { status: string };
+    expect(applied.status).toBe("success");
+
+    // One group, not one per tab — the batch-verb contract, against the
+    // browser's own groupId rather than our echo of it.
+    const groups = await stack.sw.evaluate(async (winId) => {
+      const c = (globalThis as unknown as { chrome: typeof chrome }).chrome;
+      return (await c.tabs.query({ windowId: winId })).map((t) => t.groupId as number);
+    }, made.win);
+    expect(groups.length).toBeGreaterThan(1);
+    expect(new Set(groups).size).toBe(1);
+    expect(groups[0]).not.toBe(-1);
+
+    await stack.sw.evaluate(async (winId) => {
+      const c = (globalThis as unknown as { chrome: typeof chrome }).chrome;
+      await c.windows.remove(winId);
+    }, made.win);
+  });
+
+  test("a state-losing act verb comes back destructive and apply refuses it", async () => {
+    test.info().annotations.push({ type: "surface", description: "plan_tab_change" });
+
+    const made = await stack.sw.evaluate(async (url) => {
+      const c = (globalThis as unknown as { chrome: typeof chrome }).chrome;
+      const w = await c.windows.create({ url, focused: true });
+      return { win: w.id as number, a: w.tabs?.[0]?.id as number };
+    }, server.url("/u/dsc-a"));
+    await stack.waitForTab(stack.tabHandle(made.a));
+    const winHandle = stack.windowHandle(made.win);
+
+    const plan = JSON.parse(
+      await stack.daemon.cli([
+        "plan",
+        "--selector",
+        JSON.stringify({
+          kind: "members",
+          nodes: { kind: "ids", ids: [winHandle] },
+          relation: "tabs",
+        }),
+        "--transform",
+        JSON.stringify({ kind: "act", action: "discard" }),
+        "--json",
+      ]),
+    ) as { planId: string; riskClass: string };
+    // discard throws away in-page state, so it must NOT reach the tool that
+    // asks for no confirmation — the verb-aware risk table is the gate.
+    expect(plan.riskClass).toBe("destructive");
+
+    const refused = await stack.daemon
+      .cli(["apply", "--plan", plan.planId, "--json"])
+      .then(() => "UNEXPECTED_SUCCESS")
+      .catch(
+        (e: Error & { stdout?: string; stderr?: string }) =>
+          `${e.message} ${e.stdout ?? ""} ${e.stderr ?? ""}`,
+      );
+    expect(refused).not.toBe("UNEXPECTED_SUCCESS");
+    expect(refused).toMatch(/only live-layout/);
+
+    await stack.sw.evaluate(async (winId) => {
+      const c = (globalThis as unknown as { chrome: typeof chrome }).chrome;
+      await c.windows.remove(winId);
+    }, made.win);
+  });
+
   test("copy_tabs reconstructs at the destination and every source survives", async () => {
     test.info().annotations.push({ type: "surface", description: "copy_tabs" });
 

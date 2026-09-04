@@ -13,7 +13,7 @@ import {
 } from "@george43g/test-kit";
 import { describe, expect, it } from "vitest";
 import { type BrowserRef, makeBrowserDomain } from "../browser-domain.js";
-import type { RelocateEffect } from "./effects.js";
+import type { ActEffect, RelocateEffect } from "./effects.js";
 import { PlanError, planTransform } from "./planner.js";
 
 const tab = (id: string, index: number, over: Record<string, unknown> = {}) =>
@@ -284,5 +284,83 @@ describe("planTransform — semantics", () => {
     expect(
       fx.every((e) => e.targetWindowId === "w:chrome:x1" || e.targetWindowId === "w:chrome:x2"),
     ).toBe(true);
+  });
+});
+
+describe("planTransform — the act transform (Phase 5 PR-M)", () => {
+  const snap = fixture();
+  const pinnedSnap = fixture({ pinB: true });
+
+  it("fans one act effect per member, in selection order", () => {
+    const plan = planTransform(
+      refsOf(snap, ["c", "a", "e"]),
+      { kind: "act", action: "mute" },
+      snap,
+    );
+    expect(
+      plan.effects.map((e) => [e.kind, (e as ActEffect).tabId, (e as ActEffect).action]),
+    ).toEqual([
+      ["act", "c", "mute"],
+      ["act", "a", "mute"],
+      ["act", "e", "mute"],
+    ]);
+  });
+
+  it("live-layout verbs stay applyable; state-losing verbs come back destructive", () => {
+    const refs = refsOf(snap, ["a", "c"]);
+    expect(planTransform(refs, { kind: "act", action: "mute" }, snap).riskClass).toBe(
+      "live-layout",
+    );
+    expect(planTransform(refs, { kind: "act", action: "pin" }, snap).riskClass).toBe("live-layout");
+    // discard/reload throw away in-page state — the same reason tab_action
+    // carries destructiveHint. apply_tab_layout refuses these by the existing
+    // gate, which is the whole point of classifying by verb.
+    expect(planTransform(refs, { kind: "act", action: "discard" }, snap).riskClass).toBe(
+      "destructive",
+    );
+    expect(planTransform(refs, { kind: "act", action: "reload" }, snap).riskClass).toBe(
+      "destructive",
+    );
+  });
+
+  it("ACTS ACROSS live-move domains — the relocation guard must not apply", () => {
+    // "a" is Chrome-via-extension, "s1" is Safari-via-AppleScript: two live-move
+    // domains, which a relocation is right to refuse and an act is not. If this
+    // ever goes red, the language can select across browsers and cannot act
+    // across them — the gap this phase closed, reintroduced one layer down.
+    const refs = refsOf(snap, ["a", "s1"]);
+    expect(code(() => planTransform(refs, { kind: "reverse" }, snap))).toBe(
+      "cross_domain_live_move",
+    );
+    const plan = planTransform(refs, { kind: "act", action: "mute" }, snap);
+    expect(plan.effects).toHaveLength(2);
+    expect(plan.riskClass).toBe("live-layout");
+  });
+
+  it("acts on pinned members without a pinPolicy — pinning is not index-space", () => {
+    // A relocation errors here because pinned tabs change index semantics.
+    // "unpin everything pinned" must not be blocked by the same guard.
+    const refs = refsOf(pinnedSnap, ["a", "b"]);
+    expect(code(() => planTransform(refs, { kind: "reverse" }, pinnedSnap))).toBe(
+      "pinned_without_policy",
+    );
+    const plan = planTransform(refs, { kind: "act", action: "unpin" }, pinnedSnap);
+    expect(plan.effects.map((e) => (e as ActEffect).tabId)).toEqual(["a", "b"]);
+  });
+
+  it('action "group" with no groupId refuses a selection spanning windows', () => {
+    // A Chrome group cannot straddle windows; inventing a target window on the
+    // caller's behalf is exactly the silent policy this planner forbids.
+    const refs = refsOf(snap, ["a", "p"]);
+    expect(code(() => planTransform(refs, { kind: "act", action: "group" }, snap))).toBe(
+      "invalid_transform",
+    );
+    // …and allows it when the caller names the group to join.
+    const plan = planTransform(
+      refs,
+      { kind: "act", action: "group", groupId: "g:chrome:x7" },
+      snap,
+    );
+    expect(plan.effects.every((e) => (e as ActEffect).groupId === "g:chrome:x7")).toBe(true);
   });
 });
