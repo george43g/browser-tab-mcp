@@ -1767,7 +1767,9 @@ a model inferring the difference). Owner: George, phase by phase.
 
 ### B31. Completeness review — seven named gaps awaiting George's verdict
 
-> **PARTIALLY ANSWERED 2026-09-04 by George.** G1+G2 (a selection cannot be
+> **G1+G2 CLOSED 2026-09-04** by PR-M (`ed832f0`, #173): the `act` transform
+> ships, `ActEffect` has a producer, and risk is classified per verb. G3 stays
+> open as Phase 5 PR-O. **PARTIALLY ANSWERED 2026-09-04 by George.** G1+G2 (a selection cannot be
 > acted on; the IR declares `act` with no producer) and G3 (closing has no
 > route back) are now **Phase 5, APPROVED** —
 > `plans/2026-09-04-phase-5-act-on-selection.md`. G4–G7 stay open as his
