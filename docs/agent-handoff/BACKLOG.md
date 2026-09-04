@@ -1741,7 +1741,38 @@ message, and check the Windows runner's resource pressure at that timestamp.
 Frequency so far: 2 in roughly a day of CI runs across ~15 PRs. Owner:
 unclaimed.
 
+### B32. Phases 6–10 — recorded, analysed, triaged, NOT approved
+
+Filed 2026-09-04 from George's idea dump ("I just wanted to record my ideas"),
+captured verbatim and analysed in
+`docs/agent-handoff/plans/2026-09-04-control-surface-roadmap.md`. Five phases,
+each needing its own go-ahead: **6** bookmarks as a first-class surface
+(bookmark a selection/window into a folder, bulk create from URLs, bookmark a
+closed tab, the MOVE that does not exist today — `update` takes title/url only
+— and a selector language over the bookmark tree); **7** groups as a selectable
+KIND rather than sugar over tabs, with create/delete/duplicate/expand/collapse
+and every relocation transform, plus the open policy question on copying across
+the incognito line in either direction; **8** AI descriptions and per-tab RAM
+(the latter blocked on an unverified feasibility probe — `chrome.processes`
+exposes `privateMemory` + per-task `tabId`, but stable-channel availability is
+UNCONFIRMED and must be probed before planning); **9** incognito coverage that
+is tested rather than assumed (the modelling is already right; the evidence is
+missing and the manifest declares no `incognito` key); **10** the
+structured-output gate for cloud and local models, whose sharp edge is that
+constrained-decoding modes reject recursion while the selector AST is recursive
+by design, so a depth-bounded flattened variant plus a conformance corpus is the
+actual deliverable. The roadmap also answers George's two design questions
+(tabs vs groups are different KINDS, and the eval baseline says do not rely on
+a model inferring the difference). Owner: George, phase by phase.
+
 ### B31. Completeness review — seven named gaps awaiting George's verdict
+
+> **PARTIALLY ANSWERED 2026-09-04 by George.** G1+G2 (a selection cannot be
+> acted on; the IR declares `act` with no producer) and G3 (closing has no
+> route back) are now **Phase 5, APPROVED** —
+> `plans/2026-09-04-phase-5-act-on-selection.md`. G4–G7 stay open as his
+> verdict. Everything else he raised in the same message is analysed and
+> triaged in `plans/2026-09-04-control-surface-roadmap.md` (**B32**).
 
 Filed 2026-09-04 as B26's second deliverable. `docs/CONTROL-SURFACE.md` maps
 the whole surface as six axes and ends in a gap table (G1–G7), each row
