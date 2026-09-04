@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.11.0](https://github.com/george43g/browser-tab-mcp/compare/v1.10.1...v1.11.0) (2026-09-04)
+
+
+### Features
+
+* **select:** act on a selection — the `act` transform, verb-aware risk, batch group ([#173](https://github.com/george43g/browser-tab-mcp/issues/173)) ([ed832f0](https://github.com/george43g/browser-tab-mcp/commit/ed832f08667b66d1dd8b4a9bc8a7d7de52e0b23d))
+
 ## [1.10.1](https://github.com/george43g/browser-tab-mcp/compare/v1.10.0...v1.10.1) (2026-09-02)
 
 
