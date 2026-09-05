@@ -418,6 +418,25 @@ export async function applyDestructivePlan(params: Record<string, unknown>): Pro
   }
 }
 
+/**
+ * Closed-tab memory reads (Phase 5 PR-O) — daemon-only, CLI-only for now.
+ * The MCP-visible surface arrives with `reopen` in PR-P: a list a model can
+ * read but not act on is a tool that can only make it wish for another one.
+ */
+export async function listClosedTabs(params: Record<string, unknown>): Promise<unknown> {
+  try {
+    return await viaDaemon((c) => c.request<unknown>("listClosedTabs", params));
+  } catch (err) {
+    if (err instanceof DaemonUnavailableError) {
+      throw new Error(
+        "closed requires the daemon — it is the daemon that watches tabs disappear. " +
+          "Start it with `browser-tab daemon run`.",
+      );
+    }
+    throw err;
+  }
+}
+
 /** Operation journal reads (PR-I) — daemon-only, CLI-only surface. */
 export async function listOperations(params: Record<string, unknown>): Promise<unknown> {
   try {

@@ -51,6 +51,7 @@ import {
   applyTabLayout as runApplyTabLayout,
 } from "./apply.js";
 import { bookmarks } from "./bookmarks.js";
+import { ClosedTabStore, detectClosures } from "./closed-tabs.js";
 import { ContentCache } from "./content-cache.js";
 import { makeIdempotencyCache, copyTabs as runCopyTabs } from "./copy.js";
 import { cutTabs as runCutTabs } from "./cut.js";
@@ -794,6 +795,8 @@ export async function startDaemon(): Promise<DaemonHandle> {
   const copyIdempotency = makeIdempotencyCache();
   const operations = new OperationStore();
   operations.warmFromDisk();
+  const closedTabs = new ClosedTabStore();
+  closedTabs.warmFromDisk();
   journal.warmFromDisk();
   const contentCache = new ContentCache();
   const annotations = new AnnotationStore();
@@ -807,9 +810,18 @@ export async function startDaemon(): Promise<DaemonHandle> {
   // browser is extension-authoritative, poll-derived StateStore diffs
   // otherwise. Gating store-diff ingestion on !extensionConnected prevents
   // double-counting an extension-fed browser's focus/nav.
+  // Closed-tab memory (Phase 5 PR-O) rides the same snapshot event, because a
+  // closure is only legible as a DIFFERENCE — chrome.tabs.onRemoved hands you
+  // an id after the url and title are already gone. Holding the previous
+  // snapshot here is the whole mechanism; every way that diff can lie is
+  // guarded inside detectClosures.
+  let lastSnapshot: Snapshot | undefined;
   const unsubscribeWriter = store.onEvent((e) => {
     if (e.event === "snapshot") {
-      writer.schedule(e.data as Snapshot);
+      const next = e.data as Snapshot;
+      if (lastSnapshot !== undefined) closedTabs.record(detectClosures(lastSnapshot, next));
+      lastSnapshot = next;
+      writer.schedule(next);
     } else if (e.browser && !merger.extensionConnected(e.browser as BrowserId)) {
       ingestStoreEvent(journal, store, e);
     }
@@ -953,6 +965,13 @@ export async function startDaemon(): Promise<DaemonHandle> {
         runCommand: (p) => executeCommand(p, { refresh: () => loop.refresh(), ext }),
         refresh: () => loop.refresh(),
       }),
+    onListClosedTabs: async (params) => {
+      const p = params as { limit?: unknown; browser?: unknown };
+      return closedTabs.list(
+        Number(p.limit ?? 20),
+        p.browser === undefined ? undefined : (p.browser as BrowserId),
+      );
+    },
     onListOperations: async (params) =>
       operations.list(Number((params as { limit?: unknown }).limit ?? 20)),
     onGetOperation: async (params) => {

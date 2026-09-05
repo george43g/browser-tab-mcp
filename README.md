@@ -53,6 +53,7 @@ browser-tab group remove --group <groupId>   # dissolve a group, keeping every t
 browser-tab tui              # live tab manager (Ink)
 browser-tab mcp              # run the MCP server (stdio)
 browser-tab operations       # read the daemon's operation journal (apply/copy/cut executions)
+browser-tab closed           # tabs the daemon watched disappear, newest first (reopenable soon)
 browser-tab doctor           # preflight: Automation permission, correlation tier
 browser-tab repl             # interactive REPL — same dispatcher as MCP
 ```

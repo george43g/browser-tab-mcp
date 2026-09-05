@@ -137,6 +137,14 @@ cmd apply-destructive help="Apply a DESTRUCTIVE act plan (discard/reload) from b
     }
     flag --confirm-destruction help="Required. In-page state is destroyed and cannot be restored" required=#true
 }
+cmd closed help="Recently closed tabs the daemon remembers" {
+    flag --browser help="Only this browser's closures" {
+        arg <name>
+    }
+    flag --limit help="How many recent closures to list" {
+        arg "[n]" required=#false default="20"
+    }
+}
 cmd operations help="Read the daemon's operation journal (apply/copy/cut executions)" {
     flag --id help="Fetch one operation record" {
         arg <operationId>
