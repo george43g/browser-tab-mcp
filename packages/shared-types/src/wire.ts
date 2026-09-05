@@ -104,6 +104,9 @@ export const ExtCommandSchema = z.object({
     "extract_content",
     "capture_tab",
     "history_search",
+    // Phase 5 PR-P: chrome.sessions — the ONLY mechanism that brings a closed
+    // tab back WITH its history. Our own record can only re-open a URL.
+    "sessions",
     "bookmarks",
     // Restarts the extension from disk (chrome.runtime.reload). Deliberately
     // has NO MCP tool — see daemon/index.ts — so it is unreachable from a

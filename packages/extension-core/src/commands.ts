@@ -40,6 +40,8 @@ export interface CommandArgs {
   startTime?: number;
   endTime?: number;
   maxResults?: number;
+  /** sessions restore: an id from chrome.sessions.getRecentlyClosed. */
+  sessionId?: string;
   title?: string;
   color?: string;
   collapsed?: boolean;
@@ -640,6 +642,68 @@ export async function executeCommand(kind: string, args: CommandArgs): Promise<C
         visitCount: it.visitCount ?? 0,
       }));
       return { payload: { rows } };
+    }
+    case "sessions": {
+      // The one thing our own closed-tab record cannot do: bring a tab back
+      // WITH its back/forward history. chrome.sessions holds the browser's own
+      // recently-closed list, and restoring from it is a genuine restore
+      // rather than a re-navigation to the same URL.
+      const sessions = api.sessions as typeof chrome.sessions | undefined;
+      if (!sessions) throw new Error("sessions API unavailable in this browser");
+      const action = String(args.action ?? "recent");
+      if (action === "recent") {
+        const max = typeof args.maxResults === "number" ? args.maxResults : 25;
+        const recent = await sessions.getRecentlyClosed({ maxResults: max });
+        // A session entry is a tab OR a window of tabs; both can be restored
+        // by the same sessionId, so both are reported with the tab rows that
+        // let a caller match one against a closed-tab record.
+        interface SessionRow {
+          sessionId: string;
+          kind: "tab" | "window";
+          url: string;
+          title: string;
+          lastModified: number;
+        }
+        const rows = recent.flatMap((e): SessionRow[] => {
+          if (e.tab) {
+            return [
+              {
+                sessionId: e.tab.sessionId ?? "",
+                kind: "tab",
+                url: e.tab.url ?? "",
+                title: e.tab.title ?? "",
+                lastModified: e.lastModified ?? 0,
+              },
+            ];
+          }
+          const w = e.window;
+          if (!w) return [];
+          return (w.tabs ?? []).map((t) => ({
+            // Restoring a window's sessionId brings the WHOLE window back —
+            // the caller needs to know that before it asks.
+            sessionId: w.sessionId ?? "",
+            kind: "window",
+            url: t.url ?? "",
+            title: t.title ?? "",
+            lastModified: e.lastModified ?? 0,
+          }));
+        });
+        return { payload: { rows: rows.filter((r) => r.sessionId !== "") } };
+      }
+      if (action === "restore") {
+        const sessionId = String(args.sessionId ?? "");
+        if (!sessionId) throw new Error("sessions restore needs a sessionId");
+        const restored = await sessions.restore(sessionId);
+        const tab = restored?.tab ?? restored?.window?.tabs?.[0];
+        return {
+          payload: {
+            restored: true,
+            ...(tab?.id !== undefined ? { tabId: tab.id } : {}),
+            ...(tab?.windowId !== undefined ? { windowId: tab.windowId } : {}),
+          },
+        };
+      }
+      throw new Error(`unknown sessions action "${action}"`);
     }
     case "bookmarks": {
       const bookmarks = api.bookmarks as typeof chrome.bookmarks | undefined;

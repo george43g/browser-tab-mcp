@@ -16,6 +16,7 @@ import { applyTabLayoutTool } from "./apply-tab-layout.js";
 import { bookmarksTool } from "./bookmarks.js";
 import { closeTabTool } from "./close-tab.js";
 import { closeWindowTool } from "./close-window.js";
+import { closedTabsTool } from "./closed-tabs.js";
 import { copyTabsTool } from "./copy-tabs.js";
 import { cutTabsTool } from "./cut-tabs.js";
 import { daemonStatusTool } from "./daemon-status.js";
@@ -32,6 +33,7 @@ import { noopTool } from "./noop.js";
 import { openTabTool } from "./open-tab.js";
 import { openWindowTool } from "./open-window.js";
 import { planTabChangeTool } from "./plan-tab-change.js";
+import { reopenTabTool } from "./reopen-tab.js";
 import { screenshotTool } from "./screenshot.js";
 import { selectTabsTool } from "./select-tabs.js";
 import { setWindowTool } from "./set-window.js";
@@ -62,6 +64,8 @@ export function makeAppRegistry(): ToolRegistry {
     journalTool,
     historyTool,
     bookmarksTool,
+    closedTabsTool,
+    reopenTabTool,
     daemonStatusTool,
     noopTool,
     getLogsTool,

@@ -96,6 +96,9 @@ Apply a DESTRUCTIVE act plan (discard/reload) from browser\-tab plan
 \fBclosed\fR
 Recently closed tabs the daemon remembers
 .TP
+\fBreopen\fR
+Reopen a closed tab (restores history when the browser still holds it)
+.TP
 \fBoperations\fR
 Read the daemon's operation journal (apply/copy/cut executions)
 .TP
@@ -312,6 +315,16 @@ Only this browser's closures
 .TP
 \fB\-\-limit\fR \fI<n>\fR
 How many recent closures to list
+.SH "BROWSER-TAB REOPEN"
+Reopen a closed tab (restores history when the browser still holds it)
+.PP
+\fBUsage:\fR browser\-tab reopen [OPTIONS]
+.PP
+\fBOptions:\fR
+.PP
+.TP
+\fB\-\-id\fR \fI<closedTabId>\fR
+closedTabId from browser\-tab closed
 .SH "BROWSER-TAB OPERATIONS"
 Read the daemon's operation journal (apply/copy/cut executions)
 .PP

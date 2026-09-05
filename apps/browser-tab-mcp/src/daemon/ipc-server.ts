@@ -2,7 +2,7 @@
  * Unix-socket IPC server — the client API for MCP/CLI/TUI/wm-stack.
  *
  * Protocol: NDJSON, one JSON object per line.
- *   request:  { id, method: "getSnapshot"|"subscribe"|"unsubscribe"|"command"|"status"|"refresh"|"journal"|"getPage"|"annotate"|"screenshot"|"history"|"bookmarks"|"selectTabs"|"getSelection"|"planTabChange"|"getPlan"|"applyTabLayout"|"applyDestructivePlan"|"copyTabs"|"cutTabs"|"listOperations"|"getOperation"|"listClosedTabs", params? }
+ *   request:  { id, method: "getSnapshot"|"subscribe"|"unsubscribe"|"command"|"status"|"refresh"|"journal"|"getPage"|"annotate"|"screenshot"|"history"|"bookmarks"|"selectTabs"|"getSelection"|"planTabChange"|"getPlan"|"applyTabLayout"|"applyDestructivePlan"|"copyTabs"|"cutTabs"|"listOperations"|"getOperation"|"listClosedTabs"|"reopenTab", params? }
  *   response: { id, ok: true, result } | { id, ok: false, error, hint? }
  *   events (after subscribe): DaemonEvent objects (see state.ts)
  *
@@ -47,6 +47,7 @@ export interface IpcServerOptions {
   onCutTabs: (params: Record<string, unknown>) => Promise<unknown>;
   onListOperations: (params: Record<string, unknown>) => Promise<unknown>;
   onListClosedTabs: (params: Record<string, unknown>) => Promise<unknown>;
+  onReopenTab: (params: Record<string, unknown>) => Promise<unknown>;
   onGetOperation: (params: Record<string, unknown>) => Promise<unknown>;
 }
 
@@ -198,6 +199,9 @@ export class IpcServer {
           break;
         case "cutTabs":
           reply({ ok: true, result: await this.opts.onCutTabs(req.params ?? {}) });
+          break;
+        case "reopenTab":
+          reply({ ok: true, result: await this.opts.onReopenTab(req.params ?? {}) });
           break;
         case "listClosedTabs":
           reply({ ok: true, result: await this.opts.onListClosedTabs(req.params ?? {}) });

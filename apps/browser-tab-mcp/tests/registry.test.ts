@@ -32,6 +32,8 @@ const EXPECTED = [
   "journal",
   "history",
   "bookmarks",
+  "closed_tabs",
+  "reopen_tab",
   "daemon_status",
   "noop",
   "get_logs",

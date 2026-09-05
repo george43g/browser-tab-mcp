@@ -67,6 +67,7 @@ import { OperationStore } from "./operations.js";
 import { socketPath } from "./paths.js";
 import { planTabChange as runPlanTabChange } from "./plan-change.js";
 import { PlanStore } from "./plans.js";
+import { reopenTab as runReopenTab } from "./reopen.js";
 import { ShotRateLimiter, screenshot } from "./screenshot.js";
 import { selectTabs as runSelectTabs } from "./select.js";
 import { SelectionStore } from "./selections.js";
@@ -962,6 +963,13 @@ export async function startDaemon(): Promise<DaemonHandle> {
         store,
         plans,
         operations,
+        runCommand: (p) => executeCommand(p, { refresh: () => loop.refresh(), ext }),
+        refresh: () => loop.refresh(),
+      }),
+    onReopenTab: (params) =>
+      runReopenTab(params, {
+        closedTabs,
+        ext,
         runCommand: (p) => executeCommand(p, { refresh: () => loop.refresh(), ext }),
         refresh: () => loop.refresh(),
       }),

@@ -54,6 +54,7 @@ export const E2E_SPEC_SLOTS: readonly string[] = [
   "daemon-surfaces.e2e.test.ts",
   "reload-extension.e2e.test.ts",
   "select.e2e.test.ts",
+  "reopen.e2e.test.ts",
 ];
 
 export interface PortBand {
