@@ -114,11 +114,22 @@ function runDeploy(
   return run;
 }
 
-const installedStatus = (build: string, extensions: string[] = []) => ({
+const installedStatus = (
+  build: string,
+  extensions: string[] = [],
+  /**
+   * Per-extension bundle identity. Omitted = the daemon reported none, which
+   * the loop treats leniently (an older daemon predates the field); the tests
+   * that exercise the bundle check pass it explicitly. Default here mirrors a
+   * healthy fleet: every extension on the daemon's own build.
+   */
+  extensionInfo?: Array<{ browser: string; extVersion: string }>,
+) => ({
   launchAgent: "launchd LaunchAgent: loaded, state=running, pid=1",
   reachable: true,
   build,
   extensions,
+  extensionInfo: extensionInfo ?? extensions.map((browser) => ({ browser, extVersion: build })),
 });
 
 describe("deploy-local", () => {
@@ -186,6 +197,49 @@ describe("deploy-local", () => {
     expect(run.stdout).toMatch(/warning: reload-extension chrome failed/);
     expect(run.stdout).toMatch(/reloaded except \[chrome\]/);
     expect(run.stdout).toMatch(/running the previous bundle/);
+  });
+
+  it("FAILS when an extension reconnects still running the previous bundle", () => {
+    // The defect this closes, measured 2026-09-05 on the real fleet: Safari
+    // had been reporting extVersion "1.3.1+71.7b72707" for months while every
+    // deploy printed "reloaded and reconnected", because nothing compared the
+    // versions. A reconnection is not a reload.
+    const w = makeWorld({
+      statuses: [
+        installedStatus("1.0.0+1.0ldsha0", ["chrome"]),
+        installedStatus(
+          "1.0.0+2.abc1234",
+          ["chrome"],
+          [{ browser: "chrome", extVersion: "1.0.0+1.0ldsha0" }],
+        ),
+      ],
+    });
+    const run = runDeploy(w);
+    expect(run.status).toBe(1);
+    expect(run.stdout).toMatch(/NOT running this build/);
+    expect(run.stdout, "names the browser AND what it is actually on").toMatch(
+      /chrome is on "1\.0\.0\+1\.0ldsha0"/,
+    );
+    expect(run.stdout).toMatch(/reload-extension --browser chrome/);
+  });
+
+  it("gives Safari its OWN remedy — a reload cannot fix an app-bundled extension", () => {
+    const w = makeWorld({
+      statuses: [
+        installedStatus("1.0.0+1.0ldsha0", ["safari"]),
+        installedStatus(
+          "1.0.0+2.abc1234",
+          ["safari"],
+          [{ browser: "safari", extVersion: "1.3.1+71.7b72707" }],
+        ),
+      ],
+    });
+    const run = runDeploy(w);
+    expect(run.status).toBe(1);
+    expect(run.stdout).toMatch(/safari-extension sideload/);
+    expect(run.stdout, "pointing Safari at reload-extension would be wrong advice").not.toMatch(
+      /retry `browser-tab reload-extension --browser safari`/,
+    );
   });
 
   it("accepts a dirty-tree stamp for the right commit, warning about the dirt", () => {
