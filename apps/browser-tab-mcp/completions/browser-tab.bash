@@ -141,6 +141,11 @@ cmd closed help="Recently closed tabs the daemon remembers" {
         arg "[n]" required=#false default="20"
     }
 }
+cmd reopen help="Reopen a closed tab (restores history when the browser still holds it)" {
+    flag --id help="closedTabId from browser-tab closed" required=#true {
+        arg <closedTabId>
+    }
+}
 cmd operations help="Read the daemon's operation journal (apply/copy/cut executions)" {
     flag --id help="Fetch one operation record" {
         arg <operationId>

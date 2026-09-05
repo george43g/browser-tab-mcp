@@ -13,7 +13,8 @@
     "webNavigation",
     "scripting",
     "history",
-    "bookmarks"
+    "bookmarks",
+    "sessions"
   ],
   "host_permissions": [
     "<all_urls>"

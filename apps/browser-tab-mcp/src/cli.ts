@@ -616,6 +616,16 @@ export function buildProgram(): Command {
     });
 
   program
+    .command("reopen")
+    .description("Reopen a closed tab — restores its history when the browser still holds it")
+    .requiredOption("--id <closedTabId>", "closedTabId from `browser-tab closed`")
+    .action(async (opts: { id: string }) => {
+      const json = program.opts<{ json?: boolean }>().json ?? false;
+      const result = await callMcpTool("reopen_tab", { closedTabId: opts.id });
+      await printResult(result, json, "reopen_tab");
+    });
+
+  program
     .command("operations")
     .description("Read the daemon's operation journal (apply/copy/cut executions)")
     .option("--id <operationId>", "Fetch one operation record")

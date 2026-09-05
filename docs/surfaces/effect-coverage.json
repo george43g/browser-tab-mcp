@@ -441,13 +441,24 @@
       ]
     },
     {
-      "surface": "closed",
-      "kind": "cli",
+      "surface": "closed_tabs",
+      "kind": "tool",
       "coverage": [
         {
-          "tier": "cli-process",
-          "covers": "the daemon-only read degrades honestly when no daemon is behind the socket, and lists recorded closures newest-first against a fake-adapter daemon. The DETECTION half - which of a diff's apparent closures are real - is unit-proven in closed-tabs.test.ts against the three ways a snapshot diff lies (cross-window move, authority switch, browser quit); a real browser cannot be made to lie those ways on demand.",
-          "evidence": "pending"
+          "tier": "chromium-e2e",
+          "covers": "against a REAL browser: a tab closed through the daemon is watched out of the snapshot and appears in the closed list, addressable by closedTabId. (Which apparent closures are REAL - cross-window move, authority switch, browser quit - is unit-proven in closed-tabs.test.ts; a browser cannot be made to lie those ways on demand.)",
+          "evidence": "apps/chrome-extension/e2e/reopen.e2e.test.ts"
+        }
+      ]
+    },
+    {
+      "surface": "reopen_tab",
+      "kind": "tool",
+      "coverage": [
+        {
+          "tier": "chromium-e2e",
+          "covers": "against a REAL browser: the sessions permission reaches the service worker, a just-closed tab is reopened and chrome.tabs.query shows it present again, and the reported method agrees with historyPreserved. NOT proven here: the session-restore ROUTE. Measured 2026-09-05 - headless Chromium holds no recently-closed entry for a tab it closed seconds earlier, so the reopen honestly reconstructs. Asserting session-restore would be asserting the browser's bookkeeping, not our contract; a headed-browser check is manual.",
+          "evidence": "apps/chrome-extension/e2e/reopen.e2e.test.ts"
         }
       ]
     },

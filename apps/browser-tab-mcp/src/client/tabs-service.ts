@@ -437,6 +437,20 @@ export async function listClosedTabs(params: Record<string, unknown>): Promise<u
   }
 }
 
+export async function reopenTab(params: Record<string, unknown>): Promise<unknown> {
+  if (fakeAdapterEnabled()) {
+    throw new Error("reopen_tab requires the daemon — not available in fixture mode.");
+  }
+  try {
+    return await viaDaemon((c) => c.request<unknown>("reopenTab", params));
+  } catch (err) {
+    if (err instanceof DaemonUnavailableError) {
+      throw new Error("reopen_tab requires the daemon. Start it with `browser-tab daemon run`.");
+    }
+    throw err;
+  }
+}
+
 /** Operation journal reads (PR-I) — daemon-only, CLI-only surface. */
 export async function listOperations(params: Record<string, unknown>): Promise<unknown> {
   try {

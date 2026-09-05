@@ -82,6 +82,8 @@ export const TOOL_CLI_FORM: Readonly<Record<string, string>> = {
   plan_tab_change: "plan",
   apply_tab_layout: "apply",
   apply_destructive_plan: "apply-destructive",
+  closed_tabs: "closed",
+  reopen_tab: "reopen",
   copy_tabs: "copy",
   cut_tabs: "cut",
   get_logs: "logs",
