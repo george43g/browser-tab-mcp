@@ -1,5 +1,17 @@
 # Changelog
 
+## [1.12.0](https://github.com/george43g/browser-tab-mcp/compare/v1.11.0...v1.12.0) (2026-09-05)
+
+
+### Features
+
+* **apply:** the destructive door — apply_destructive_plan, with its own tool identity ([#177](https://github.com/george43g/browser-tab-mcp/issues/177)) ([c18307c](https://github.com/george43g/browser-tab-mcp/commit/c18307c585f7d159525d20b6c6d80a594b820ac4))
+
+
+### Bug Fixes
+
+* **deploy:** a reconnection is not a reload — verify the extension's bundle ([#178](https://github.com/george43g/browser-tab-mcp/issues/178)) ([bfacc65](https://github.com/george43g/browser-tab-mcp/commit/bfacc6523f05a314c0d2c59e0a4b850c94cad90e))
+
 ## [1.11.0](https://github.com/george43g/browser-tab-mcp/compare/v1.10.1...v1.11.0) (2026-09-04)
 
 
