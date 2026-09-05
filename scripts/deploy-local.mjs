@@ -196,6 +196,47 @@ if (expected.length > 0) {
     );
     process.exit(1);
   }
+
+  // A RECONNECTION IS NOT A RELOAD. The check above proves the extension came
+  // back; it says nothing about which bundle came back with it, and that is
+  // the whole question this script exists to answer. Measured 2026-09-05:
+  // Safari had been reporting `extVersion: "1.3.1+71.7b72707"` for months —
+  // a bundle from long before the version was 1.11.0 — while every deploy
+  // printed "extensions [chrome, safari] reloaded and reconnected", and
+  // Chrome sat one commit behind after a reload that never ran. Both were
+  // invisible because nothing compared the versions, and the daemon has been
+  // reporting `extensionInfo[].extVersion` the entire time.
+  //
+  // The remedy differs by browser and the message says so: a Chromium-family
+  // extension reloads from disk, while Safari's is packaged into an app
+  // bundle and needs a `sideload` (xcodebuild) before a reload can pick
+  // anything up. This FAILS rather than warns — a loop that knowingly reports
+  // ok while a browser runs months-old code is the pathway-that-passes-
+  // because-nothing-looked that this repo keeps paying for. The post-merge
+  // hook is advisory, so a loud failure blocks nothing; it just stops the
+  // silence.
+  const info = Array.isArray(live?.extensionInfo) ? live.extensionInfo : [];
+  const fresh = daemonStatus();
+  const infoNow = Array.isArray(fresh?.extensionInfo) ? fresh.extensionInfo : info;
+  const staleBundles = infoNow.filter(
+    (e) => e && typeof e.extVersion === "string" && !onBuild(e.extVersion),
+  );
+  if (staleBundles.length > 0) {
+    const detail = staleBundles
+      .map((e) => {
+        const remedy =
+          e.browser === "safari"
+            ? "needs `pnpm --filter @george43g/safari-extension sideload` (Safari loads from an app bundle, not dist)"
+            : "retry `browser-tab reload-extension --browser " + String(e.browser) + "`";
+        return `${e.browser} is on "${e.extVersion}" — ${remedy}`;
+      })
+      .join("; ");
+    say(
+      `FAILED: extension(s) reconnected but are NOT running this build (.${sha}): ${detail}. ` +
+        "A reconnection is not a reload.",
+    );
+    process.exit(1);
+  }
 }
 
 if (String(live.build ?? "").includes(".dirty.")) {
