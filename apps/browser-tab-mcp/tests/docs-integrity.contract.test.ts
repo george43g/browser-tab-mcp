@@ -164,6 +164,29 @@ describe("docs integrity", () => {
     expect(orphaned, "README row(s) for tools that no longer exist").toEqual([]);
   });
 
+  it("the connector requests no cookies/site-data permission — refused, not overlooked", () => {
+    // George, 2026-09-05, deciding gap G7: "say that its refused for now,
+    // unless we think of some feature in the future that wants it." The
+    // failure this pins is not a bug — it is a permission bump nobody
+    // notices. A cookie clear logs the user out of an origin everywhere and
+    // is unrecoverable, so acquiring the capability should cost a decision:
+    // if a feature genuinely needs it, delete this test in the same PR that
+    // adds the permission, and move the line in docs/CONTROL-SURFACE.md out
+    // of the boundary section.
+    const manifest = JSON.parse(
+      readFileSync(join(ROOT, "apps/chrome-extension/public/manifest.json"), "utf8"),
+    ) as { permissions?: string[] };
+    const perms = manifest.permissions ?? [];
+    // Anti-vacuity: an empty/renamed permissions array must not pass silently.
+    expect(perms.length, "manifest permissions were read at all").toBeGreaterThan(3);
+    for (const banned of ["cookies", "browsingData", "contentSettings"]) {
+      expect(
+        perms,
+        `"${banned}" is a refused capability (G7) — see docs/CONTROL-SURFACE.md`,
+      ).not.toContain(banned);
+    }
+  });
+
   it("AGENTS.md claims no enforcement it does not have for the stdout rule", () => {
     // "CI grep enforces this" stood for months with no such grep anywhere.
     const text = readFileSync(join(ROOT, "AGENTS.md"), "utf8");

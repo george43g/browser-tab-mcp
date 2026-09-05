@@ -1,8 +1,19 @@
 # Control-surface roadmap — George's 2026-09-04 idea dump, analysed and triaged
 
-**Status:** Phase 5 is APPROVED and has its own plan
-(`2026-09-04-phase-5-act-on-selection.md`). Phases 6–10 are recorded, analysed
-and sequenced — **not** approved. Each one needs its own go-ahead.
+**Status: EVERY phase here is APPROVED.** George, 2026-09-05: *"i approve the
+entire plan."* Phase 5 has its own document
+(`2026-09-04-phase-5-act-on-selection.md`); phases 6–11 are approved to be
+built in the order below, each shipping as its own PR against its section here.
+Two things this approval does NOT do: it does not pre-approve Phase 8's per-tab
+RAM (that stays gated on the feasibility probe named in its section — approving
+the plan approves the probe, not a guarantee), and it does not settle a policy
+question a phase explicitly hands back (Phase 7's incognito copy direction).
+
+The same day he answered the four open gaps one at a time: **G4 downloads →
+build (now Phase 11)**, **G5 reading list → build (folded into Phase 6)**,
+**G6 zoom → build (folded into Phase 5 PR-P)**, **G7 cookies/site data →
+refused for now** with a stated reopening condition, recorded in
+`docs/CONTROL-SURFACE.md`'s boundary section and pinned by test.
 
 This document exists because George dumped a large, coherent set of ideas in
 one message and asked for exactly this: *"for everything else, tidy it up,
@@ -139,7 +150,12 @@ feature.
    the bookmarks bar". *(The bookmarks-bar dropdown is not a feature to build:
    it is what Chrome renders for any folder whose parent is the bookmarks-bar
    node. Worth one line of docs, no code.)*
-6. **A selector language over bookmarks** — the second *kind*: same algebra,
+6. **Reading list** (G5, George 2026-09-05) — `chrome.readingList` +
+   permission, so the "saved for later" axis is symmetric rather than
+   bookmarks-only. Chrome-family only; Safari degrades with a stated reason
+   like every other extension-only surface. I recommended skipping this and he
+   took it anyway — recorded so the reasoning is visible either way.
+7. **A selector language over bookmarks** — the second *kind*: same algebra,
    different domain (tree position rather than strip index; `folder`, `depth`,
    `parent`, `url`, `title`, `dateAdded`). This is the piece that makes
    "bookmark CRUD and bookmark selection logic" one language rather than two.
@@ -216,6 +232,25 @@ it). What is missing is everything else:
   generated from the same source rather than hand-written.
 - Consumers stay inside this monorepo (George, 2026-09-02: the
   `control-language` package is not being published).
+
+### Phase 11 — downloads (G4)
+
+George, 2026-09-05, choosing to build it: the only one of the three answered
+gaps that adds a missing **axis** rather than a missing verb. Today "what is
+this browser doing" cannot see a download at all — not one in flight, not one
+that finished an hour ago. Needs the `downloads` permission (free on a
+sideloaded connector) and a `downloads` tool: list/search with the same
+`sources` honesty `history` uses, plus the state a caller actually wants —
+filename, bytes received against total, paused/interrupted, danger type, and
+the originating tab where the browser still knows it.
+
+Two things to decide inside the phase rather than now: whether the write half
+(pause / resume / cancel / open containing folder) is in scope at all — `open`
+in particular hands a local path to the OS and is a different risk class from
+everything else this tool does — and whether an in-flight download belongs in
+the Snapshot (it is state that changes every second, and the snapshot is
+diff-written; almost certainly it stays a separate on-demand read, like
+`history`).
 
 ## Cross-cutting, not a phase
 
