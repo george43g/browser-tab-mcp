@@ -1741,6 +1741,21 @@ message, and check the Windows runner's resource pressure at that timestamp.
 Frequency so far: 2 in roughly a day of CI runs across ~15 PRs. Owner:
 unclaimed.
 
+### B33. The daemon never shuts down inside its 3s cleanup window
+
+Filed 2026-09-05, found while measuring the deploy loop's wait budget.
+`~/Library/Logs/browser-tab/daemon.err.log` carries repeated
+`[shutdown] cleanup_timeout {"timeout_ms":3000}` — robustness's force-exit
+safety net firing, every time, rather than as the rare backstop it is meant to
+be. Consequence measured: `daemon restart` returns in 226ms and the daemon is
+reachable 20,514ms later; ~3s of that is this hang and ~10s is launchd's
+ThrottleInterval, which the hang does not cause but does sit on top of. Nothing
+is broken by it today (the net works, and the deploy budget now clears it), so
+this is a cleanliness and latency item, not an outage: something registered in
+the shutdown registry is not resolving — the WS server's ping/pong interval,
+the engine loop's in-flight osascript, or a socket without an unref'd handle
+are the candidates, and none has been checked. Owner: unclaimed.
+
 ### B32. Phases 6–11 — APPROVED 2026-09-05, sequenced
 
 > **APPROVED 2026-09-05** — George: *"i approve the entire plan."* Every phase
