@@ -74,6 +74,10 @@ describe("MCP ↔ CLI parity", () => {
       "help",
       "reload-extension",
       "operations",
+      // Phase 5 PR-O: closed-tab memory is a daemon-only READ for now. The
+      // MCP-visible surface arrives with `reopen` in PR-P — a list a model can
+      // read but not act on is a tool whose only outcome is wanting another.
+      "closed",
       "annotate",
       "screenshot",
       "journal",

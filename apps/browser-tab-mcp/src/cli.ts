@@ -36,6 +36,7 @@ import { compareBuilds } from "./build-compare.js";
 import {
   daemonStatus,
   getOperation,
+  listClosedTabs,
   listOperations,
   reloadExtension,
 } from "./client/tabs-service.js";
@@ -590,6 +591,30 @@ export function buildProgram(): Command {
    * operation journal is PR-L's evidence-gated resources question, and every
    * mutation result already carries its own operationId inline.
    */
+  program
+    .command("closed")
+    .description("Recently closed tabs the daemon remembers (Phase 5 — reopen lands in PR-P)")
+    .option("--browser <name>", "Only this browser's closures")
+    .option("--limit <n>", "How many recent closures to list", "20")
+    .action(async (opts: { browser?: string; limit?: string }) => {
+      const json = program.opts<{ json?: boolean }>().json ?? false;
+      try {
+        printJson(
+          await listClosedTabs({
+            limit: Number(opts.limit ?? 20),
+            ...(opts.browser !== undefined ? { browser: opts.browser } : {}),
+          }),
+        );
+      } catch (err) {
+        if (json) {
+          printJson({ error: { message: (err as Error).message } });
+        } else {
+          process.stderr.write(`${(err as Error).message}\n`);
+        }
+        process.exitCode = 1;
+      }
+    });
+
   program
     .command("operations")
     .description("Read the daemon's operation journal (apply/copy/cut executions)")

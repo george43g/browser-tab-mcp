@@ -93,6 +93,9 @@ Apply a live\-layout plan from browser\-tab plan (needs daemon + extension)
 \fBapply\-destructive\fR
 Apply a DESTRUCTIVE act plan (discard/reload) from browser\-tab plan
 .TP
+\fBclosed\fR
+Recently closed tabs the daemon remembers
+.TP
 \fBoperations\fR
 Read the daemon's operation journal (apply/copy/cut executions)
 .TP
@@ -296,6 +299,19 @@ planId from plan_tab_change with riskClass destructive
 .TP
 \fB\-\-confirm\-destruction\fR
 Required. In\-page state is destroyed and cannot be restored
+.SH "BROWSER-TAB CLOSED"
+Recently closed tabs the daemon remembers
+.PP
+\fBUsage:\fR browser\-tab closed [OPTIONS]
+.PP
+\fBOptions:\fR
+.PP
+.TP
+\fB\-\-browser\fR \fI<name>\fR
+Only this browser's closures
+.TP
+\fB\-\-limit\fR \fI<n>\fR
+How many recent closures to list
 .SH "BROWSER-TAB OPERATIONS"
 Read the daemon's operation journal (apply/copy/cut executions)
 .PP
