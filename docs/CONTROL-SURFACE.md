@@ -93,20 +93,31 @@ George reverses it.
 - **No AppleScript parity fiction.** The AppleScript path covers
   navigate/reload (+back/forward on Chromium) and window bounds/state; every
   other verb throws a sentence naming the extension as the fix.
+- **No cookies, site data or per-site permissions — refused, not overlooked.**
+  George, 2026-09-05, deciding G7: *"say that its refused for now, unless we
+  think of some feature in the future that wants it."* So this is a refusal
+  with a stated reopening condition, not a closed door: the extension requests
+  no `cookies` permission and there is no site-settings surface, and
+  `apps/browser-tab-mcp/tests/docs-integrity.contract.test.ts` fails if
+  `cookies` appears in the manifest — which is the point. Reopening it is one
+  deliberate commit by someone who has a feature that needs it, rather than a
+  quiet permission bump nobody notices. A cookie clear logs you out of an
+  origin everywhere and is unrecoverable; it should cost a decision.
 
-## Gaps this pass found — each one a decision for George
+## Gaps this pass found — ANSWERED 2026-09-05
 
-Evidence first; verdict is George's.
+Evidence first; the verdict column is George's, given 2026-09-05. G1–G3 were
+answered by approving Phase 5; G4–G7 were answered one at a time.
 
 | # | Gap | Evidence | Why it might matter |
 |---|---|---|---|
 | G1 | **A selection can be arranged, copied and cut — but never *acted on*.** | `tab_action`, `close_tab`, `focus_tab` take one raw `tabId`; `group_tabs` takes an id list but no `selectionId`. Only `copy_tabs`/`cut_tabs`/`plan_tab_change` accept a selection. | "Mute everything playing audio", "discard every tab I haven't touched today", "close this selection" are all client-side loops today — outside plan/apply, so no risk class, no operation-journal row, no undo record. |
 | G2 | **The Effect IR declares `act` and nothing produces it.** | `ActEffect {kind:"act"; action:"pin"\|"unpin"\|"mute"\|"unmute"}` at `apps/browser-tab-mcp/src/select/plan/effects.ts:66`; zero constructors in `src/` (grep). `classifyRisk` already treats it as live-layout. | The IR promises a verb the planner cannot emit. Either wire it (that IS G1's fix, and the classifier is already correct for it) or delete it — a declared-but-unproduced effect reads as a capability. |
 | G3 | **Closing has no route back through the browser's own undo.** | Manifest permissions are `tabs, storage, alarms, tabGroups, webNavigation, scripting, history, bookmarks` — no `sessions`. Undo records are `pre-state \| created \| unrecoverable`. | `chrome.sessions.restore` is the one mechanism that can bring back a closed tab *with its history*. Without it, `cut_tabs`/`close_tab`/`close_window` are recoverable only as far as a re-open from URL. |
-| G4 | **Downloads are invisible.** | No `downloads` permission; no surface. | "What is this browser doing" has a whole axis missing: in-flight and completed downloads. |
-| G5 | **Reading list is not covered while bookmarks are.** | No `readingList` permission; `bookmarks` tool exists. | Asymmetry in the "saved for later" axis — possibly correct (reading list is Chrome-only and low-traffic), but it is an asymmetry. |
-| G6 | **No zoom control**, though it needs no new permission. | `TabActionSchema` (`packages/shared-types/src/tools.ts:250`) has 10 verbs; `chrome.tabs.setZoom` is reachable under the existing `tabs` permission. | The cheapest possible addition to axis 4, if it is wanted at all. |
-| G7 | **Cookies / site data / permissions are out of scope and undeclared.** | No `cookies` permission, no site-settings surface. | Almost certainly a deliberate privacy line — but it is nowhere written down as one, so a future session could read it as an oversight and "fix" it. |
+| G4 | **Downloads are invisible.** | No `downloads` permission; no surface. | **BUILD** (George, 2026-09-05) — the only one of these that adds a missing AXIS rather than a verb. **Phase 11.** |
+| G5 | **Reading list is not covered while bookmarks are.** | No `readingList` permission; `bookmarks` tool exists. | **BUILD** (George, 2026-09-05) — makes the "saved for later" axis symmetric. Folded into **Phase 6**, against my recommendation to skip it. |
+| G6 | **No zoom control**, though it needs no new permission. | `TabActionSchema` (`packages/shared-types/src/tools.ts:250`) has 10 verbs; `chrome.tabs.setZoom` is reachable under the existing `tabs` permission. | **BUILD** (George, 2026-09-05) — folded into **Phase 5 PR-P**. Note it is not a uniform verb: zoom carries a LEVEL, so it takes a parameter the way `group` takes a groupId. |
+| G7 | **Cookies / site data / permissions are out of scope and undeclared.** | No `cookies` permission, no site-settings surface. | **REFUSED FOR NOW** (George, 2026-09-05) — recorded in the boundary section above with its reopening condition, and pinned by test. No longer undeclared, which was the actual defect. |
 
 ## What the baseline eval says about *usability* of this surface
 

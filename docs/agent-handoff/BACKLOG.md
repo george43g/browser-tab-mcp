@@ -1741,7 +1741,15 @@ message, and check the Windows runner's resource pressure at that timestamp.
 Frequency so far: 2 in roughly a day of CI runs across ~15 PRs. Owner:
 unclaimed.
 
-### B32. Phases 6–10 — recorded, analysed, triaged, NOT approved
+### B32. Phases 6–11 — APPROVED 2026-09-05, sequenced
+
+> **APPROVED 2026-09-05** — George: *"i approve the entire plan."* Every phase
+> in `plans/2026-09-04-control-surface-roadmap.md` is go, in the order written,
+> each shipping as its own PR. Phase **11 (downloads)** was added the same day
+> from gap G4. Two things the approval does NOT settle, both recorded in the
+> roadmap: Phase 8's per-tab RAM stays gated on the `chrome.processes`
+> feasibility probe, and Phase 7 still hands back the incognito copy-direction
+> policy question. Owner: this session, phase by phase.
 
 Filed 2026-09-04 from George's idea dump ("I just wanted to record my ideas"),
 captured verbatim and analysed in
@@ -1766,6 +1774,14 @@ actual deliverable. The roadmap also answers George's two design questions
 a model inferring the difference). Owner: George, phase by phase.
 
 ### B31. Completeness review — seven named gaps awaiting George's verdict
+
+> **CLOSED 2026-09-05 — all seven answered.** G1+G2 by PR-M (`ed832f0`), G3 as
+> Phase 5 PR-O, and G4/G5/G6 → **build** (Phase 11 / Phase 6 / Phase 5 PR-P),
+> G7 → **refused for now** in George's words: *"say that its refused for now,
+> unless we think of some feature in the future that wants it."* Recorded in
+> `docs/CONTROL-SURFACE.md`'s boundary section with the reopening condition and
+> pinned by `tests/docs-integrity.contract.test.ts` (which also bans
+> `browsingData`/`contentSettings` — same capability by another name).
 
 > **G1+G2 CLOSED 2026-09-04** by PR-M (`ed832f0`, #173): the `act` transform
 > ships, `ActEffect` has a producer, and risk is classified per verb. G3 stays

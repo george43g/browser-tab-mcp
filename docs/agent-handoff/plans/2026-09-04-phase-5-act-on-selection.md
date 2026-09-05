@@ -101,6 +101,16 @@ subcommands + `.usage.kdl` + regenerated artifacts, and an e2e spec per verb
 asserting against the browser's own truth (`chrome.tabs.query`), not just the
 daemon snapshot.
 
+**Plus zoom (gap G6, George 2026-09-05).** `chrome.tabs.setZoom`/`getZoom`
+need no new permission — they are already covered by `tabs`. Zoom is NOT a
+uniform verb though: it carries a level, so on the `act` transform it takes a
+parameter the way `group` takes a `groupId`, and the level is per-call rather
+than per-member. Risk is live-layout (a zoom is trivially reversible and loses
+nothing), and `getZoom` makes the BEFORE value recoverable for the
+`pre-attributes` undo record — unlike `discard`, this one is genuinely
+undoable. It lands as a `tab_action` verb AND an `act` verb, because the single
+-tab route is the one a person types.
+
 ## Standing gates (every PR)
 
 - `pnpm verify` green; `pnpm stress` on anything touching dispatch/lifecycle.
