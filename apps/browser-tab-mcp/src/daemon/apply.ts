@@ -23,7 +23,12 @@
 
 import type { Snapshot } from "@george43g/shared-types";
 import { z } from "zod";
-import type { ActEffect, Effect, RelocateEffect } from "../select/plan/effects.js";
+import {
+  ACT_VERB_RISK,
+  type ActEffect,
+  type Effect,
+  type RelocateEffect,
+} from "../select/plan/effects.js";
 import type { OperationStore, OperationUndo } from "./operations.js";
 import type { MaterializedPlan, PlanStore } from "./plans.js";
 import type { StateStore } from "./state.js";
@@ -137,6 +142,7 @@ async function applyActs(
   before: Snapshot,
   deps: ApplyDeps,
   replanned: boolean,
+  tool: "apply_tab_layout" | "apply_destructive_plan" = "apply_tab_layout",
 ): Promise<ApplyResult> {
   const effects = rec.effects as ActEffect[];
   const bestEffort = input.conflict === "best-effort";
@@ -236,8 +242,16 @@ async function applyActs(
     snapshotTokenAfter: after.snapshotToken,
     ...(replanned ? { replanned: true, appliedPlanId: rec.planId } : {}),
   };
+  // A plan carries one transform, so one verb. If that verb throws away
+  // in-page state, `pre-attributes` would be a lie — it records pinned/muted/
+  // groupId, none of which is what a discard destroyed. Record the loss.
+  const verb = effects[0]?.action;
+  const undo: OperationUndo =
+    verb !== undefined && ACT_VERB_RISK[verb] === "destructive"
+      ? { kind: "state-lost", verb, tabIds: effects.map((e) => e.tabId) }
+      : { kind: "pre-attributes", attributes };
   const op = deps.operations?.record({
-    tool: "apply_tab_layout",
+    tool,
     status,
     planId: input.planId,
     request: input,
@@ -247,10 +261,82 @@ async function applyActs(
     snapshotTokenAfter: after.snapshotToken,
     conflictMode: input.conflict,
     ...(replanned ? { replanned: true } : {}),
-    undo: { kind: "pre-attributes", attributes },
+    undo,
   });
   if (op !== undefined) result.operationId = op.operationId;
   return result;
+}
+
+export const DestructiveApplyParamsSchema = z.object({
+  planId: z.string(),
+  confirmDestruction: z.literal(true),
+});
+
+/**
+ * The other door (Phase 5 PR-N) — `apply_tab_layout` stays live-layout-only.
+ *
+ * Why a second tool rather than a flag on the first: §26.2 risk-coherent
+ * tools. `apply_tab_layout` is annotated `destructiveHint: false`, and a
+ * caller — usually a model — decides what it dares call from the annotation.
+ * A flag that flips a non-destructive tool into a destructive one makes that
+ * annotation a lie exactly when it matters. So the risk lives in the tool's
+ * NAME, and `confirmDestruction` is the same explicit gate `cut_tabs` already
+ * uses rather than a second contract to learn.
+ *
+ * Three refusals, each pointing somewhere real:
+ *  - a live-layout plan is sent back to `apply_tab_layout` (nothing here is
+ *    safer, and running it through the destructive door would train a caller
+ *    to reach for the destructive door);
+ *  - a plan containing reconstruction/closure effects is sent to
+ *    `copy_tabs`/`cut_tabs`, which own verify-then-close;
+ *  - a STALE plan is refused outright and is never re-planned. `conflict:
+ *    "replan"` exists on the live door because re-deriving a move against
+ *    fresh state is cheap to be wrong about. Re-deriving a DISCARD is not:
+ *    the world changed, and the set of tabs the caller meant may no longer be
+ *    the set the selector now matches. A human re-plans.
+ */
+export async function applyDestructivePlan(
+  params: Record<string, unknown>,
+  deps: ApplyDeps,
+): Promise<ApplyResult> {
+  const input = DestructiveApplyParamsSchema.parse(params);
+  const before = deps.store.getSnapshot();
+  const rec = deps.plans.get(input.planId, before.snapshotToken);
+  if (rec === undefined) {
+    throw new Error(
+      `plan "${input.planId}" is unknown or expired — plans are snapshot-bound and ` +
+        `short-lived; re-run plan_tab_change.`,
+    );
+  }
+  if (rec.stale) {
+    throw new Error(
+      `plan "${input.planId}" was computed against a different snapshot (state has changed ` +
+        `since) — re-run plan_tab_change and confirm the fresh plan. A destructive plan is ` +
+        `never re-planned on your behalf.`,
+    );
+  }
+  if (rec.riskClass !== "destructive") {
+    throw new Error(
+      `plan "${input.planId}" has riskClass "${rec.riskClass}", not "destructive" — apply it ` +
+        `with apply_tab_layout, which needs no confirmation because nothing is lost.`,
+    );
+  }
+  const nonAct = rec.effects.find((e) => e.kind !== "act");
+  if (nonAct !== undefined) {
+    throw new Error(
+      `plan "${input.planId}" contains a "${nonAct.kind}" effect — this tool applies destructive ` +
+        `ACTS (discard/reload) only. Reconstructive transfer, which closes sources after ` +
+        `verifying their replacements, goes through copy_tabs/cut_tabs.`,
+    );
+  }
+  return await applyActs(
+    { planId: input.planId, conflict: "error" },
+    rec,
+    before,
+    deps,
+    false,
+    "apply_destructive_plan",
+  );
 }
 
 export async function applyTabLayout(

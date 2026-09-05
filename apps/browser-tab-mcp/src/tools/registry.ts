@@ -11,6 +11,7 @@
 import { makeRegistry, type ToolRegistry } from "@george43g/mcp-kit";
 import { envBool } from "@george43g/robustness";
 import { annotateTool } from "./annotate.js";
+import { applyDestructivePlanTool } from "./apply-destructive-plan.js";
 import { applyTabLayoutTool } from "./apply-tab-layout.js";
 import { bookmarksTool } from "./bookmarks.js";
 import { closeTabTool } from "./close-tab.js";
@@ -55,6 +56,7 @@ export function makeAppRegistry(): ToolRegistry {
     selectTabsTool,
     planTabChangeTool,
     applyTabLayoutTool,
+    applyDestructivePlanTool,
     copyTabsTool,
     cutTabsTool,
     journalTool,

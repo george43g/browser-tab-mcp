@@ -48,13 +48,25 @@ export type OperationUndo =
         groupId?: string | null;
       }>;
     }
+  | {
+      /**
+       * Phase 5 PR-N: an act whose effect nothing can undo. `discard` and
+       * `reload` throw away in-page state — scroll, form contents, the live
+       * DOM — and no record can bring it back, so this variant records WHAT
+       * was lost rather than pretending to a restore path. Distinct from
+       * "unrecoverable", which is cut_tabs' shape and names closed SOURCES.
+       */
+      kind: "state-lost";
+      verb: string;
+      tabIds: string[];
+    }
   | { kind: "created"; tabIds: string[] }
   | { kind: "unrecoverable"; liveStateUnrecoverable: true; closedSourceUrls: string[] };
 
 export interface OperationRecord {
   operationId: string;
   at: number;
-  tool: "apply_tab_layout" | "copy_tabs" | "cut_tabs";
+  tool: "apply_tab_layout" | "apply_destructive_plan" | "copy_tabs" | "cut_tabs";
   status: string;
   planId?: string | undefined;
   selectionId?: string | undefined;

@@ -36,7 +36,7 @@ const REPORT = resolve(HERE, "..", "e2e-coverage.json");
  * daemon-surfaces × 6, reload-extension × 2); Phase 2 raises it as specs
  * land.
  */
-export const EXPECTED_MIN_TESTS = 70;
+export const EXPECTED_MIN_TESTS = 71;
 
 /**
  * Spec files allowed to contribute no non-skipped test, with the reason.

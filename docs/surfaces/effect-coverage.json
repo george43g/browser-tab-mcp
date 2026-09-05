@@ -1,19 +1,19 @@
 {
   "$comment": [
-    "THE LEDGER. One row per command surface of this bin — 20 registry tools plus 11",
+    "THE LEDGER. One row per command surface of this bin \u2014 20 registry tools plus 11",
     "CLI-only commands. It is not a hand-written list: apps/browser-tab-mcp/tests/",
     "surface-coverage.contract.test.ts enumerates the surfaces from makeAppRegistry()",
     "and from commander (tests/helpers/cli-surface.ts) and fails if this file has a gap",
     "or an orphan. Adding tool #21 turns that test red on the next `pnpm test`.",
     "",
-    "`tier` is where a surface's EFFECT is proved — that a browser actually did the",
-    "thing — not where it is dispatch-tested. A fake adapter and installFakeChrome",
+    "`tier` is where a surface's EFFECT is proved \u2014 that a browser actually did the",
+    "thing \u2014 not where it is dispatch-tested. A fake adapter and installFakeChrome",
     "both stand in for a browser; neither is one, so neither counts here.",
     "",
     "`evidence` is a path or the literal \"pending\". \"pending\" claims nothing and is",
     "always honest. A non-pending chromium-e2e entry is a CLAIM, and e2e/run-guard.ts",
     "enforces it: the run fails unless a PASSING test carried the matching",
-    "`surface` annotation. That is the anti-vacuity rule — this repo has shipped five",
+    "`surface` annotation. That is the anti-vacuity rule \u2014 this repo has shipped five",
     "harnesses that passed while proving nothing, and the ledger is not allowed to",
     "become the sixth.",
     "",
@@ -23,8 +23,8 @@
     "construction, so it gets its own macos-local row rather than being called done."
   ],
   "tiers": {
-    "chromium-e2e": "Playwright, apps/chrome-extension/e2e/ — the built dist/ in a real Chromium/Edge against a throwaway daemon. Runs in CI on all three legs.",
-    "cli-process": "vitest, apps/browser-tab-mcp/tests/ — the built dist/cli.js spawned as a real process against a fake-adapter daemon. No browser. Runs in CI.",
+    "chromium-e2e": "Playwright, apps/chrome-extension/e2e/ \u2014 the built dist/ in a real Chromium/Edge against a throwaway daemon. Runs in CI on all three legs.",
+    "cli-process": "vitest, apps/browser-tab-mcp/tests/ \u2014 the built dist/cli.js spawned as a real process against a fake-adapter daemon. No browser. Runs in CI.",
     "macos-local": "pnpm sweep:macos, a developer's Mac only. Real osascript / screencapture / Safari History.db. CANNOT run in CI: GitHub's macOS runners have no logged-in GUI session, so `tell application` cannot work."
   },
   "surfaces": [
@@ -34,7 +34,7 @@
       "coverage": [
         {
           "tier": "chromium-e2e",
-          "covers": "answers while a real browser session is live — the canary's contract is that it is unaffected by anything the browser is doing",
+          "covers": "answers while a real browser session is live \u2014 the canary's contract is that it is unaffected by anything the browser is doing",
           "evidence": "apps/chrome-extension/e2e/daemon-surfaces.e2e.test.ts"
         }
       ]
@@ -50,7 +50,7 @@
         },
         {
           "tier": "macos-local",
-          "covers": "AppleScript pathway: t:<browser>:<numeric> handles with dataSource != extension — the handle-grammar difference only this tier can prove",
+          "covers": "AppleScript pathway: t:<browser>:<numeric> handles with dataSource != extension \u2014 the handle-grammar difference only this tier can prove",
           "evidence": "apps/browser-tab-mcp/sweep-macos-report.json"
         }
       ]
@@ -77,12 +77,12 @@
       "coverage": [
         {
           "tier": "chromium-e2e",
-          "covers": "extension pathway: cross-window move via chrome.tabs.move preserves scroll (roundtrip.e2e.test.ts, the crown jewel); plus --new-window landing in a window that did not previously exist, --index placing exactly, the append form reporting the tab's ACTUAL final index rather than tabs.move's echo, and a negative index refused at the boundary (move-tab.e2e.test.ts). The signed/same-window forms (to/by) resolve daemon-side into this same absolute wire form before the effect boundary — the translation is pinned at unit tier (move-resolve.test.ts, daemon/index.test.ts), not re-proved here",
+          "covers": "extension pathway: cross-window move via chrome.tabs.move preserves scroll (roundtrip.e2e.test.ts, the crown jewel); plus --new-window landing in a window that did not previously exist, --index placing exactly, the append form reporting the tab's ACTUAL final index rather than tabs.move's echo, and a negative index refused at the boundary (move-tab.e2e.test.ts). The signed/same-window forms (to/by) resolve daemon-side into this same absolute wire form before the effect boundary \u2014 the translation is pinned at unit tier (move-resolve.test.ts, daemon/index.test.ts), not re-proved here",
           "evidence": "apps/chrome-extension/e2e/roundtrip.e2e.test.ts"
         },
         {
           "tier": "macos-local",
-          "covers": "AppleScript pathways: Chromium close+reopen and Safari --allow-reload — asserting the tab lands AND that the page reloaded, since proving the documented state loss matters as much as proving the move",
+          "covers": "AppleScript pathways: Chromium close+reopen and Safari --allow-reload \u2014 asserting the tab lands AND that the page reloaded, since proving the documented state loss matters as much as proving the move",
           "evidence": "apps/browser-tab-mcp/sweep-macos-report.json"
         }
       ]
@@ -125,7 +125,7 @@
       "coverage": [
         {
           "tier": "chromium-e2e",
-          "covers": "extension pathway: mute/unmute (real mutedInfo + the snapshot enrichment), pin/unpin (including Chrome relocating a pinned tab to index 0), navigate in place, reload really re-fetching (a DOM mutation is thrown away), duplicate producing a second real tab, and refusals for a missing --url and an unknown action. back/forward are in tab-history.e2e.test.ts (a REAL click gesture, both directions, plus Chrome's own \"Cannot find a next page in history\" rejection travelling the full error path); discard is isolated in tab-discard.e2e.test.ts, which asserts only that a real browser accepted it and REISSUED the tab id — a post-discard read is unreachable by construction",
+          "covers": "extension pathway: mute/unmute (real mutedInfo + the snapshot enrichment), pin/unpin (including Chrome relocating a pinned tab to index 0), navigate in place, reload really re-fetching (a DOM mutation is thrown away), duplicate producing a second real tab, and refusals for a missing --url and an unknown action. back/forward are in tab-history.e2e.test.ts (a REAL click gesture, both directions, plus Chrome's own \"Cannot find a next page in history\" rejection travelling the full error path); discard is isolated in tab-discard.e2e.test.ts, which asserts only that a real browser accepted it and REISSUED the tab id \u2014 a post-discard read is unreachable by construction",
           "evidence": "apps/chrome-extension/e2e/tab-action.e2e.test.ts"
         },
         {
@@ -141,7 +141,7 @@
       "coverage": [
         {
           "tier": "chromium-e2e",
-          "covers": "create/add/update/remove(by tabIds AND dissolve-by-groupId)/move against real chrome.tabGroups — and THE DOGFOOD BUG: grouping window-1 tabs while window 2 is frontmost must not relocate them. Sabotage-verified against real Chrome (reverting the createProperties.windowId pin reproduces the relocation), where it was previously proven only against a fake stub's model of the surprise. Also the per-id stale handling: one dead id is skipped and REPORTED in payload.skippedTabIds, all-stale errors. Extension-only by design, so this tier is the ceiling for this surface, not a stepping stone",
+          "covers": "create/add/update/remove(by tabIds AND dissolve-by-groupId)/move against real chrome.tabGroups \u2014 and THE DOGFOOD BUG: grouping window-1 tabs while window 2 is frontmost must not relocate them. Sabotage-verified against real Chrome (reverting the createProperties.windowId pin reproduces the relocation), where it was previously proven only against a fake stub's model of the surprise. Also the per-id stale handling: one dead id is skipped and REPORTED in payload.skippedTabIds, all-stale errors. Extension-only by design, so this tier is the ceiling for this surface, not a stepping stone",
           "evidence": "apps/chrome-extension/e2e/groups.e2e.test.ts"
         }
       ]
@@ -168,7 +168,7 @@
       "coverage": [
         {
           "tier": "chromium-e2e",
-          "covers": "extension pathway: minimized/normal transitions read back through chrome.windows.get, and --bounds applied VERBATIM (probed, not assumed — measured 2026-08-24 under --headless=new; real clamping behaviour stays macos-local)",
+          "covers": "extension pathway: minimized/normal transitions read back through chrome.windows.get, and --bounds applied VERBATIM (probed, not assumed \u2014 measured 2026-08-24 under --headless=new; real clamping behaviour stays macos-local)",
           "evidence": "apps/chrome-extension/e2e/windows.e2e.test.ts"
         },
         {
@@ -184,7 +184,7 @@
       "coverage": [
         {
           "tier": "chromium-e2e",
-          "covers": "extension pathway: the window is gone from chrome.windows.getAll AND its tabs are gone from chrome.tabs.query — a window that closed while orphaning its tabs is invisible to any assertion that only counts windows",
+          "covers": "extension pathway: the window is gone from chrome.windows.getAll AND its tabs are gone from chrome.tabs.query \u2014 a window that closed while orphaning its tabs is invisible to any assertion that only counts windows",
           "evidence": "apps/chrome-extension/e2e/windows.e2e.test.ts"
         },
         {
@@ -211,7 +211,7 @@
       "coverage": [
         {
           "tier": "chromium-e2e",
-          "covers": "write-then-read keyed by the URL the EXTENSION reported (post-redaction, post-normalisation) rather than one the test invented — a key mismatch would make notes silently unreadable; plus a miss on an un-annotated URL returning nothing rather than inventing or erroring",
+          "covers": "write-then-read keyed by the URL the EXTENSION reported (post-redaction, post-normalisation) rather than one the test invented \u2014 a key mismatch would make notes silently unreadable; plus a miss on an un-annotated URL returning nothing rather than inventing or erroring",
           "evidence": "apps/chrome-extension/e2e/content.e2e.test.ts"
         }
       ]
@@ -229,7 +229,7 @@
           "tier": "macos-local",
           "covers": "tier-2 window capture: real `screencapture -l <cgWindowId>` behind BROWSER_TAB_WINDOW_CAPTURE=1 + Screen Recording TCC. Today's unit tests shim the binary",
           "evidence": "pending",
-          "notRun": "correlation never produced a cgWindowId for this window — capture has nothing to target"
+          "notRun": "correlation never produced a cgWindowId for this window \u2014 capture has nothing to target"
         }
       ]
     },
@@ -239,7 +239,18 @@
       "coverage": [
         {
           "tier": "chromium-e2e",
-          "covers": "the full plan→apply loop against a REAL browser: a planned reverse applied through the daemon flips chrome.tabs.query's own order exactly, status success with empty residual, and a re-apply of the consumed plan is refused as stale (its own application moved the state it was planned against). PLUS the act pathway (Phase 5): applying a planned mute makes chrome.tabs.query mutedInfo true for every member (asserted false beforehand, so the check cannot pass on the fixture); a planned group puts every member in ONE real groupId, proving the batch-verb contract against the browser rather than our echo; and a destructive-classed act plan is refused by the same live-layout gate that refuses a cut",
+          "covers": "the full plan\u2192apply loop against a REAL browser: a planned reverse applied through the daemon flips chrome.tabs.query's own order exactly, status success with empty residual, and a re-apply of the consumed plan is refused as stale (its own application moved the state it was planned against). PLUS the act pathway (Phase 5): applying a planned mute makes chrome.tabs.query mutedInfo true for every member (asserted false beforehand, so the check cannot pass on the fixture); a planned group puts every member in ONE real groupId, proving the batch-verb contract against the browser rather than our echo; and a destructive-classed act plan is refused by the same live-layout gate that refuses a cut",
+          "evidence": "apps/chrome-extension/e2e/select.e2e.test.ts"
+        }
+      ]
+    },
+    {
+      "surface": "apply_destructive_plan",
+      "kind": "tool",
+      "coverage": [
+        {
+          "tier": "chromium-e2e",
+          "covers": "the destructive door against a REAL browser: a planned discard over a window's tabs is refused by apply_tab_layout, accepted here with confirmDestruction, and chrome.tabs.query then reports the tabs actually discarded; a live-layout plan sent to this tool is refused and points back at apply_tab_layout",
           "evidence": "apps/chrome-extension/e2e/select.e2e.test.ts"
         }
       ]
@@ -261,7 +272,7 @@
       "coverage": [
         {
           "tier": "chromium-e2e",
-          "covers": "the destructive §9.4 sequence against a REAL browser: predicate-selected sources transferred cross-window, chrome.tabs.query confirms the sources GONE, a same-window bystander alive, and the replacements carrying the source URLs; the source-stays-open-on-failure half is pinned at unit tier over the recorded command stream (a per-item creation failure cannot be forced deterministically in a real run)",
+          "covers": "the destructive \u00a79.4 sequence against a REAL browser: predicate-selected sources transferred cross-window, chrome.tabs.query confirms the sources GONE, a same-window bystander alive, and the replacements carrying the source URLs; the source-stays-open-on-failure half is pinned at unit tier over the recorded command stream (a per-item creation failure cannot be forced deterministically in a real run)",
           "evidence": "apps/chrome-extension/e2e/select.e2e.test.ts"
         }
       ]
@@ -272,7 +283,7 @@
       "coverage": [
         {
           "tier": "chromium-e2e",
-          "covers": "read-only planning against a REAL browser's window: the returned effects imply exactly the arrangement chrome.tabs.query shows would result, riskClass is live-layout, the browser state is asserted UNCHANGED after planning (a planner that mutates is the defect this row guards), and the planId round-trips. Also the §11 endState pathway: a declared two-window layout plans as live-layout with copy/cut counts zero, and the SAME spec's apply then makes chrome.tabs.query truth match the declaration in both windows. PLUS the act pathway (Phase 5): a verb fanned over a selection plans as live-layout for mute, and a state-losing verb (discard) plans as riskClass destructive — the verb-aware risk table asserted against a REAL browser rather than a fixture",
+          "covers": "read-only planning against a REAL browser's window: the returned effects imply exactly the arrangement chrome.tabs.query shows would result, riskClass is live-layout, the browser state is asserted UNCHANGED after planning (a planner that mutates is the defect this row guards), and the planId round-trips. Also the \u00a711 endState pathway: a declared two-window layout plans as live-layout with copy/cut counts zero, and the SAME spec's apply then makes chrome.tabs.query truth match the declaration in both windows. PLUS the act pathway (Phase 5): a verb fanned over a selection plans as live-layout for mute, and a state-losing verb (discard) plans as riskClass destructive \u2014 the verb-aware risk table asserted against a REAL browser rather than a fixture",
           "evidence": "apps/chrome-extension/e2e/select.e2e.test.ts"
         }
       ]
@@ -294,12 +305,12 @@
       "coverage": [
         {
           "tier": "chromium-e2e",
-          "covers": "real events, not a synthetic stream: a REAL committed navigation reaching `journey` with the browser's own transitionType and a navEpoch, the focus views asserted to be focus-only by design (recent/windowMru/tabMru return nav:[] unconditionally), and windowMru ordered by real onFocusChanged. Re-focus-driven MRU is NOT observable here — measured 2026-08-24, windows.update({focused:true}) on an existing window emits nothing under --headless=new — so that half is macos-local",
+          "covers": "real events, not a synthetic stream: a REAL committed navigation reaching `journey` with the browser's own transitionType and a navEpoch, the focus views asserted to be focus-only by design (recent/windowMru/tabMru return nav:[] unconditionally), and windowMru ordered by real onFocusChanged. Re-focus-driven MRU is NOT observable here \u2014 measured 2026-08-24, windows.update({focused:true}) on an existing window emits nothing under --headless=new \u2014 so that half is macos-local",
           "evidence": "apps/chrome-extension/e2e/journal-history-bookmarks.e2e.test.ts"
         },
         {
           "tier": "macos-local",
-          "covers": "AppleScript-mode browsers get COARSE events derived from StateStore diffs rather than extension frames — a different ingest path with different records. Also the half of windowMru the Chromium tier cannot reach: re-focusing an EXISTING window, which emits nothing under --headless=new because there is no window manager",
+          "covers": "AppleScript-mode browsers get COARSE events derived from StateStore diffs rather than extension frames \u2014 a different ingest path with different records. Also the half of windowMru the Chromium tier cannot reach: re-focusing an EXISTING window, which emits nothing under --headless=new because there is no window manager",
           "evidence": "apps/browser-tab-mcp/sweep-macos-report.json"
         }
       ]
@@ -326,7 +337,7 @@
       "coverage": [
         {
           "tier": "chromium-e2e",
-          "covers": "real chrome.bookmarks: create returns the new node's real id and the node is verifiable through chrome.bookmarks.get, search finds it, update renames it in the real tree, remove really deletes it (not just answers ok), and a javascript: URL is refused — a security boundary worth proving against the real command path rather than a mocked client",
+          "covers": "real chrome.bookmarks: create returns the new node's real id and the node is verifiable through chrome.bookmarks.get, search finds it, update renames it in the real tree, remove really deletes it (not just answers ok), and a javascript: URL is refused \u2014 a security boundary worth proving against the real command path rather than a mocked client",
           "evidence": "apps/chrome-extension/e2e/journal-history-bookmarks.e2e.test.ts"
         }
       ]
@@ -337,7 +348,7 @@
       "coverage": [
         {
           "tier": "chromium-e2e",
-          "covers": "the TOOL HANDLER itself (invoked by nothing today — no integration test, no stress case; only the IPC method beneath it) answering with a real session behind it: pid, bound wsPort, the browser in `extensions`, a non-stale extensionInfo record, dataSource=extension and a non-zero real tab count. Plus the daemon-identity assertion re-stated as a named test so a regression names itself",
+          "covers": "the TOOL HANDLER itself (invoked by nothing today \u2014 no integration test, no stress case; only the IPC method beneath it) answering with a real session behind it: pid, bound wsPort, the browser in `extensions`, a non-stale extensionInfo record, dataSource=extension and a non-zero real tab count. Plus the daemon-identity assertion re-stated as a named test so a regression names itself",
           "evidence": "apps/chrome-extension/e2e/daemon-surfaces.e2e.test.ts"
         }
       ]
@@ -359,7 +370,7 @@
       "coverage": [
         {
           "tier": "chromium-e2e",
-          "covers": "both halves: hidden without MCP_DEV, and — the half nothing tested — `--source file` returning this run's own structured NDJSON records. Also pins that `--source memory` (the DEFAULT) is structurally EMPTY from a one-shot CLI, so changing that default turns the test red rather than passing silently. See BACKLOG B13",
+          "covers": "both halves: hidden without MCP_DEV, and \u2014 the half nothing tested \u2014 `--source file` returning this run's own structured NDJSON records. Also pins that `--source memory` (the DEFAULT) is structurally EMPTY from a one-shot CLI, so changing that default turns the test red rather than passing silently. See BACKLOG B13",
           "evidence": "apps/chrome-extension/e2e/daemon-surfaces.e2e.test.ts"
         }
       ]
@@ -370,7 +381,7 @@
       "coverage": [
         {
           "tier": "cli-process",
-          "covers": "spawns the built bin's `mcp` subcommand and speaks real stdio JSON-RPC (initialize + tools/list), asserting a non-empty catalog that matches the registry's non-devOnly tools. FIRST coverage of runMcpServer THROUGH the subcommand — the stress harness spawns src/index.ts directly, so the commander wiring was driven by nothing. Sabotage-verified: renaming the command reddens it",
+          "covers": "spawns the built bin's `mcp` subcommand and speaks real stdio JSON-RPC (initialize + tools/list), asserting a non-empty catalog that matches the registry's non-devOnly tools. FIRST coverage of runMcpServer THROUGH the subcommand \u2014 the stress harness spawns src/index.ts directly, so the commander wiring was driven by nothing. Sabotage-verified: renaming the command reddens it",
           "evidence": "apps/browser-tab-mcp/tests/cli-surfaces.integration.test.ts"
         }
       ]
@@ -392,7 +403,7 @@
       "coverage": [
         {
           "tier": "cli-process",
-          "covers": "the action and checkLocalAccess() really run (no test invoked either before): a report with per-check lines, and the exit code asserted to AGREE with the headline verdict rather than to equal a fixed number — which keeps it honest on a machine where a check legitimately fails",
+          "covers": "the action and checkLocalAccess() really run (no test invoked either before): a report with per-check lines, and the exit code asserted to AGREE with the headline verdict rather than to equal a fixed number \u2014 which keeps it honest on a machine where a check legitimately fails",
           "evidence": "apps/browser-tab-mcp/tests/cli-surfaces.integration.test.ts"
         },
         {
@@ -408,7 +419,7 @@
       "coverage": [
         {
           "tier": "chromium-e2e",
-          "covers": "the command reaches a REAL extension and its service worker really does not survive (sabotage-verified: an extension that acks without reloading fails it), plus the refusal for a browser with no connected extension. Neither \"it disconnected\" nor \"it reconnected\" is asserted — measured 2026-08-24, those go OPPOSITE ways by environment: headless never restarts the worker, real Windows Edge restarts it too fast to observe the drop. Writing this found B14 — the IPC client's 15s request timeout is shorter than the daemon's own 25s reload wait",
+          "covers": "the command reaches a REAL extension and its service worker really does not survive (sabotage-verified: an extension that acks without reloading fails it), plus the refusal for a browser with no connected extension. Neither \"it disconnected\" nor \"it reconnected\" is asserted \u2014 measured 2026-08-24, those go OPPOSITE ways by environment: headless never restarts the worker, real Windows Edge restarts it too fast to observe the drop. Writing this found B14 \u2014 the IPC client's 15s request timeout is shorter than the daemon's own 25s reload wait",
           "evidence": "apps/chrome-extension/e2e/reload-extension.e2e.test.ts"
         },
         {
@@ -424,7 +435,7 @@
       "coverage": [
         {
           "tier": "cli-process",
-          "covers": "the built bin's `operations` against a real spawned daemon: an empty journal answers [] over a real IPC round-trip, --id on an unknown record exits 1 with the ring-vs-archive hint, and a down daemon names itself as the missing dependency. Record-MINTING (copy_tabs writing a created-ids undo record that listOperations/getOperation then serve) is proven at the integration tier in tests/daemon-ipc.test.ts — the CLI client refuses copy/cut under BROWSER_TAB_FAKE_ADAPTER by design, so the built bin cannot mint here",
+          "covers": "the built bin's `operations` against a real spawned daemon: an empty journal answers [] over a real IPC round-trip, --id on an unknown record exits 1 with the ring-vs-archive hint, and a down daemon names itself as the missing dependency. Record-MINTING (copy_tabs writing a created-ids undo record that listOperations/getOperation then serve) is proven at the integration tier in tests/daemon-ipc.test.ts \u2014 the CLI client refuses copy/cut under BROWSER_TAB_FAKE_ADAPTER by design, so the built bin cannot mint here",
           "evidence": "apps/browser-tab-mcp/tests/cli-surfaces.integration.test.ts"
         }
       ]
@@ -446,12 +457,12 @@
       "coverage": [
         {
           "tier": "cli-process",
-          "covers": "driven with BROWSER_TAB_PLATFORM forced to a platform with no service integration, so no LaunchAgent is ever registered on the machine running the suite: asserts a non-zero exit carrying the platform name and the actionable alternative. That proves the subcommand routes to serviceManager() and surfaces its answer — the untested wiring. The real install path is macos-local and opt-in",
+          "covers": "driven with BROWSER_TAB_PLATFORM forced to a platform with no service integration, so no LaunchAgent is ever registered on the machine running the suite: asserts a non-zero exit carrying the platform name and the actionable alternative. That proves the subcommand routes to serviceManager() and surfaces its answer \u2014 the untested wiring. The real install path is macos-local and opt-in",
           "evidence": "apps/browser-tab-mcp/tests/cli-surfaces.integration.test.ts"
         },
         {
           "tier": "macos-local",
-          "covers": "the real launchctl bootstrap. Opt-in and destructive to a developer's service state — expected to be CUT rather than automated",
+          "covers": "the real launchctl bootstrap. Opt-in and destructive to a developer's service state \u2014 expected to be CUT rather than automated",
           "evidence": "pending",
           "notRun": "deliberate non-run: registering a LaunchAgent rewrites your own service state"
         }
@@ -474,7 +485,7 @@
       "coverage": [
         {
           "tier": "cli-process",
-          "covers": "prints a real token and a second call does NOT rotate it — the extension is holding that value",
+          "covers": "prints a real token and a second call does NOT rotate it \u2014 the extension is holding that value",
           "evidence": "apps/browser-tab-mcp/tests/cli-surfaces.integration.test.ts"
         }
       ]
@@ -507,7 +518,7 @@
       "coverage": [
         {
           "tier": "cli-process",
-          "covers": "piped stdin takes cli-kit's terminal:false branch: `noop hello` really runs through the dispatcher and echoes back, and `help` lists the REPL's own shortcuts. Driven under BOTH spellings — commander reports the `console` alias as a name, so a parity test sees it as present, but registered is not reachable",
+          "covers": "piped stdin takes cli-kit's terminal:false branch: `noop hello` really runs through the dispatcher and echoes back, and `help` lists the REPL's own shortcuts. Driven under BOTH spellings \u2014 commander reports the `console` alias as a name, so a parity test sees it as present, but registered is not reachable",
           "evidence": "apps/browser-tab-mcp/tests/cli-surfaces.integration.test.ts"
         }
       ]
