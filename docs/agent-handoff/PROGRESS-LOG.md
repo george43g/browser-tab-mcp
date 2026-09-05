@@ -3616,3 +3616,105 @@ groundwork is merged: `ACT_VERB_RISK` already classifies `discard`/`reload` as
 destructive and `applyTabLayout` already refuses them by name, so PR-N is the
 executor plus `confirmDestruction`, and PR-O's closed-tab store is what `close`
 waits on.
+
+# Checkpoint #23 — 2026-09-05 17:50 AEST (session `browser-tab-mcp`)
+
+Where this file and any summary disagree, this file is correct.
+
+## State
+
+George approved every open decision and the whole roadmap; Phase 5 is complete
+through PR-P (in CI as #183), v1.12.0 is released, and the deploy loop now
+catches a staleness it had been silent about for months.
+
+## Constraints
+
+George, 2026-09-05, verbatim: *"i approve the entire plan."* — every phase in
+`plans/2026-09-04-control-surface-roadmap.md`, in order, each as its own PR.
+It does NOT cover Phase 8's per-tab RAM (gated on the `chrome.processes`
+probe) or Phase 7's incognito copy-direction policy; both are handed back by
+the roadmap itself.
+
+On gap G7, verbatim: *"say that its refused for now, unless we think of some
+feature in the future that wants it."*
+
+## Done
+
+- **G4/G5/G6 → build, G7 → refused for now** (`39bea3c`). Downloads became
+  **Phase 11**; reading list folded into Phase 6; zoom into Phase 5 PR-P. The
+  cookies refusal sits in `docs/CONTROL-SURFACE.md`'s boundary section WITH its
+  reopening condition and is pinned by a test that also bans `browsingData` and
+  `contentSettings` — the same capability under other names.
+- **Phase 5 PR-N** (`c18307c`, released as **v1.12.0**): `apply_destructive_plan`
+  as its own tool, not a flag. Proof it mattered: adding it grew the destructive
+  set in `tool-annotations.contract.test.ts` by one, visibly; a flag would have
+  changed nothing there while doing the same damage.
+- **Phase 5 PR-O** (`8617df1`): closed-tab memory by snapshot diff, guarded
+  against the three ways that diff lies (cross-window move, authority switch,
+  browser quit).
+- **Phase 5 PR-P** (#183, e2e green locally): `chrome.sessions` with its
+  consumer, `closed_tabs` + `reopen_tab`.
+- **Deploy loop, two real defects** — `bfacc65` (a reconnection is not a
+  reload) and `844768a` (the wait budget was half what a restart needs). Both
+  now proven live: today's post-merge run reached the bundle check for the
+  first time and named Safari correctly.
+
+## Open
+
+- `safari-connector-stale · browser-tab-mcp` — Safari runs `1.3.1+71.7b72707`
+  while the daemon is `1.12.0+180.8617df1`. Evidence: `daemon status`
+  `extensionInfo` right now, and every `deploy:local` verdict since `bfacc65`.
+  Needs `pnpm --filter @george43g/safari-extension sideload` (full Xcode,
+  possibly 1Password-gated signing) — George's, not this session's.
+- `phase-5-zoom · browser-tab-mcp` — the last item of Phase 5 (gap G6). Never
+  attempted. Design already settled in the plan: zoom is NOT a uniform verb (it
+  carries a level, like `group` carries a groupId), risk is live-layout, and
+  `getZoom` makes it genuinely undoable — the cheapest capture is to have the
+  extension's zoom handler RETURN the previous factor, so one round trip yields
+  the before-value.
+- `phases-6-11 · browser-tab-mcp` — approved, not started. Bookmarks (6),
+  groups-as-a-kind (7), AI description + RAM probe (8), incognito coverage (9),
+  the structured-output gate (10), downloads (11).
+- `b30-descriptions-do-not-steer`, `b33-shutdown-cleanup-timeout`, `b20`,
+  `b23`, `b25`, `b27` — unchanged.
+
+## Corrections
+
+- Checkpoint #22 said the deploy loop verified extensions were reloaded. It
+  verified they RECONNECTED. Safari had been reporting a 1.3.1 bundle
+  throughout, and every "reloaded and reconnected" line covering it was false.
+  Fixed in `bfacc65`.
+- I twice attributed a failing deploy to transient load. It was reproducible:
+  `daemon restart` returns in 226ms, the daemon is reachable 20,514ms later,
+  and the budget was 10s.
+
+## Traps
+
+- **A reconnection is not a reload.** Connectivity checks answer a different
+  question from freshness, and the daemon had been reporting `extVersion` all
+  along.
+- **`git checkout` inside a merge watcher, and `gh pr merge --delete-branch`,
+  both move HEAD in the session's own worktree.** One landed a commit on main.
+- **A `sed`-derived watcher script silently targeted the wrong PR** — BSD sed
+  has no `\b`, and the copy "worked" by exiting on an already-merged PR.
+- **send-keys to a pane running a foreground process goes to that process's
+  stdin**, not the shell; the command executes later, out of order.
+- **zsh parses a whole compound command before running any of it**, so a quote
+  error in the last line silently prevents the first line's edit from happening.
+  Verify anchors after every scripted edit.
+- **A test fixture using `closedAt: 1` is 1970**, so a TTL prune correctly
+  evicted everything and the store looked broken. The code was right.
+
+## Tree
+
+`browser-tab-mcp` on `main`, clean, at `8617df1`; `feat/phase-5-reopen` pushed
+as #183. Daemon `1.12.0+180.8617df1`. No other session's work present.
+
+## Blocked on you
+
+- `safari-connector-stale` — the sideload is yours (Xcode + signing).
+
+## Resume
+
+Phase 5's last item is **zoom** (see `phase-5-zoom` above; design settled).
+Then phases 6→11 in roadmap order, each its own PR. Merge #183 first.
