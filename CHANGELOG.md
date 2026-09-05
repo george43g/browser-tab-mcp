@@ -1,5 +1,18 @@
 # Changelog
 
+## [1.13.0](https://github.com/george43g/browser-tab-mcp/compare/v1.12.0...v1.13.0) (2026-09-05)
+
+
+### Features
+
+* **daemon:** closed-tab memory — the substrate a reopen needs ([#181](https://github.com/george43g/browser-tab-mcp/issues/181)) ([8617df1](https://github.com/george43g/browser-tab-mcp/commit/8617df1aeaa94e78947c215a90b676c0239c14b9))
+* **daemon:** reopen a closed tab — and say which kind of "back" it was ([#183](https://github.com/george43g/browser-tab-mcp/issues/183)) ([2336634](https://github.com/george43g/browser-tab-mcp/commit/2336634bcc8c01ef98647aeefbcf9e88f533beba))
+
+
+### Bug Fixes
+
+* **deploy:** the wait budget was half what a real restart needs — measure it ([#180](https://github.com/george43g/browser-tab-mcp/issues/180)) ([844768a](https://github.com/george43g/browser-tab-mcp/commit/844768a5ad76016e379b1db03636c4252b475f5d))
+
 ## [1.12.0](https://github.com/george43g/browser-tab-mcp/compare/v1.11.0...v1.12.0) (2026-09-05)
 
 
