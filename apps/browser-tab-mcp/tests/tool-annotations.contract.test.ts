@@ -67,10 +67,15 @@ describe("tool annotations contract", () => {
       .map((d) => d.name)
       .sort();
     // close_* delete tabs/windows; bookmarks.remove deletes whole subtrees;
-    // tab_action navigate/discard irreversibly lose in-page state. Growing
-    // this set is a deliberate act — update the expectation WITH the reason
-    // in the tool's own annotations comment.
+    // tab_action navigate/discard irreversibly lose in-page state;
+    // apply_destructive_plan does the same across a whole selection (Phase 5
+    // PR-N) and is a SEPARATE tool from apply_tab_layout precisely so this
+    // list stays true — a confirmDestruction flag on the safe tool would have
+    // left it annotated non-destructive while doing this. Growing this set is
+    // a deliberate act — update the expectation WITH the reason in the tool's
+    // own annotations comment.
     expect(destructive).toEqual([
+      "apply_destructive_plan",
       "bookmarks",
       "close_tab",
       "close_window",

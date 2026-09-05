@@ -400,6 +400,24 @@ export async function applyTabLayout(params: Record<string, unknown>): Promise<u
   }
 }
 
+export async function applyDestructivePlan(params: Record<string, unknown>): Promise<unknown> {
+  if (fakeAdapterEnabled()) {
+    throw new Error(
+      "apply_destructive_plan requires the daemon and a live plan — not available in fixture mode.",
+    );
+  }
+  try {
+    return await viaDaemon((c) => c.request<unknown>("applyDestructivePlan", params));
+  } catch (err) {
+    if (err instanceof DaemonUnavailableError) {
+      throw new Error(
+        "apply_destructive_plan requires the daemon. Start it with `browser-tab daemon run`.",
+      );
+    }
+    throw err;
+  }
+}
+
 /** Operation journal reads (PR-I) — daemon-only, CLI-only surface. */
 export async function listOperations(params: Record<string, unknown>): Promise<unknown> {
   try {

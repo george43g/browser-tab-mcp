@@ -416,6 +416,93 @@ test.describe("select_tabs", () => {
     }, made.win);
   });
 
+  test("the destructive door: apply refuses it, apply-destructive really reloads", async () => {
+    test.info().annotations.push({ type: "surface", description: "apply_destructive_plan" });
+
+    // reload, not discard, deliberately. Discard changes the tab id AND has
+    // been observed to take the browsing context with it (see
+    // tab-discard.e2e.test.ts), which would poison this shared stack. reload
+    // is classified destructive by the same verb table and is observable
+    // without destroying anything the rest of the file needs.
+    const made = await stack.sw.evaluate(async (url) => {
+      const c = (globalThis as unknown as { chrome: typeof chrome }).chrome;
+      const w = await c.windows.create({ url, focused: true });
+      return { win: w.id as number, a: w.tabs?.[0]?.id as number };
+    }, server.url("/u/dd-a"));
+    await stack.waitForTab(stack.tabHandle(made.a));
+    const winHandle = stack.windowHandle(made.win);
+
+    // A reload that did nothing leaves the URL identical, so the URL proves
+    // nothing. Mutate the live DOM: only a real re-fetch throws it away.
+    await expect
+      .poll(
+        () => stack.context.pages().find((p) => p.url() === server.url("/u/dd-a")) !== undefined,
+        { timeout: 10_000 },
+      )
+      .toBe(true);
+    const target = stack.context
+      .pages()
+      .find((p) => p.url() === server.url("/u/dd-a")) as import("@playwright/test").Page;
+    await target.evaluate(() => {
+      document.body.setAttribute("data-e2e-survived", "yes");
+    });
+
+    const plan = JSON.parse(
+      await stack.daemon.cli([
+        "plan",
+        "--selector",
+        JSON.stringify({
+          kind: "members",
+          nodes: { kind: "ids", ids: [winHandle] },
+          relation: "tabs",
+        }),
+        "--transform",
+        JSON.stringify({ kind: "act", action: "reload" }),
+        "--json",
+      ]),
+    ) as { planId: string; riskClass: string };
+    expect(plan.riskClass).toBe("destructive");
+
+    // The safe door refuses it…
+    const refused = await stack.daemon
+      .cli(["apply", "--plan", plan.planId, "--json"])
+      .then(() => "UNEXPECTED_SUCCESS")
+      .catch(
+        (e: Error & { stdout?: string; stderr?: string }) =>
+          `${e.message} ${e.stdout ?? ""} ${e.stderr ?? ""}`,
+      );
+    expect(refused).not.toBe("UNEXPECTED_SUCCESS");
+    expect(refused).toMatch(/only live-layout/);
+
+    // …and the destructive door accepts it, with confirmation.
+    const applied = JSON.parse(
+      await stack.daemon.cli([
+        "apply-destructive",
+        "--plan",
+        plan.planId,
+        "--confirm-destruction",
+        "--json",
+      ]),
+    ) as { status: string; operationId?: string };
+    expect(applied.status).toBe("success");
+
+    // BROWSER truth: the mutation is gone, so the page really re-fetched.
+    await expect
+      .poll(
+        async () =>
+          await target
+            .evaluate(() => document.body.getAttribute("data-e2e-survived"))
+            .catch(() => "pending"),
+        { timeout: 10_000, intervals: [250] },
+      )
+      .toBe(null);
+
+    await stack.sw.evaluate(async (winId) => {
+      const c = (globalThis as unknown as { chrome: typeof chrome }).chrome;
+      await c.windows.remove(winId);
+    }, made.win);
+  });
+
   test("copy_tabs reconstructs at the destination and every source survives", async () => {
     test.info().annotations.push({ type: "surface", description: "copy_tabs" });
 

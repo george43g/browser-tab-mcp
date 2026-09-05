@@ -90,6 +90,9 @@ Resolve a control\-language selector against the live snapshot (needs daemon)
 \fBapply\fR
 Apply a live\-layout plan from browser\-tab plan (needs daemon + extension)
 .TP
+\fBapply\-destructive\fR
+Apply a DESTRUCTIVE act plan (discard/reload) from browser\-tab plan
+.TP
 \fBoperations\fR
 Read the daemon's operation journal (apply/copy/cut executions)
 .TP
@@ -280,6 +283,19 @@ planId from plan_tab_change (must still be current)
 .TP
 \fB\-\-conflict\fR \fI<mode>\fR
 Stale\-plan policy: error (default) | replan (same members, budget 1) | best\-effort
+.SH "BROWSER-TAB APPLY-DESTRUCTIVE"
+Apply a DESTRUCTIVE act plan (discard/reload) from browser\-tab plan
+.PP
+\fBUsage:\fR browser\-tab apply\-destructive [OPTIONS]
+.PP
+\fBOptions:\fR
+.PP
+.TP
+\fB\-\-plan\fR \fI<id>\fR
+planId from plan_tab_change with riskClass destructive
+.TP
+\fB\-\-confirm\-destruction\fR
+Required. In\-page state is destroyed and cannot be restored
 .SH "BROWSER-TAB OPERATIONS"
 Read the daemon's operation journal (apply/copy/cut executions)
 .PP

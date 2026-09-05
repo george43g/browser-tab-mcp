@@ -124,6 +124,12 @@ cmd apply help="Apply a live-layout plan from browser-tab plan (needs daemon + e
         arg <mode>
     }
 }
+cmd apply-destructive help="Apply a DESTRUCTIVE act plan (discard/reload) from browser-tab plan" {
+    flag --plan help="planId from plan_tab_change with riskClass destructive" required=#true {
+        arg <id>
+    }
+    flag --confirm-destruction help="Required. In-page state is destroyed and cannot be restored" required=#true
+}
 cmd operations help="Read the daemon\'s operation journal (apply/copy/cut executions)" {
     flag --id help="Fetch one operation record" {
         arg <operationId>

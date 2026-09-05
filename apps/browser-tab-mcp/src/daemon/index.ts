@@ -46,7 +46,10 @@ import {
 import { callMcpTool } from "../dispatcher.js";
 import { APP_VERSION, buildStamp } from "../meta.js";
 import { AnnotationStore } from "./annotations.js";
-import { applyTabLayout as runApplyTabLayout } from "./apply.js";
+import {
+  applyDestructivePlan as runApplyDestructivePlan,
+  applyTabLayout as runApplyTabLayout,
+} from "./apply.js";
 import { bookmarks } from "./bookmarks.js";
 import { ContentCache } from "./content-cache.js";
 import { makeIdempotencyCache, copyTabs as runCopyTabs } from "./copy.js";
@@ -939,6 +942,16 @@ export async function startDaemon(): Promise<DaemonHandle> {
             { store, journal, selections, plans },
           );
         },
+      }),
+    // The destructive door (Phase 5 PR-N). Deliberately NO `replan` dep: a
+    // stale destructive plan is refused, never re-derived.
+    onApplyDestructivePlan: (params) =>
+      runApplyDestructivePlan(params, {
+        store,
+        plans,
+        operations,
+        runCommand: (p) => executeCommand(p, { refresh: () => loop.refresh(), ext }),
+        refresh: () => loop.refresh(),
       }),
     onListOperations: async (params) =>
       operations.list(Number((params as { limit?: unknown }).limit ?? 20)),

@@ -568,6 +568,23 @@ export function buildProgram(): Command {
       await printResult(result, json, "apply_tab_layout");
     });
 
+  program
+    .command("apply-destructive")
+    .description("Apply a DESTRUCTIVE act plan (discard/reload) — requires --confirm-destruction")
+    .requiredOption("--plan <id>", "planId from plan_tab_change with riskClass destructive")
+    .requiredOption(
+      "--confirm-destruction",
+      "Required. In-page state (scroll, unsaved input, the live DOM) is destroyed and cannot be restored.",
+    )
+    .action(async (opts: { plan: string }) => {
+      const json = program.opts<{ json?: boolean }>().json ?? false;
+      const result = await callMcpTool("apply_destructive_plan", {
+        planId: opts.plan,
+        confirmDestruction: true,
+      });
+      await printResult(result, json, "apply_destructive_plan");
+    });
+
   /**
    * Deliberately CLI-only, like reload-extension: the MCP-visible form of the
    * operation journal is PR-L's evidence-gated resources question, and every

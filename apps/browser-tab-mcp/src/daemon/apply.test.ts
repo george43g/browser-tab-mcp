@@ -16,7 +16,7 @@ import {
   makeSnapshot,
 } from "@george43g/test-kit";
 import { describe, expect, it } from "vitest";
-import { applyTabLayout } from "./apply.js";
+import { applyDestructivePlan, applyTabLayout } from "./apply.js";
 import { OperationStore } from "./operations.js";
 import { PlanStore } from "./plans.js";
 import { StateStore } from "./state.js";
@@ -478,6 +478,100 @@ describe("applyTabLayout — act plans", () => {
     await expect(applyTabLayout({ planId: rec.planId }, { ...world, plans })).rejects.toThrow(
       /discard[\s\S]*tab_action per tab/,
     );
+    expect(world.commands).toEqual([]);
+  });
+});
+
+describe("applyDestructivePlan — the other door (Phase 5 PR-N)", () => {
+  const destructivePlan = (world: ReturnType<typeof makeActWorld>, plans: PlanStore) =>
+    plans.materialize({
+      riskClass: "destructive",
+      effects: [actEffect("a", "discard"), actEffect("b", "discard")],
+      warnings: [],
+      selectionKeys: ["a", "b"],
+      snapshotToken: world.store.getSnapshot().snapshotToken ?? "",
+    });
+
+  it("applies a destructive act plan and records what was LOST, not a restore path", async () => {
+    const world = makeActWorld([{ tabId: "a" }, { tabId: "b" }]);
+    const plans = new PlanStore();
+    const operations = new OperationStore({ dir: mkdtempSync(join(tmpdir(), "bt-ops-")) });
+    const rec = destructivePlan(world, plans);
+
+    const out = await applyDestructivePlan(
+      { planId: rec.planId, confirmDestruction: true },
+      { ...world, plans, operations },
+    );
+    expect(out.status).toBe("success");
+    expect(world.commands).toEqual([
+      { kind: "tab_action", tabId: "a", action: "discard" },
+      { kind: "tab_action", tabId: "b", action: "discard" },
+    ]);
+    const op = operations.list(1)[0];
+    expect(op?.tool).toBe("apply_destructive_plan");
+    // pre-attributes would be a lie here: it records pinned/muted/groupId,
+    // none of which is what a discard destroyed.
+    expect(op?.undo).toEqual({ kind: "state-lost", verb: "discard", tabIds: ["a", "b"] });
+  });
+
+  it("requires confirmDestruction — the schema refuses before anything runs", async () => {
+    const world = makeActWorld([{ tabId: "a" }]);
+    const plans = new PlanStore();
+    const rec = destructivePlan(world, plans);
+    await expect(
+      applyDestructivePlan({ planId: rec.planId }, { ...world, plans }),
+    ).rejects.toThrow();
+    await expect(
+      applyDestructivePlan({ planId: rec.planId, confirmDestruction: false }, { ...world, plans }),
+    ).rejects.toThrow();
+    expect(world.commands).toEqual([]);
+  });
+
+  it("sends a live-layout plan back to apply_tab_layout rather than running it", async () => {
+    // Running a safe plan through the destructive door would teach a caller
+    // that the destructive door is the one that works.
+    const world = makeActWorld([{ tabId: "a" }]);
+    const plans = new PlanStore();
+    const rec = plans.materialize({
+      riskClass: "live-layout",
+      effects: [actEffect("a", "mute")],
+      warnings: [],
+      selectionKeys: ["a"],
+      snapshotToken: world.store.getSnapshot().snapshotToken ?? "",
+    });
+    await expect(
+      applyDestructivePlan({ planId: rec.planId, confirmDestruction: true }, { ...world, plans }),
+    ).rejects.toThrow(/not "destructive"[\s\S]*apply_tab_layout/);
+    expect(world.commands).toEqual([]);
+  });
+
+  it("sends reconstruction/closure effects to copy_tabs/cut_tabs", async () => {
+    const world = makeActWorld([{ tabId: "a" }]);
+    const plans = new PlanStore();
+    const rec = plans.materialize({
+      riskClass: "destructive",
+      effects: [{ kind: "closeVerified", tabId: "a", contingentOn: "s" }],
+      warnings: [],
+      selectionKeys: ["a"],
+      snapshotToken: world.store.getSnapshot().snapshotToken ?? "",
+    });
+    await expect(
+      applyDestructivePlan({ planId: rec.planId, confirmDestruction: true }, { ...world, plans }),
+    ).rejects.toThrow(/copy_tabs\/cut_tabs/);
+    expect(world.commands).toEqual([]);
+  });
+
+  it("refuses a stale plan outright and never re-plans it", async () => {
+    // conflict:"replan" exists on the live door because re-deriving a MOVE is
+    // cheap to be wrong about. Re-deriving a discard is not.
+    const world = makeActWorld([{ tabId: "a" }, { tabId: "b" }]);
+    const plans = new PlanStore();
+    const rec = destructivePlan(world, plans);
+    world.state.push({ tabId: "c" });
+    await world.refresh();
+    await expect(
+      applyDestructivePlan({ planId: rec.planId, confirmDestruction: true }, { ...world, plans }),
+    ).rejects.toThrow(/never re-planned on your behalf/);
     expect(world.commands).toEqual([]);
   });
 });

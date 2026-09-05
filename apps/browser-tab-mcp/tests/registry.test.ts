@@ -25,6 +25,7 @@ const EXPECTED = [
   "get_page",
   "annotate",
   "apply_tab_layout",
+  "apply_destructive_plan",
   "plan_tab_change",
   "screenshot",
   "select_tabs",
