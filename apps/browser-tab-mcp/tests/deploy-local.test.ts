@@ -199,6 +199,23 @@ describe("deploy-local", () => {
     expect(run.stdout).toMatch(/running the previous bundle/);
   });
 
+  it("waits long enough for a real launchd restart — the budget is measured, not chosen", () => {
+    // Measured on a healthy Mac 2026-09-05: `daemon restart` returns in 226ms
+    // and the daemon is reachable 20,514ms later — the outgoing process hits
+    // its 3s shutdown force-exit net and launchd will not respawn faster than
+    // its 10s ThrottleInterval. The previous 10s budget produced a FALSE
+    // "daemon did not come up" on two consecutive real merges, and the script
+    // exits there, so every check after it silently never ran.
+    const src = readFileSync(SCRIPT, "utf8");
+    const pollMs = Number(/DEPLOY_POLL_MS \?\? (\d+)/.exec(src)?.[1]);
+    const tries = Number(/DEPLOY_TRIES \?\? (\d+)/.exec(src)?.[1]);
+    expect(Number.isFinite(pollMs) && Number.isFinite(tries), "budget is readable").toBe(true);
+    expect(
+      pollMs * tries,
+      "default wait budget must clear the measured ~20s",
+    ).toBeGreaterThanOrEqual(45_000);
+  });
+
   it("FAILS when an extension reconnects still running the previous bundle", () => {
     // The defect this closes, measured 2026-09-05 on the real fleet: Safari
     // had been reporting extVersion "1.3.1+71.7b72707" for months while every

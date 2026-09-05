@@ -31,8 +31,8 @@
  * Test shims (documented in apps/browser-tab-mcp/.env.example):
  *  - BROWSER_TAB_DEPLOY_CLI      path to the browser-tab cli entry (default:
  *                                the repo's own dist/cli.js)
- *  - BROWSER_TAB_DEPLOY_POLL_MS  verification poll interval (default 500)
- *  - BROWSER_TAB_DEPLOY_TRIES    verification poll attempts (default 20)
+ *  - BROWSER_TAB_DEPLOY_POLL_MS  verification poll interval (default 1000)
+ *  - BROWSER_TAB_DEPLOY_TRIES    verification poll attempts (default 60)
  */
 
 import { spawnSync } from "node:child_process";
@@ -43,8 +43,22 @@ import { fileURLToPath } from "node:url";
 const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const cliPath =
   process.env.BROWSER_TAB_DEPLOY_CLI ?? join(repoRoot, "apps/browser-tab-mcp/dist/cli.js");
-const pollMs = Number(process.env.BROWSER_TAB_DEPLOY_POLL_MS ?? 500);
-const tries = Number(process.env.BROWSER_TAB_DEPLOY_TRIES ?? 20);
+/**
+ * 60s, and the number is measured rather than chosen.
+ *
+ * The old budget was 10s (20 x 500ms) and produced a FALSE "daemon did not
+ * come up" on two consecutive real merges — which is worse than useless,
+ * because the script exits there and never reaches the checks that follow it.
+ * Measured on this Mac 2026-09-05: `daemon restart` RETURNS in 226ms and the
+ * daemon becomes reachable 20,514ms later. The gap is structural, not load:
+ * the outgoing process hits its own 3s shutdown force-exit net (the
+ * `cleanup_timeout` lines in daemon.err.log), and launchd will not respawn a
+ * job faster than its ThrottleInterval, which defaults to 10s. 3 + 10 + node
+ * boot is the ~20s observed, so any budget under that fails by construction
+ * on a healthy machine.
+ */
+const pollMs = Number(process.env.BROWSER_TAB_DEPLOY_POLL_MS ?? 1000);
+const tries = Number(process.env.BROWSER_TAB_DEPLOY_TRIES ?? 60);
 const allowBranch = process.argv.includes("--allow-branch");
 
 const say = (line) => process.stdout.write(`deploy:local ${line}\n`);
