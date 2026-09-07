@@ -3718,3 +3718,115 @@ as #183. Daemon `1.12.0+180.8617df1`. No other session's work present.
 
 Phase 5's last item is **zoom** (see `phase-5-zoom` above; design settled).
 Then phases 6→11 in roadmap order, each its own PR. Merge #183 first.
+
+# Checkpoint #24 — 2026-09-07 17:54 AEST (session `browser-tab-mcp`, precompact)
+
+Where this file and any summary disagree, this file is correct.
+
+## State
+
+Phase 5 is complete except zoom; v1.13.1 is released; Safari's 16-day staleness
+is diagnosed and fixed, and the two deploy defects that hid it are fixed —
+but Safari is stale AGAIN right now, which is B34's whole point.
+
+## Constraints
+
+George's global brief gained a bullet this session (dotfiles `5de281a`) that
+binds every future session here, quoted because it was produced BY this
+session's own failure:
+
+> **Before you tell George something is blocked, impossible, ruled out, or his
+> to do rather than yours — try it once.** Those are claims, and an unmeasured
+> one moves work onto the one person who cannot delegate it.
+
+## Done
+
+- **Sweep row `btm-plans` triaged and closed** (`fdcecec`, PR #185). Five plans
+  from 2026-08-22: three shipped and archived, one LIVE-half-done, one
+  superseded. All 11 active plans now carry a dated STATUS line, enforced by
+  `apps/browser-tab-mcp/tests/plans-freshness.contract.test.ts`.
+- **Safari fixed** — one `pnpm --filter @george43g/safari-extension sideload`
+  took it from `1.3.1+71.7b72707` (2026-08-20) to current. No Xcode GUI, no
+  prompt, no signing interaction.
+- **Deploy verdict fixed** (`c0f16c8`, PR #186): the extension VERSION is the
+  authority, not the reload exit code. Observed live in BOTH directions.
+- **v1.13.1 released** (`62d2cd4`).
+
+## Open
+
+- `b34-safari-sideload-automation · browser-tab-mcp` — George's decision.
+  Evidence: BACKLOG B34, plus PR #188 (open, in CI) recording that Safari went
+  stale THREE times in one hour today, once per merge. Right now:
+  daemon `1.13.1+186.62d2cd4`, safari `1.13.0+185.c0f16c8` — stale a fourth
+  time, from my own release merge.
+- `phase-5-zoom · browser-tab-mcp` — the last Phase 5 item (gap G6). Never
+  attempted. Design settled in `plans/2026-09-04-phase-5-act-on-selection.md`:
+  zoom carries a LEVEL so it is not a uniform verb, risk is live-layout, and
+  the cheapest before-value capture is to have the extension's zoom handler
+  RETURN the previous factor (one round trip).
+- `phases-6-11 · browser-tab-mcp` — approved 2026-09-05, not started.
+- `b30`, `b33`, `b20`, `b23`, `b25`, `b27` — unchanged.
+
+## Corrections
+
+Both are mine, both were told to George as fact, and both are now worked
+examples in the fleet's `control-and-inversion` skill:
+
+- **"Safari needs full Xcode and may prompt for signing, which is why it stays
+  yours."** FALSE and never tested. `xcodebuild` needed Xcode *installed*
+  (it is, 26.3); it needed nothing from George. The item sat on his blocked
+  list for several turns while he was blocked on nothing.
+- **"The 7-day cert hypothesis is ruled out"** — the CONCLUSION was right and
+  the measurement was wrong. `codesign -v` verifies the SIGNATURE; the 7-day
+  trap is provisioning-profile expiry. Re-done properly: no `.provisionprofile`
+  in the bundle (control: the same `find` locates `manifest.json` there;
+  inversion: it locates `embedded.provisionprofile` in Tailscale and
+  Fireflies), and entitlements carry `get-task-allow` — a local dev build,
+  which on macOS embeds no profile. There was never a profile to expire.
+- Earlier in this session I twice reported "no build in DerivedData" and "no
+  Xcode project": both wrong. The first glob was lowercase against
+  `Browser_Tab_Helper-…`; the second was aborted by a zsh glob failure before
+  it reached the real path.
+
+## Traps
+
+- **A reconnection is not a reload, and a version is not a verdict.** Both
+  halves bit: the loop checked connectivity, then checked versions but still
+  printed the reload exit code's verdict. Safari makes this unavoidable —
+  `reload-extension --browser safari` ALWAYS fails, because Safari accepts
+  `runtime.reload()` and ignores it.
+- **Safari's `.appex` holds build-time COPIES of `dist/`**, contradicting
+  AGENTS.md's "references dist in place". Only `xcodebuild` moves Safari;
+  `scripts/rebuild.sh`'s header has said so since August.
+- **zsh aborts a whole compound command on a failed glob**, so an earlier
+  `ls a b` "not found" proved nothing about `b`.
+- **`cp`/`mv`/`rm` are `-i` aliases in a session started before 2026-09-07**;
+  in a no-tty shell they answer their own prompt. Prefix `command`. Check the
+  EFFECT, not the exit code.
+- **A check observed only failing is not verified.** The bundle check was
+  correct all along, but its passing direction went unobserved until it was
+  deliberately run again — and that run is what exposed the false verdict.
+
+## Tree
+
+`browser-tab-mcp` on `main` at `62d2cd4`, clean, level with origin. PR **#188**
+open (B34 evidence) with a tmux job queued behind it in pane `%58` that will
+merge it and then sideload Safari LAST so the fleet ends aligned. No other
+session's work in the tree.
+
+## Blocked on you
+
+- `b34-safari-sideload-automation` — the only one. Everything else is work to
+  start, not a decision.
+
+## Elsewhere
+
+- `control-and-inversion-trigger · dotfiles` — shipped as `5de281a`; they
+  rejected this session's fork's broad draft in favour of enumerable speech
+  acts, and both of this session's misses are now worked examples in the skill.
+
+## Resume
+
+If PR #188 merged, sideload Safari once so the fleet is aligned, then start
+**zoom** (`phase-5-zoom` above). If #188 is still open, merge it first — the
+queued tmux job in pane `%58` may already have.
