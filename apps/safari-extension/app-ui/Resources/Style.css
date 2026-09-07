@@ -1,0 +1,168 @@
+/*
+ * OVERLAY SOURCE — tracked at apps/safari-extension/app-ui/Resources/Style.css
+ * and copied into the generated Xcode project by scripts/overlay-app-ui.sh.
+ * Editing the copy under xcode/ is pointless: the next convert or sideload
+ * overwrites it.
+ *
+ * Deliberately close to the stock converter template: same centred
+ * icon-over-text-over-button column, same system font, same light/dark
+ * `color-scheme`. What is new is the version table, the status dot and the
+ * hint line.
+ */
+
+* {
+  -webkit-user-select: none;
+  -webkit-user-drag: none;
+  cursor: default;
+}
+
+:root {
+  color-scheme: light dark;
+
+  --spacing: 16px;
+  --dim: color-mix(in srgb, currentColor 55%, transparent);
+  --rule: color-mix(in srgb, currentColor 12%, transparent);
+  --good: #34c759;
+  --warn: #ff9f0a;
+  --bad: #ff453a;
+  --idle: color-mix(in srgb, currentColor 35%, transparent);
+}
+
+html {
+  height: 100%;
+}
+
+body {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+
+  gap: var(--spacing);
+  margin: 0 calc(var(--spacing) * 1.5);
+  padding: var(--spacing) 0;
+  min-height: 100%;
+  box-sizing: border-box;
+
+  /* Apple's template wrote this as the `-apple-system-short-body` shorthand.
+     Spelled out instead because that keyword carries no family list, so it
+     cannot name a generic fallback (Biome's a11y/useGenericFontNames). 13px
+     San Francisco is what the keyword resolves to on macOS, so the window
+     looks the same. */
+  font-family: -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+  font-size: 13px;
+  text-align: center;
+}
+
+img {
+  flex: none;
+}
+
+#headline {
+  margin: 0;
+  line-height: 1.35;
+  text-wrap: balance;
+}
+
+#dot {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  margin-right: 6px;
+  border-radius: 50%;
+  vertical-align: baseline;
+  background: var(--idle);
+}
+
+#dot.good {
+  background: var(--good);
+}
+#dot.warn {
+  background: var(--warn);
+}
+#dot.bad {
+  background: var(--bad);
+}
+#dot.idle {
+  background: var(--idle);
+}
+
+/* Version table — label left, monospaced value right, one rule between rows. */
+#versions {
+  margin: 0;
+  width: 100%;
+  /* Dev build stamps are long (`1.13.1+187.4242d47.dirty.0907T1824`), and a
+     wrapped version number is hard to compare against another one — which is
+     the whole job of this table. */
+  max-width: 430px;
+  text-align: left;
+}
+
+#versions .row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 4px 0;
+  border-top: 1px solid var(--rule);
+}
+
+#versions .row:first-child {
+  border-top: none;
+}
+
+/* `display: flex` above outranks the UA's `[hidden] { display: none }`, so a
+   row hidden from Script.js would otherwise still render (as a bare em-dash).
+   Measured 2026-09-07 in the sandbox-control build. */
+#versions .row[hidden] {
+  display: none;
+}
+
+#versions dt {
+  color: var(--dim);
+  white-space: nowrap;
+}
+
+#versions dd {
+  margin: 0;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.85em;
+  text-align: right;
+  overflow-wrap: anywhere;
+  -webkit-user-select: text;
+  cursor: text;
+}
+
+/* In the drift state the two versions ARE the message — make them legible
+   as a pair rather than as a footnote. */
+body.state-stale #versions dd {
+  font-weight: 600;
+}
+
+#detail,
+#hint {
+  margin: 0;
+  /* Same measure as the version table: under a tiling WM this window can be
+     2000pt wide, and a hint that runs the full width is unreadable. */
+  max-width: 430px;
+  font-size: 0.9em;
+  line-height: 1.4;
+  color: var(--dim);
+  overflow-wrap: anywhere;
+  -webkit-user-select: text;
+  cursor: text;
+}
+
+#hint {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.85em;
+}
+
+button {
+  font-size: 1em;
+  flex: none;
+}
+
+button:disabled {
+  opacity: 0.5;
+}
