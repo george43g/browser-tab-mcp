@@ -174,7 +174,8 @@ if (live === undefined) {
 // connection-only check calls the deploy ok. So: wait for reconnect, reload,
 // re-assert, and name any browser left un-reloaded in the verdict.
 const expected = Array.isArray(before.extensions) ? before.extensions : [];
-const unreloaded = [];
+/** Browsers whose reload command did not restart them — informational only. */
+const reloadFailed = [];
 if (expected.length > 0) {
   let connected = [];
   for (let i = 0; i < tries; i++) {
@@ -190,11 +191,19 @@ if (expected.length > 0) {
     );
     process.exit(1);
   }
+  // A failed reload is a SYMPTOM, not the verdict — the version check below is
+  // the authority. Safari proves why: `reload-extension --browser safari`
+  // ALWAYS fails (Safari accepts runtime.reload() and ignores it; only an
+  // xcodebuild moves its bundle), so treating that failure as "running the
+  // previous bundle" produced a permanently wrong warning that also told the
+  // reader to re-run the one command that provably cannot help.
   for (const browser of expected) {
     const reload = cli("reload-extension", "--browser", String(browser), "--json");
     if (reload.status !== 0) {
-      unreloaded.push(browser);
-      say(`warning: reload-extension ${browser} failed: ${reload.stderr || reload.stdout}`);
+      reloadFailed.push(browser);
+      say(
+        `note: reload-extension ${browser} did not restart it: ${reload.stderr || reload.stdout}`,
+      );
     }
   }
   for (let i = 0; i < tries; i++) {
@@ -260,7 +269,7 @@ if (String(live.build ?? "").includes(".dirty.")) {
   );
 }
 const extNote =
-  unreloaded.length > 0
-    ? `extensions reloaded except [${unreloaded.join(", ")}] — reconnected but running the previous bundle; retry with \`browser-tab reload-extension\``
+  reloadFailed.length > 0
+    ? `extensions [${expected.join(", ")}] are on this build (${reloadFailed.join(", ")} did not restart on command — expected for Safari, which only moves on a sideload)`
     : `extensions [${expected.join(", ") || "none"}] reloaded and reconnected`;
 say(`ok — daemon ${live.build}, ${extNote}.`);

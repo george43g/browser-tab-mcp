@@ -184,7 +184,7 @@ describe("deploy-local", () => {
     }
   });
 
-  it("names a browser whose reload failed in the verdict, without failing the deploy", () => {
+  it("a failed reload with a CURRENT bundle is reported as expected, not as stale", () => {
     const w = makeWorld({
       statuses: [
         installedStatus("1.0.0+1.0ldsha0", ["chrome"]),
@@ -194,9 +194,17 @@ describe("deploy-local", () => {
     });
     const run = runDeploy(w);
     expect(run.status).toBe(0);
-    expect(run.stdout).toMatch(/warning: reload-extension chrome failed/);
-    expect(run.stdout).toMatch(/reloaded except \[chrome\]/);
-    expect(run.stdout).toMatch(/running the previous bundle/);
+    expect(run.stdout).toMatch(/did not restart it/);
+    // The version is the AUTHORITY, not the reload command's exit code. Safari
+    // is why: `reload-extension --browser safari` ALWAYS fails (Safari accepts
+    // runtime.reload() and ignores it), so treating that as "running the
+    // previous bundle" printed a permanently false claim — and told the reader
+    // to re-run the one command that provably cannot help. Observed live
+    // 2026-09-07 with Safari verifiably ON the current bundle.
+    expect(run.stdout).toMatch(/are on this build/);
+    expect(run.stdout, "the retired claim must not come back").not.toMatch(
+      /running the previous bundle/,
+    );
   });
 
   it("waits long enough for a real launchd restart — the budget is measured, not chosen", () => {

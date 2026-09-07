@@ -1741,6 +1741,24 @@ message, and check the Windows runner's resource pressure at that timestamp.
 Frequency so far: 2 in roughly a day of CI runs across ~15 PRs. Owner:
 unclaimed.
 
+### B34. Should `deploy:local` grow an opt-in `--safari` sideload step?
+
+Filed 2026-09-07 after Safari was found running a bundle from 2026-08-20 — 16
+days and eleven releases stale — while every deploy verdict called it reloaded.
+Root cause was not signing (the cert was valid on disk; George's 7-day-trap
+hypothesis was tested and ruled out): the `.appex` holds build-time COPIES of
+`dist/`, so `reload-extension` reloads a frozen bundle forever and only an
+`xcodebuild` moves Safari. `scripts/rebuild.sh`'s own header had said so since
+August; nothing enforced it.
+
+The version check (`bfacc65`) now catches the drift loudly, which may be
+enough. The open question is whether `deploy:local --safari` should also FIX
+it. Against: a clean `xcodebuild` plus relaunching a GUI app on every merge is
+intrusive, slow, and steals focus. For: the warning only helps someone who
+reads it, and this drifted for 16 days precisely because nobody did. A
+middle option nobody has costed: run the sideload only when the version check
+FAILS, so the cost is paid exactly when it is needed. Owner: George.
+
 ### B33. The daemon never shuts down inside its 3s cleanup window
 
 Filed 2026-09-05, found while measuring the deploy loop's wait budget.
