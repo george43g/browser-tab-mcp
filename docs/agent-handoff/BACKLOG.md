@@ -1759,6 +1759,21 @@ reads it, and this drifted for 16 days precisely because nobody did. A
 middle option nobody has costed: run the sideload only when the version check
 FAILS, so the cost is paid exactly when it is needed. Owner: George.
 
+**MEASURED 2026-09-07, same afternoon: Safari went stale THREE times in about
+an hour**, once per merge that moved main — `fdcecec` -> `c0f16c8` ->
+`62d2cd4`. Each time the check fired correctly and each time the remedy was one
+`sideload`. So the warning is not occasional; it is the steady state for any
+day with more than one merge, and a signal that fires on every merge is one
+nobody reads. That is not a prediction — it is how this drifted unnoticed for
+16 days in the first place.
+
+The dotfiles session hit the identical hazard the same day and resolved it in a
+way worth copying (their `5de281a`): they rejected a broad always-fires trigger
+in favour of ENUMERABLE, recognisable moments, on the grounds that a signal
+which always applies gets tuned out. The analogue here is the middle option —
+fire the sideload only when the version check fails, so the cost lands exactly
+when it is needed and the quiet case stays quiet.
+
 ### B33. The daemon never shuts down inside its 3s cleanup window
 
 Filed 2026-09-05, found while measuring the deploy loop's wait budget.
