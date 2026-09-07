@@ -1743,6 +1743,33 @@ unclaimed.
 
 ### B34. Should `deploy:local` grow an opt-in `--safari` sideload step?
 
+> **DECIDED 2026-09-07 — auto-fix, with an off switch.** George chose the
+> middle option over report-only and over an opt-in flag. `deploy:local` now
+> runs the Safari sideload ONCE when its version check finds Safari on a stale
+> bundle, then re-verifies; `--no-safari` / `BROWSER_TAB_DEPLOY_SAFARI=0`
+> restores report-only. It still FAILS if the sideload runs and does not move
+> it — the repair is an attempt, never the verdict — and the failure message
+> then tells the reader to read the xcodebuild output rather than to re-run
+> what just failed.
+>
+> **One correction to the framing below, found while costing it.** This row
+> argued the middle option because "the quiet case stays quiet". That is not
+> true: Safari's bundle stamp carries the commit sha, so the version check
+> fails for Safari on EVERY merge that moves HEAD, by construction. "Sideload
+> only when the check fails" and "sideload always" are therefore nearly the
+> same policy — the only case the condition actually saves is Safari not
+> running at all. The decision was taken with that correction on the table, so
+> it rests on "Safari should be current and the xcodebuild is the price",
+> not on an expected saving that does not exist. The opt-in flag was rejected
+> for a separate reason: the post-merge hook is what runs `deploy:local`, and
+> nobody types a flag into a hook.
+>
+> Also costed and rejected: making the remedy cheaper by dropping
+> `xcodebuild clean`. The clean is load-bearing — `scripts/rebuild.sh:47-49`
+> records that because resources are file-ref'd in place, Xcode's cache
+> otherwise bundles a stale copy of `dist/`, which is the very failure this
+> whole item exists to stop.
+
 Filed 2026-09-07 after Safari was found running a bundle from 2026-08-20 — 16
 days and eleven releases stale — while every deploy verdict called it reloaded.
 Root cause was not signing (the cert was valid on disk; George's 7-day-trap
