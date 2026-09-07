@@ -1,5 +1,10 @@
 # DSL Phase 3 — planner, effect IR, and the four mutation tools
 
+> **STATUS 2026-09-07 — SHIPPED.** Phase 3 landed: the planner, the effect IR
+> (`src/select/plan/effects.ts`), `plan_tab_change` and `apply_tab_layout`.
+> One recorded deviation is still true — `setOrder` is a TRANSFORM compiled to
+> relocates, not an IR member. Kept for the reasoning.
+
 **Date:** 2026-09-02 (clock-verified)
 **Status:** ACTIVE plan — executes adaptation-record §4 row 3.
 **Depends on (merged):** Phase 2 complete at v1.7.0 (#141 binding, #143 select_tabs).

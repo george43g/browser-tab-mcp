@@ -1,5 +1,10 @@
 # Selection-DSL workstream — adaptation record and phase map
 
+> **STATUS 2026-09-07 — LIVE REFERENCE, not a plan to execute.** This is the
+> binding adaptation record: George's accepted decisions verbatim, rulings
+> R1-R8, and eleven frozen edge policies. It is cited when a later phase asks
+> "what did we decide?", so it does not become terminal when a phase ships.
+
 **Date:** 2026-09-02 (clock-verified)
 **Status:** ACTIVE — this is the binding adaptation of the two planning artifacts to this codebase.
 **Inputs:** `docs/tab-selection-transformation-language-spec.md` (canonical spec, §1–27) and

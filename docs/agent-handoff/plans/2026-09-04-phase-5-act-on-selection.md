@@ -1,5 +1,11 @@
 # Phase 5 — act on a selection (closes G1/G2), with close, closed-tab memory and reopen
 
+> **STATUS 2026-09-07 — LIVE, nearly done.** PR-M (act transform), PR-N
+> (destructive door), PR-O (closed-tab memory) and PR-P (reopen) are all
+> merged and released through v1.13.0. Outstanding: **zoom** (gap G6), whose
+> design is settled in this file. Not "partially executed" — see the wording
+> note in the cg-oscillation plan for why that phrase is avoided.
+
 **Approved by George 2026-09-04**, choosing it over the TUI phase, the eval
 description work and the tmux spike. Sibling document: the triaged
 `2026-09-04-control-surface-roadmap.md`, which holds every idea from the same

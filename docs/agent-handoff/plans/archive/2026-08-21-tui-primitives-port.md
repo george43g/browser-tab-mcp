@@ -1,5 +1,11 @@
 # TUI primitives port + polish — Implementation Plan
 
+> **STATUS 2026-09-07 — SHIPPED, archived.** Verified against the repo:
+> `allocateWidths`, `navReduce` and `scrollbarThumb` are imported and used in
+> `apps/browser-tab-mcp/src/tui/App.tsx`, and the sticky detail pane exists as
+> `src/tui/DetailPane.tsx` with its own `App.detail.test.tsx`. The port target
+> was tui-kit 0.5.0; the workspace has since moved to ^0.5.1.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Port the TUI's hand-rolled width math, cursor logic, and viewport onto `@george43g/tui-kit@0.5.0`'s primitives (`fitToWidth`, `allocateWidths`, `navReduce`, `scrollbarThumb`), add the scrollbar and the sticky detail pane, and land four small polish fixes found in the 2026-08-21 feature drive.

@@ -1,5 +1,10 @@
 # Control-surface roadmap — George's 2026-09-04 idea dump, analysed and triaged
 
+> **STATUS 2026-09-07 — LIVE.** Every phase here is APPROVED (George,
+> 2026-09-05: *"i approve the entire plan."*) and phases 6-11 are NOT started.
+> This file is the running order; it becomes terminal only when the last phase
+> ships.
+
 **Status: EVERY phase here is APPROVED.** George, 2026-09-05: *"i approve the
 entire plan."* Phase 5 has its own document
 (`2026-09-04-phase-5-act-on-selection.md`); phases 6–11 are approved to be

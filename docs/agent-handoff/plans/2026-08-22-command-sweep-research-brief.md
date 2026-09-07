@@ -1,5 +1,15 @@
 # Research brief — the real-browser-effect testing gap (for a `/plan` session)
 
+> **STATUS 2026-09-07 — SUPERSEDED by what it produced; kept in place.** This
+> was never an implementation plan (it says so below); it briefed the
+> effect-verification workstream, which shipped — `docs/surfaces/effect-coverage.json`,
+> `scripts/sweep-macos.mjs` and the `run-guard.ts` reporter are its output.
+> It stays in the active directory rather than moving to `archive/` because
+> three live documents cite it BY PATH, one of them an append-only progress-log
+> entry that must not be reworded: `PROGRESS-LOG.md:2091`,
+> `docs/agent-handoff/README.md:87`, `BACKLOG.md:957`. Its §3 and §4 findings
+> are still cited as evidence.
+
 > **This is NOT an implementation plan.** George's instruction, verbatim: *"research and prep
 > the planning brief, the next turn will be a proper /plan session so dont plan implementation
 > now, plan your planning session by researching and measuring and experimenting"*. Everything
