@@ -249,17 +249,50 @@ class ViewController: NSViewController, WKNavigationDelegate, WKScriptMessageHan
             object: nil)
     }
 
+    /// Fixed width. Height follows the content — see `resize(toContentHeight:)`.
+    private static let windowWidth: CGFloat = 460
+    private static let minWindowHeight: CGFloat = 300
+    private static let maxWindowHeight: CGFloat = 760
+
     override func viewDidAppear() {
         super.viewDidAppear()
         // The stock storyboard window is 425×325 — enough for one sentence and
-        // one button, not for a version block. Grow it here rather than in the
+        // one button, not for a version block. Sized here rather than in the
         // storyboard, which the converter regenerates.
+        //
+        // Deliberately NOT `.resizable`. A fixed-size window is how a macOS app
+        // tells a tiling window manager to leave it alone — it is the platform's
+        // Accessibility contract (`AXStandardWindow`), not a yabai feature, so it
+        // works for Amethyst and AeroSpace too. Adding `.resizable` put this
+        // window into yabai's tiling tree at 1996×1269, on top of whatever was
+        // beneath it. An app we own DECLARES what it is; it never earns a
+        // window-manager rule.
         if let window = view.window {
-            window.styleMask.insert(.resizable)
-            window.setContentSize(NSSize(width: 460, height: 430))
-            window.contentMinSize = NSSize(width: 380, height: 340)
+            window.setContentSize(NSSize(width: Self.windowWidth, height: Self.minWindowHeight))
             window.center()
         }
+    }
+
+    /// Grow or shrink to fit what the page just rendered, keeping the top edge
+    /// put and the width fixed.
+    ///
+    /// This is what `.resizable` was really for: the error strings are
+    /// variable-length (`connect(…/daemon.sock): Operation not permitted`), so a
+    /// fixed height either clips them or wastes space on the healthy state.
+    /// Sizing to content gets that without ever being resizable.
+    private func resize(toContentHeight height: CGFloat) {
+        guard let window = view.window else { return }
+        let wanted = min(max(height, Self.minWindowHeight), Self.maxWindowHeight)
+        let target = window.frameRect(
+            forContentRect: NSRect(x: 0, y: 0, width: Self.windowWidth, height: wanted))
+        // A round-trip through the page can differ by a fraction; only move for a
+        // real change, so a report can never bounce the window.
+        guard abs(target.height - window.frame.height) > 2 else { return }
+        var frame = window.frame
+        frame.origin.y += frame.height - target.height // keep the TOP edge fixed
+        frame.size.height = target.height
+        frame.size.width = target.width
+        window.setFrame(frame, display: true, animate: false)
     }
 
     @objc private func applicationBecameActive() {
@@ -277,6 +310,13 @@ class ViewController: NSViewController, WKNavigationDelegate, WKScriptMessageHan
         didReceive message: WKScriptMessage
     ) {
         guard let body = message.body as? String else { return }
+        if let raw = body.split(separator: ":", maxSplits: 1).last,
+           body.hasPrefix("resize:"),
+           let height = Double(raw)
+        {
+            resize(toContentHeight: CGFloat(height))
+            return
+        }
         switch body {
         case "open-settings":
             SFSafariApplication.showPreferencesForExtension(

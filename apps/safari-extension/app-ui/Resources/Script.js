@@ -36,10 +36,16 @@ const STATES = {
 
   extensionUnknown: {
     dot: "warn",
-    headline: () => "Safari did not report whether the extension is on.",
+    // Reachable in NORMAL use, not just when something is broken: for a few
+    // seconds after a sideload, while LaunchServices re-registers the app,
+    // Safari answers this query with SFErrorDomain error 1. Someone who meets
+    // this has done nothing wrong, so the copy says to wait before it says to
+    // go fix something.
+    headline: () =>
+      "Safari didn’t say whether the extension is on — this is normal for a few seconds after a rebuild.",
     versions: true,
     button: { label: "Check Again", action: "retry" },
-    hint: "You can turn the extension on in the Extensions section of Safari Settings.",
+    hint: "If it persists, turn the extension on in the Extensions section of Safari Settings.",
   },
 
   daemonUnreachable: {
@@ -128,10 +134,40 @@ function render(report) {
     button.textContent = spec.button.label;
     button.dataset.action = spec.button.action;
     button.disabled = Boolean(spec.button.disabled);
+    // Drop focus on every render. The window re-checks when the app becomes
+    // active, so this guarantees a keystroke aimed at something else cannot
+    // land on a button that changed label underneath it — `extensionOff`'s
+    // button quits Safari.
+    button.blur();
   }
+
+  reportHeight();
+}
+
+/**
+ * Tell the app how tall the content actually is, so a NON-RESIZABLE window can
+ * still fit variable-length error strings. `body` is `min-height: 100%`, which
+ * would just echo the current window height back, so it is zeroed for the
+ * measurement and restored immediately.
+ */
+function reportHeight() {
+  requestAnimationFrame(() =>
+    requestAnimationFrame(() => {
+      const body = document.body;
+      const previous = body.style.minHeight;
+      body.style.minHeight = "0";
+      const height = Math.ceil(body.scrollHeight);
+      body.style.minHeight = previous;
+      post(`resize:${height}`);
+    }),
+  );
+}
+
+function post(message) {
+  // Absent when the page is rendered outside the app (a browser preview).
+  globalThis.webkit?.messageHandlers?.controller?.postMessage(message);
 }
 
 document.getElementById("primary").addEventListener("click", (event) => {
-  const action = event.currentTarget.dataset.action || "retry";
-  webkit.messageHandlers.controller.postMessage(action);
+  post(event.currentTarget.dataset.action || "retry");
 });

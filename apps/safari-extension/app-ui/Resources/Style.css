@@ -91,10 +91,6 @@ img {
 #versions {
   margin: 0;
   width: 100%;
-  /* Dev build stamps are long (`1.13.1+187.4242d47.dirty.0907T1824`), and a
-     wrapped version number is hard to compare against another one — which is
-     the whole job of this table. */
-  max-width: 430px;
   text-align: left;
 }
 
@@ -142,9 +138,6 @@ body.state-stale #versions dd {
 #detail,
 #hint {
   margin: 0;
-  /* Same measure as the version table: under a tiling WM this window can be
-     2000pt wide, and a hint that runs the full width is unreadable. */
-  max-width: 430px;
   font-size: 0.9em;
   line-height: 1.4;
   color: var(--dim);
