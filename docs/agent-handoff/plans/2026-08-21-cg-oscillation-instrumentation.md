@@ -1,5 +1,16 @@
 # cgWindowId oscillation — instrumentation-first Implementation Plan
 
+> **STATUS 2026-09-07 — LIVE, HALF DONE. Do not archive this one.** The
+> instrumentation shipped (`src/detect/correlate.ts` carries it), but the
+> measurement-gated FIX did not: cgWindowId oscillation is still an open bug in
+> BACKLOG, and this file's M1-M4 decision table is the live reference for it —
+> `BACKLOG.md:906` points here by path.
+>
+> Deliberately NOT worded "partially executed": a stale-plan checker that
+> greps for `executed` would treat that as terminal and exempt exactly the
+> plan most likely to rot. (Trap supplied by the life-stack session,
+> 2026-09-07.)
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking. REQUIRED SUB-SKILL for Task 5: superpowers:systematic-debugging (the fix is measurement-gated).
 
 **Goal:** Make the daemon's correlation observable enough that one churn cycle identifies WHY cgWindowIds flip to null during window churn, then fix the identified mechanism — not a guessed one.

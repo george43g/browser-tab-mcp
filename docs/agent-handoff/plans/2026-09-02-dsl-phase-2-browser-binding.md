@@ -1,5 +1,9 @@
 # DSL Phase 2 — browser binding, materialized selections, `select_tabs`
 
+> **STATUS 2026-09-07 — SHIPPED.** Phase 2 landed; `select_tabs` resolves the
+> control language against the live snapshot and is effect-verified in
+> `apps/chrome-extension/e2e/select.e2e.test.ts`. Kept for the reasoning.
+
 **Date:** 2026-09-02 (clock-verified)
 **Status:** ACTIVE plan — executes adaptation-record §4 rows 2 and the first slice of row 3
 (`select_tabs` moves from Phase 3 into this phase as the binding's verification surface;

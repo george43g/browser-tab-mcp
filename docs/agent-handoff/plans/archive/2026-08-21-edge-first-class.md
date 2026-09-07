@@ -1,5 +1,12 @@
 # Edge as a first-class browser — Implementation Plan
 
+> **STATUS 2026-09-07 — SHIPPED 2026-08-22, archived.** Verified against the
+> repo, not against this file: `"edge"` is in `BrowserIdSchema`
+> (`packages/shared-types/src/base.ts:11`) and Edge runs in CI as the `msedge`
+> leg of `e2e-branded` (`.github/workflows/ci.yml:262-264`). BACKLOG records
+> the landing, including that this plan's premise about a browser enum in
+> `types.rs` was WRONG — there is none, so it needed zero Rust work.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Add `"edge"` to the browser enum everywhere the set is spelled, so Microsoft Edge is detected, addressed (`t:edge:x…`), extension-paired, history-queried, and documented — instead of today's pin-to-chromium workaround that mislabels it.

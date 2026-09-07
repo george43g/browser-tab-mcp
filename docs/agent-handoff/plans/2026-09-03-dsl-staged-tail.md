@@ -1,5 +1,11 @@
 # DSL staged tail — deploy loop, operation journal, end-state solver, eval corpus, resources
 
+> **STATUS 2026-09-07 — SHIPPED (PR-L deliberately deferred).** PRs H-K
+> landed and released as v1.10.0/v1.10.1: the deploy loop, the operation
+> journal, the end-state solver and the model-eval corpus. PR-L (resources)
+> was deferred on measured evidence, which is recorded in this file's own
+> PR-L section rather than in a status line.
+
 **Date:** 2026-09-03 (clock-verified)
 **Status:** ACTIVE plan — executes the Phase 3 plan's "Staged out" list plus George's
 2026-09-03 deploy-automation directive. Go-ahead given 2026-09-03 (adaptation record,
