@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.13.1](https://github.com/george43g/browser-tab-mcp/compare/v1.13.0...v1.13.1) (2026-09-07)
+
+
+### Bug Fixes
+
+* **deploy:** the extension VERSION is the verdict, not the reload exit code ([#186](https://github.com/george43g/browser-tab-mcp/issues/186)) ([c0f16c8](https://github.com/george43g/browser-tab-mcp/commit/c0f16c8103cb4149a5fcf432de80189a0b85ff40))
+
 ## [1.13.0](https://github.com/george43g/browser-tab-mcp/compare/v1.12.0...v1.13.0) (2026-09-05)
 
 
