@@ -1764,6 +1764,18 @@ unclaimed.
 > for a separate reason: the post-merge hook is what runs `deploy:local`, and
 > nobody types a flag into a hook.
 >
+> **The cost was MEASURED after the decision, and it is an order of magnitude
+> smaller than the estimate the decision was taken on.** George was told "~1
+> min"; five timed runs on 2026-09-07 gave 10.3-13.3s wall, every one cold
+> because `rebuild.sh` does `xcodebuild clean build`. The focus objection also
+> dissolved: launching the container app is NOT what re-registers the
+> extension — `xcodebuild`'s own `lsregister -f -R -trusted` is, measured with
+> the app never launched at all (Safari adopted the new stamp at t+10s and held
+> flat for 85s). So the automated path passes `BT_OPEN_BACKGROUND=1` and is
+> silent. Both measurements make the chosen option cheaper than it was sold as,
+> not dearer — recorded because an estimate that survives as folklore is how a
+> cost gets re-litigated later on the wrong number.
+>
 > Also costed and rejected: making the remedy cheaper by dropping
 > `xcodebuild clean`. The clean is load-bearing — `scripts/rebuild.sh:47-49`
 > records that because resources are file-ref'd in place, Xcode's cache

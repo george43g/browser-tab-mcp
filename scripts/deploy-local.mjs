@@ -35,6 +35,11 @@
  * FAILS if the sideload runs and does not move it — the repair is an attempt,
  * never the verdict.
  *
+ * The price is 10.3-13.3s wall, measured across five runs 2026-09-07, every
+ * one of them cold because rebuild.sh does `xcodebuild clean build`. That is
+ * the whole cost: the container app is launched with BT_OPEN_BACKGROUND so
+ * nothing steals focus, and the launch is not load-bearing anyway.
+ *
  * The post-merge hook (.githooks/post-merge) wraps this advisorily: it only
  * fires on main, only when the merge touched build inputs, and always exits 0
  * so a failed deploy can never break `git pull`.
@@ -289,6 +294,13 @@ if (expected.length > 0) {
       cwd: repoRoot,
       stdio: "inherit",
       shell: true,
+      // BT_OPEN_BACKGROUND keeps the container app from stealing focus. It is
+      // safe because the launch is NOT what re-registers the extension:
+      // xcodebuild's own `lsregister -f -R -trusted` does that. Measured
+      // 2026-09-07 with the app never launched at all — Safari adopted the new
+      // stamp at t+10s anyway, then held flat for 85s. Plain `open` stays the
+      // default for a human running `sideload` by hand, who wants the window.
+      env: { ...process.env, BT_OPEN_BACKGROUND: "1" },
     });
     if (sideload.status !== 0) say(`note: the safari sideload exited ${sideload.status}.`);
     // Safari re-registers and reconnects on its OWN after the container app
