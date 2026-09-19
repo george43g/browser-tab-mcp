@@ -37,6 +37,13 @@ interface World {
   statuses: unknown[];
   restartExit?: number;
   reloadExit?: number;
+  /**
+   * Whether the fake sideload actually MOVES Safari. Modelled as causality —
+   * the fake cli rewrites safari's extVersion only once the fake pnpm has
+   * recorded a sideload — rather than as a status-call count, so a test cannot
+   * pass because the sequence happened to advance.
+   */
+  sideloadFixes?: boolean;
 }
 
 function makeWorld(world: World) {
@@ -54,10 +61,14 @@ else process.stdout.write("");
   );
   makeNodeFake(dir, "git", join(dir, "git-impl.mjs"));
 
+  const sideloadMarker = join(dir, "sideloaded");
   writeFileSync(
     join(dir, "pnpm-impl.mjs"),
-    `import { writeFileSync } from "node:fs";
-writeFileSync(${JSON.stringify(join(dir, "pnpm-ran"))}, process.argv.slice(2).join(" "));
+    `import { appendFileSync, writeFileSync } from "node:fs";
+const args = process.argv.slice(2).join(" ");
+writeFileSync(${JSON.stringify(join(dir, "pnpm-ran"))}, args);
+appendFileSync(${JSON.stringify(join(dir, "pnpm-calls"))}, args + "\\n");
+if (args.includes("sideload")) writeFileSync(${JSON.stringify(sideloadMarker)}, args);
 `,
   );
   makeNodeFake(dir, "pnpm", join(dir, "pnpm-impl.mjs"));
@@ -65,16 +76,26 @@ writeFileSync(${JSON.stringify(join(dir, "pnpm-ran"))}, process.argv.slice(2).jo
   const fakeCli = join(dir, "fake-cli.mjs");
   writeFileSync(
     fakeCli,
-    `import { readFileSync, writeFileSync } from "node:fs";
+    `import { existsSync, readFileSync, writeFileSync } from "node:fs";
 const stateFile = ${JSON.stringify(stateFile)};
 const statuses = ${JSON.stringify(world.statuses)};
+const sideloadFixes = ${JSON.stringify(world.sideloadFixes ?? false)};
+const sideloadMarker = ${JSON.stringify(sideloadMarker)};
 const state = JSON.parse(readFileSync(stateFile, "utf8"));
 const args = process.argv.slice(2).join(" ");
 if (args.startsWith("daemon status")) {
-  const payload = statuses[Math.min(state.statusCalls, statuses.length - 1)];
+  let payload = statuses[Math.min(state.statusCalls, statuses.length - 1)];
   state.statusCalls += 1;
   writeFileSync(stateFile, JSON.stringify(state));
   if (payload === null) process.exit(1);
+  if (sideloadFixes && existsSync(sideloadMarker) && Array.isArray(payload?.extensionInfo)) {
+    payload = {
+      ...payload,
+      extensionInfo: payload.extensionInfo.map((e) =>
+        e.browser === "safari" ? { ...e, extVersion: payload.build } : e,
+      ),
+    };
+  }
   process.stdout.write(JSON.stringify(payload));
   process.exit(0);
 }
@@ -112,6 +133,15 @@ function runDeploy(
     timeout: 30_000,
   });
   return run;
+}
+
+/** Every `pnpm … sideload` the run actually invoked, in order. */
+function sideloadCalls(w: ReturnType<typeof makeWorld>): string[] {
+  const log = join(w.dir, "pnpm-calls");
+  if (!existsSync(log)) return [];
+  return readFileSync(log, "utf8")
+    .split("\n")
+    .filter((line) => line.includes("sideload"));
 }
 
 const installedStatus = (
@@ -249,6 +279,9 @@ describe("deploy-local", () => {
   });
 
   it("gives Safari its OWN remedy — a reload cannot fix an app-bundled extension", () => {
+    // Report-only mode, pinned explicitly: this test is about the WORDING of
+    // the remedy, and the automatic sideload (B34) is on by default, so
+    // leaving it on would silently change what this exercises.
     const w = makeWorld({
       statuses: [
         installedStatus("1.0.0+1.0ldsha0", ["safari"]),
@@ -259,12 +292,104 @@ describe("deploy-local", () => {
         ),
       ],
     });
-    const run = runDeploy(w);
+    const run = runDeploy(w, { BROWSER_TAB_DEPLOY_SAFARI: "0" });
     expect(run.status).toBe(1);
     expect(run.stdout).toMatch(/safari-extension sideload/);
     expect(run.stdout, "pointing Safari at reload-extension would be wrong advice").not.toMatch(
       /retry `browser-tab reload-extension --browser safari`/,
     );
+    expect(sideloadCalls(w), "the switch is off, so nothing may be built").toEqual([]);
+  });
+
+  // --- B34: Safari repairs itself -----------------------------------------
+  //
+  // George's decision 2026-09-07. Safari's stamp carries the commit sha, so
+  // the version check fails for it on EVERY merge that moves HEAD — the
+  // warning is the steady state, and a signal that always fires is one nobody
+  // reads. It drifted 16 days unnoticed exactly that way.
+
+  it("repairs a stale Safari by running its sideload, and says so in the verdict", () => {
+    const w = makeWorld({
+      statuses: [
+        installedStatus("1.0.0+1.0ldsha0", ["safari"]),
+        installedStatus(
+          "1.0.0+2.abc1234",
+          ["safari"],
+          [{ browser: "safari", extVersion: "1.3.1+71.7b72707" }],
+        ),
+      ],
+      sideloadFixes: true,
+    });
+    const run = runDeploy(w);
+    expect(run.status).toBe(0);
+    expect(run.stdout).toMatch(/running its sideload/);
+    expect(run.stdout).toMatch(/ok — daemon 1\.0\.0\+2\.abc1234/);
+    expect(run.stdout, "the verdict must not hide that a build happened").toMatch(
+      /rebuilt by an automatic sideload/,
+    );
+    expect(sideloadCalls(w)).toEqual(["--filter @george43g/safari-extension sideload"]);
+  });
+
+  it("FAILS when the automatic sideload runs and Safari is STILL stale", () => {
+    const w = makeWorld({
+      statuses: [
+        installedStatus("1.0.0+1.0ldsha0", ["safari"]),
+        installedStatus(
+          "1.0.0+2.abc1234",
+          ["safari"],
+          [{ browser: "safari", extVersion: "1.3.1+71.7b72707" }],
+        ),
+      ],
+      sideloadFixes: false,
+    });
+    const run = runDeploy(w);
+    expect(run.status, "the repair is an attempt, never the verdict").toBe(1);
+    expect(run.stdout).toMatch(/NOT running this build/);
+    expect(run.stdout).toMatch(/already ran and did not move it/);
+    expect(run.stdout, "read the output before re-running what just failed").toMatch(
+      /read its xcodebuild output above/,
+    );
+    // Exactly one attempt. A repair that retries is a loop.
+    expect(sideloadCalls(w)).toHaveLength(1);
+  });
+
+  it("never sideloads for a Chromium browser — the trigger is Safari, not staleness", () => {
+    // The control for the two tests above: a stale bundle alone must not
+    // trigger a build, or the trigger is wrong even when the outcome looks
+    // right. chrome's remedy is the reload that already ran.
+    const w = makeWorld({
+      statuses: [
+        installedStatus("1.0.0+1.0ldsha0", ["chrome"]),
+        installedStatus(
+          "1.0.0+2.abc1234",
+          ["chrome"],
+          [{ browser: "chrome", extVersion: "1.0.0+1.0ldsha0" }],
+        ),
+      ],
+      sideloadFixes: true,
+    });
+    const run = runDeploy(w);
+    expect(run.status).toBe(1);
+    expect(sideloadCalls(w)).toEqual([]);
+    expect(run.stdout).toMatch(/reload-extension --browser chrome/);
+  });
+
+  it("--no-safari turns the repair off without touching the check", () => {
+    const w = makeWorld({
+      statuses: [
+        installedStatus("1.0.0+1.0ldsha0", ["safari"]),
+        installedStatus(
+          "1.0.0+2.abc1234",
+          ["safari"],
+          [{ browser: "safari", extVersion: "1.3.1+71.7b72707" }],
+        ),
+      ],
+      sideloadFixes: true,
+    });
+    const run = runDeploy(w, {}, ["--no-safari"]);
+    expect(run.status, "the version check still fails; only the repair is off").toBe(1);
+    expect(sideloadCalls(w)).toEqual([]);
+    expect(run.stdout).toMatch(/NOT running this build/);
   });
 
   it("accepts a dirty-tree stamp for the right commit, warning about the dirt", () => {

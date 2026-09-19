@@ -10,6 +10,14 @@
 #
 # Skips: not on main; CI; docs-only merges (nothing under apps/, packages/,
 # or scripts/ changed — a checkpoint merge must not restart the daemon).
+#
+# COST: since B34 this can also run a Safari sideload (a clean xcodebuild) when
+# the version check finds Safari on a stale bundle — which, because the bundle
+# stamp carries the commit sha, is every merge that moves HEAD while Safari is
+# connected. Measured 2026-09-07: 10.3-13.3s, and it does not steal focus (the
+# container app is launched with BT_OPEN_BACKGROUND). Set
+# BROWSER_TAB_DEPLOY_SAFARI=0 in your env to skip it and take the report-only
+# behaviour instead.
 [ -n "$CI" ] && exit 0
 [ "$(git branch --show-current)" = "main" ] || exit 0
 if git diff-tree -r --name-only ORIG_HEAD HEAD 2>/dev/null | grep -qE '^(apps|packages|scripts)/'; then
