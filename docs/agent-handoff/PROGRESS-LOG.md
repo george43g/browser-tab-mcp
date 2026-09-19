@@ -3830,3 +3830,32 @@ session's work in the tree.
 If PR #188 merged, sideload Safari once so the fleet is aligned, then start
 **zoom** (`phase-5-zoom` above). If #188 is still open, merge it first — the
 queued tmux job in pane `%58` may already have.
+
+## Checkpoint #25 — 2026-09-20 — B34 and the Safari status window both merged; fleet realigned
+
+Where this file and a context summary disagree, this file is correct.
+
+### State
+Main at `9955a50`. Daemon and Chrome on `1.13.1+190.9955a50`; Safari's registered bundle on the same stamp, Safari closed at the time of writing. No open PRs of this session's.
+
+### Constraints
+George, 2026-09-07: *"dont stress about things popping up, I dont mind, I was moreso worried if I accidentally affected something."* George, 2026-09-14 (`/one-thing-at-a-time`): decisions **accept the App Sandbox drop on the container app** (panel 3) and **merge without the extension-off check, he will check later** (panel 7).
+
+### Done
+- B34 auto-sideload — `#190` → `9955a50`; measured cost 10.3–13.3s (five runs), silent via `BT_OPEN_BACKGROUND=1`; the "~1 min" estimate George decided on was retracted in the row and the PR.
+- Safari container app status window — `#191` → `37820ab`: six states, Quit button only in `extensionOff`, live-vs-bundled stamp, `.resizable` removed so yabai ignores it (`33a5517`), narrow sandbox exception measured dead (file exceptions grant `open`, not `connect`).
+- Stray `chore(codex)` commit removed from #190 (`b02651f` still reachable); the recreated `.codex/config.toml` is byte-identical to main's.
+- Executive's `event_loop_blocked_starved_deferring_kill` (slug browser-tab-daemon-error-signature) closed as a machine stall: `up-bank-mcp` logged the same signature in the same second, 2026-09-14 18:40:28.
+
+### Open
+- `extension-off-confirm` · George — toggle the Safari extension off, open Browser Tab Helper, confirm only the Quit button shows. Never forced from a shell; evidence is the rendered HTML, not the running app.
+- `instruction-conventions-vs-b28` · George — dotfiles announced three conventions 2026-09-15; the 32,768 B cap conflicts with his B28 decision (AGENTS.md is 66,383 B by decision), and `.cursorrules` is referenced by `.cursor/rules/browser-tab.mdc`, `.npmignore`, `README.md`. Not applied; his call.
+- `sideload-branch-guard` · unclaimed — `rebuild.sh` has no on-main guard, which is how both extensions were built from a feature branch during the week. Costed at a few lines mirroring `deploy-local.mjs`; not built.
+
+### Traps
+- zsh autopair inserts `}` when `{` arrives via `tmux send-keys`; a grouped command dies with `parse error near '}'` and looks like a dead pane. Send a script path, never braces. Reported to dotfiles.
+- The session scratchpad under `/private/tmp/claude-501/…` is purged across a restart; `tee` into it silently produces nothing. `mkdir -p` first.
+- A shared worktree left on a feature branch collects other sessions' commits and builds: `b02651f` landed on #190, and both extensions were sideloaded from it.
+
+### Tree
+`browser-tab-mcp`, branch `docs/b34-closed-checkpoint-25` off `main@9955a50`; only this file and `BACKLOG.md` dirty; mine.

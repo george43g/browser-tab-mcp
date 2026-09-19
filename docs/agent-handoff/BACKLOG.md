@@ -1743,6 +1743,19 @@ unclaimed.
 
 ### B34. Should `deploy:local` grow an opt-in `--safari` sideload step?
 
+> **CLOSED 2026-09-20 — merged as `9955a50` (#190), first live run measured.**
+> The post-merge deploy on `9955a50` found Safari ABSENT (`extensions [chrome]`)
+> because Safari was not running, so the repair had nothing to act on — by
+> design: a browser with no row cannot be stale, and the verdict names only
+> connected browsers. One manual `BT_OPEN_BACKGROUND=1 … sideload` from main
+> (13.83s wall; bundled stamp `1.13.1+190.9955a50`; app sandbox keys 0, appex
+> keys 1; Safari not launched) put the registered bundle on main so Safari
+> opens aligned. Standing behaviour from here: a Safari that is closed at
+> deploy time comes up stale and is repaired by the NEXT deploy that sees it
+> connected. If that gap ever matters, the option is a sideload-on-absence
+> branch — costed at ~11s, not built, because a build for a browser nobody
+> has open is the always-fires signal this item exists to avoid.
+>
 > **DECIDED 2026-09-07 — auto-fix, with an off switch.** George chose the
 > middle option over report-only and over an opt-in flag. `deploy:local` now
 > runs the Safari sideload ONCE when its version check finds Safari on a stale
