@@ -1741,6 +1741,25 @@ message, and check the Windows runner's resource pressure at that timestamp.
 Frequency so far: 2 in roughly a day of CI runs across ~15 PRs. Owner:
 unclaimed.
 
+### B35. tmux-control — a second control-tool app, and the monorepo test it carries
+
+Filed 2026-09-20 from George's request: *"its time you generate a new app … it
+really puts the monorepo to the test - if the test fails, that determines we
+cant put multiple app control tools in here."* Plan, existing-solutions record
+and same-day measurements: `plans/2026-09-20-tmux-control-app.md`. He chose
+**agent-safe driving** to lead v1 — a `run` that executes a command as the
+pane's own process in the `-agent` grouped session and returns exit code and
+output as data, with no `send-keys`, no screen scraping and no way to reach the
+focus-stealing form. The earlier tmux MCP (`bnomei/tmux-mcp`) was adopted and
+then removed as "not stable" on 2026-08-30 (`76fb159`); its verified defects are
+this app's requirements. **Phase 0 is a go/no-go scaffold experiment in a
+throwaway worktree**, with pass/fail criteria written before it runs. The
+dominant risk is SILENCE rather than red CI: six contract tests enumerate
+browser-tab's registry, so a second app would ship uncovered with nothing
+failing. This request lifts the architecture document's USER-GATE for the tmux
+app only; its other gated choices stay gated. Owner: this session, pending
+George's review of the plan.
+
 ### B34. Should `deploy:local` grow an opt-in `--safari` sideload step?
 
 > **CLOSED 2026-09-20 — merged as `9955a50` (#190), first live run measured.**
