@@ -3848,7 +3848,7 @@ George, 2026-09-07: *"dont stress about things popping up, I dont mind, I was mo
 - Executive's `event_loop_blocked_starved_deferring_kill` (slug browser-tab-daemon-error-signature) closed as a machine stall: `up-bank-mcp` logged the same signature in the same second, 2026-09-14 18:40:28.
 
 ### Open
-- `extension-off-confirm` · George — toggle the Safari extension off, open Browser Tab Helper, confirm only the Quit button shows. Never forced from a shell; evidence is the rendered HTML, not the running app.
+- ~~`extension-off-confirm`~~ · **CLOSED 2026-09-20.** George unticked the extension; the daemon dropped Safari (`extensions: ["chrome"]`) and the running app, launched with `open -g` and captured by window id (`screencapture -x -o -l`), showed the red dot, the "currently off" copy, and `Quit and Open Safari Settings…` as the ONLY control — no version rows, no `Check Again`. All six states are now seen in the running app. The same session also saw `healthy` with all three stamps on `9955a50`, and yabai reporting the window `is-floating: true`, `can-resize: false`, 460×328 — the `.resizable` fix verified live.
 - `instruction-conventions-vs-b28` · George — dotfiles announced three conventions 2026-09-15; the 32,768 B cap conflicts with his B28 decision (AGENTS.md is 66,383 B by decision), and `.cursorrules` is referenced by `.cursor/rules/browser-tab.mdc`, `.npmignore`, `README.md`. Not applied; his call.
 - `sideload-branch-guard` · unclaimed — `rebuild.sh` has no on-main guard, which is how both extensions were built from a feature branch during the week. Costed at a few lines mirroring `deploy-local.mjs`; not built.
 
