@@ -1,5 +1,17 @@
 # Changelog
 
+## [1.14.0](https://github.com/george43g/browser-tab-mcp/compare/v1.13.1...v1.14.0) (2026-09-19)
+
+
+### Features
+
+* **safari:** the container app becomes a live status window ([#191](https://github.com/george43g/browser-tab-mcp/issues/191)) ([37820ab](https://github.com/george43g/browser-tab-mcp/commit/37820ab37b7714764ca99100fc1158d0218193d6))
+
+
+### Bug Fixes
+
+* **deploy:** Safari repairs itself when the version check catches drift ([#190](https://github.com/george43g/browser-tab-mcp/issues/190)) ([9955a50](https://github.com/george43g/browser-tab-mcp/commit/9955a506bf00bfb1b4a7e3c25e5087ccce84980c))
+
 ## [1.13.1](https://github.com/george43g/browser-tab-mcp/compare/v1.13.0...v1.13.1) (2026-09-07)
 
 
