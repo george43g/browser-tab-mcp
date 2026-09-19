@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<!--
+  OVERLAY SOURCE — tracked at
+  apps/safari-extension/app-ui/Resources/Base.lproj/Main.html and copied into
+  the generated Xcode project by scripts/overlay-app-ui.sh. Editing the copy
+  under xcode/ is pointless: the next convert or sideload overwrites it.
+-->
+<html lang="en">
+<head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'">
+    <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
+
+    <link rel="stylesheet" href="../Style.css">
+    <script src="../Script.js" defer></script>
+</head>
+<body class="state-checking">
+    <img src="../Icon.png" width="96" height="96" alt="Browser Tab Helper Icon">
+
+    <p id="headline"><span id="dot" aria-hidden="true"></span><span id="headline-text">Checking…</span></p>
+
+    <dl id="versions" hidden>
+        <div class="row" id="row-live">
+            <dt>Running in Safari</dt>
+            <dd id="v-live">—</dd>
+        </div>
+        <div class="row" id="row-bundled">
+            <dt>Bundled in this app</dt>
+            <dd id="v-bundled">—</dd>
+        </div>
+        <div class="row" id="row-daemon">
+            <dt>Daemon</dt>
+            <dd id="v-daemon">—</dd>
+        </div>
+    </dl>
+
+    <p id="detail" hidden></p>
+
+    <button type="button" id="primary">Check Again</button>
+
+    <p id="hint" hidden></p>
+</body>
+</html>

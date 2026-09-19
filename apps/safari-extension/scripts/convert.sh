@@ -60,6 +60,11 @@ PBXPROJ="$APP_DIR/xcode/Browser Tab Helper/Browser Tab Helper.xcodeproj/project.
 sed -i '' -E "s/(MARKETING_VERSION = )[^;]*;/\1$VERSION;/g" "$PBXPROJ"
 echo "Stamped MARKETING_VERSION = $VERSION into the generated project."
 
+# Replace the stock converter UI (one unconditional "Quit and Open Safari
+# Settings…" button) with the tracked status window in ../app-ui/. Idempotent
+# whole-file copies — see overlay-app-ui.sh.
+bash "$SCRIPT_DIR/overlay-app-ui.sh"
+
 echo
 echo "Xcode project generated at $APP_DIR/xcode/."
 echo "Next: open it in Xcode, set Signing to your personal team for BOTH"

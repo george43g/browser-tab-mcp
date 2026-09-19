@@ -37,13 +37,19 @@ if [[ ! -d "$PROJECT" ]]; then
   exit 1
 fi
 
-echo "==> [1/4] pruning stale extension registrations"
+echo "==> [1/5] pruning stale extension registrations"
 bash "$SCRIPT_DIR/clean.sh"
 
-echo "==> [2/4] building web bundle (dist/ is referenced in place by the project)"
+echo "==> [2/5] building web bundle (dist/ is referenced in place by the project)"
 (cd "$REPO_ROOT" && pnpm --filter @george43g/chrome-extension build)
 
-echo "==> [3/4] xcodebuild clean build (Debug, default DerivedData)"
+echo "==> [3/5] overlaying the tracked container-app UI"
+# Runs here as well as in convert.sh so a CODE-only sideload picks up an
+# app-ui/ edit without a re-convert — the same reason the project references
+# dist/ in place.
+bash "$SCRIPT_DIR/overlay-app-ui.sh"
+
+echo "==> [4/5] xcodebuild clean build (Debug, default DerivedData)"
 # Clean first: because resources are referenced in place, Xcode's cache can
 # otherwise bundle a stale copy of dist/. No -derivedDataPath, so this shares
 # a location with Xcode's ⌘R builds → a single registered app.
@@ -70,7 +76,7 @@ XCARGS=(
 [[ -n "${DEVELOPMENT_TEAM:-}" ]] && XCARGS+=("DEVELOPMENT_TEAM=$DEVELOPMENT_TEAM")
 xcodebuild "${XCARGS[@]}" clean build
 
-echo "==> [4/4] locating and launching the built app"
+echo "==> [5/5] locating and launching the built app"
 PRODUCTS_DIR="$(xcodebuild "${XCARGS[@]}" -showBuildSettings 2>/dev/null \
   | awk -F' = ' '/ BUILT_PRODUCTS_DIR = /{print $2; exit}')"
 APP=""
@@ -81,7 +87,22 @@ if [[ -z "$APP" ]]; then
 fi
 
 echo "    app: $APP"
-open "$APP"
+# Launching the app is NOT what re-registers the extension with Safari —
+# xcodebuild's own `lsregister -f -R -trusted` step is. Measured 2026-09-07
+# on Safari 26.x / macOS 15.7.7, three runs: with `open` SUPPRESSED entirely
+# and the container app not even running, Safari adopted the rebuilt stamp in
+# ~6s, the same as with plain `open` and with `open -g`. So the launch is kept
+# only because a FIRST-EVER install (or a run after `clean.sh --all`) does
+# need the app to run once — and because a human running `sideload` by hand
+# wants to see the status window it now shows.
+#
+# BT_OPEN_BACKGROUND=1 launches it without pulling focus, for an automated
+# sideload (e.g. from `pnpm deploy:local`) that must not interrupt anyone.
+if [[ -n "${BT_OPEN_BACKGROUND:-}" ]]; then
+  open -g "$APP"
+else
+  open "$APP"
+fi
 
 cat <<'EOF'
 
