@@ -1,267 +1,435 @@
-# tmux-control — a second control-tool app, and the monorepo test it carries
+# tmux-control — the second application, and the reuse it has to prove
 
-> **STATUS 2026-09-20 — PROPOSED, awaiting George's review.** Investigation and
-> design are complete and every load-bearing mechanism below was measured on
-> this Mac the same day. Nothing is built. Phase 0 is a go/no-go experiment
-> whose result can end the plan; read its exit criteria before the rest.
+> **STATUS 2026-09-21 — REVISED after George's review, still PROPOSED.** This
+> replaces the 2026-09-20 draft, whose central premise George corrected.
+> Nothing is built; this revision approves no implementation, no Phase 0 run
+> and no merge. Six decisions in §11 are open and are George's.
 
-**Requested by George, 2026-09-20:** *"its time you generate a new app - this is
-ambitious but it really puts the monorepo to the test - if the test fails, that
-determines we cant put multiple app control tools in here but hopefully it all
-works out."* Asked which capability should lead v1, he chose **agent-safe
-driving** over the wm-stack join, the event journal and semantic layouts.
+## 1. The objective, as George corrected it
 
-**Gate note.** `docs/deep-application-control-platform-architecture.md`
-(2026-08-29) already names this app (`apps/tmux-control`, its "Phase 4 — thin
-tmux spike") and BACKLOG records that document as USER-GATED: no plan or code
-until George rules on, among other things, "the browser/tmux product boundary".
-This plan treats his request as lifting that gate **for the tmux app only**. The
-document's other gated choices — the reduced transform set, the five-tool MCP
-surface, the `control-language` naming — stay gated and nothing here depends on
-them. Two of its rulings are adopted as written: **one monorepo while the
-architecture is still being discovered**, and **no daemon first** (tmux is
-already a persistent server; add one only if a journal or subscription fan-out
-is measured to need it).
+The 2026-09-20 draft treated "a second app scaffolds here and runs commands
+safely" as the test. George, reviewing it 2026-09-21:
 
-## 1. Why a program at all — and what it is NOT
+> The reason for adding tmux to this monorepo is to develop and test a reusable
+> foundation for deeper application control. Browsers and tmux are the first
+> applications; terminal emulators and other programs or controllable endpoints
+> may follow.
 
-The analysis George pasted is right that tmux needs far less than browsers did:
-stable ids (`$2`/`@22`/`%32`), a complete verb surface, `-F` format strings and
-a control-mode event feed all ship in the box, so browser-tab's two hardest
-parts — correlation and the connector extension — have no analogue. For plain
-manipulation, a skill is the right answer and `use-tmux-terminals` already is
-one. **This app does not re-wrap the tmux CLI**, and a tool that mirrors
-`move-window` behind an MCP name is out of scope for good.
+The goal is to make it easier for humans and AI agents to assist each other in
+controlling a computer, through consistent ways to **inspect state, select
+objects, preview changes, execute operations, and verify their effects**. His
+words for the architecture: *"We centralize the core logic."* The layering he
+confirmed:
 
-What a skill cannot do is make an unsafe path impossible. Measured cost, one
-session, 2026-09-07 → 2026-09-20:
+1. **Shared core** — selection, ordering, validation, and whatever planning and
+   execution mechanisms can genuinely share a contract. A fix there benefits
+   every application.
+2. **Application libraries** — browser, tmux, terminal, and later families.
+   Each defines its objects, capabilities, operations, constraints and
+   semantics.
+3. **Endpoint adapters** — translate those operations into browser APIs, tmux
+   commands, or another endpoint's mechanism.
+4. **User and agent surfaces** — CLI, MCP, any eventual human interface. They
+   consume the libraries; none reinvents behaviour.
 
-- **Focus theft.** `new-window -t claude:` without `-d` moved George's screen
-  onto an agent's job. The skill's rule covered `select-*` only; the fix had to
-  be restated as a class (dotfiles `90a0155`).
-- **ZLE mangling.** zsh autopair appended `}` to a `{ …; }` group sent by
-  `send-keys`; the line died with `parse error near '}'` and read as a dead
-  pane. Three panes lost to it.
-- **Screen scraping.** `capture-pane` returned nothing, twice. Cause measured
-  below: tmux's own "Pane is dead" line scrolls output into history.
-- **No return value.** Completion was an until-loop grepping a pane for a
-  marker string the command had to echo.
+That browser movement and tmux movement differ is already accounted for by
+layers 2 and 3. It is a reason to locate the shared and the specific parts
+correctly, not a reason to postpone reuse.
 
-Every one is wrapper-shaped, every agent on the machine pays it, and the
-previous attempt to fix it with an MCP was **tried and rejected**.
+### What the first draft got wrong
 
-## 2. Existing solutions — the record
+- **It deferred the `control-language` binding and said v1 does not use it** —
+  which removed the only thing the monorepo is for. A separate repo could have
+  hosted everything that draft proposed to build.
+- **"Layouts never here"** was inferred from tmuxinator and sesh being
+  installed. Installed is not fit (§7).
+- **P4 promised a tmux test failure could not block a browser release** while
+  keeping one release line and one workspace-wide suite. Incoherent (§9).
+- **The runner signalled completion before exiting**, then read the dead pane's
+  status. A race; reproduced and fixed by measurement (§8).
+
+George's earlier choice of **agent-safe driving** as the v1 lead stands. It is
+one operation of the tmux application library, not a substitute for the library
+consuming the shared core. §6 sequences the two; the order is decision D2.
+
+## 2. What exists — rechecked against the tree, 2026-09-21
+
+Every line below was read on `main` (`e6820aa`), not taken from the review.
+
+### Reused UNCHANGED by a tmux binding
+
+`packages/control-language` is genuinely application-free: its only runtime
+dependency is `zod`, no file under `packages/*/src` imports an app, and nothing
+stands between it and a `workspace:*` consumer. A tmux binding reuses as-is the
+17-node selector AST and its Zod schema, signed positions, same-kind set
+algebra, typed predicates, complexity limits (`DEFAULT_LIMITS`), semantic
+validation (`validateSelector`/`assertValid`), the `E_*` error codes, and
+`resolveSelector`. **13 of the 17 node kinds** — `ids scope members positions
+where union intersect subtract complement sort slice withinEach flatten` — need
+only `scopes`/`relations`/`orderedMembers`/`readField`, all natural for
+session → window → pane.
+
+The seam is clean in practice: the browser binding
+(`apps/browser-tab-mcp/src/select/browser-domain.ts`) is 425 lines with three
+imports and no I/O. A tmux binding of comparable size is a real second
+consumer of `SelectionDomain<Ref>` (`packages/control-language/src/domain.ts`).
+
+### Needs a MEASURED core extension — and this is the finding
+
+**The shared core declares an occurrence model and its algorithm contradicts
+it.** `ResolvedOccurrence` carries `occurrenceId`, `projectionId` and
+`branchPath`, and `domain.ts` names the case they exist for: *"a tmux window
+linked into two sessions"*. But:
+
+- The resolver deduplicates by `stableKey`, not by occurrence
+  (`resolve.ts:80-89`, `appendUnique`; `branchOf` is keyed by stable key). A
+  `withinEach` over two sessions that share a linked window emits that window
+  **once**, tagged with the first session, and drops the second provenance.
+- `occurrenceId` and `projectionId` are written in exactly one place
+  (`resolve.ts:468-469`) and **read nowhere** in `apps/` or `packages/`.
+  `projectionId` is the constant `"primary"`.
+- `parentOf` and `siblingsOf` are single-valued (`domain.ts`), and four node
+  kinds depend on them — `offset`, `expand`, `between`, `siblings`
+  (`resolve.ts:218,241,267-279,293`).
+- The browser consumer keeps only `.entity` and `.key` and discards the
+  occurrence (`apps/browser-tab-mcp/src/daemon/select.ts:92-93`). The fixture
+  is a strict forest, so no test exercises the distinction.
+
+Measured from the tmux side the same day (private server, tmux 3.7b): one
+linked window is **one** `#{window_id}` and **one** `#{pane_id}` (same pid)
+appearing at `human:19`, `human-agent:19` and `other:1`. In a session group
+every window is linked. `#{window_index}` and `#{window_active}` belong to the
+**slot** (session + index); name, layout and panes belong to the **window**.
+So a linked window has two sibling sequences with different indices, and a
+binding written against today's interface must silently pick one.
+
+The architecture document commissioned exactly this test — *"Exercise linked
+windows and session groups specifically to challenge the selection
+abstraction"* — and the identity model is, precisely, **present but unproven,
+and in one place refuted**. That is what tmux is here to settle.
+
+**There is also no way to check that a binding is correct.** All three core test
+files pin `const d = makeSyntheticDomain()` at module scope; nothing is
+parameterised over a `SelectionDomain`, although `fixture.ts` says a second
+domain's conformance tests should reuse it. Without that, "tmux reuses the
+engine" means only "it compiles".
+
+### Stays application-specific
+
+The effect IR, the risk table, preconditions' content, and the executor.
+`effects.ts:1-6` says so deliberately (*"tmux/terminal domains get their own
+effects when they exist"*); `ACT_VERB_RISK` has no tmux analogue. Is
+`break-pane` additive? Is `kill-pane` destructive with no undo? Those are
+tmux's to author.
+
+The planner is the honest middle. Of `planner.ts`'s ~420 lines roughly 20 are
+already neutral, ~200 are neutral in shape but browser-typed, ~120 are
+irreducibly browser (counts derived from line ranges, not tooled). What could
+ever be shared is an envelope: a plan store, an equality-only staleness token,
+a risk gate, an abort/verify skeleton. **This plan does NOT extract it first.**
+The architecture document's rule is *"Effects remain domain-specific until two
+domains prove reuse"* and *"use a common plan envelope only after it proves
+useful"*; extracting before tmux's risk vocabulary exists would be guessing.
+The one hazard of two planners is two divergent staleness contracts, so tmux
+writes its token against the SAME written contract — `'<bootId>:<revision>'`,
+compared by equality only (`packages/shared-types/src/contract.ts:123-130`) —
+pinned by a contract test. Extraction becomes a measured follow-up the moment
+both planners exist: that is the second application doing its job.
+
+**Layer 2 does not exist for the browser either.** `packages/browser-control`
+was proposed and deferred by ruling R1
+(`plans/2026-09-02-selection-dsl-adaptation.md`) *until a second consumer
+exists*. tmux is that trigger — but extracting the browser library is a
+previously gated choice and is NOT in this plan. It is recorded so the
+asymmetry is visible: tmux gets a library from day one; the browser's still
+lives inside its app.
+
+## 3. Package boundaries
+
+| Layer | Package | Holds |
+|---|---|---|
+| 1 shared core | `packages/control-language` (exists) | selection, ordering, validation, resolver. Gains a binding conformance suite (M1) and whatever identity extension M3 measures — nothing speculative. |
+| 2 application library | `packages/tmux-control` (new) | the tmux model (server, session, slot, window, pane, client), the `SelectionDomain` binding, capabilities, tmux effects + risk table, the planner, preconditions, the snapshot token, the safe runner, ownership and retention policy. Pure except where it calls layer 3. |
+| 3 endpoint adapter | inside `packages/tmux-control` (`adapter/`) | the ONLY code that spawns `tmux`: argv arrays, `-F` rows in, parsed data out. One adapter does not justify its own package; it gets one when a second endpoint (control mode, a remote server) exists. |
+| 4 surfaces | `apps/tmux-control-mcp` (new) | CLI + MCP from one bin, consuming layer 2. No tmux knowledge of its own. |
+
+## 4. The reuse milestone — the first proof
+
+This is the architecture acceptance test. It is a vertical slice, not a tool
+catalog, and it introduces no daemon.
+
+**M1 — a binding conformance suite, extracted first.** Export
+`runDomainConformance(domain, expectations)` from `control-language` and run
+the synthetic fixture and the browser binding through it. This needs no tmux,
+it is the first justified extraction (measured absence, §2), and it is what
+turns reuse into a checkable claim. The browser binding passing unchanged is
+the control.
+
+**M2 — read real tmux structure into an application model and bind it.** The
+adapter reads sessions, slots, windows, panes and clients with `-F` format
+strings; the binding exposes them to the unchanged resolver. The 13 node kinds
+that need no sibling view must pass M1's suite with **no change to
+`control-language`**. Fixtures are real `-F` output from a throwaway server.
+
+**M3 — the identity experiment, failing tests first.** Build the linked-window
+and session-group cases as tests before deciding anything. Two candidate
+answers, chosen by result and not by taste:
+
+- *(i) Model the occurrence as the entity.* The tmux library makes the **slot**
+  (`$session:@window`) the entity in ordered views, with the window object as a
+  separate kind reached by a relation. Slots have distinct stable keys and
+  exactly one parent session, so dedupe and `siblingsOf` stay single-valued and
+  the core is reused **unchanged**. Cost: every consumer must know which of the
+  two kinds it holds, and effects choose whether they target the slot or the
+  window.
+- *(ii) Make occurrence identity real in the core.* Dedupe by `occurrenceId`,
+  carry `branchPath` properly, let sibling views be projection-parameterised.
+  Cost: a core change every binding inherits, and the browser must be shown
+  unaffected by M1's suite.
+
+Rule: take (i) if the slice passes with no silent choice anywhere; take (ii)
+only for a failure (i) demonstrably cannot express. Either way the four
+sibling-dependent node kinds get explicit linked-window tests, and
+`occurrenceId`/`projectionId` end M3 either **read by something** or
+**removed** — a field written and never read does not survive the experiment.
+
+**M4 — preview, apply and verify ONE rearrangement.** The proposed operation
+(decision D1): *gather — move the last pane of each selected window into a
+target window.* It was chosen because it exercises everything once: a
+meaningful selection (`withinEach` + position −1), an application-specific
+effect (`join-pane`), a preservation promise, and a non-obvious side effect.
+Measured: `join-pane` kept pane id and pid (`%22`, pid 62739, `@22` → `@23`)
+**and the emptied source window ceased to exist** — so the preview must
+declare `windowRemoved` effects, or it is lying about what it will do.
+
+- *Preview* returns effects as data, each with explicit preconditions: pane
+  exists, target window exists, source ≠ target, and the snapshot token.
+- *Apply* refuses a stale plan (M5), executes through the adapter with `-d` on
+  every verb that would otherwise select, then **re-reads** and verifies: each
+  moved pane reports the target `#{window_id}` with an **unchanged**
+  `#{pane_pid}`, and each declared `windowRemoved` is really gone. A mismatch
+  is a reported failure, never a silent success.
+- *Risk* is classified from the effects by a tmux-authored table — the first
+  entries of tmux's own risk vocabulary.
+
+**M5 — detect a human change between preview and apply.** With no daemon the
+token is `'<bootId>:<revision>'` where `bootId` is the tmux server's
+`#{pid}`+`#{start_time}` and `revision` is a hash of the structural snapshot.
+Measured: identical across two reads with no change (the control), different
+after one `split-window` (the inversion). Equality only, same contract as the
+browser's. The test previews, mutates the server as a human would, applies,
+and asserts refusal naming the staleness — then asserts a fresh plan applies.
+
+**What the milestone reports, in three lists:** reused unchanged · measured core
+extensions (each with the failing test that justified it) · tmux-specific. Those
+lists are the deliverable George asked for, and the input to any later
+extraction of a shared plan envelope.
+
+## 5. The safe runner — how it fits
+
+`run` is an operation of the tmux application library (layer 2) exposed through
+layer 4, sharing the adapter, the drive-session rule and the ownership policy
+with the structural operations. It is not a separate tool beside them.
+
+Why it exists is unchanged from the first draft and measured in one session:
+`new-window` without `-d` moved George's screen; zsh autopair appended `}` to a
+`{ …; }` group sent by `send-keys` (three panes lost); `capture-pane` returned
+nothing twice. The earlier fix attempt, `bnomei/tmux-mcp`, was adopted
+fleet-wide and removed 2026-08-30 as "not stable"
+(`~/dotfiles/TMUX-MCP-EVALUATION.md`); its verified defects are the
+requirements: no forbidden characters, completion as a return value, work
+visible to the human, a small tool count.
+
+Mechanics, as corrected in §8: derive the drive session from
+`#{session_group}` (never from the name — that invents `claude-vos-agent`);
+create the window detached, with no way to omit `-d`; mark ownership with a
+window option; run the command **as the pane's process** from an argv array or
+a script file, so nothing passes through zsh/ZLE; return
+`{paneId, windowId, exitCode, timedOut, durationMs, output, logPath}`. Output
+is read from a file, sanitised, capped and wrapped as untrusted.
+
+**Security, stated plainly:** `tmux_run` executes arbitrary commands. In Claude
+Code that grants nothing Bash does not; in another MCP host it is a
+command-execution tool and is annotated as one. It never interpolates caller
+text into a shell string of its own.
+
+## 6. Sequencing (decision D2)
+
+M1 needs no tmux and unblocks everything; `run` and the M2–M5 slice are
+independent after the skeleton. Proposed: **M1 → scaffold + lifts → skeleton +
+M2 → M3 → `run` → M4 → M5.** The alternative puts `run` directly after the
+skeleton, delivering the fleet's daily pain relief sooner at the cost of
+answering the architecture question later.
+
+## 7. Existing tools and layouts — reopened
+
+Compared against requirements rather than presence (source read for each;
+full table in the PR discussion):
+
+| Requirement | tmuxinator / sesh / tmuxp / smug | tmux's own primitives |
+|---|---|---|
+| R1 rearrange a LIVE session | none — they emit `new-window`/`split-window` only | **yes**: `join`/`break`/`swap`/`move-pane`, `select-layout` |
+| R2 preserve running state | binary: skip entirely if the session exists; cannot merge one missing window into a live session | yes — measured, pid survives `join-pane` |
+| R3 preview as a diff against live state | none (`tmuxinator debug` prints a script; `sesh preview` shows pane content) | none — the caller's job |
+| R4 reconcile drift to a spec | none; `--append` duplicates | none |
+| R5 select a computed subset | none — literal names and indices | relative tokens only (`{last}`) |
+| R6 verify and report as data | none — `exec` and forget | none |
+| R7 describe live layout as data | partial (`tmuxp freeze` is lossy) | **yes**: `#{window_layout}` is documented as `select-layout`'s input |
+| R8 agent-safe, structured output | partial; most attach/switch the human's client by default | `-d` exists; no JSON |
+
+**This is a category difference, not a feature gap.** tmuxinator is a
+bootstrapper and sesh is a picker; by their own source none of them controls an
+already-live session. **They stay adopted, permanently, for exactly the jobs
+George uses them for** (`~/dotfiles/tmuxinator/*.yml`, `sesh/sesh.toml`).
+Wrapping tmuxinator to get R1/R4 would mean forking its template, since its
+create-only primitives are hard-coded and its has-session branch is
+all-or-nothing.
+
+Live control — R1, R3, R4, R5, R6 — is a job none of them does, and George
+already needed it: `~/dotfiles/scripts/tmux-claude-layout.sh` reads live pane
+counts and conditionally reshapes a window by hand. So "layouts never here" is
+withdrawn. Layout operations (`select-layout` with a `#{window_layout}`
+round-trip, reconcile-to-spec) are **later operations on the same
+preview/apply/verify machinery M4 builds**, not a separate engine and not v1.
+
+## 8. Runner defects found in review — measured and fixed
+
+**Completion ordering — reproduced.** With the wrapper signalling then exiting
+0.7s later, the caller read `#{pane_dead}/#{pane_dead_status}` = `0/` (not
+dead, no status) immediately after the signal and `1/5` a second later.
+**Fix:** the wrapper writes the exit code to a status file (write temp, rename)
+**before** it signals. The status file is the authoritative result from the
+moment the channel fires; measured: file read `5` while `#{pane_dead}` was
+still `0`. `#{pane_dead_status}` becomes a cross-check, not the source. The
+delayed-exit-after-notification case is a regression test.
+
+**Retention before a fast exit — NOT reproduced, fixed anyway.** Setting
+`remain-on-exit` per window after `new-window` lost 0 of 8 windows running
+`true`; it is still a race by construction, merely one this machine wins. **Fix:**
+the wrapper blocks on a *go* channel; the caller sets window options, then
+signals. Measured 8 of 8 retained with the right status. Cost: one extra
+`wait-for` per run.
+
+## 9. Release, test and deploy isolation — made coherent
+
+Facts, measured 2026-09-21: `main` has **no branch protection** and no required
+checks; release-please PRs carry **no checks at all**; the release workflow
+runs on push to `main`; CI and the pre-push hook run the **whole workspace**
+suite. So releases are gated by convention, not mechanism.
+
+- **Deployment isolation — promised.** `.githooks/post-merge` is scoped so a
+  tmux-only merge does not restart the browser daemon or sideload Safari.
+- **Test attribution — promised.** tmux gets its own CI job, so a red run says
+  which application broke. It does not make the other merge-able by magic.
+- **Release isolation — NOT promised under one release line.** One line means
+  accepting, explicitly: a red tmux test blocks every merge by the same
+  convention that gates browser-tab today, and a tmux `feat:` bumps
+  browser-tab's version. Real independence is a second release line, costed at
+  ~40 lines plus two guards that silently self-disable when `"."` is no longer
+  the only package (`scripts/verify-release.mjs` reads `manifest["."]`;
+  `release.yml`'s outputs are un-prefixed). That is decision D4.
+
+## 10. Staged verdicts — no single phase decides everything
+
+The first draft let Phase 0 stand in for conditions later phases establish.
+Four gates, each judged where its evidence exists:
+
+| Gate | Judged after | Passes when |
+|---|---|---|
+| A — scaffold feasibility | Phase 0 | `mcp-scaffold add-mcp-app` yields a buildable app, or its failures are fixable upstream in the starter template rather than by forking generated code |
+| B — the repo admits a second app | Phase 1 | every guard that would go SILENT is proven loud by a test registering a fake second app; deploy isolation holds; zero edits under `apps/browser-tab-mcp/src/` |
+| **C — structural reuse** | **M1–M5** | **the architecture acceptance.** tmux consumes `control-language` without copying it; M1's suite passes for both bindings; the identity question ends with a recorded answer; preview/apply/verify and stale-refusal work on real tmux |
+| D — operational | after `run` | the focus invariant holds with a second client attached; retention rules hold |
+
+**Lift versus redesign, made assessable.** A *lift* is a config entry, a test
+parameterised by app, or a path scoped in a hook. A *redesign* is any change
+under `apps/browser-tab-mcp/src/`, or to a shared contract's meaning. Eleven
+lifts are already measured (Phase 1). **Allowance: up to five more** discovered
+during Phases 0–1. A sixth, or any redesign, fails Gate B — and the honest
+outcome is then a separate repository, which costs Gate C its cheap iteration
+on `control-language`: the price George's premise is really about.
+
+## 11. Open decisions — George's, none settled
+
+Reviewer recommendations are labelled as such and are not his approval.
+
+| # | Decision | In plain terms | Provisional recommendation |
+|---|---|---|---|
+| D1 | The first operation for M4 | which one rearrangement proves preview → apply → verify | *gather last panes* — it forces a declared side effect |
+| D2 | Order of `run` vs the reuse slice | daily pain relief first, or the architecture answer first | reuse slice through M3, then `run`, then M4–M5 |
+| D3 | Name and directory suffix | what people type, versus what the scaffolder and CI filters require | `tmux-control`; keep the forced `-mcp` suffix on the directory and package |
+| D4 | One release line | both apps share version numbers and a release cycle | acceptable at first **only if** the shared gating in §9 is accepted explicitly |
+| D5 | Keep finished windows | a completed command's pane stays for inspection | keep, under the rules below |
+| D6 | No `send-keys` in v1 | the tool cannot type into an already-running interactive program | reasonable for the first safe runner; rules out nothing structural |
+
+**Retention rules proposed for D5.** A window is prunable only if ALL hold: it
+carries this tool's owner option; its pane is dead (`#{pane_dead}` = 1 —
+running work is never touched); **no client is looking at it**
+(`#{window_active_clients}` = 0, verified present in 3.7b); it is older than a
+minimum age; and the owner's kept count is exceeded, oldest first. Explicit
+`release` follows the same ownership rule and refuses anything it did not
+create.
+
+## 12. Phases
+
+Each is its own PR. None starts without George's go-ahead.
+
+- **Phase 0 — scaffold experiment (Gate A).** Throwaway worktree, because
+  `add-mcp-app` has no dry-run, runs with `force: true`, and appends to
+  `.mcp.json`, which `mcpsync` owns. Record every created and modified file;
+  run `pnpm verify`; classify each failure as a predicted lift or a new one.
+  Nothing from it merges.
+- **Phase 1 — admit a second app (Gate B).** The measured single-app
+  assumptions, silent ones first: the surface ledger has no `app` field and six
+  contract tests enumerate browser-tab's registry only; parity, annotation and
+  log-branding tests are single-app; the post-merge hook fires a browser deploy
+  on any `apps|packages|scripts` change; readme-check accepts any README
+  (BACKLOG B27). Loud ones: the version contract, the e2e guard, docs
+  integrity, `turbo.json` `globalEnv`, usage artifacts.
+- **Phase 2 — M1.** The conformance suite, in `control-language`, no tmux.
+- **Phase 3 — skeleton + M2.** `packages/tmux-control` (model, adapter,
+  binding) and `apps/tmux-control-mcp` (`list`, `doctor`, `mcp`). No `tmux` on
+  PATH — every Windows leg — degrades with a sentence naming the fix, and tests
+  skip WITH a reason. New effect tier: the built bin against a real throwaway
+  tmux server.
+- **Phase 4 — M3**, the identity experiment.
+- **Phase 5 — `run` and `release`**, with §8's fixes and §11's retention rules.
+- **Phase 6 — M4 and M5**, then the three-list report.
+
+## 13. Existing solutions — the record
 
 Searched 2026-09-20 across npm, GitHub, Homebrew, PyPI, skills.sh and this
-fleet. The deliverable of that search is this record, not a verdict.
+fleet.
 
-| Candidate | What it is | Finding |
-|---|---|---|
-| `bnomei/tmux-mcp` (`tmux-mcp-rs` 0.6.0, Rust) | the most active tmux MCP | **Installed fleet-wide, then removed 2026-08-30 as "not stable"** (this repo `76fb159`; `~/dotfiles/TMUX-MCP-EVALUATION.md`). Its verified defects are this plan's requirements: tracked mode forbids unquoted `#`, `&` and newlines; completion is a three-step side channel, not a return value; an isolated socket hides the work from the human; 57 tools is a standing context tax. |
-| `tmux-python/libtmux-mcp` | one-call `run_command` → exit status + output | The right SHAPE, and the evaluation's own pick. Alpha, no tagged release, adds a Python runtime to a Node fleet. Design reference, not a dependency. |
-| `libtmux/libtmux-ts` (+ `@libtmux/mcp`) | typed tmux control for Bun/TS, 45-tool MCP | MIT, but 0 stars, alpha-tagged, "not recommended for production". 45 tools repeats the context tax. |
-| `k8ika0s/mcp-tmux` | tmux MCP with confirm-gated destructive ops | The only one with safety rails — **AGPL-3.0-only**, which would taint a wrapped binary. Pattern reference only. |
-| `nickgnd/tmux-mcp` | the most-starred tmux MCP | Stale since 2026-02; detects completion by prompt-scraping — the exact anti-pattern. |
-| `tmuxinator` + `sesh` | declarative layouts, session picker | **Already deployed in dotfiles.** Semantic layouts are ADOPT, never write: at most a naming script over these. Removed from this app's scope. |
-| `openclaw/openclaw@tmux` (8.1K installs), `use-tmux-terminals` | agent skills over the plain CLI | The house skill stays the knowledge layer. This app is what it delegates the unsafe verbs to. |
-| Node control-mode (`tmux -C`) parsers | — | None maintained (believed, not exhaustively read). A small write, later phase, and only if the journal is built. |
-| tmux pane → CGWindowID join | — | Nothing exists. In-house prior art only: `src/detect/correlate.ts`. Later phase. |
+| Candidate | Finding |
+|---|---|
+| `bnomei/tmux-mcp` (`tmux-mcp-rs`) | adopted fleet-wide, removed 2026-08-30 as "not stable" (`76fb159`). Verified defects: forbids unquoted `#`, `&`, newlines; completion is a side channel; isolated socket hides work; 57 tools |
+| `tmux-python/libtmux-mcp` | the right shape (one-call `run_command`); alpha, no tagged release, adds Python |
+| `libtmux/libtmux-ts` + `@libtmux/mcp` | MIT, 0 stars, alpha, 45 tools |
+| `k8ika0s/mcp-tmux` | the only one with confirm-gated destructive ops — AGPL-3.0-only |
+| `nickgnd/tmux-mcp` | stale since 2026-02; detects completion by prompt-scraping |
+| tmuxinator, sesh, tmuxp, smug, teamocil | bootstrappers and pickers — §7 |
+| Node `tmux -C` control-mode parsers | none maintained (believed); a later, small write |
+| pane → CGWindowID join | nothing exists; in-house prior art only (`correlate.ts`). Measured feasible: yabai's AX title for the kitty window equals tmux's `set-titles-string` output; kitty is `--single-instance`, so pid alone cannot pick a window. Later phase |
 
-**Decision: write a thin app over the tmux CLI**, because the one overlapping
-tool was adopted, used for weeks and rejected for stated reasons, and the only
-candidate with the right shape is an alpha Python server.
+None of these addresses the shared-core objective at all — they are tmux
+tools, not a second binding of a selection language.
 
-## 3. Measured on this Mac, 2026-09-20 (tmux 3.7b)
+## 14. Measurements, all on a private throwaway server
 
-All on a private throwaway server (`tmux -L probe-<pid> -f /dev/null`), never
-George's. These are the design's foundations, so they become test fixtures.
+tmux 3.7b, `tmux -L probe-<pid> -f /dev/null`, never George's server.
 
-1. **A command run AS the pane's process needs no `send-keys`.**
-   `new-window -d "sh -c '…'"` ran a string containing `{}`, `"`, `#` and `&`
-   untouched. Nothing passes through zsh/ZLE, so autopair and quoting are moot.
-2. **Exact exit codes, no markers.** With `remain-on-exit on`,
-   `#{pane_dead}`/`#{pane_dead_status}` read `1`/`0`, `1`/`7`, `1`/`3` for
-   commands exiting 0, 7 and 3; a still-running pane reads `0`/empty.
-3. **Completion without polling.** `tmux wait-for <channel>` returned 1.03s
-   after a 1s command signalled `wait-for -S <channel>`.
-4. **Screen capture is unreliable BY CONSTRUCTION.** The "Pane is dead" message
-   scrolls the screen one line (`#{history_size}` = 1), so a visible-only
-   `capture-pane -p` lost the first output line every time. `-S -` recovers it.
-5. **File capture is exact.** `( cmd ) > log 2>&1` and
-   `set -o pipefail; ( cmd ) 2>&1 | tee log` both kept every line and the exit
-   code (9 and 6). The `tee` form keeps the pane watchable live.
-6. **The wm-stack join's open question is closed.** yabai's AX title for the
-   kitty window is exactly tmux's `set-titles-string` output
-   (`"Georges-MacBook-Pro ❐ claude ● 8 browser-tab-mcp"`), so a title tmux
-   controls reaches yabai. kitty runs `--single-instance` (one pid, many
-   windows), so pid alone can never pick the window; remote control is off.
-   The join is buildable with a unique token in the title — a later phase.
+2026-09-20: a command run as the pane's process needs no `send-keys` and
+carried `{}`, `"`, `#`, `&` untouched · exit codes exact via
+`#{pane_dead_status}` (0, 7, 3) · `wait-for` returned 1.03s after a 1s command
+· visible `capture-pane` lost the first output line every time because "Pane is
+dead" scrolls the screen (`#{history_size}` = 1); `-S -` and file capture kept
+everything, the latter with exit codes 9 and 6.
 
-## 4. Design
-
-**Shape.** `apps/tmux-control-mcp`, package `@george43g/tmux-control-mcp`, single
-bin `tmux-control`. The `-mcp` suffix is load-bearing, not taste: the scaffolder
-forces it and `ci.yml`'s `--filter "@george43g/*-mcp"` steps silently skip any
-other name. **No daemon, no TUI, no HTTP transport, no Rust.** It shells out to
-`tmux` with `-F` format strings and parses tab-separated rows.
-
-**Surfaces — four, deliberately.** One CLI subcommand per `ToolDefinition`, as
-in browser-tab.
-
-| Surface | MCP annotation | What it does |
-|---|---|---|
-| `list` / `tmux_list` | read-only | Snapshot: sessions (with `session_group`), windows, panes, clients, as JSON. `fields: "summary"` returns counts only. |
-| `run` / `tmux_run` | open-world, NOT read-only | Run one command in a visible pane and return `{paneId, windowId, exitCode, timedOut, durationMs, output, logPath}`. |
-| `release` / `tmux_release` | destructive, **scoped** | Kill windows THIS tool created, and nothing else — ownership is proven by a window option the tool set, never by a name match. |
-| `doctor` | — | tmux on PATH and ≥ 3.2; server reachable; which session is the drive target and why; `remain-on-exit` and `set-titles` state. |
-
-**`run`, step by step.**
-
-1. **Pick the drive session — never the caller's choice by default.** Read
-   `#{session_group}` of the target; the drive session is `<group>-agent`
-   (dotfiles' measured rule: deriving from the session NAME invents
-   `claude-vos-agent` for a third group member). Missing → create it detached
-   and grouped (`new-session -d -t <group> -s <group>-agent`). An ungrouped
-   session falls back to itself, and `doctor` says so.
-2. **Create the window detached, always.** `new-window -d -P -F …`. There is no
-   flag to drop `-d`; the whole point is that the unsafe form is unreachable.
-3. **Mark ownership.** `set-option -w @tmux_control_owner <agent>@<host>` plus
-   pane title `agent:<agent>/<slug>`, matching the house skill's grammar.
-4. **Run the command as the pane process**, wrapped so output goes to a file
-   and the exit code survives:
-   `bash -c 'set -o pipefail; ( <cmd> ) 2>&1 | tee <log>; s=$?; tmux wait-for -S <chan>; exit $s'`.
-   Input is an **argv array** (exec'd with no shell of ours) or a `script`
-   string written to a temp file and run by path — so no quoting layer exists
-   to get wrong. `remain-on-exit` is set **per window**, never globally.
-5. **Wait on the channel** with a timeout (default 120s,
-   `TMUX_CONTROL_RUN_TIMEOUT_MS`). On timeout: kill the pane's process group,
-   report `timedOut: true`. Honours `AbortSignal`.
-6. **Read the result from the file and `#{pane_dead_status}`**, never the
-   screen. Output is `sanitize()`d, capped (`TMUX_CONTROL_OUTPUT_MAX`, tail
-   kept), and `wrapUntrusted()` at the tool boundary.
-7. **Leave the dead window for George** unless `release: true`; a finished
-   pane he can read is the visibility the tmux rule exists for. Stale owned
-   windows are pruned by count (`TMUX_CONTROL_KEEP`, default 10).
-
-**Security — stated plainly because it is the design.** `tmux_run` executes
-arbitrary commands. That is its purpose, and in Claude Code it grants nothing
-Bash does not already; in another MCP host it IS a command-execution tool and
-is annotated and described as one. It never interpolates caller text into a
-shell string of its own, it is never registered `readOnlyHint`, and
-`pr-review-sop`'s shell-exec row gets a recorded exception naming this file.
-Interactive programs are out of scope for `run`; a `send-keys` verb is NOT in
-v1, because shipping the unsafe path beside the safe one is how agents end up
-back on it (the rejected MCP's own history, §2).
-
-**Deferred, each with its trigger.** Journal + control-mode reader — when a
-real "what was I doing" need appears (that is also the only thing that would
-justify a daemon). The wm-stack join — when the wm-stack rewire starts; §3.6
-says how. `control-language` binding over linked windows and session groups —
-the architecture doc's Phase 4, still gated. Layouts — never here (§2).
-
-## 5. The monorepo test — what passing means
-
-George set the stakes, so the criteria are written before the experiment:
-
-- **P1.** `mcp-scaffold add-mcp-app` produces a buildable app here, or its
-  failures are fixable upstream in `mcp-cli-starter-template` (brief + bump,
-  per the kit rule) rather than by forking generated code.
-- **P2.** browser-tab's suite and e2e stay green with **zero edits under
-  `apps/browser-tab-mcp/src/`**.
-- **P3.** Every guard that would go SILENT for a second app is made loud. This
-  is the real risk: six contract tests enumerate surfaces from browser-tab's
-  `makeAppRegistry()`, so a tmux tool gets zero rows and nothing turns red.
-- **P4.** A tmux-only merge does not restart the browser daemon or sideload
-  Safari, and a flaky tmux test cannot redden browser-tab's release.
-- **P5.** The lift list stays the size measured below. If Phase 1 keeps
-  discovering single-app assumptions, that growth IS the result.
-
-**Fail = any of P1–P4 needs a redesign rather than a lift.** Then the honest
-outcome is a separate repo from the starter template, and this plan's §4 moves
-there unchanged — the design does not depend on the monorepo; only
-`control-language` sharing does, and v1 does not use it. Worth saying now: the
-shared value is thinner than the workspace diagram suggests. Of nine packages
-only `mcp-kit`, `control-language` and `env-loader` are substantive and
-neutral; `shared-types` and `test-kit` carry neutral names over browser
-payloads. The monorepo buys shared semantics and one CI bill, not a shared
-runtime.
-
-## 6. Phases
-
-Each phase is its own PR. Phases 0–1 are specified to the file; 2–3 to the
-interface, because their code is written against a skeleton Phase 0 has not
-generated yet — pre-writing it would be fiction.
-
-### Phase 0 — the scaffold experiment (go/no-go, throwaway)
-
-`add-mcp-app` has **no dry-run** and runs with `force: true`, and it appends to
-`.mcp.json`, which `mcpsync` owns here. So it runs in a disposable worktree.
-
-- [ ] `git worktree add ../browser-tab-mcp-wt/tmux-scaffold -b exp/tmux-scaffold main`
-- [ ] In it: `mcp-scaffold add-mcp-app tmux-control --target . --no-tui --no-http --no-rust-accel`
-- [ ] Record every file created or modified (`git status --porcelain`), and
-      each modification to an EXISTING file verbatim — especially `.mcp.json`,
-      `turbo.json`, root `package.json`, `release-please-config.json`.
-- [ ] `pnpm install && pnpm verify`. Record each failure against the table in
-      Phase 1: predicted (a known lift) or new (a P5 data point).
-- [ ] Decide against §5. Write the result into this file's STATUS line and
-      delete the worktree. Nothing from it merges; Phase 2 re-runs the
-      scaffold on a real branch with the lifts already in place.
-
-### Phase 1 — make the repo admit a second app (no tmux code yet)
-
-Measured single-app assumptions, from the 2026-09-20 audit. Silent ones first.
-
-| Area | Evidence | Lift | If missed |
-|---|---|---|---|
-| Surface ledger | `tests/surface-coverage.contract.test.ts` reads `makeAppRegistry()` + a ledger whose rows have no app field | add `app` to `docs/surfaces/effect-coverage.json`; enumerate registries per app | **SILENT** — tmux ships uncovered; `doctor`/`mcp` names collide |
-| Parity / annotations / log branding | `interface-parity`, `tool-annotations`, `cli-log-branding` (`BRANDED_BUCKET="browser-tab-cli"`) | parameterise by app or copy per app | **SILENT** — incl. B11's shared `$TMPDIR/mcp/` bucket recurring |
-| Post-merge deploy | `.githooks/post-merge` fires on any `apps\|packages\|scripts` path; `deploy-local.mjs` hard-codes browser-tab's cli | scope the hook to browser-tab's inputs | a tmux-only merge restarts the daemon and sideloads Safari (P4) |
-| readme-check | any `src/**` change is satisfied by any `README.md` | already BACKLOG **B27** — do it here | gate becomes decorative across apps |
-| Rust drift | `shared-types/tests/drift.test.ts` hard-codes one crate | none now (no Rust) — note only | silent if tmux ever adds a crate |
-| Version contract | `release-versions.contract.test.ts` fails on any unowned non-`0.0.0` version | one `extra-files` entry + a `biome.json` `!` row | RED on first `pnpm test` — correct, loud |
-| e2e guard | `e2e/run-guard.ts` reads the shared ledger | scope by `app` | RED wrongly if tmux claims a chromium tier |
-| Docs integrity | root README `## Tools` vs the registry | per-app README; root lists apps | RED if tmux tools land in the root table |
-| turbo env | `turbo.json` `globalEnv` lists `BROWSER_TAB_*` only | append `TMUX_CONTROL_*` | stale cache replays |
-| usage artifacts | `check-usage-freshness.mjs` is generic; mise tasks hard-code the bin | per-app `.usage.kdl` + generated dirs | tmux CLI drift unchecked |
-| Release | one line rooted at `"."` | **stay on one line.** A second line silently disables `verify-release.mjs` (it reads `manifest["."]`) | — |
-
-- [ ] One PR, lifts only, browser-tab behaviour unchanged. Each silent row
-      gets a test proving it is now loud: register a fake second app in the
-      test and assert the guard goes red without its ledger row.
-
-### Phase 2 — skeleton: `list`, `doctor`, `mcp`
-
-- [ ] Re-run the scaffold on a real branch; strip to the four-surface shape.
-- [ ] `src/tmux/exec.ts` — the ONLY place that spawns `tmux`. argv array, never
-      a shell string; `TMUX_CONTROL_TMUX_BIN` and `TMUX_CONTROL_SOCKET` so every
-      test drives a private `-L` server.
-- [ ] `src/tmux/snapshot.ts` — `-F` rows, tab-separated, Zod-parsed. Fixtures
-      are the §3 outputs verbatim.
-- [ ] Platform rule, as browser-tab: no `tmux` on PATH (every Windows leg) →
-      degrade explicitly with a sentence naming the fix; never crash, and
-      tests skip WITH a reason rather than pass vacuously.
-- [ ] New effect tier `tmux-private-server`: the built bin against a real
-      throwaway tmux server. Ubuntu needs `apt-get install tmux` in CI.
-
-### Phase 3 — `run` and `release`
-
-- [ ] Integration tests against a private server, one per §3 measurement: exit
-      codes 0/7/3; a command containing `{}`, `"`, `#`, `&` and a newline;
-      first-line output survives (the scroll bug as a regression test);
-      timeout kills the process group; `release` refuses a window it does not
-      own (the control) and removes one it does.
-- [ ] The focus invariant as a test: a second client attached to the human
-      session must report the same `#{window_index}` before and after `run`.
-- [ ] Point `use-tmux-terminals` at `tmux-control run` for non-interactive
-      commands — a NOTE to dotfiles, who own the skill.
-
-## 7. Assumptions George can overturn
-
-Made so the plan could be written; each is a one-line change.
-
-1. Name `tmux-control` (the architecture doc's word) with the forced `-mcp`
-   directory suffix.
-2. One release line — tmux-control rides the repo's version.
-3. `run` leaves finished windows for inspection by default.
-4. No `send-keys` verb in v1.
+2026-09-21: completion race reproduced, status-file fix verified (§8) ·
+retention race not reproduced in 8 trials, go-channel fix 8 of 8 (§8) · linked
+window = one `@id`, one `%id`, one pid across three sessions (§2) · `join-pane`
+preserved pid and removed the emptied source window (§4) · structural
+fingerprint stable across idle reads, changed after `split-window` (§4) ·
+`#{window_active_clients}`, `#{window_activity}`, `#{pid}`, `#{start_time}` and
+`#{window_layout}` all present · `main` has no branch protection (§9).
