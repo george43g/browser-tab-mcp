@@ -1743,6 +1743,18 @@ unclaimed.
 
 ### B35. tmux-control — the second application, and the reuse it has to prove
 
+> **2026-09-22, later — George's north-star scenario added (plan §1a).** By
+> voice he asks for a tmux session of his agent windows (claude left, yazi
+> right), project groups shown in kitty windows on specific monitors, and later
+> has a different agent tear it all down. That runs through the window manager,
+> kitty, the shell and tmux, down to the CLI tools in the panes. It changes what
+> the milestone and the tmux surface must support: selection fields measured on
+> his server, M3's acceptance case, durable named operations with exact
+> teardown, and presentation clients that attach with `-f ignore-size`
+> (measured: without it they resize his shared windows). It adds Phases 7–9
+> (not approved) and decision D7 (where yabai actuation lives). It changes none
+> of D1–D6.
+>
 > **2026-09-22 — all six decisions answered by George (plan §11).** His D5
 > answer reshaped the app into a thin layer that mirrors tmux, with window
 > lifecycle left to the agent. The managed runner's retention and pruning rules

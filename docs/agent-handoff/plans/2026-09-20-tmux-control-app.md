@@ -3,9 +3,12 @@
 > **STATUS 2026-09-22 — PROPOSED; all six decisions answered by George.** Two
 > corrections so far: the 2026-09-21 revision replaced the first draft's premise
 > (the test is structural reuse, not a second scaffold), and George's D5 answer
-> on 2026-09-22 replaced the managed command runner with a thin layer that
-> mirrors tmux, with window lifecycle left to the agent (§5). Nothing is built,
-> and this plan approves no implementation, no Phase 0 run and no merge.
+> replaced the managed command runner with a thin layer that mirrors tmux, with
+> window lifecycle left to the agent (§5). Later the same day George added a
+> north-star scenario (§1a). It changes what the milestone and the §5 surface
+> must support, adds three later phases and raises one decision (D7); it changes
+> none of D1–D6. Nothing is built, and this plan approves no implementation, no
+> Phase 0 run and no merge.
 
 ## 1. The objective, as George corrected it
 
@@ -53,6 +56,60 @@ correctly, not a reason to postpone reuse.
 George's earlier choice of **agent-safe driving** as the v1 lead stands, in the
 shape §5 gives it. It is part of the tmux application library, not a substitute
 for the library consuming the shared core. §6 sequences the two (decided, D2).
+
+## 1a. The north-star scenario (George, 2026-09-22)
+
+A user story, given to test the plan's direction through every layer. George, by
+voice to his chief-of-staff agent, on the laptop or over the phone:
+
+> "create a tmux session with all my claude agents as windows with claude on the
+> left pane and yazi in that directory in the right pane, and have group of
+> windows related to project X shown in a kitty terminal visible on monitor 1,
+> and have another group related to some other project Y, visible as a session
+> with those windows lined up on monitor 3"
+
+Afterwards he calls the Twilio number, which wakes his executive agent:
+*"presentation is done, you can detach now"*. The agent then detaches from the
+tmux server and closes every kitty window opened for the presentation. His
+framing: *"it might be too soon to start building the kitty integration layer,
+but this is a sort of 'user story' that builds a picture."* It sets a direction.
+It adds nothing to the build before §6's sequence completes; it changes what
+that sequence must support and what comes after it.
+
+Drilled through the layers it touches:
+
+| Layer | What the story needs | What exists or was measured | Where it lives | When |
+|---|---|---|---|---|
+| Voice, phone, agents | an intent spoken to one agent and finished later by another | the chief-of-staff and executive sessions; Twilio | outside this repo | — |
+| Window manager (yabai) | put an OS window on display 1 or 3 | `rust-accel` already enumerates displays and CG windows; browser-tab deliberately does no yabai actuation | decision D7 (§11) | Phase 8 |
+| Terminal emulator (kitty) | open, identify and close OS windows that host tmux clients | kitty runs `--single-instance` with remote control off; yabai's title for a kitty window is tmux's `set-titles-string` output | a terminal-emulator library, later | Phase 7 |
+| Shell (zsh) | nothing new: the shell lives inside a pane | `send` pastes, because keystrokes fail against autopair (§5) | tmux library | Phase 5 |
+| tmux: server and clients | a server that is running; clients created on demand, one kind for programs and one for George to see | a presentation client resizes shared windows unless it attaches with `-f ignore-size` (§5.3) | tmux library | Phase 5 |
+| tmux: sessions, windows, panes | a session whose windows are the agents' windows; a claude/yazi split in each | a session of links shows the live agent windows; a split made through it also appears in `claude`; killing that session leaves every agent running (§5.3) | tmux library | M3–M4, Phase 5 |
+| Selection | "all my claude agents", "windows related to project X" | on George's server, the 12 agent panes report `claude` as their current command, and each pane's path is its repo (M2) | shared core + tmux binding | M2–M3 |
+| CLI tools | claude and yazi running in panes | George already builds claude + yazi layouts by hand (`~/dotfiles/scripts/tmux-claude-layout.sh`; five yazi panes today) | tmux library (`run`, spawn with a command) | Phase 5 |
+
+Three parts of the story cut across layers, and each changes the plan now:
+
+1. **One intent, several applications.** tmux, kitty and yabai each get their
+   own library, but the story is one operation. The session must exist before a
+   kitty window attaches to it, and the kitty window before yabai can place it.
+   That needs one preview, one apply, one verify and one teardown across all
+   three. §2 says not to extract a shared plan envelope until two domains prove
+   the need, and this story is where that proof will come from, so §2 now
+   states the trigger.
+2. **The operation outlives the agent that started it.** The chief of staff
+   builds the presentation and the executive takes it down, in another session
+   and possibly days later. What was created must be recorded by the tool,
+   durably and by name, not held in one agent's context (§5.2).
+3. **Teardown must be exact.** "Detach" undoes what the operation created —
+   clients, the presentation session, the kitty windows it opened — and nothing
+   else. It never touches an agent's window or a kitty window George opened
+   himself.
+
+"Lined up on monitor 3" has two readings: one kitty window showing a session
+whose windows are in order, or several kitty windows tiled side by side. It is
+recorded rather than guessed, and settled when Phase 9 is specified.
 
 ## 2. What exists — rechecked against the tree, 2026-09-21
 
@@ -138,6 +195,17 @@ compared by equality only (`packages/shared-types/src/contract.ts:123-130`) —
 pinned by a contract test. Extraction becomes a measured follow-up the moment
 both planners exist: that is the second application doing its job.
 
+**The trigger for extraction, stated 2026-09-22:** the first operation that
+spans applications (§1a, Phase 9). A plan that orders steps across tmux, kitty
+and yabai needs one envelope — plan, preconditions, staleness, apply, verify,
+teardown. Otherwise each library invents its own and the cross-application
+layer has to reconcile them. Extraction is scheduled there and measured against
+the two planners that exist by then. The **operation journal** is the likeliest
+first piece. browser-tab already has one: `OperationStore` in
+`apps/browser-tab-mcp/src/daemon/operations.ts` records each executed mutation
+with its per-effect outcomes and an undo record, persisted as rotated NDJSON.
+§5.2 is the second consumer.
+
 **Layer 2 does not exist for the browser either.** `packages/browser-control`
 was proposed and deferred by ruling R1
 (`plans/2026-09-02-selection-dsl-adaptation.md`) *until a second consumer
@@ -154,6 +222,8 @@ lives inside its app.
 | 2 application library | `packages/tmux-control` (new) | the tmux model (server, session, slot, window, pane, client), the `SelectionDomain` binding, capabilities, tmux effects + risk table, the planner, preconditions, the snapshot token, the safe runner, ownership and retention policy. Pure except where it calls layer 3. |
 | 3 endpoint adapter | inside `packages/tmux-control` (`adapter/`) | the ONLY code that spawns `tmux`: argv arrays, `-F` rows in, parsed data out. One adapter does not justify its own package; it gets one when a second endpoint (control mode, a remote server) exists. |
 | 4 surfaces | `apps/tmux-control-mcp` (new) | CLI + MCP from one bin, consuming layer 2. No tmux knowledge of its own. |
+| 2, later | a terminal-emulator library (kitty first) | open, identify and close emulator windows that host tmux clients. Not approved (Phase 7). |
+| 2, later | a window-manager library (yabai) | read displays, spaces and OS windows; place a window. Not approved; where it lives is D7. |
 
 ## 4. The reuse milestone — the first proof
 
@@ -172,6 +242,13 @@ adapter reads sessions, slots, windows, panes and clients with `-F` format
 strings; the binding exposes them to the unchanged resolver. The 13 node kinds
 that need no sibling view must pass M1's suite with **no change to
 `control-language`**. Fixtures are real `-F` output from a throwaway server.
+
+The field catalog is chosen for real selections, measured on George's server on
+2026-09-22 (read-only): `command` (`#{pane_current_command}`; his 12 agent
+panes report `claude`), `path` (`#{pane_current_path}`; each is the agent's
+repo), a derived `project` (the repo that path belongs to), window `name` and
+pane `title`. "All my claude agents" is `where command == claude`; "windows
+related to project X" is `where project == X`.
 
 **M3 — the identity experiment, failing tests first.** Build the linked-window
 and session-group cases as tests before deciding anything. Two candidate
@@ -194,6 +271,16 @@ only for a failure (i) demonstrably cannot express. Either way the four
 sibling-dependent node kinds get explicit linked-window tests, and
 `occurrenceId`/`projectionId` end M3 either **read by something** or
 **removed** — a field written and never read does not survive the experiment.
+
+**The scenario's first sentence is M3's acceptance case.** "A session with all
+my claude agents as windows" is a session made of links to windows that already
+live in `claude`, and "claude on the left, yazi on the right" is a split applied
+within each. Measured 2026-09-22 on a private server: splitting a window reached
+through the presentation session added the pane to the same window in `claude`
+(`%1 %4` in both). The preview has to say so in plain words: *this also changes
+window @N as George sees it in session `claude`*. That is the object-versus-
+occurrence question with a consequence George can see, and M3 does not pass
+while the preview can hide it.
 
 **M4 — preview, apply and verify ONE rearrangement.** The proposed operation
 (decision D1): *gather — move the last pane of each selected window into a
@@ -309,6 +396,41 @@ A plugin does not replace the wrapper. It gives agents no control channel, so
 they still need the library's verbs and reads. The design is plugin plus thin
 wrapper, not either/or.
 
+### 5.2 Operations that outlive the agent that started them
+
+In the scenario one agent builds the presentation and another, woken later by a
+phone call, takes it down. So every multi-step operation gets a name and a
+durable record of what it **created** (sessions, links, clients, and later OS
+windows), what it only **borrowed** (the agents' windows), and when. The tool
+keeps that record on disk. It can be listed ("open presentations") and read by
+any agent session. Teardown by name reverses exactly what was created and
+refuses to touch what was borrowed. Measured: killing a session made of links
+unlinked the windows and left every agent process running in `claude`. This is
+the same shape as browser-tab's operation journal (§2), which makes tmux its
+second consumer.
+
+### 5.3 Servers and clients
+
+- **The server.** The library can make sure a tmux server is running, rather
+  than assume one is.
+- **Two kinds of client.** A *control client* (`tmux -C`) needs no terminal; it
+  is how a program attaches. A *presentation client* is what George sees, and it
+  needs a terminal to live in, which is the terminal-emulator layer's job
+  (§1a). Spawning a client for a program is Phase 5; spawning one for George is
+  Phase 7.
+- **A shared window has one size.** Measured on a private server with a
+  full-size client attached to `claude`, standing in for George, and a smaller
+  presentation client attached to a session of links to the same window.
+  Without a flag the shared window shrank from 200×50 to 80×20. In an earlier
+  run with no other client present it stayed 80×20 after the presentation client
+  left. George's server uses `window-size latest`, the default, so this is what
+  would happen to his agent windows. With `-f ignore-size` on the presentation
+  client, the window stayed 200×50. So presentation clients attach with
+  `-f ignore-size` by default: an agent's presentation never resizes the windows
+  George is working in, the same principle as `-d` for focus. The cost is that
+  the presentation shows those windows at George's size. The agent can override
+  the default, and the preview says whose size will win.
+
 ## 6. Sequencing (decided, D2)
 
 George, 2026-09-21: the reuse proof comes first, as far as the identity answer.
@@ -423,8 +545,20 @@ on `control-language`: the price George's premise is really about.
 | D5 | What happens to a window after a command | **The agent decides** (2026-09-22). No lifecycle policy, and the retention and pruning rules are withdrawn. This reframed the whole surface (§5). |
 | D6 | `send-keys` in v1 | **Answered by D5: sending input is in.** `send` defaults to bracketed paste, because both keystroke modes failed against George's shell (§5). Raw keys are also available. |
 
-No decisions are open. The next one comes from M3, as a measured result: which
-of the two identity answers the slice needs.
+None of D1–D6 is open. The milestone's next decision comes from M3, as a
+measured result: which of the two identity answers the slice needs.
+
+**D7 — raised by the scenario; proposed by this session; George has not ruled.**
+*Where window-manager actuation lives.* browser-tab's contract says it
+deliberately does no yabai actuation ("spaces and visibility are the window
+manager's job"), and wm-stack owns yabai's configuration. The scenario needs a
+window placed on a monitor. Proposal: the **mechanism** — reading displays,
+spaces and windows, and moving a window to a display — becomes a window-manager
+application library in this monorepo, reusing `rust-accel`'s display and window
+enumeration. The **policy** — rules, keybindings, standing layouts — stays in
+wm-stack. browser-tab itself still does no actuation. Cost if this is wrong: a
+second yabai control path beside wm-stack's. Before Phase 8 starts, this goes to
+the wm-stack session, which owns that boundary.
 
 ## 12. Phases
 
@@ -462,6 +596,18 @@ Each is its own PR. None starts without George's go-ahead.
   grouped by object, `send` (bracketed paste), raw keys, `run` with §8's fixes,
   and the hook-based history plugin (§5.1).
 - **Phase 6 — M4 and M5**, then the three-list report.
+- **Phases 7–9 — the scenario's lower layers. Not approved.** Each needs
+  George's go-ahead, and none starts before Phase 6 reports.
+  - **Phase 7 — terminal emulator (kitty).** Measure first: can a window be
+    opened with `kitty --single-instance` running `tmux attach`, identified by a
+    title token, and closed by detaching its client so the child exits, all
+    without kitty remote control? Turning remote control on is a change to
+    George's kitty config, which dotfiles owns.
+  - **Phase 8 — window manager (yabai).** Placing windows on displays, subject
+    to D7.
+  - **Phase 9 — the scenario end to end,** as one named operation across tmux,
+    kitty and yabai, torn down by a different agent session from the one that
+    built it. The shared plan envelope is extracted here (§2).
 
 ## 13. Existing solutions — the record
 
@@ -508,3 +654,12 @@ bracketed paste (`load-buffer` + `paste-buffer -p`) arrived exact and ran ·
 `#{pane_current_command}` read `sleep` during and `zsh` after a typed command ·
 `set-hook -g after-select-window` + `run-shell` journaled two focus changes with
 no daemon.
+
+2026-09-22, for the scenario: on George's server (read-only), 12 panes report
+`claude` as their current command with paths at their repo roots, and the server
+uses `window-size latest` · on a private server, a session made of links shows
+the live windows, a split made through it appears in the original session, and
+killing it unlinks the windows and leaves every process alive · with a
+full-size client present, a smaller presentation client shrank the shared
+window to 80×20; the same client attached with `-f ignore-size` left it at
+200×50.
