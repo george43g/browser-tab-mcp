@@ -11,6 +11,10 @@
 #   3. A second job then asserts that actually happened — see WHY THERE IS A
 #      VERIFY JOB.
 #
+#   Every step handles MORE THAN ONE release line (one per package in
+#   release-please-config.json): the summary lists every package's outputs
+#   and scripts/verify-release.mjs checks every line's tag and Release.
+#
 #   Nothing is released until a human merges the release PR. Config lives in
 #   `release-please-config.json` + `.release-please-manifest.json`; the flow is
 #   documented in `docs/RELEASE.md`.
@@ -57,9 +61,9 @@
 #
 # WHY THERE IS A VERIFY JOB
 #   Success of the release-please STEP is not evidence that a release HAPPENED.
-#   `scripts/verify-release.mjs` checks the standing invariant instead — the
-#   version in `.release-please-manifest.json` has a tag AND a published
-#   GitHub Release, and no merged release PR is still labelled
+#   `scripts/verify-release.mjs` checks the standing invariant instead — for
+#   every release line, the version in `.release-please-manifest.json` has a
+#   tag AND a published GitHub Release, and no merged release PR is still labelled
 #   `autorelease: pending`. That holds in the quiet state and after a cut, so it
 #   runs on every trigger and needs no knowledge of which one fired. Its
 #   decision table is unit-tested (apps/browser-tab-mcp/tests/release-verify.test.ts)
@@ -138,21 +142,26 @@ jobs:
       # attempt failed, and the first attempt's (including a literal "false")
       # otherwise.
       #
-      # NOTE — these output names are UN-PREFIXED only because the release line
-      # is the root path ".". release-please-action namespaces per-path outputs
-      # as `<path>--<key>` and special-cases "." to the bare key. If the package
-      # path in release-please-config.json ever moves off the root, these become
-      # `<path>--release_created` / `<path>--tag_name` and this step silently
-      # renders blanks. Update both together.
+      # EVERY release line, not just ".". release-please-action namespaces
+      # per-package outputs as `<path>--<key>` and special-cases "." to the
+      # bare key, so reading `outputs.release_created` / `outputs.tag_name`
+      # reported the root line only — a tmux-control release rendered as
+      # "release cut: false". The whole outputs object of whichever attempt
+      # ran is dumped instead, and every `*release_created` / `*tag_name` key
+      # listed; no per-path names to keep in sync with the config.
+      # (apps/browser-tab-mcp/tests/release-workflow.contract.test.ts)
       - name: Summarize
+        env:
+          ATTEMPTS: ${{ steps.release.outcome == 'failure' && '2' || '1' }}
+          OUTPUTS: ${{ steps.release.outcome == 'failure' && toJSON(steps.retry.outputs) || toJSON(steps.release.outputs) }}
         run: |
           {
             echo "### release-please"
             echo ""
-            echo "- attempts: \`${{ steps.release.outcome == 'failure' && '2' || '1' }}\`"
-            echo "- release cut: \`${{ steps.release.outputs.release_created || steps.retry.outputs.release_created || 'false' }}\`"
-            echo "- tag: \`${{ steps.release.outputs.tag_name || steps.retry.outputs.tag_name || '(none)' }}\`"
-            echo "- release PR open/updated: \`${{ steps.release.outputs.prs_created || steps.retry.outputs.prs_created || 'false' }}\`"
+            echo "- attempts: \`$ATTEMPTS\`"
+            echo "- releases cut: \`$(jq -r '.releases_created // "false"' <<<"$OUTPUTS")\` (paths: \`$(jq -r '.paths_released // "[]"' <<<"$OUTPUTS")\`)"
+            jq -r 'to_entries[] | select(.key | test("(^|--)(release_created|tag_name)$")) | "- \(.key): `\(.value)`"' <<<"$OUTPUTS"
+            echo "- release PR open/updated: \`$(jq -r '.prs_created // "false"' <<<"$OUTPUTS")\`"
           } >> "$GITHUB_STEP_SUMMARY"
 
   # Failure mode C. Runs whatever release-please did — including when it failed,

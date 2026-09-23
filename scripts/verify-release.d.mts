@@ -33,7 +33,54 @@ export interface ReleaseFacts {
   ghPresent?: boolean;
   /** gh was present but the open-release-PR list query failed (default false). */
   openPrQueryFailed?: boolean;
+  /** This line's release-please branch, named in the recovery hint. */
+  branch?: string;
 }
+
+/** One release-please package, as the verify job sees it. */
+export interface ReleaseLine {
+  /** Package path in release-please-config.json (`.` for the root line). */
+  path: string;
+  /** Component: explicit `component`, else the package.json name without its scope. */
+  component: string;
+  /** Does the tag carry the component (`<component>-v1.2.3`) or not (`v1.2.3`). */
+  withComponent: boolean;
+  /** Manifest version (`0.0.0` when the manifest has no entry). */
+  version: string;
+  tagPrefix: string;
+  expectedTag: string;
+  branch: string;
+  extraFiles: string[];
+}
+
+export declare function releaseLines(
+  config: Record<string, any>,
+  manifest: Record<string, string>,
+  packageName: (path: string) => string | undefined,
+): ReleaseLine[];
+
+/** The line a release PR title's component names (null = the component-less line). */
+export declare function lineForComponent(
+  lines: ReleaseLine[],
+  component: string | null,
+): ReleaseLine | undefined;
+
+/** Tag names out of `git ls-remote --tags` output. */
+export declare function parseRemoteTags(raw: string): Set<string>;
+
+/** One line's facts from what the remote and gh reported. */
+export declare function lineFacts(
+  line: ReleaseLine,
+  observed: {
+    tags: Set<string>;
+    tagsReadable: boolean;
+    ghPresent: boolean;
+    releaseExists: boolean | null;
+    openReleasePr: { number: number; files: string[] } | null;
+    openPrQueryFailed: boolean;
+    pendingMergedPrs: string[] | null;
+  },
+): ReleaseFacts;
 
 export interface ReleaseVerdict {
   ok: boolean;
@@ -49,5 +96,5 @@ export declare function verdict(facts: ReleaseFacts): ReleaseVerdict;
  */
 export declare function untaggedPending(
   prs: { number: number; title: string }[],
-  isTagged: (version: string) => boolean,
+  isTagged: (version: string, component: string | null) => boolean,
 ): string[];
