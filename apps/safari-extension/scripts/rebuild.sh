@@ -87,6 +87,29 @@ if [[ -z "$APP" ]]; then
 fi
 
 echo "    app: $APP"
+
+# A container app still running from an EARLIER build must be replaced, not
+# re-opened. `open` on an already-running bundle neither relaunches it nor
+# makes it re-check: measured 2026-09-24, an instance launched at 07:10
+# survived sideloads at 07:19, 07:48 and 07:58 (the 07:19 and 07:58 ones
+# triggered no re-check at all), executing 07:10's Swift while reading 07:58's
+# resources — its window kept showing a bundled stamp a build old. It is a status window
+# with no state worth keeping, so ending it is safe; matched by the exact
+# executable path of THIS build, so no other app can be hit.
+EXE="$APP/Contents/MacOS/$(basename "$APP" .app)"
+OLD_PIDS="$(ps -axo pid=,command= | awk -v exe="$EXE" '
+  { pid = $1; sub(/^ *[0-9]+ /, ""); if ($0 == exe || index($0, exe " ") == 1) print pid }')"
+if [[ -n "$OLD_PIDS" ]]; then
+  echo "    replacing the running container app (pid $(echo $OLD_PIDS)) — it predates this build"
+  # shellcheck disable=SC2086 # word-splitting the pid list is the point
+  kill -TERM $OLD_PIDS 2>/dev/null || true
+  for _ in 1 2 3 4 5 6 7 8 9 10; do
+    alive=""
+    for pid in $OLD_PIDS; do kill -0 "$pid" 2>/dev/null && alive=1; done
+    [[ -z "$alive" ]] && break
+    sleep 0.3
+  done
+fi
 # Launching the app is NOT what re-registers the extension with Safari —
 # xcodebuild's own `lsregister -f -R -trusted` step is. Measured 2026-09-07
 # on Safari 26.x / macOS 15.7.7, three runs: with `open` SUPPRESSED entirely
