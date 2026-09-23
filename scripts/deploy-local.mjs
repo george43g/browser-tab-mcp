@@ -365,10 +365,17 @@ if (String(live.build ?? "").includes(".dirty.")) {
   );
 }
 const notes = [];
-if (reloadFailed.length > 0) {
+// Each browser gets its own explanation: Safari's failure is expected, and any
+// other browser's is only reassured by the version check, not explained.
+const safariNoRestart = reloadFailed.filter((b) => b === "safari");
+const otherNoRestart = reloadFailed.filter((b) => b !== "safari");
+if (otherNoRestart.length > 0) {
   notes.push(
-    `${reloadFailed.join(", ")} did not restart on command — expected for Safari, which only moves on a sideload`,
+    `${otherNoRestart.join(", ")} did not restart on command; the version check confirms it is on this build`,
   );
+}
+if (safariNoRestart.length > 0) {
+  notes.push("safari did not restart on command — expected; Safari only moves on a sideload");
 }
 if (sideloadRan) notes.push("safari was rebuilt by an automatic sideload");
 const extNote =
