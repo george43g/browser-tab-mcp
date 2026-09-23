@@ -100,7 +100,7 @@ EXE="$APP/Contents/MacOS/$(basename "$APP" .app)"
 OLD_PIDS="$(ps -axo pid=,command= | awk -v exe="$EXE" '
   { pid = $1; sub(/^ *[0-9]+ /, ""); if ($0 == exe || index($0, exe " ") == 1) print pid }')"
 if [[ -n "$OLD_PIDS" ]]; then
-  echo "    replacing the running container app (pid $(echo $OLD_PIDS)) — it predates this build"
+  echo "    replacing the running container app (pid ${OLD_PIDS//$'\n'/ }) — it predates this build"
   # shellcheck disable=SC2086 # word-splitting the pid list is the point
   kill -TERM $OLD_PIDS 2>/dev/null || true
   for _ in 1 2 3 4 5 6 7 8 9 10; do
