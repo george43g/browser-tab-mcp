@@ -1741,8 +1741,57 @@ message, and check the Windows runner's resource pressure at that timestamp.
 Frequency so far: 2 in roughly a day of CI runs across ~15 PRs. Owner:
 unclaimed.
 
+### B36. A long apply reports a timeout while the daemon keeps moving tabs
+
+Filed 2026-09-22 from George's request to consolidate his Chrome tabs. The job
+itself succeeded: 25 tabs in four windows became one window of 25, the emptied
+windows closed, and the count was 25 before and after. It took three passes.
+(B35, the tmux-control plan, merged as #194 on 2026-09-24.)
+
+**The defect is a verdict that says the opposite of what happened.** The IPC
+client gives up at a hard-coded 15s (`apps/browser-tab-mcp/src/client/daemon-client.ts:17`,
+`REQUEST_TIMEOUT_MS = 15_000`), while `apply_tab_layout` declares a 30s budget
+(`apps/browser-tab-mcp/src/tools/apply-tab-layout.ts:87`). The tool's own budget
+never takes effect: the caller is told the apply timed out, and the daemon keeps
+going and finishes it. Pass 2 stopped with 3 tabs outside the target window;
+pass 3 reported the same timeout and completed.
+
+**Why 15s was not enough is unmeasured.** Moves ran at roughly one tab every two
+seconds, so a nine-tab move cannot finish in 15s. The only wait in the apply
+loop is a 150ms verify retry (`apps/browser-tab-mcp/src/daemon/apply.ts:521`),
+so the time goes somewhere else.
+
+**Also observed, not verified:** two plans each had one fewer relocation than
+there were tabs outside the target window (9 for 10, then 2 for 3), yet every
+tab ended up in the target. It needs a reproduction before it counts as a bug.
+
+**Checked and NOT a defect:** the operation journal records these applies.
+`browser-tab operations --json` lists them, the first being an
+`apply_tab_layout` success for plan `324c1fb8`. The session that did the
+consolidation reported an empty journal; that reading was wrong.
+
+Pass 1 was refused correctly: a tab moved on its own between plan and apply, so
+the stale plan was rejected. That is the staleness guard working.
+
+Owner: this session. Not started. It was parked until George reviewed the
+tmux-control plan (B35), which he approved on 2026-09-24, so it is now unblocked.
+
 ### B35. tmux-control — the second application, and the reuse it has to prove
 
+> **2026-09-24 — APPROVED and started.** George approved the plan (merged #194,
+> `f4b1c20`) and answered D7: window placement is wm-stack's; this monorepo
+> controls everything *inside* a kitty window and never where it sits, the seam
+> browser-tab already keeps at the browser window. Phase 8 is withdrawn.
+> **Phase 0 ran** in a throwaway worktree: the scaffolded app could not install
+> because it depended on `@george43g/build-config`, which exists neither here
+> nor on npm. The generated app also needed `withCoverageFloor`, which our
+> `vitest-config` package lacks, and one generated test failed Biome. All
+> three are fixed upstream (mcp-cli-starter-template `d188b28`). Phase 1 adds
+> `withCoverageFloor` by hand, because the scaffolder's suggested migrate
+> overwrites local preset changes. **M1 merged** (#196): `runDomainConformance`.
+> The browser binding passes it unchanged. It found a `between` crash, which
+> was fixed in #197.
+>
 > **2026-09-22, later — George's north-star scenario added (plan §1a).** By
 > voice he asks for a tmux session of his agent windows (claude left, yazi
 > right), project groups shown in kitty windows on specific monitors, and later
