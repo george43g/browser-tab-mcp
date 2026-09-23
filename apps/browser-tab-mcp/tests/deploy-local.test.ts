@@ -237,6 +237,11 @@ describe("deploy-local", () => {
     // to re-run the one command that provably cannot help. Observed live
     // 2026-09-07 with Safari verifiably ON the current bundle.
     expect(run.stdout).toMatch(/are on this build/);
+    // Chrome's failed reload must not borrow Safari's explanation: the verdict
+    // read "chrome did not restart on command — expected for Safari" live on
+    // 2026-09-24 (deploy after #201).
+    expect(run.stdout).not.toMatch(/chrome[^;)]*expected for Safari/);
+    expect(run.stdout).toMatch(/chrome did not restart on command; the version check confirms it/);
     expect(run.stdout, "the retired claim must not come back").not.toMatch(
       /running the previous bundle/,
     );
