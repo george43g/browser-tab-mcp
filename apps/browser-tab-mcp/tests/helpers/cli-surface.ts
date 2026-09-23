@@ -17,6 +17,10 @@
  * one call per test file, hoisted, over one per assertion.
  */
 
+import {
+  cliOnlySurfaces as cliOnlyOf,
+  cliCommandNames as commandNamesOf,
+} from "@george43g/test-kit/contracts";
 import { buildProgram } from "../../src/cli.js";
 
 /**
@@ -28,14 +32,7 @@ import { buildProgram } from "../../src/cli.js";
  * (alias of `repl`) has to be driven to prove it resolves.
  */
 export function cliCommandNames(): Set<string> {
-  const program = buildProgram();
-  const names = new Set<string>();
-  for (const cmd of program.commands) {
-    names.add(cmd.name());
-    for (const alias of cmd.aliases()) names.add(alias);
-    for (const sub of cmd.commands) names.add(`${cmd.name()} ${sub.name()}`);
-  }
-  return names;
+  return commandNamesOf(buildProgram());
 }
 
 /**
@@ -46,13 +43,7 @@ export function cliCommandNames(): Set<string> {
  * Parity, by contrast, wants aliases included, which is why both exist.
  */
 export function cliCommandNamesWithoutAliases(): Set<string> {
-  const program = buildProgram();
-  const names = new Set<string>();
-  for (const cmd of program.commands) {
-    names.add(cmd.name());
-    for (const sub of cmd.commands) names.add(`${cmd.name()} ${sub.name()}`);
-  }
-  return names;
+  return commandNamesOf(buildProgram(), false);
 }
 
 /**
@@ -118,20 +109,5 @@ export function cliFormOf(tool: string): string {
  *     and `cliCommandNames()` above is what exposes it.
  */
 export function cliOnlySurfaces(toolNames: readonly string[]): Set<string> {
-  const fronts = new Set(toolNames.map(cliFormOf));
-  const program = buildProgram();
-  const out = new Set<string>();
-  for (const cmd of program.commands) {
-    if (cmd.name() === "help") continue;
-    if (cmd.commands.length > 0) {
-      for (const sub of cmd.commands) {
-        if (sub.name() === "help") continue;
-        const surface = `${cmd.name()} ${sub.name()}`;
-        if (!fronts.has(surface)) out.add(surface);
-      }
-      continue;
-    }
-    if (!fronts.has(cmd.name())) out.add(cmd.name());
-  }
-  return out;
+  return cliOnlyOf(buildProgram(), toolNames, cliFormOf);
 }

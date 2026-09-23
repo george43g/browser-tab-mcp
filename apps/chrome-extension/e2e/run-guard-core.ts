@@ -190,3 +190,33 @@ export function guardVerdict(input: GuardInput): GuardVerdict {
     },
   };
 }
+
+/** One row of `docs/surfaces/effect-coverage.json`, as far as the guard reads it. */
+export interface LedgerRow {
+  app?: string;
+  surface: string;
+  coverage: Array<{ tier: string; evidence: string }>;
+}
+
+/** The app this tier exercises. The ledger's other apps are not its business. */
+export const E2E_APP = "browser-tab-mcp";
+
+/**
+ * What the ledger claims about the chromium-e2e tier: the surfaces it says are
+ * proved here, and every surface it knows (for typo detection) — browser-tab's
+ * rows only. Surface names repeat across apps (health_check, get_logs…), so an
+ * unscoped read would let another app's row demand a proof from this run, or
+ * make a misspelled annotation look known.
+ */
+export function ledgerClaims(parsed: { surfaces: LedgerRow[] }): {
+  claimed: string[];
+  known: string[];
+} {
+  const rows = parsed.surfaces.filter((s) => s.app === E2E_APP);
+  return {
+    known: rows.map((s) => s.surface),
+    claimed: rows
+      .filter((s) => s.coverage.some((c) => c.tier === "chromium-e2e" && c.evidence !== "pending"))
+      .map((s) => s.surface),
+  };
+}

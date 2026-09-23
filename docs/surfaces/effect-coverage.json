@@ -6,6 +6,10 @@
     "and from commander (tests/helpers/cli-surface.ts) and fails if this file has a gap",
     "or an orphan. Adding tool #21 turns that test red on the next `pnpm test`.",
     "",
+    "Rows carry an `app` (the directory under apps/). Each MCP app checks its own rows",
+    "against its own registry and commander tree in its tests/surface-coverage.contract.test.ts;",
+    "apps/browser-tab-mcp/tests/app-admission.contract.test.ts fails if an MCP app has no rows.",
+    "",
     "`tier` is where a surface's EFFECT is proved — that a browser actually did the",
     "thing — not where it is dispatch-tested. A fake adapter and installFakeChrome",
     "both stand in for a browser; neither is one, so neither counts here.",
@@ -24,11 +28,12 @@
   ],
   "tiers": {
     "chromium-e2e": "Playwright, apps/chrome-extension/e2e/ — the built dist/ in a real Chromium/Edge against a throwaway daemon. Runs in CI on all three legs.",
-    "cli-process": "vitest, apps/browser-tab-mcp/tests/ — the built dist/cli.js spawned as a real process against a fake-adapter daemon. No browser. Runs in CI.",
+    "cli-process": "vitest, apps/<app>/tests/ — the app's built dist/cli.js spawned as a real process (for browser-tab-mcp, against a fake-adapter daemon). No browser. Runs in CI.",
     "macos-local": "pnpm sweep:macos, a developer's Mac only. Real osascript / screencapture / Safari History.db. CANNOT run in CI: GitHub's macOS runners have no logged-in GUI session, so `tell application` cannot work."
   },
   "surfaces": [
     {
+      "app": "browser-tab-mcp",
       "surface": "health_check",
       "kind": "tool",
       "coverage": [
@@ -40,6 +45,7 @@
       ]
     },
     {
+      "app": "browser-tab-mcp",
       "surface": "list_tabs",
       "kind": "tool",
       "coverage": [
@@ -56,6 +62,7 @@
       ]
     },
     {
+      "app": "browser-tab-mcp",
       "surface": "focus_tab",
       "kind": "tool",
       "coverage": [
@@ -72,6 +79,7 @@
       ]
     },
     {
+      "app": "browser-tab-mcp",
       "surface": "move_tab",
       "kind": "tool",
       "coverage": [
@@ -88,6 +96,7 @@
       ]
     },
     {
+      "app": "browser-tab-mcp",
       "surface": "open_tab",
       "kind": "tool",
       "coverage": [
@@ -104,6 +113,7 @@
       ]
     },
     {
+      "app": "browser-tab-mcp",
       "surface": "close_tab",
       "kind": "tool",
       "coverage": [
@@ -120,6 +130,7 @@
       ]
     },
     {
+      "app": "browser-tab-mcp",
       "surface": "tab_action",
       "kind": "tool",
       "coverage": [
@@ -136,6 +147,7 @@
       ]
     },
     {
+      "app": "browser-tab-mcp",
       "surface": "group_tabs",
       "kind": "tool",
       "coverage": [
@@ -147,6 +159,7 @@
       ]
     },
     {
+      "app": "browser-tab-mcp",
       "surface": "open_window",
       "kind": "tool",
       "coverage": [
@@ -163,6 +176,7 @@
       ]
     },
     {
+      "app": "browser-tab-mcp",
       "surface": "set_window",
       "kind": "tool",
       "coverage": [
@@ -179,6 +193,7 @@
       ]
     },
     {
+      "app": "browser-tab-mcp",
       "surface": "close_window",
       "kind": "tool",
       "coverage": [
@@ -195,6 +210,7 @@
       ]
     },
     {
+      "app": "browser-tab-mcp",
       "surface": "get_page",
       "kind": "tool",
       "coverage": [
@@ -206,6 +222,7 @@
       ]
     },
     {
+      "app": "browser-tab-mcp",
       "surface": "annotate",
       "kind": "tool",
       "coverage": [
@@ -217,6 +234,7 @@
       ]
     },
     {
+      "app": "browser-tab-mcp",
       "surface": "screenshot",
       "kind": "tool",
       "coverage": [
@@ -234,6 +252,7 @@
       ]
     },
     {
+      "app": "browser-tab-mcp",
       "surface": "apply_tab_layout",
       "kind": "tool",
       "coverage": [
@@ -245,6 +264,7 @@
       ]
     },
     {
+      "app": "browser-tab-mcp",
       "surface": "apply_destructive_plan",
       "kind": "tool",
       "coverage": [
@@ -256,6 +276,7 @@
       ]
     },
     {
+      "app": "browser-tab-mcp",
       "surface": "copy_tabs",
       "kind": "tool",
       "coverage": [
@@ -267,6 +288,7 @@
       ]
     },
     {
+      "app": "browser-tab-mcp",
       "surface": "cut_tabs",
       "kind": "tool",
       "coverage": [
@@ -278,6 +300,7 @@
       ]
     },
     {
+      "app": "browser-tab-mcp",
       "surface": "plan_tab_change",
       "kind": "tool",
       "coverage": [
@@ -289,6 +312,7 @@
       ]
     },
     {
+      "app": "browser-tab-mcp",
       "surface": "select_tabs",
       "kind": "tool",
       "coverage": [
@@ -300,6 +324,7 @@
       ]
     },
     {
+      "app": "browser-tab-mcp",
       "surface": "journal",
       "kind": "tool",
       "coverage": [
@@ -316,6 +341,7 @@
       ]
     },
     {
+      "app": "browser-tab-mcp",
       "surface": "history",
       "kind": "tool",
       "coverage": [
@@ -332,6 +358,7 @@
       ]
     },
     {
+      "app": "browser-tab-mcp",
       "surface": "bookmarks",
       "kind": "tool",
       "coverage": [
@@ -343,6 +370,7 @@
       ]
     },
     {
+      "app": "browser-tab-mcp",
       "surface": "daemon_status",
       "kind": "tool",
       "coverage": [
@@ -354,6 +382,7 @@
       ]
     },
     {
+      "app": "browser-tab-mcp",
       "surface": "noop",
       "kind": "tool",
       "coverage": [
@@ -365,6 +394,7 @@
       ]
     },
     {
+      "app": "browser-tab-mcp",
       "surface": "get_logs",
       "kind": "tool",
       "coverage": [
@@ -376,6 +406,7 @@
       ]
     },
     {
+      "app": "browser-tab-mcp",
       "surface": "mcp",
       "kind": "cli",
       "coverage": [
@@ -387,6 +418,7 @@
       ]
     },
     {
+      "app": "browser-tab-mcp",
       "surface": "tui",
       "kind": "cli",
       "coverage": [
@@ -398,6 +430,7 @@
       ]
     },
     {
+      "app": "browser-tab-mcp",
       "surface": "doctor",
       "kind": "cli",
       "coverage": [
@@ -414,6 +447,7 @@
       ]
     },
     {
+      "app": "browser-tab-mcp",
       "surface": "reload-extension",
       "kind": "cli",
       "coverage": [
@@ -430,6 +464,7 @@
       ]
     },
     {
+      "app": "browser-tab-mcp",
       "surface": "operations",
       "kind": "cli",
       "coverage": [
@@ -441,6 +476,7 @@
       ]
     },
     {
+      "app": "browser-tab-mcp",
       "surface": "closed_tabs",
       "kind": "tool",
       "coverage": [
@@ -452,6 +488,7 @@
       ]
     },
     {
+      "app": "browser-tab-mcp",
       "surface": "reopen_tab",
       "kind": "tool",
       "coverage": [
@@ -463,6 +500,7 @@
       ]
     },
     {
+      "app": "browser-tab-mcp",
       "surface": "daemon run",
       "kind": "cli",
       "coverage": [
@@ -474,6 +512,7 @@
       ]
     },
     {
+      "app": "browser-tab-mcp",
       "surface": "daemon install",
       "kind": "cli",
       "coverage": [
@@ -491,6 +530,7 @@
       ]
     },
     {
+      "app": "browser-tab-mcp",
       "surface": "daemon uninstall",
       "kind": "cli",
       "coverage": [
@@ -502,6 +542,7 @@
       ]
     },
     {
+      "app": "browser-tab-mcp",
       "surface": "daemon token",
       "kind": "cli",
       "coverage": [
@@ -513,6 +554,7 @@
       ]
     },
     {
+      "app": "browser-tab-mcp",
       "surface": "daemon stop",
       "kind": "cli",
       "coverage": [
@@ -524,6 +566,7 @@
       ]
     },
     {
+      "app": "browser-tab-mcp",
       "surface": "daemon restart",
       "kind": "cli",
       "coverage": [
@@ -535,6 +578,7 @@
       ]
     },
     {
+      "app": "browser-tab-mcp",
       "surface": "repl",
       "kind": "cli",
       "coverage": [
@@ -542,6 +586,90 @@
           "tier": "cli-process",
           "covers": "piped stdin takes cli-kit's terminal:false branch: `noop hello` really runs through the dispatcher and echoes back, and `help` lists the REPL's own shortcuts. Driven under BOTH spellings — commander reports the `console` alias as a name, so a parity test sees it as present, but registered is not reachable",
           "evidence": "apps/browser-tab-mcp/tests/cli-surfaces.integration.test.ts"
+        }
+      ]
+    },
+    {
+      "app": "tmux-control-mcp",
+      "surface": "health_check",
+      "kind": "tool",
+      "coverage": [
+        {
+          "tier": "cli-process",
+          "covers": "the canary answers from the built bin; pending: scaffolded by mcp-scaffold add-mcp-app; nothing spawns tmux-control's built bin for this surface yet (the tmux effect tier arrives in Phase 3)",
+          "evidence": "pending"
+        }
+      ]
+    },
+    {
+      "app": "tmux-control-mcp",
+      "surface": "noop",
+      "kind": "tool",
+      "coverage": [
+        {
+          "tier": "cli-process",
+          "covers": "scaffold demo tool echoes its input; pending: scaffolded by mcp-scaffold add-mcp-app; nothing spawns tmux-control's built bin for this surface yet (the tmux effect tier arrives in Phase 3)",
+          "evidence": "pending"
+        }
+      ]
+    },
+    {
+      "app": "tmux-control-mcp",
+      "surface": "get_logs",
+      "kind": "tool",
+      "coverage": [
+        {
+          "tier": "cli-process",
+          "covers": "dev-only log tail, refused without MCP_DEV; pending: scaffolded by mcp-scaffold add-mcp-app; nothing spawns tmux-control's built bin for this surface yet (the tmux effect tier arrives in Phase 3)",
+          "evidence": "pending"
+        }
+      ]
+    },
+    {
+      "app": "tmux-control-mcp",
+      "surface": "mcp",
+      "kind": "cli",
+      "coverage": [
+        {
+          "tier": "cli-process",
+          "covers": "stdio and --http MCP server start and answer; pending: scaffolded by mcp-scaffold add-mcp-app; nothing spawns tmux-control's built bin for this surface yet (the tmux effect tier arrives in Phase 3)",
+          "evidence": "pending"
+        }
+      ]
+    },
+    {
+      "app": "tmux-control-mcp",
+      "surface": "tui",
+      "kind": "cli",
+      "coverage": [
+        {
+          "tier": "cli-process",
+          "covers": "the Ink TUI refuses a non-TTY and renders on one; pending: scaffolded by mcp-scaffold add-mcp-app; nothing spawns tmux-control's built bin for this surface yet (the tmux effect tier arrives in Phase 3)",
+          "evidence": "pending"
+        }
+      ]
+    },
+    {
+      "app": "tmux-control-mcp",
+      "surface": "doctor",
+      "kind": "cli",
+      "coverage": [
+        {
+          "tier": "cli-process",
+          "covers": "preflight checks report and exit non-zero on failure; pending: scaffolded by mcp-scaffold add-mcp-app; nothing spawns tmux-control's built bin for this surface yet (the tmux effect tier arrives in Phase 3)",
+          "evidence": "pending"
+        }
+      ]
+    },
+    {
+      "app": "tmux-control-mcp",
+      "surface": "repl",
+      "kind": "cli",
+      "coverage": [
+        {
+          "tier": "cli-process",
+          "covers": "the REPL (alias console) drives the in-process dispatcher; pending: scaffolded by mcp-scaffold add-mcp-app; nothing spawns tmux-control's built bin for this surface yet (the tmux effect tier arrives in Phase 3)",
+          "evidence": "pending"
         }
       ]
     }

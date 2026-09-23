@@ -89,7 +89,16 @@ jobs:
         run: pnpm build
 
       - name: Test (default — native path when built)
+        if: runner.os != 'Windows'
         run: pnpm test
+
+      # tmux has no native Windows build, so tmux-control is a POSIX-only
+      # application: on Windows it must BUILD (the workspace build above), but
+      # its tests exercise a platform it does not support. Excluded by name,
+      # here, where a reader can see it — not skipped silently inside the app.
+      - name: Test (default — Windows; tmux-control is POSIX-only)
+        if: runner.os == 'Windows'
+        run: pnpm test --filter=!@george43g/tmux-control-mcp
 
       - name: Test (TS fallback path)
         # Only meaningful where a native module actually exists to disable;
@@ -134,15 +143,21 @@ jobs:
         # since the last regen. Fix locally: `pnpm artifacts && git add
         # completions/ man/ docs/cli/`. Bypass: edit .usage.kdl + this
         # check together in the same PR.
+        #
+        # Every per-app gate below selects apps with scripts/for-each-mcp-app.mjs
+        # (the mcp-kit dependency marker, adopted from mcp-cli-starter-template),
+        # never a name-shaped `--filter "@george43g/*-mcp"`: a pnpm filter that
+        # matches nothing exits 0, so a gate that selects no app passed green.
+        # for-each-mcp-app exits 1 on an empty set and names the app that failed.
         if: runner.os == 'Linux'
-        run: pnpm --filter "@george43g/*-mcp" check:usage
+        run: node scripts/for-each-mcp-app.mjs check:usage
 
       - name: Verify npm tarball is publishable
         if: runner.os == 'Linux'
-        run: pnpm --filter "@george43g/*-mcp" exec npm pack --dry-run
+        run: node scripts/for-each-mcp-app.mjs exec npm pack --dry-run
 
-      - name: Stress harness (14 cases · daemon + dispatch lifecycle)
-        run: pnpm --filter "@george43g/*-mcp" stress
+      - name: Stress harness (every MCP app)
+        run: node scripts/for-each-mcp-app.mjs stress
       - name: Upload stress report
         if: always()
         uses: actions/upload-artifact@v7
@@ -150,6 +165,51 @@ jobs:
           name: stress-report-${{ matrix.os }}
           path: apps/**/stress-*-report.json
           if-no-files-found: ignore
+
+  # One job per MCP app beyond browser-tab, so a red run names the app that
+  # broke. build-test above stays the WHOLE workspace (every app's tests and
+  # gates, on every OS); this job re-runs only tmux-control's own checks. So:
+  # tmux-control red means tmux-control broke; build-test red with this job
+  # green means browser-tab or a shared package did.
+  tmux-control:
+    name: app · tmux-control
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v6
+        with:
+          version: 10.29.3
+
+      - name: Setup Node
+        uses: actions/setup-node@v6
+        with:
+          node-version: "24"
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build (tmux-control and the packages it depends on)
+        run: pnpm build --filter=@george43g/tmux-control-mcp...
+
+      - name: Typecheck
+        run: pnpm --filter @george43g/tmux-control-mcp typecheck
+
+      - name: Test
+        run: pnpm --filter @george43g/tmux-control-mcp test
+
+      - name: Install usage(1) via mise
+        uses: jdx/mise-action@v4
+
+      - name: Check usage(1) artifacts are fresh vs .usage.kdl
+        run: pnpm --filter @george43g/tmux-control-mcp check:usage
+
+      - name: Stress harness
+        run: pnpm --filter @george43g/tmux-control-mcp stress
 
   # Headed-Chromium (new-headless) E2E of the BUILT extension against a
   # throwaway, HOME-isolated daemon: load dist/ → connect over loopback →

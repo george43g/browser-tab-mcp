@@ -17,6 +17,7 @@ import {
   annotationProves,
   type GuardInput,
   guardVerdict,
+  ledgerClaims,
   type TestRecord,
 } from "../e2e/run-guard-core.js";
 
@@ -206,5 +207,39 @@ describe("guardVerdict", () => {
     // Deliberately NOT a finding: one retry is what `retries: 1` is for. The
     // number rides the report so a climb is visible without being a gate.
     expect(v.findings).toEqual([]);
+  });
+});
+
+describe("ledgerClaims — scoped to browser-tab's rows", () => {
+  // The ledger holds every MCP app's surfaces, and names repeat across apps.
+  // The chromium-e2e tier only ever runs browser-tab, so another app's row
+  // must neither add a claim this run has to prove nor make a misspelled
+  // annotation look known.
+  const ledger = {
+    surfaces: [
+      {
+        app: "browser-tab-mcp",
+        surface: "list_tabs",
+        coverage: [{ tier: "chromium-e2e", evidence: "e2e/roundtrip.e2e.test.ts" }],
+      },
+      {
+        app: "tmux-control-mcp",
+        surface: "noop",
+        coverage: [{ tier: "chromium-e2e", evidence: "e2e/somewhere.e2e.test.ts" }],
+      },
+      {
+        app: "tmux-control-mcp",
+        surface: "tmux_only",
+        coverage: [{ tier: "cli-process", evidence: "pending" }],
+      },
+    ],
+  };
+
+  it("claims only browser-tab surfaces", () => {
+    expect(ledgerClaims(ledger).claimed).toEqual(["list_tabs"]);
+  });
+
+  it("knows only browser-tab surfaces", () => {
+    expect(ledgerClaims(ledger).known).toEqual(["list_tabs"]);
   });
 });

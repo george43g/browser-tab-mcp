@@ -20,7 +20,13 @@ import { basename, dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import type { FullResult, Reporter, TestCase, TestResult } from "@playwright/test/reporter";
 import { E2E_SPEC_SLOTS } from "./ports.js";
-import { guardVerdict, type RunStatus, type TestRecord } from "./run-guard-core.js";
+import {
+  guardVerdict,
+  type LedgerRow,
+  ledgerClaims,
+  type RunStatus,
+  type TestRecord,
+} from "./run-guard-core.js";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = resolve(HERE, "../../..");
@@ -46,19 +52,8 @@ export const EXPECTED_MIN_TESTS = 73;
  */
 export const SKIP_ALLOWLIST: Readonly<Record<string, string>> = {};
 
-interface LedgerRow {
-  surface: string;
-  coverage: Array<{ tier: string; evidence: string }>;
-}
-
 function readLedger(): { claimed: string[]; known: string[] } {
-  const parsed = JSON.parse(readFileSync(LEDGER, "utf8")) as { surfaces: LedgerRow[] };
-  return {
-    known: parsed.surfaces.map((s) => s.surface),
-    claimed: parsed.surfaces
-      .filter((s) => s.coverage.some((c) => c.tier === "chromium-e2e" && c.evidence !== "pending"))
-      .map((s) => s.surface),
-  };
+  return ledgerClaims(JSON.parse(readFileSync(LEDGER, "utf8")) as { surfaces: LedgerRow[] });
 }
 
 export default class RunGuard implements Reporter {

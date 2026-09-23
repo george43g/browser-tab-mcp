@@ -2,7 +2,52 @@
   "$schema": "https://turbo.build/schema.json",
   "extends": ["//"],
   "tasks": {
-    "test": { "dependsOn": ["^build", "build"] },
-    "test:no-native": { "dependsOn": ["^build", "build"] }
+    "test": {
+      "dependsOn": ["^build", "build"],
+      "env": [
+        "$TURBO_EXTENDS$",
+        "BROWSER_TAB_BROWSERS",
+        "BROWSER_TAB_OSA_TIMEOUT_MS",
+        "BROWSER_TAB_FAKE_ADAPTER",
+        "BROWSER_TAB_POLL_MS",
+        "BROWSER_TAB_STATE_DIR",
+        "BROWSER_TAB_SOCKET_PATH",
+        "BROWSER_TAB_CACHE_DIR",
+        "BROWSER_TAB_SNAPSHOT_PATH",
+        "BROWSER_TAB_WS_PORT",
+        "BROWSER_TAB_TOKEN_PATH"
+      ]
+    },
+    "test:no-native": {
+      "dependsOn": ["^build", "build"],
+      "env": [
+        "$TURBO_EXTENDS$",
+        "BROWSER_TAB_BROWSERS",
+        "BROWSER_TAB_OSA_TIMEOUT_MS",
+        "BROWSER_TAB_FAKE_ADAPTER",
+        "BROWSER_TAB_POLL_MS",
+        "BROWSER_TAB_STATE_DIR",
+        "BROWSER_TAB_SOCKET_PATH",
+        "BROWSER_TAB_CACHE_DIR",
+        "BROWSER_TAB_SNAPSHOT_PATH",
+        "BROWSER_TAB_WS_PORT",
+        "BROWSER_TAB_TOKEN_PATH"
+      ]
+    },
+    "stress": {
+      "env": [
+        "$TURBO_EXTENDS$",
+        "BROWSER_TAB_BROWSERS",
+        "BROWSER_TAB_OSA_TIMEOUT_MS",
+        "BROWSER_TAB_FAKE_ADAPTER",
+        "BROWSER_TAB_POLL_MS",
+        "BROWSER_TAB_STATE_DIR",
+        "BROWSER_TAB_SOCKET_PATH",
+        "BROWSER_TAB_CACHE_DIR",
+        "BROWSER_TAB_SNAPSHOT_PATH",
+        "BROWSER_TAB_WS_PORT",
+        "BROWSER_TAB_TOKEN_PATH"
+      ]
+    }
   }
 }

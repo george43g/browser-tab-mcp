@@ -550,6 +550,8 @@ on `control-language`: the price George's premise is really about.
 | D4 | Release lines | **Separate lines now** (2026-09-22), against the provisional recommendation. The work it requires is in §9 and Phase 1. |
 | D5 | What happens to a window after a command | **The agent decides** (2026-09-22). No lifecycle policy, and the retention and pruning rules are withdrawn. This reframed the whole surface (§5). |
 | D6 | `send-keys` in v1 | **Answered by D5: sending input is in.** `send` defaults to bracketed paste, because both keystroke modes failed against George's shell (§5). Raw keys are also available. |
+| D8 | Gate B (Phase 1) | **Pass, 5 lifts** (2026-09-24). Only lifts to this repo's shared infrastructure count: `withCoverageFloor`, per-app turbo test order, a root `check:usage`, two release-please settings, and a verify-release first-release hole. Defects in the scaffolder's generated app (Windows temp dir, annotation titles, README Tools table) are Gate A's, upstream's to fix or ours by convention. No redesign: nothing under `apps/browser-tab-mcp/src/` changed. |
+| D9 | How a shared-core fix reaches tmux-control's version | **Measure a linked fix, then apply** (2026-09-24). Measured in Phase 1: a `control-language` commit bumps browser-tab but not tmux-control. Each shared package gets its own release-please entry so `node-workspace` propagates bumps. It is applied only if measured to work, and must close before tmux-control's first release (`docs/RELEASE.md`). |
 
 None of D1–D6 is open. The milestone's next decision comes from M3, as a
 measured result: which of the two identity answers the slice needs.

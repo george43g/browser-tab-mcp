@@ -65,7 +65,9 @@ jobs:
           mkdir -p docs/screenshots
           for f in apps/*/scripts/screenshots/*.tape; do
             echo "▶ $f"
-            vhs "$f"
+            # Tapes resolve Output and relative bin paths from their own
+            # directory (see each tape's header), so run vhs from there.
+            (cd "$(dirname "$f")" && vhs "$(basename "$f")")
           done
 
       - name: Commit regenerated screenshots (push only)

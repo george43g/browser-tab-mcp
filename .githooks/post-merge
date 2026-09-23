@@ -8,8 +8,11 @@
 # how to retry, but it must never make `git pull` look broken — the pull
 # succeeded; only the deploy did not.
 #
-# Skips: not on main; CI; docs-only merges (nothing under apps/, packages/,
-# or scripts/ changed — a checkpoint merge must not restart the daemon).
+# Skips: not on main; CI; merges that touch nothing browser-tab ships.
+# scripts/deploy-scope.mjs decides: browser-tab's apps, every workspace
+# package they depend on, and root scripts/ deploy; docs, and apps or
+# packages only another app uses (tmux-control), do not — a checkpoint or
+# tmux-only merge must not restart the daemon or sideload Safari.
 #
 # COST: since B34 this can also run a Safari sideload (a clean xcodebuild) when
 # the version check finds Safari on a stale bundle — which, because the bundle
@@ -20,8 +23,9 @@
 # behaviour instead.
 [ -n "$CI" ] && exit 0
 [ "$(git branch --show-current)" = "main" ] || exit 0
-if git diff-tree -r --name-only ORIG_HEAD HEAD 2>/dev/null | grep -qE '^(apps|packages|scripts)/'; then
-  node "$(git rev-parse --show-toplevel)/scripts/deploy-local.mjs" \
+ROOT="$(git rev-parse --show-toplevel)"
+if git diff-tree -r --name-only ORIG_HEAD HEAD 2>/dev/null | node "$ROOT/scripts/deploy-scope.mjs"; then
+  node "$ROOT/scripts/deploy-local.mjs" \
     || echo "deploy:local failed (advisory) — retry with: pnpm deploy:local" >&2
 fi
 exit 0

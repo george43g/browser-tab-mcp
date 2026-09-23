@@ -17,8 +17,15 @@
  * So the invariant is stated positively and checked on EVERY push, not only on
  * release pushes:
  *
- *   the version in .release-please-manifest.json has a git tag AND a published
+ *   for EVERY release line (each package in release-please-config.json), the
+ *   version in .release-please-manifest.json has a git tag AND a published
  *   GitHub Release, and no merged release PR is still waiting to be tagged.
+ *
+ * "Every line" is the multi-app lift. This used to read manifest["."] only,
+ * so once a second release-please package existed (tmux-control, D4) a
+ * release of that line that merged without its tag left this green. Lines
+ * are derived from the config (releaseLines), so a third package is verified
+ * the day it is configured.
  *
  * That holds in the quiet state (nothing to release), immediately after a cut,
  * and everywhere in between — so it needs no argument, no event inspection, and
@@ -32,9 +39,9 @@
  */
 
 import { execFileSync } from "node:child_process";
-import { readFileSync } from "node:fs";
+import { readFileSync, realpathSync } from "node:fs";
 import { dirname, join } from "node:path";
-import { fileURLToPath } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
 
 const REPO = join(dirname(fileURLToPath(import.meta.url)), "..");
 
@@ -64,6 +71,7 @@ const REPO = join(dirname(fileURLToPath(import.meta.url)), "..");
  * @param {boolean} facts.tagsReadable      did `git ls-remote --tags origin` actually answer
  * @param {boolean} facts.ghPresent         is the `gh` binary runnable at all
  * @param {boolean} facts.openPrQueryFailed gh was present but the open-release-PR query failed
+ * @param {string} [facts.branch]           this line's release-please branch, for the recovery hint
  * @returns {{ok: boolean, problems: string[], notes: string[]}}
  */
 export function verdict({
@@ -77,6 +85,7 @@ export function verdict({
   tagsReadable = true,
   ghPresent = false,
   openPrQueryFailed = false,
+  branch = "release-please--branches--main--components--browser-tab",
 }) {
   const problems = [];
   const notes = [];
@@ -119,7 +128,7 @@ export function verdict({
           `certainly built before that config landed: release-please refreshes an ` +
           `open release PR only when the version or notes change ("PR #N remained ` +
           `the same"), never because the file set did. Fix: delete the branch ` +
-          `\`release-please--branches--main--components--browser-tab\` (this closes the ` +
+          `\`${branch}\` (this closes the ` +
           `PR), then re-run the Release workflow so it is rebuilt from current config.`,
       );
     }
@@ -215,18 +224,21 @@ export function verdict({
  * the release path should be loud.
  *
  * @param {{number: number, title: string}[]} prs
- * @param {(version: string) => boolean} isTagged
+ * @param {(version: string, component: string | null) => boolean} isTagged
+ *   `component` is the one the title names, or null for a bare `release X.Y.Z`
  * @returns {string[]} human-readable descriptions of the genuinely untagged ones
  */
 export function untaggedPending(prs, isTagged) {
   const out = [];
   for (const pr of prs) {
-    const match = /release\s+v?(\d+\.\d+\.\d+(?:[-+][0-9A-Za-z.-]+)?)/.exec(pr.title);
+    // `release 1.2.3` for a component-less line; `release <component> 0.1.0`
+    // for a line that names its component (a separate release PR per line).
+    const match = TITLE.exec(pr.title);
     if (!match) {
       out.push(`#${pr.number} ${pr.title} (could not read a version from the title)`);
       continue;
     }
-    if (!isTagged(match[1])) out.push(`#${pr.number} ${pr.title}`);
+    if (!isTagged(match[2], match[1] ?? null)) out.push(`#${pr.number} ${pr.title}`);
   }
   return out;
 }
@@ -249,9 +261,119 @@ function tryRun(cmd, args) {
   }
 }
 
+/**
+ * The release lines release-please-config.json declares, each with the tag its
+ * manifest version implies and the branch its release PR lives on.
+ *
+ * Tag shape mirrors release-please: `<component>-v<version>` when the line
+ * includes its component in the tag (package setting, else the top-level one,
+ * else release-please's default of true), else `v<version>`. The component is
+ * the package's explicit `component`, else its package.json name with the
+ * scope stripped — the default that names the root line's release branch
+ * `release-please--branches--main--components--browser-tab`.
+ *
+ * @param {Record<string, any>} config       release-please-config.json
+ * @param {Record<string, string>} manifest   .release-please-manifest.json
+ * @param {(path: string) => string | undefined} packageName  package.json name at a line's path
+ */
+export function releaseLines(config, manifest, packageName) {
+  return Object.entries(config.packages ?? {}).map(([path, pkg]) => {
+    const name = pkg.component ?? pkg["package-name"] ?? packageName(path) ?? "";
+    const component = name.replace(/^@[^/]+\//, "");
+    const withComponent =
+      pkg["include-component-in-tag"] ?? config["include-component-in-tag"] ?? true;
+    const tagPrefix = withComponent ? `${component}-v` : "v";
+    const version = manifest[path] ?? "0.0.0";
+    return {
+      path,
+      component,
+      withComponent,
+      version,
+      tagPrefix,
+      expectedTag: `${tagPrefix}${version}`,
+      branch: `release-please--branches--main--components--${component}`,
+      extraFiles: (pkg["extra-files"] ?? []).map((f) => (typeof f === "string" ? f : f.path)),
+    };
+  });
+}
+
+/**
+ * The line a release PR belongs to, from the component in its title
+ * (`release <component> 0.1.0`), or the component-less line for a bare
+ * `release 1.2.3`.
+ */
+export function lineForComponent(lines, component) {
+  return component === null
+    ? lines.find((l) => !l.withComponent)
+    : lines.find((l) => l.component === component);
+}
+
+const TITLE = /release\s+(?:([@\w./-]+?)\s+)?v?(\d+\.\d+\.\d+(?:[-+][0-9A-Za-z.-]+)?)/;
+
+/** Tag names out of `git ls-remote --tags` output (peeled `^{}` entries folded in). */
+export function parseRemoteTags(raw) {
+  const tags = new Set();
+  for (const row of raw.split("\n")) {
+    const m = /refs\/tags\/(.+?)(\^\{\})?$/.exec(row.trim());
+    if (m) tags.add(m[1]);
+  }
+  return tags;
+}
+
+/**
+ * One line's facts, from what the remote and gh reported. Pure, so the
+ * per-line split (which tag, which prefix counts as "released before") is
+ * tested without a network.
+ */
+export function lineFacts(
+  line,
+  {
+    tags,
+    tagsReadable,
+    ghPresent,
+    releaseExists,
+    openReleasePr,
+    openPrQueryFailed,
+    pendingMergedPrs,
+  },
+) {
+  return {
+    expectedTag: line.expectedTag,
+    // "Never released" needs BOTH: no tag of this line's shape AND a manifest
+    // still at release-please's unreleased sentinel. A line's FIRST release is
+    // the v1.0.0 case all over again — the PR merges, the manifest moves to
+    // 0.1.0, the cut aborts — and judged on tags alone it would read as "never
+    // released, nothing to verify" and pass. (Found by the fixture drill in
+    // tests/release-verify-lines.test.ts.)
+    anyTagsExist:
+      line.version !== "0.0.0" ||
+      [...tags].some(
+        (t) => t.startsWith(line.tagPrefix) && /^\d/.test(t.slice(line.tagPrefix.length)),
+      ),
+    tagExists: tags.has(line.expectedTag),
+    releaseExists,
+    pendingMergedPrs,
+    extraFiles: line.extraFiles,
+    openReleasePr,
+    tagsReadable,
+    ghPresent,
+    openPrQueryFailed,
+    branch: line.branch,
+  };
+}
+
 function gatherFacts() {
   const manifest = JSON.parse(readFileSync(join(REPO, ".release-please-manifest.json"), "utf8"));
-  const expectedTag = `v${manifest["."]}`;
+  // Read from the same file the action reads — so this check cannot drift
+  // from the config it guards, and a new package is a new line to verify.
+  const config = JSON.parse(readFileSync(join(REPO, "release-please-config.json"), "utf8"));
+  const lines = releaseLines(config, manifest, (path) => {
+    try {
+      return JSON.parse(readFileSync(join(REPO, path, "package.json"), "utf8")).name;
+    } catch {
+      return undefined;
+    }
+  });
 
   // `git ls-remote` asks the REMOTE, so a stale local tag cache cannot make a
   // missing release look present — the exact way this check could lie. A null
@@ -261,14 +383,9 @@ function gatherFacts() {
   // take the benign early exit.
   const remoteTagsRaw = tryRun("git", ["ls-remote", "--tags", "origin"]);
   const tagsReadable = remoteTagsRaw !== null;
-  const remoteTags = remoteTagsRaw ?? "";
-  const anyTagsExist = /refs\/tags\/v\d/.test(remoteTags);
-  const tagExists = remoteTags.includes(`refs/tags/${expectedTag}`);
+  const tags = parseRemoteTags(remoteTagsRaw ?? "");
 
   const gh = tryRun("gh", ["--version"]) !== null;
-  const releaseExists = gh
-    ? tryRun("gh", ["release", "view", expectedTag, "--json", "tagName"]) !== null
-    : null;
 
   let pendingMergedPrs = null;
   if (gh) {
@@ -290,16 +407,15 @@ function gatherFacts() {
       pendingMergedPrs =
         prs === null
           ? null
-          : untaggedPending(prs, (version) => remoteTags.includes(`refs/tags/v${version}`));
+          : untaggedPending(prs, (version, component) => {
+              const line = lineForComponent(lines, component);
+              return line ? tags.has(`${line.tagPrefix}${version}`) : false;
+            });
     }
   }
 
-  // The paths release-please is configured to rewrite, read from the same file
-  // the action reads — so this check cannot drift from the config it guards.
-  const config = JSON.parse(readFileSync(join(REPO, "release-please-config.json"), "utf8"));
-  const extraFiles = (config.packages?.["."]?.["extra-files"] ?? []).map((f) => f.path);
-
-  let openReleasePr = null;
+  // Open release PRs — one per line when release-please opens them separately.
+  const openByLine = new Map();
   let openPrQueryFailed = false;
   if (gh) {
     const raw = tryRun("gh", [
@@ -310,44 +426,68 @@ function gatherFacts() {
       "--label",
       "autorelease: pending",
       "--json",
-      "number",
+      "number,title",
       "--limit",
-      "5",
+      "10",
     ]);
     // "The query failed" and "no PR is open" are different facts; the verdict
     // words its note differently for each.
     openPrQueryFailed = raw === null;
-    const prs = raw === null ? [] : safeJson(raw, []);
-    if (prs.length > 0) {
-      const number = prs[0].number;
+    for (const pr of raw === null ? [] : safeJson(raw, [])) {
+      const line = lineForComponent(lines, TITLE.exec(pr.title ?? "")?.[1] ?? null);
+      if (!line || openByLine.has(line.path)) continue;
       // `files` is a per-PR field, so it needs a second call.
-      const filesRaw = tryRun("gh", ["pr", "view", String(number), "--json", "files"]);
+      const filesRaw = tryRun("gh", ["pr", "view", String(pr.number), "--json", "files"]);
       const files = (safeJson(filesRaw ?? "", { files: [] }).files ?? []).map((f) => f.path);
-      openReleasePr = { number, files };
+      openByLine.set(line.path, { number: pr.number, files });
     }
   }
 
-  return {
-    expectedTag,
-    anyTagsExist,
-    tagExists,
-    releaseExists,
-    pendingMergedPrs,
-    extraFiles,
-    openReleasePr,
-    tagsReadable,
-    ghPresent: gh,
-    openPrQueryFailed,
-  };
+  return lines.map((line, i) => ({
+    line,
+    facts: lineFacts(line, {
+      tags,
+      tagsReadable,
+      ghPresent: gh,
+      releaseExists: gh
+        ? tryRun("gh", ["release", "view", line.expectedTag, "--json", "tagName"]) !== null
+        : null,
+      openReleasePr: openByLine.get(line.path) ?? null,
+      openPrQueryFailed,
+      // Merged-PR problems already name their line (the title carries it), so
+      // they are reported once, on the first line, not repeated per line.
+      pendingMergedPrs: i === 0 ? pendingMergedPrs : [],
+    }),
+  }));
 }
 
-if (process.argv[1] && import.meta.url === `file://${process.argv[1]}`) {
-  const facts = gatherFacts();
-  const { ok, problems, notes } = verdict(facts);
+/** argv[1] realpath'd: macOS's /var → /private/var symlink would otherwise make this false. */
+function isMain() {
+  try {
+    return (
+      process.argv[1] !== undefined &&
+      import.meta.url === pathToFileURL(realpathSync(process.argv[1])).href
+    );
+  } catch {
+    return false;
+  }
+}
 
-  process.stdout.write(`release check — baseline ${facts.expectedTag}\n`);
-  for (const note of notes) process.stdout.write(`  note: ${note}\n`);
-  for (const problem of problems) process.stdout.write(`\n  PROBLEM: ${problem}\n`);
+if (isMain()) {
+  const results = gatherFacts().map(({ line, facts }) => ({ line, facts, ...verdict(facts) }));
+  // No line at all is a check with nothing to check — red, never green.
+  const ok = results.length > 0 && results.every((r) => r.ok);
+
+  if (results.length === 0) {
+    process.stdout.write("release check — release-please-config.json declares no packages\n");
+  }
+  for (const { line, facts, problems, notes } of results) {
+    process.stdout.write(
+      `release check — ${line.path} (${line.component}) baseline ${facts.expectedTag}\n`,
+    );
+    for (const note of notes) process.stdout.write(`  note: ${note}\n`);
+    for (const problem of problems) process.stdout.write(`\n  PROBLEM: ${problem}\n`);
+  }
 
   // `--annotate` emits GitHub Actions `::error::` lines, which annotate the run
   // and surface in the job summary so a failure is legible without opening the
@@ -355,8 +495,10 @@ if (process.argv[1] && import.meta.url === `file://${process.argv[1]}`) {
   // decides — the workflow asks for annotations, a local `pnpm release:check`
   // gets plain prose, and nothing has to reach into the ambient environment.
   if (!ok && process.argv.includes("--annotate")) {
-    for (const problem of problems) {
-      process.stdout.write(`::error::${problem.replace(/\n/g, " ")}\n`);
+    for (const { line, problems } of results) {
+      for (const problem of problems) {
+        process.stdout.write(`::error::[${line.component}] ${problem.replace(/\n/g, " ")}\n`);
+      }
     }
   }
   if (ok) process.stdout.write("  ok\n");

@@ -17,6 +17,18 @@
       "args": [
         "mcp"
       ]
+    },
+    "tmux-control-mcp-dev": {
+      "command": "pnpm",
+      "args": [
+        "tsx",
+        "apps/tmux-control-mcp/scripts/mcp-dev-proxy.ts"
+      ],
+      "env": {
+        "MCP_DEV": "1",
+        "MCP_DEV_ENTRY": "apps/tmux-control-mcp/src/index.ts",
+        "MCP_DEV_WATCH_DIR": "apps/tmux-control-mcp/src"
+      }
     }
   }
 }

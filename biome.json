@@ -22,6 +22,7 @@
       "!apps/browser-tab-mcp/package.json",
       "!apps/chrome-extension/package.json",
       "!apps/chrome-extension/public/manifest.json",
+      "!apps/tmux-control-mcp/package.json",
       "!**/*.tsbuildinfo",
       "!.mcp.json",
       "!.cursor/mcp.json",

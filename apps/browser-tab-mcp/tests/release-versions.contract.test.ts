@@ -79,27 +79,52 @@ function allVersionFiles(): VersionFile[] {
     .filter((f) => typeof f.version === "string");
 }
 
-/** Paths release-please rewrites on every release. */
-function releasePleaseOwned(): { root: string; extras: string[] } {
-  const config = readJson("release-please-config.json");
-  const packages = config.packages as Record<string, { "extra-files"?: { path: string }[] }>;
-  const root = packages["."];
-  // A throw rather than an expect(): every caller dereferences `root`, so a
-  // missing release line has to stop this function, not just fail one assertion.
-  if (!root) throw new Error('release-please-config.json lost the root "." release line');
-  return {
-    // The `node` release-type rewrites the release line's own package.json.
-    root: "package.json",
-    extras: (root["extra-files"] ?? []).map((f) => f.path),
-  };
+interface ReleaseLine {
+  /** Package path in release-please-config.json ("." is the root line). */
+  path: string;
+  /** The version .release-please-manifest.json holds for it. */
+  version: string;
+  /** Every file this line rewrites: its own package.json plus its extra-files. */
+  files: string[];
 }
 
-const releasedVersion = (): string => readJson(".release-please-manifest.json")["."] as string;
+/**
+ * Every release line and the files it rewrites. ONE VERSION PER LINE, not per
+ * repo: since tmux-control got its own line (D4) the repo has two versions,
+ * and each file must hold the version of the line that owns it. Reading only
+ * "." — as this did until then — left the second line's files unchecked,
+ * including the Biome exclusion that keeps a release commit from turning
+ * `pnpm lint` red.
+ */
+function releaseLines(): ReleaseLine[] {
+  const config = readJson("release-please-config.json");
+  const packages = config.packages as Record<string, { "extra-files"?: { path: string }[] }>;
+  const manifest = readJson(".release-please-manifest.json") as Record<string, string>;
+  // A throw rather than an expect(): the browser-tab line carries the
+  // extension manifest the Chrome-grammar test reads.
+  if (!packages["."]) throw new Error('release-please-config.json lost the root "." release line');
+  return Object.entries(packages).map(([path, pkg]) => {
+    // The `node` release-type rewrites the line's own package.json; extra-file
+    // paths are relative to the package path.
+    const at = (rel: string) => (path === "." ? rel : `${path}/${rel}`);
+    return {
+      path,
+      version: manifest[path] ?? UNVERSIONED,
+      files: [at("package.json"), ...(pkg["extra-files"] ?? []).map((f) => at(f.path))],
+    };
+  });
+}
+
+const rootLine = (): ReleaseLine => releaseLines().find((l) => l.path === ".") as ReleaseLine;
+const ownedFiles = (): string[] => releaseLines().flatMap((l) => l.files);
 
 describe("release version coherence", () => {
+  it("reads more than one release line (canary on the line reader)", () => {
+    expect(releaseLines().map((l) => l.path)).toEqual([".", "apps/tmux-control-mcp"]);
+  });
+
   it("every file claiming a real version is one release-please rewrites", () => {
-    const { root, extras } = releasePleaseOwned();
-    const owned = new Set([root, ...extras]);
+    const owned = new Set(ownedFiles());
 
     const claiming = allVersionFiles().filter((f) => f.version !== UNVERSIONED);
     const unowned = claiming.filter((f) => !owned.has(f.path));
@@ -113,25 +138,23 @@ describe("release version coherence", () => {
     ).toEqual([]);
   });
 
-  it("every release-please-owned file already holds the released version", () => {
-    const { root, extras } = releasePleaseOwned();
-    const expected = releasedVersion();
-
-    const drifted = [root, ...extras]
-      .map((path) => ({ path, version: readJson(path).version as string }))
-      .filter((f) => f.version !== expected);
+  it("every release-please-owned file already holds its line's released version", () => {
+    const drifted = releaseLines().flatMap((line) =>
+      line.files
+        .map((path) => ({ path, version: readJson(path).version as string }))
+        .filter((f) => f.version !== line.version)
+        .map((f) => `${f.path} is ${f.version}, but its line "${line.path}" is at ${line.version}`),
+    );
 
     expect(
-      drifted.map((f) => `${f.path} is ${f.version}`),
-      `.release-please-manifest.json says ${expected}; these disagree. release-please ` +
-        "writes all of them in one commit, so drift means a file was added to " +
-        "extra-files without reconciling it, or edited by hand",
+      drifted,
+      "release-please writes a line's files in one commit, so drift means a file was " +
+        "added to extra-files without reconciling it, or edited by hand",
     ).toEqual([]);
   });
 
   it("declares every extra-file path that actually exists", () => {
-    const { extras } = releasePleaseOwned();
-    const missing = extras.filter((path) => {
+    const missing = ownedFiles().filter((path) => {
       try {
         readFileSync(join(REPO, path), "utf8");
         return false;
@@ -160,11 +183,10 @@ describe("release version coherence", () => {
     // content happens to round-trip unchanged: that is luck, not a property,
     // and it would break the same way the first time someone writes a
     // single-line array in it.
-    const { root, extras } = releasePleaseOwned();
     const biome = readJson("biome.json") as { files?: { includes?: string[] } };
     const includes = biome.files?.includes ?? [];
 
-    const notExcluded = [root, ...extras].filter((path) => !includes.includes(`!${path}`));
+    const notExcluded = ownedFiles().filter((path) => !includes.includes(`!${path}`));
     expect(
       notExcluded,
       "release-please re-serialises these files, so Biome must not also own their " +
@@ -178,7 +200,8 @@ describe("release version coherence", () => {
     // leading zeros, and no pre-release or build suffix. The manifest is now an
     // extra-file, so the day release-please cuts `1.2.0-rc.1` Chrome refuses to
     // load the extension at all. Fail here instead of in the browser.
-    const version = releasedVersion();
+    // The extension manifest is an extra-file of the browser-tab line.
+    const version = rootLine().version;
     const parts = version.split(".");
     expect(parts.length, `"${version}" must have 1-4 dot-separated parts`).toBeLessThanOrEqual(4);
     for (const part of parts) {
