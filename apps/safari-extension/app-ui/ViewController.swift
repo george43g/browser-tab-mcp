@@ -229,7 +229,11 @@ class ViewController: NSViewController, WKNavigationDelegate, WKScriptMessageHan
     /// (measured — see `scripts/rebuild.sh`), so a window opened by
     /// `sideload` is usually looking at a stale reading that fixes itself.
     /// A short backoff catches that without becoming a poller.
-    private static let retryBackoff: [TimeInterval] = [3, 8, 20]
+    /// The 60s tail is a guess, not a measurement: the one observed
+    /// SFErrorDomain-error-1 episode had cleared by the next reading 12
+    /// minutes later, so its real length is unknown. Still bounded — four
+    /// checks, then only focus or "Check Again" re-runs it.
+    private static let retryBackoff: [TimeInterval] = [3, 8, 20, 60]
     private var scheduledRetries: [DispatchWorkItem] = []
     private var pageIsReady = false
 
@@ -345,7 +349,12 @@ class ViewController: NSViewController, WKNavigationDelegate, WKScriptMessageHan
             guard let self else { return }
             self.render(report)
             switch report.state {
-            case .stale, .notConnected, .daemonUnreachable:
+            // `.extensionUnknown` retries too. Script.js itself calls it
+            // "normal for a few seconds after a rebuild", so it is the state
+            // MOST likely to fix itself — and it was the one state excluded,
+            // which left a sideload-time reading on screen until someone
+            // happened to focus the window (measured 2026-09-24).
+            case .stale, .notConnected, .daemonUnreachable, .extensionUnknown:
                 self.scheduleRetries()
             default:
                 break
@@ -379,12 +388,31 @@ class ViewController: NSViewController, WKNavigationDelegate, WKScriptMessageHan
             withIdentifier: extensionBundleIdentifier
         ) { state, error in
             guard let state, error == nil else {
-                DispatchQueue.main.async {
-                    completion(StatusReport(
-                        state: .extensionUnknown,
-                        bundledVersion: bundled,
-                        detail: error?.localizedDescription
-                            ?? "Safari did not report the extension's state."))
+                // Safari's answer is not the only witness. A DISABLED extension
+                // cannot open a socket to the daemon, so a Safari session in
+                // the daemon's `extensionInfo` proves the extension is on —
+                // whatever this API said. Measured 2026-09-24: this call
+                // answered SFErrorDomain error 1 at 07:49:33, during a
+                // sideload's re-registration, and the window froze on "didn't
+                // say" for 12 minutes; a fresh instance at 08:01:49 read the
+                // same API as enabled and the daemon as connected. Ask the
+                // daemon before giving up.
+                let reason = error?.localizedDescription
+                    ?? "Safari did not report the extension's state."
+                DispatchQueue.global(qos: .userInitiated).async {
+                    let fromDaemon = Self.reportFromDaemon(bundled: bundled)
+                    let report: StatusReport
+                    switch fromDaemon.state {
+                    case .healthy, .stale:
+                        report = fromDaemon
+                    default:
+                        report = StatusReport(
+                            state: .extensionUnknown,
+                            bundledVersion: bundled,
+                            daemonBuild: fromDaemon.daemonBuild,
+                            detail: reason)
+                    }
+                    DispatchQueue.main.async { completion(report) }
                 }
                 return
             }
