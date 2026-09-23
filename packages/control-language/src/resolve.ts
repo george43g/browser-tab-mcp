@@ -279,6 +279,17 @@ function evalNode<Ref>(ctx: Ctx<Ref>, s: Selector, path: string): Working<Ref> {
       const sibs = d.siblingsOf(a);
       const ia = indexIn(ctx, sibs, a);
       const ib = indexIn(ctx, sibs, b);
+      // A shared parent is necessary, not sufficient: two parentless anchors
+      // agree on `undefined`, and anchors of different kinds can share a parent
+      // while living in different runs. Both must fail typed, never index -1.
+      if (ia < 0 || ib < 0) {
+        fail(
+          "E_NO_COMMON_PARENT",
+          path,
+          "between anchors are not in one ordered sibling run",
+          "pick two anchors of the same kind inside one branch",
+        );
+      }
       const step = ia <= ib ? 1 : -1;
       const inclusive = s.inclusive ?? true;
       const lo = inclusive ? ia : ia + step;

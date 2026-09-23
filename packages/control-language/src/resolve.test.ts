@@ -168,6 +168,26 @@ describe("relative selectors", () => {
     }
   });
 
+  it("between anchors that agree on a parent but are not siblings fail with a typed error", () => {
+    // Two parentless anchors pass the common-parent check (undefined === undefined)
+    // while living in different ordered runs. This used to reach indexIn's -1 and
+    // throw a raw TypeError; a binding with orphaned entities hits exactly this.
+    const orphaned = {
+      ...d,
+      parentOf: (r: Parameters<typeof d.parentOf>[0]) => {
+        const k = d.stableKey(r);
+        return k === "t2" || k === "t7" ? undefined : d.parentOf(r);
+      },
+    };
+    try {
+      keysOf(resolveSelector({ kind: "between", anchors: [ids("t2"), ids("t7")] }, orphaned));
+      expect.unreachable();
+    } catch (e) {
+      expect(e).toBeInstanceOf(ControlLanguageError);
+      expect((e as ControlLanguageError).code).toBe("E_NO_COMMON_PARENT");
+    }
+  });
+
   it("siblings returns each member's full ordered sibling run", () => {
     expect(keys({ kind: "siblings", selector: ids("t7") })).toEqual(["t6", "t7", "t8"]);
   });

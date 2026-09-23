@@ -27,7 +27,10 @@ tmux) own the entities, and bind in through one interface.
 - **Relative and structural selectors**: `positions`, `offset`, `expand`,
   `between`, `siblings`, `sort` (stable; undefined last), `slice`,
   `withinEach` (per-branch evaluation — observably different from selecting
-  over the `flatten`ed combined sequence, spec §24.2).
+  over the `flatten`ed combined sequence, spec §24.2). `between` requires
+  both anchors in ONE ordered sibling run, not merely a matching parent: two
+  parentless anchors, or anchors of different kinds under one parent, fail
+  with `E_NO_COMMON_PARENT`.
 - **Typed predicates over a domain field catalog** (spec §7.5): the package
   owns the operators (`eq ne lt le gt ge contains prefix suffix glob regex
   in exists`, `and/or/not`); the domain declares the fields and their types,
