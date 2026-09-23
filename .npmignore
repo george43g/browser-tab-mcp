@@ -8,7 +8,6 @@ docs/
 .agents/
 .claude/
 .cursor/
-.cursorrules
 .releaserc.json
 biome.json
 vitest.config.ts

@@ -2056,6 +2056,15 @@ first run is also a safety read on the tool descriptions. Owner: George.
 
 ### B28. AGENTS.md line budget — George's call, with an agreed proposal
 
+> **REOPENED AND RE-DECIDED 2026-09-24 — George chose map-plus-docs,** reversing
+> the 2026-09-04 close below: Codex reads at most 32,768 bytes of project
+> instructions (`project_doc_max_bytes`), and a Codex session here on
+> 2026-09-21 saw nothing past "## Env layout" — no guardrails, no MCP rules.
+> `AGENTS.md` is now a router; every section moved verbatim to `docs/agents/`
+> (post-mortems moved, not deleted), and
+> `apps/browser-tab-mcp/tests/docs-integrity.contract.test.ts` now caps every
+> AGENTS.md chain at 32,768 bytes and checks no pre-split heading was lost.
+
 > **CLOSED 2026-09-04 — George approved the agreed wording** ("all items that
 > are simply waiting for a "yes go ahead" are approved"). Recorded at the top
 > of `AGENTS.md` as a dated decision blockquote, with the boundary the auditing

@@ -348,7 +348,7 @@ ln -s "$(pwd)/skills/browser-tab/SKILL.md" ~/.claude/skills/browser-tab/SKILL.md
 
 | File | What it covers |
 |---|---|
-| [`AGENTS.md`](AGENTS.md) | Canonical agent guide (also `CLAUDE.md`, `.cursorrules` as symlinks) |
+| [`AGENTS.md`](AGENTS.md) | Canonical agent guide: a router (`CLAUDE.md` is a symlink to it); the detail lives in [`docs/agents/`](docs/agents/README.md) |
 | [`docs/CONTROL-SURFACE.md`](docs/CONTROL-SURFACE.md) | The whole control surface on one page — six axes, the deliberate boundaries, and the named gaps |
 | [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) | How packages fit together; which to delete if you don't need a surface |
 | [`docs/RUST_ACCELERATION.md`](docs/RUST_ACCELERATION.md) | napi-rs build, `.node` binary handling, drift-check between Zod and serde |

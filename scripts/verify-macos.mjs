@@ -4,7 +4,7 @@
  *
  * WHY THIS EXISTS. `.github/workflows/ci.yml` DOES have a `macos-latest` leg
  * today — it is conditional on this repo being public, where GitHub-hosted
- * macOS runners cost nothing (see AGENTS.md § CI). This header used to say the
+ * macOS runners cost nothing (see docs/agents/ci-release.md § CI / Release). This header used to say the
  * opposite, flatly, and was wrong from the day the leg landed; corrected
  * 2026-08-24.
  *

@@ -91,7 +91,7 @@ If the tool can block the event loop, spawn subprocesses, hold network connectio
 ## 7. Documentation
 
 - Update the tool table in `apps/browser-tab-mcp/README.md` if there is one.
-- Update `AGENTS.md` if the tool needs special handling notes (auth, permissions, etc).
+- Add special handling notes (auth, permissions, etc) to the matching file in `docs/agents/` (usually `architecture.md`), not to the `AGENTS.md` router — it has a 32 KiB chain cap.
 - VHS tape: only update if the tool changes the user-facing CLI subcommand list.
 
 ## 8. Verify

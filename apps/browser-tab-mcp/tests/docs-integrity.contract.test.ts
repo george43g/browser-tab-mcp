@@ -9,12 +9,20 @@
  * floor under it (the harness-engineering skill's own required deliverable).
  *
  * Scope, deliberately: markdown LINK TARGETS in the entry-point docs,
- * backticked REPO-ROOTED FILE PATHS in AGENTS.md/skills.md (conservative
- * pattern — commands, globs and symbol names stay prose), and the
- * .agents/skills symlinks. Anything subtler needs a parser this test does
+ * backticked REPO-ROOTED FILE PATHS in AGENTS.md/skills.md/docs/agents/*.md
+ * (conservative pattern — commands, globs and symbol names stay prose), and
+ * the .agents/skills symlinks. Anything subtler needs a parser this test does
  * not want to become.
+ *
+ * 2026-09-24 (BACKLOG B28 reopened): AGENTS.md became a router under Codex's
+ * 32 KiB `project_doc_max_bytes` and its sections moved verbatim into
+ * docs/agents/. Every check that used to read AGENTS.md alone now reads the
+ * router PLUS those docs (AGENT_DOCS), or a moved section would silently lose
+ * the floor B28 relied on. Two checks were added for the split itself: the
+ * instruction-chain byte cap, and preservation of the old section headings.
  */
-import { existsSync, lstatSync, readdirSync, readFileSync, readlinkSync } from "node:fs";
+import { execFileSync } from "node:child_process";
+import { existsSync, lstatSync, readdirSync, readFileSync, readlinkSync, statSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
@@ -22,17 +30,72 @@ import { makeAppRegistry } from "../src/tools/registry.js";
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "../../..");
 
+/**
+ * Where the router's detail lives. Enumerated from disk, never hand-listed,
+ * so a new file here is covered by every check below the moment it exists.
+ */
+const AGENT_DOCS_DIR = "docs/agents";
+const AGENT_DOC_FILES = readdirSync(join(ROOT, AGENT_DOCS_DIR))
+  .filter((f) => f.endsWith(".md"))
+  .sort()
+  .map((f) => `${AGENT_DOCS_DIR}/${f}`);
+
+/** The router plus every doc it routes to — what used to be one AGENTS.md. */
+const AGENT_DOCS = ["AGENTS.md", ...AGENT_DOC_FILES];
+
 /** The docs whose links are load-bearing for agents entering the repo. */
 const ENTRY_DOCS = [
-  "AGENTS.md",
+  ...AGENT_DOCS,
   "skills.md",
   "docs/agent-handoff/README.md",
   "apps/chrome-extension/README.md",
   "packages/test-kit/README.md",
 ];
 
+function read(doc: string): string {
+  return readFileSync(join(ROOT, doc), "utf8");
+}
+
+/**
+ * Codex's default `project_doc_max_bytes` (openai/codex
+ * codex-rs/config/defaults.toml). Codex concatenates every AGENTS.md from the
+ * repo root down to the working directory and silently cuts at this many
+ * bytes — a Codex session here on 2026-09-21 never saw anything after
+ * "## Env layout", i.e. none of the guardrails.
+ */
+const CODEX_PROJECT_DOC_MAX_BYTES = 32_768;
+
+/**
+ * Every `## ` heading of AGENTS.md as it stood before the 2026-09-24 split
+ * (plus its one `### `). Each must still be a heading in the router or in a
+ * docs/agents file: dropping one by accident is how a rule disappears.
+ */
+const PRE_SPLIT_HEADINGS = [
+  "What This Repo Is",
+  "Stack",
+  "Workspace topology",
+  "Commands",
+  "Connector extension (Chrome + Safari)",
+  'Extension–daemon merge (why the extension "wins")',
+  "Env layout (Vite-style precedence)",
+  "MCP best practices enforced in this codebase",
+  "Self-healing watchdog",
+  "Process lifecycle",
+  "Logs",
+  "Stress harness",
+  "Post-step verification rule",
+  "Guardrails (interpretation/MCP)",
+  "Native Rust acceleration (optional)",
+  "Testing posture & taxonomy",
+  "Effect coverage — the ledger, and why it is not a table in this file",
+  "CI / Release",
+  "Cloud-agent (Cursor/Claude/Codex remote) specifics",
+  "Troubleshooting",
+  "MCP servers (project scope)",
+];
+
 function linkTargets(doc: string): Array<{ target: string; line: number }> {
-  const text = readFileSync(join(ROOT, doc), "utf8");
+  const text = read(doc);
   const out: Array<{ target: string; line: number }> = [];
   const lines = text.split("\n");
   for (const [i, line] of lines.entries()) {
@@ -55,7 +118,7 @@ function linkTargets(doc: string): Array<{ target: string; line: number }> {
  * glob prose stay out.
  */
 function backtickedPaths(doc: string): Array<{ target: string; line: number }> {
-  const text = readFileSync(join(ROOT, doc), "utf8");
+  const text = read(doc);
   const out: Array<{ target: string; line: number }> = [];
   const pattern =
     /`((?:docs|apps|packages|scripts|\.github|\.githooks|\.claude|\.agents)\/[A-Za-z0-9_./-]+\.[a-z0-9]+)`/g;
@@ -83,17 +146,18 @@ describe("docs integrity", () => {
     });
   }
 
-  it("AGENTS.md + skills.md: every backticked repo-rooted file path resolves", () => {
+  it("AGENTS.md + docs/agents + skills.md: every backticked repo-rooted file path resolves", () => {
     const dead: string[] = [];
     let considered = 0;
-    for (const doc of ["AGENTS.md", "skills.md"]) {
+    for (const doc of [...AGENT_DOCS, "skills.md"]) {
       for (const { target, line } of backtickedPaths(doc)) {
         considered += 1;
         if (!existsSync(resolve(ROOT, target))) dead.push(`${doc}:${line} → ${target}`);
       }
     }
-    // Anti-vacuity floor: AGENTS.md names dozens of paths; extracting almost
-    // none means the pattern broke, not that the docs went quiet.
+    // Anti-vacuity floor, over the UNION: the router names few paths by
+    // design, the docs it routes to name dozens; extracting almost none means
+    // the pattern broke, not that the docs went quiet.
     expect(considered, "path extractor found a real sample").toBeGreaterThan(10);
     expect(
       dead,
@@ -135,13 +199,18 @@ describe("docs integrity", () => {
     }
   });
 
-  it("the e2e test-count claims in AGENTS.md defer to run-guard, never a literal count", () => {
+  it("the e2e test-count claims in the agent docs defer to run-guard, never a literal count", () => {
     // Two hard-coded counts drifted ("3", then "60"); the enforced floor in
     // e2e/run-guard.ts is the number's only home. A regression here is
-    // someone writing "runs the N Playwright tests" again.
-    const text = readFileSync(join(ROOT, "AGENTS.md"), "utf8");
-    expect(text).not.toMatch(/runs the \d+ Playwright tests/);
-    expect(text).toMatch(/EXPECTED_MIN_TESTS/);
+    // someone writing "runs the N Playwright tests" again — in the router OR
+    // any doc it routes to (a negative match on AGENTS.md alone would pass
+    // vacuously now that the testing text lives in docs/agents/testing.md).
+    for (const doc of AGENT_DOCS) {
+      expect(read(doc), doc).not.toMatch(/runs the \d+ Playwright tests/);
+    }
+    // The pointer must live where the testing text now lives.
+    expect(read(`${AGENT_DOCS_DIR}/testing.md`)).toMatch(/EXPECTED_MIN_TESTS/);
+    expect(read(`${AGENT_DOCS_DIR}/ci-release.md`)).toMatch(/EXPECTED_MIN_TESTS/);
   });
 
   it("README.md's Tools table lists EVERY registered tool — no silent omissions", () => {
@@ -187,9 +256,76 @@ describe("docs integrity", () => {
     }
   });
 
-  it("AGENTS.md claims no enforcement it does not have for the stdout rule", () => {
+  it("the agent docs claim no enforcement they do not have for the stdout rule", () => {
     // "CI grep enforces this" stood for months with no such grep anywhere.
-    const text = readFileSync(join(ROOT, "AGENTS.md"), "utf8");
-    expect(text).not.toMatch(/CI grep enforces this\./);
+    // The rule's text now lives in docs/agents/mcp-rules.md; the router keeps
+    // a one-liner. Check both, and prove the moved text is really there so
+    // the negative match cannot pass on an empty file.
+    for (const doc of AGENT_DOCS) {
+      expect(read(doc), doc).not.toMatch(/CI grep enforces this\./);
+    }
+    expect(read(`${AGENT_DOCS_DIR}/mcp-rules.md`)).toMatch(/StdioServerTransport\.connect\(\)/);
+  });
+
+  it("every root-to-leaf AGENTS.md chain fits Codex's project_doc_max_bytes", () => {
+    // Idea from ~/repos/executive/scripts/check-harness.mjs (§ 4b), which
+    // checks root + one level of team/ dirs; generalised here to any depth.
+    // Enumerated with git, not a filesystem walk: agent worktrees nested
+    // inside the checkout carry their own AGENTS.md and must not be counted.
+    const tracked = execFileSync(
+      "git",
+      ["ls-files", "-z", "--", "*AGENTS.md", ":(glob)**/AGENTS.md"],
+      { cwd: ROOT, encoding: "utf8" },
+    )
+      .split("\0")
+      .filter((f) => f === "AGENTS.md" || f.endsWith("/AGENTS.md"));
+    const trackedSet = new Set(tracked);
+    expect(trackedSet.has("AGENTS.md"), "the root AGENTS.md is tracked").toBe(true);
+    const over: string[] = [];
+    for (const leaf of trackedSet) {
+      // Codex reads root → cwd: every tracked AGENTS.md in an ancestor dir.
+      const parts = leaf.split("/").slice(0, -1);
+      const chain: string[] = [];
+      for (let i = 0; i <= parts.length; i++) {
+        const candidate = [...parts.slice(0, i), "AGENTS.md"].join("/");
+        if (trackedSet.has(candidate)) chain.push(candidate);
+      }
+      const bytes = chain.reduce((sum, f) => sum + statSync(join(ROOT, f)).size, 0);
+      if (bytes > CODEX_PROJECT_DOC_MAX_BYTES) {
+        over.push(`${chain.join(" + ")} = ${bytes} B`);
+      }
+    }
+    expect(
+      over,
+      `instruction chain(s) over Codex's ${CODEX_PROJECT_DOC_MAX_BYTES}-byte project_doc_max_bytes — ` +
+        "Codex silently drops everything past the cap, safety rules included. Fix: move detail " +
+        "out of the AGENTS.md files into docs/agents/ and leave a routing line that names the " +
+        `task needing it (see docs/agents/README.md):\n  ${over.join("\n  ")}`,
+    ).toEqual([]);
+  });
+
+  it("every docs/agents file is routed to from AGENTS.md", () => {
+    // A moved section no agent is routed to is a deleted rule.
+    const router = read("AGENTS.md");
+    expect(AGENT_DOC_FILES.length, "docs/agents was read at all").toBeGreaterThan(5);
+    const unrouted = AGENT_DOC_FILES.filter((f) => !router.includes(`](${f}`));
+    expect(
+      unrouted,
+      "docs/agents file(s) with no link from AGENTS.md — add a routing line naming the task that needs it",
+    ).toEqual([]);
+  });
+
+  it("every pre-split AGENTS.md section heading still exists in the router or docs/agents", () => {
+    const headings = new Set<string>();
+    for (const doc of AGENT_DOCS) {
+      for (const m of read(doc).matchAll(/^#{1,6} (.+?)\s*$/gm)) headings.add(m[1] as string);
+    }
+    const lost = PRE_SPLIT_HEADINGS.filter((h) => !headings.has(h));
+    expect(
+      lost,
+      "section heading(s) from the pre-split AGENTS.md are gone — a section was dropped. " +
+        "Restore it in docs/agents/ (verbatim), or, if it was retired on purpose, remove it " +
+        "from PRE_SPLIT_HEADINGS in the same commit and say why",
+    ).toEqual([]);
   });
 });
