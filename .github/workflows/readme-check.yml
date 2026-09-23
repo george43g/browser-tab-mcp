@@ -1,5 +1,7 @@
-# README-update check — fails CI when src/** changes without a README
-# update. Bypass with [skip-readme] in commit message or PR title.
+# README-update check — fails CI when a workspace's src/** changes without
+# ITS README (the nearest one up-tree, else the root README; see
+# scripts/readme-check.mjs, BACKLOG B27). Bypass with [skip-readme] in the
+# commit message or PR title.
 #
 # Lifted from Gmail-MCP-Server's pattern.
 
@@ -49,17 +51,7 @@ jobs:
             echo "::error::git diff $DIFF_RANGE failed — the check cannot see what changed, so it cannot pass."
             exit 1
           fi
-          SRC_CHANGED=$(printf '%s\n' "$CHANGED" | grep -cE '^(apps|packages)/[^/]+/src/' || true)
-          if [ "$SRC_CHANGED" -eq 0 ]; then
-            echo "No source code changes — README check skipped."
-            exit 0
-          fi
-          README_CHANGED=$(printf '%s\n' "$CHANGED" | grep -cE '(^|/)README\.md$' || true)
-          if [ "$README_CHANGED" -eq 0 ]; then
-            echo "::error::Source code changed but no README.md was updated."
-            echo "Add a [skip-readme] tag to your commit/PR title if a docs update is genuinely not warranted."
-            exit 1
-          fi
+          printf '%s\n' "$CHANGED" | node scripts/readme-check.mjs
 
       - name: Push — verify README was updated alongside src
         if: github.event_name == 'push' && steps.skip.outputs.skip == 'false'
@@ -77,13 +69,4 @@ jobs:
             echo "::error::git diff $DIFF_RANGE failed — the check cannot see what changed, so it cannot pass."
             exit 1
           fi
-          SRC_CHANGED=$(printf '%s\n' "$CHANGED" | grep -cE '^(apps|packages)/[^/]+/src/' || true)
-          if [ "$SRC_CHANGED" -eq 0 ]; then
-            echo "No source code changes — README check skipped."
-            exit 0
-          fi
-          README_CHANGED=$(printf '%s\n' "$CHANGED" | grep -cE '(^|/)README\.md$' || true)
-          if [ "$README_CHANGED" -eq 0 ]; then
-            echo "::error::Source code changed but no README.md was updated."
-            exit 1
-          fi
+          printf '%s\n' "$CHANGED" | node scripts/readme-check.mjs

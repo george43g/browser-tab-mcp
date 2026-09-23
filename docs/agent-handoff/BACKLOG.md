@@ -2069,6 +2069,11 @@ George approves, rewords, or overrules toward shrink-to-map. Owner: George.
 
 ### B27. readme-check cannot demand the RELEVANT readme; adopt the check-registry convention
 
+> **Readme half DONE 2026-09-24** (tmux-control Phase 1): `scripts/readme-check.mjs`
+> requires the nearest README up-tree from each changed source file, falling back
+> to the root README; pinned by `apps/browser-tab-mcp/tests/readme-check.test.ts`.
+> The check-registry half below is still open.
+
 Filed 2026-09-03 from the harness-drift audit (dotfiles session, finding 6,
 verified): `readme-check.yml:57` counts ANY changed `README.md` — editing the
 ROOT readme satisfies a change under `packages/extension-core/src/`. The
