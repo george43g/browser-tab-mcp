@@ -14,7 +14,7 @@ Set Width 1200
 Set Height 800
 Set TypingSpeed 50ms
 
-Output ../../../../docs/screenshots/tui.gif
+Output ../../../../docs/screenshots/tmux-control-tui.gif
 
 Hide
 Type 'export HOME="$(mktemp -d)"'

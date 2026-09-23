@@ -19,7 +19,7 @@ Set Width 1200
 Set Height 800
 Set TypingSpeed 50ms
 
-Output ../../../../docs/screenshots/overview.gif
+Output ../../../../docs/screenshots/tmux-control-overview.gif
 
 # Hidden setup, kept out of the captured frames.
 #

@@ -21,7 +21,7 @@
   "scripts": {
     "build": "pnpm build:ts && pnpm build:native:optional",
     "build:ts": "vite build",
-    "build:native:optional": "(pnpm --filter @george43g/rust-accel build 2>/dev/null) || (echo '⚠️  Rust native build skipped (rustc not installed or rust-accel missing). TS fallback will be used.' && exit 0)",
+    "build:native:optional": "node scripts/build-native-optional.mjs",
     "dev": "vite build --watch",
     "dev:mcp": "tsx --env-file-if-exists=.env --env-file-if-exists=.env.local src/cli.ts mcp",
     "dev:cli": "tsx --env-file-if-exists=.env --env-file-if-exists=.env.local src/cli.ts",
