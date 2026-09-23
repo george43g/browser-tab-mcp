@@ -19,6 +19,20 @@
       "type": "local",
       "command": ["mise", "mcp"],
       "enabled": true
+    },
+    "tmux-control-mcp-dev": {
+      "type": "local",
+      "command": [
+        "pnpm",
+        "tsx",
+        "apps/tmux-control-mcp/scripts/mcp-dev-proxy.ts"
+      ],
+      "enabled": true,
+      "environment": {
+        "MCP_DEV": "1",
+        "MCP_DEV_ENTRY": "apps/tmux-control-mcp/src/index.ts",
+        "MCP_DEV_WATCH_DIR": "apps/tmux-control-mcp/src"
+      }
     }
   }
 }
