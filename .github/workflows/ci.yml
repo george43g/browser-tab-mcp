@@ -89,7 +89,16 @@ jobs:
         run: pnpm build
 
       - name: Test (default — native path when built)
+        if: runner.os != 'Windows'
         run: pnpm test
+
+      # tmux has no native Windows build, so tmux-control is a POSIX-only
+      # application: on Windows it must BUILD (the workspace build above), but
+      # its tests exercise a platform it does not support. Excluded by name,
+      # here, where a reader can see it — not skipped silently inside the app.
+      - name: Test (default — Windows; tmux-control is POSIX-only)
+        if: runner.os == 'Windows'
+        run: pnpm test --filter=!@george43g/tmux-control-mcp
 
       - name: Test (TS fallback path)
         # Only meaningful where a native module actually exists to disable;
