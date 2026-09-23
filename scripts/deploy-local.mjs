@@ -154,7 +154,22 @@ if (/not loaded|not registered|no service integration/.test(String(before.launch
   process.exit(0);
 }
 
-// 3. Build (the pnpm script, never bare turbo — BUILD_STAMP is part of the
+// 3. Install, then build. A merge that adds a workspace package or moves the
+// lockfile leaves node_modules behind it — #199 added packages/build-config
+// and the build failed on its import. `--frozen-lockfile` never rewrites the
+// lockfile and is a no-op when nothing moved (measured 437ms).
+say(`installing on ${branch}…`);
+const install = spawnSync("pnpm", ["install", "--frozen-lockfile"], {
+  cwd: repoRoot,
+  stdio: "inherit",
+  shell: true,
+});
+if (install.status !== 0) {
+  say(`FAILED: pnpm install --frozen-lockfile exited ${install.status}.`);
+  process.exit(install.status ?? 1);
+}
+
+// Build (the pnpm script, never bare turbo — BUILD_STAMP is part of the
 // cache key and the build line depends on it).
 say(`building on ${branch}…`);
 const build = spawnSync("pnpm", ["build"], { cwd: repoRoot, stdio: "inherit", shell: true });

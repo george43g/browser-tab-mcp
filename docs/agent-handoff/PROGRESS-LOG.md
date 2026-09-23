@@ -3859,3 +3859,101 @@ George, 2026-09-07: *"dont stress about things popping up, I dont mind, I was mo
 
 ### Tree
 `browser-tab-mcp`, branch `docs/b34-closed-checkpoint-25` off `main@9955a50`; only this file and `BACKLOG.md` dirty; mine.
+
+## Checkpoint #26 — 2026-09-23 — v1.14.0 shipped; tmux-control planned and corrected three times; B36 filed
+
+Where this file and a context summary disagree, this file is correct.
+
+### State
+Nothing is under construction. Main is `e6820aa` (v1.14.0) and the whole fleet — daemon, chrome, safari — runs `1.14.0+192.e6820aa`. Two docs-only PRs are open: **#194** (the tmux-control plan) and **#195** (backlog row B36). Every question this session put to George has been answered except his review of #194, which blocks all tmux work.
+
+### Constraints
+Verbatim, dated, and already promoted into the plan (§1, §1a, §5, §11) — that plan is the brief for this workstream.
+- George, 2026-09-21, correcting the plan's premise: *"The reason for adding tmux to this monorepo is to develop and test a reusable foundation for deeper application control."* and *"We centralize the core logic."*
+- George, 2026-09-22, on what the tool is: *"this software tool is a thin wrapper around tmux to make it \*EASIER\* for agents … the API surface should somewhat mirror tmux own api surface"*; and on lifecycle: *"what happens with the window or pane or command after the agent sends the keypresses … should also be up to the agent in that situation it will decide for itself."*
+- George, 2026-09-22, on scope: *"it might be too soon to start building the kitty integration layer, but this is a sort of 'user story' that builds a picture for you."*
+- George, 2026-09-22, on the review brief: keep unrelated work parked — instruction conventions, screenshot sharing, deploy-verdict wording, phase-5 zoom.
+
+### Done
+- **v1.14.0 released, fleet aligned** — `e6820aa`; tag and GitHub release verified, not just a green workflow. The post-merge deploy was **B34's first live run with Safari connected**: it found Safari stale, ran one sideload, re-verified, exit 0.
+- **#190 (B34) and #191 (Safari status window) merged**; checkpoint #25 merged as `0a50f28`.
+- **tmux-control plan**, four commits on `docs/tmux-control-plan` (PR #194): `a9d1bd4` first draft · `d9038cf` premise corrected to structural reuse · `720b48d` George's six decisions + the thin tmux-mirroring surface · `fc8b451` the north-star scenario.
+- **B36 filed** — PR #195 on `docs/b36-apply-timeout`.
+- **Chrome tabs consolidated** on request: verified at the time as one window of 25 tabs (see Corrections for the reading now).
+- **Delegated work, and what survived verification.** Three researchers and two forks ran. I re-verified the load-bearing claim myself: `control-language` dedupes by `stableKey` (`resolve.ts:80-89`) and `occurrenceId`/`projectionId` are written once and read nowhere — so its occurrence model is declared and contradicted. **Not re-verified, carried as the researcher reported it:** the monorepo audit's list of single-app guards (line-by-line), and the tmuxinator/sesh requirement table (their sources were read by the researcher, not by me).
+
+### Open
+- `tmux-control-plan-review` · browser-tab-mcp — PR #194 open and unmerged (`gh pr list`, 2026-09-23). Blocks every tmux phase.
+- `b36-apply-timeout-fix` · browser-tab-mcp — not started: `apps/browser-tab-mcp/src/client/daemon-client.ts:17` still `REQUEST_TIMEOUT_MS = 15_000` while `apps/browser-tab-mcp/src/tools/apply-tab-layout.ts:87` declares `timeoutMs: 30_000`.
+- `deploy-verdict-wording` · browser-tab-mcp — not started: `scripts/deploy-local.mjs:355` still attaches "expected for Safari, which only moves on a sideload" to a **Chrome** note.
+- `phase-5-zoom` · browser-tab-mcp — never attempted; no `zoom` in `apps/browser-tab-mcp/src` or `packages/shared-types/src`.
+- `phases-6-11` · browser-tab-mcp — approved 2026-09-05, not started; roadmap plan still LIVE.
+- `instruction-conventions-vs-b28` · George — `.cursorrules` is still a symlink to AGENTS.md, which is 66,383 B against dotfiles' stated 32,768 B cap.
+- `sideload-branch-guard` · unclaimed — carried from #25, **not re-measured since 2026-09-20**.
+
+### Corrections
+- **"Layouts never here" is withdrawn.** tmuxinator and sesh are bootstrappers and pickers; by their own source none rearranges, previews, reconciles or verifies a live session. The original exclusion was right for bootstrap, wrong as reasoning ("installed" is not "fits").
+- **"A tmux test failure cannot block a browser release" was wrong about the mechanism.** `main` has no branch protection and release PRs run no checks, so releases are gated by convention. D4 now chooses separate release lines.
+- **The fork's "nothing was logged" is false.** `browser-tab operations --json` lists the applies (`apply_tab_layout`, success, plan `324c1fb8`).
+- **My first `-f ignore-size` measurement was inconclusive**, not negative: no second client meant no control. Re-run with a full-size client present, the flag held the shared window at 200×50.
+- **Chrome now shows one window with ONE tab** (extension-authoritative, `dataSource: extension`). The 25-tab reading was correct when taken; the tabs were closed afterwards, not by this session.
+
+### Traps
+- A `pnpm --filter <pattern>` that matches nothing **exits 0**, so a CI gate selecting no app passes rather than failing. Measured by mcp-starter-template; its fix shipped there as `52a5386`.
+- Sending a command with `send-keys`, with or without `-l`, is corrupted by zsh-autopair. Only a bracketed paste (`load-buffer` + `paste-buffer -p`) survives. Keystrokes are not a safe way to deliver a command.
+- A backlog row anchored on a heading that exists only in an **unmerged branch** fails as an empty commit plus a PR with no commits — silent until `gh pr create` refuses.
+- `browser-tab list --json` is `{version,generatedAt,source,browsers,…}` and its window rows carry `tabCount` with no tab array in the default projection. Read the shape before counting anything.
+
+### Tree
+`browser-tab-mcp` on `main`, level with origin at `e6820aa`. **This file's edit is uncommitted, on main, in a tree other sessions share** — it can be swept into another session's `git add -A`, or lost to a stash or reset. Branches `docs/tmux-control-plan` and `docs/b36-apply-timeout` are level with their remotes. Note: this repo keeps numbered, append-only checkpoints in this file, so #26 follows the repo rather than the precompact tool's rotate-and-archive format.
+
+### Blocked on you
+- `tmux-control-plan-review` — PR #194. The two parts that need George: **§1a**, his north-star scenario as I recorded it, and **D7 in §11** — yabai *mechanism* in this monorepo, *policy* staying in wm-stack.
+- `instruction-conventions-vs-b28` — the 32,768 B cap against his B28 decision that AGENTS.md is long deliberately.
+
+### Elsewhere
+- `mcp-starter-template` — recommends making the forced `-mcp` suffix optional and will not change it without George; shipped `52a5386`, the app-selection fix Phase 1 adopts instead of writing its own.
+- `dotfiles` — `tmux-sendkeys-autopair` now waits on g-agent-skills to update `use-tmux-terminals` to paste rather than type.
+
+### Resume
+Wait for George on PR #194; nothing tmux-shaped starts before that. When he approves, **Phase 0 is the scaffold experiment in a throwaway worktree** — `mcp-scaffold add-mcp-app` has no dry-run, runs with `force: true`, and appends to `.mcp.json`, which mcpsync owns; nothing from that worktree merges. If he defers, the next unblocked item is `b36-apply-timeout-fix`. Nothing is mid-flight: no background task, no staged work, no half-applied edit.
+
+## Checkpoint #27 — 2026-09-24 — tmux-control approved; Phase 0, M1 and Phase 1 merged
+
+Where this file and a conversation summary disagree, this file is correct.
+
+### State
+tmux-control is in the monorepo as a second MCP app (#199, `c80a625`), with its own release line and CI job. The shared-core release gap (D9) is decided but not yet built. `AGENTS.md` split is designed and not started.
+
+### Constraints
+- George, 2026-09-24, D7: *"we want to control everything \*inside\* the kitty window"*. Placement is wm-stack's; this monorepo never calls yabai.
+- George, 2026-09-24: Gate B passes with 5 lifts (D8). A shared-core fix must reach tmux-control's version: measure a linked fix, then apply (D9).
+- George, 2026-09-24: split `AGENTS.md` into a map plus `docs/`, organised with g-agent-skills and the executive.
+
+### Done
+- #194 plan merged with D7 (`f4b1c20`). Phase 0 measured: 3 new, upstream-fixed (starter-template `d188b28`, `#128`).
+- #196 M1 conformance suite (`ae2f469`); #197 `between` typed error (`96b127c`); #195 B36 filed and B35 updated (`27cbc1e`).
+- #199 Phase 1 (`c80a625`): green on every leg, including Windows after four Windows-only fixes (native-build script, screenshots cwd, pnpm spawn via shell, path regexes). tmux-control's tests are excluded on Windows by name in `ci.yml`, because tmux is POSIX-only.
+
+### Open
+- `agents-md-split` · browser-tab-mcp — designed (router under 32 KiB, guardrails inline, per-task routing lines, docs-integrity extended, chain-byte check generalised from `executive/scripts/check-harness.mjs`); not started.
+- `shared-core-release-link` · browser-tab-mcp — D9; nothing built. `docs/RELEASE.md` records the gap.
+- `mcpsync-regen` · browser-tab-mcp — `opencode.json` lacks `tmux-control-mcp-dev`; `mcpsync sync --scope project` not yet run.
+- `b36-apply-timeout-fix` · browser-tab-mcp — unblocked, not started.
+- `deploy-verdict-wording` · browser-tab-mcp — `deploy-local.mjs` Chrome note still carries Safari's explanation; not started.
+- `phase-5-zoom`, `phases-6-11` · browser-tab-mcp — carried from #26.
+
+### Corrections
+- "The first two Gate A items are already fixed upstream" was ambiguous: it meant build-config and the Biome layout, not the three generated-app defects. Clarified to mcp-starter-template, who then fixed all five (#128).
+- Phase 1's report said the POSIX native-build one-liner "falls through to exit 0" on Windows. It fails the build (`. was unexpected at this time.`).
+- g-agent-skills said no chain-byte check ships; executive's does (`141eb48`). That one sums the root plus `team/*`, not `git ls-files`.
+
+### Traps
+- A merge that adds a workspace package broke the post-merge deploy (`ERR_MODULE_NOT_FOUND @george43g/build-config`). Fixed in this PR: `deploy-local.mjs` installs with `--frozen-lockfile` before building.
+- The scaffolder's `--target` defaults to cwd, and the harness resets cwd to the primary checkout. Always pass `--target`.
+
+### Tree
+`browser-tab-mcp` `main` at `c80a625` plus this PR's branch `fix/deploy-installs-first`. Checkpoint #26 was carried here from main's uncommitted edit.
+
+### Resume
+Merge this PR, then run `mcpsync sync --scope project` and start `agents-md-split`. Phase 2 of the tmux plan (the skeleton plus M2) follows. M1 is already merged.

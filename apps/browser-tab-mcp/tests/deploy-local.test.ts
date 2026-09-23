@@ -201,6 +201,11 @@ describe("deploy-local", () => {
     expect(run.stdout).toMatch(/ok — daemon 1\.0\.0\+2\.abc1234/);
     expect(run.stdout).toMatch(/reloaded and reconnected/);
     expect(readFileSync(join(w.dir, "pnpm-ran"), "utf8")).toBe("build");
+    // Install BEFORE build: a merge that adds a workspace package (#199 added
+    // packages/build-config) left it unlinked, and the deploy's build failed
+    // on the import. The frozen lockfile makes it a no-op when nothing moved.
+    const calls = readFileSync(join(w.dir, "pnpm-calls"), "utf8").trim().split("\n");
+    expect(calls.slice(0, 2)).toEqual(["install --frozen-lockfile", "build"]);
     const state = JSON.parse(readFileSync(w.stateFile, "utf8"));
     expect(state.reloads).toEqual([
       expect.stringContaining("--browser chrome"),

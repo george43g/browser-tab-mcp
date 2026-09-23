@@ -68,7 +68,7 @@ respawn on launchd's 10s default and add load to the machine that caused it.
 Re-run `daemon install` after upgrading to pick up changes to the service
 definition.
 
-After pulling new code, `pnpm deploy:local` puts it live in one step: build →
+After pulling new code, `pnpm deploy:local` puts it live in one step: install (frozen lockfile) → build →
 `daemon restart` → `reload-extension` for every connected browser → verify the
 daemon's build line actually carries the current commit (a daemon restarted
 from a stale build reports healthy while running old code — the verification
