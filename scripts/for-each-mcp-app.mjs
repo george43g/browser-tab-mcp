@@ -43,6 +43,10 @@ for (const app of apps) {
   const run = spawnSync("pnpm", ["--filter", app.name, ...args], {
     cwd: REPO_ROOT,
     stdio: "inherit",
+    // On Windows `pnpm` is `pnpm.cmd`, which spawn cannot resolve without a
+    // shell (ENOENT; measured on windows-latest, browser-tab-mcp #199). The
+    // arguments are package names and script names, never user input.
+    shell: process.platform === "win32",
   });
   if (run.error) {
     failed.push(`${app.name}: could not spawn pnpm (${run.error.code ?? run.error.message})`);
