@@ -25,6 +25,7 @@ export const healthCheckTool: ToolDefinition<
   input: HealthCheckInputSchema,
   output: HealthSnapshotSchema,
   annotations: {
+    title: "Health check",
     readOnlyHint: true,
     destructiveHint: false,
     idempotentHint: true,

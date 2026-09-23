@@ -19,6 +19,17 @@ pnpm stress          # 15-assertion robustness harness
 | `tmux-control-cli` | Commander CLI: `mcp`, `http`, `tui`, `doctor`, `health`, `noop`, `cli` (REPL) | n/a (in-process dispatch) |
 | `tmux-control-tui` | Ink TUI | n/a |
 
+## Tools
+
+Every tool the registry exposes. `tests/docs-integrity.contract.test.ts` fails
+if this table and `src/tools/registry.ts` disagree.
+
+| Tool | CLI | What it does |
+|------|-----|--------------|
+| `health_check` | `health` | Server health snapshot; answers without external I/O |
+| `noop` | `noop --input <text>` | Scaffold demo: echoes its input |
+| `get_logs` | none yet | Recent log lines; dev-only (`MCP_DEV=1`), refused otherwise |
+
 ## Adding a tool
 
 1. Copy `src/tools/noop.ts` to `src/tools/<your-tool>.ts`.

@@ -49,7 +49,12 @@ async function printResult(result: Awaited<ReturnType<typeof callMcpTool>>, json
   if (result.isError) process.exit(1);
 }
 
-export async function main(argv: readonly string[] = process.argv): Promise<void> {
+/**
+ * The whole command tree, without parsing anything. Exported so tests can
+ * INSPECT the surface (MCP↔CLI parity, the surface-coverage ledger) instead of
+ * grepping this file. Registration only — no action runs until `parseAsync`.
+ */
+export function buildProgram(): Command {
   const program = new Command();
   // Bin name = the tool name (no -cli suffix). Subcommands route to MCP/TUI/etc.
   program
@@ -156,7 +161,11 @@ export async function main(argv: readonly string[] = process.argv): Promise<void
       });
     });
 
-  await program.parseAsync(argv as string[]);
+  return program;
+}
+
+export async function main(argv: readonly string[] = process.argv): Promise<void> {
+  await buildProgram().parseAsync(argv as string[]);
 }
 
 /**

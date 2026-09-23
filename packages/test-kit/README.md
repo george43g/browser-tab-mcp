@@ -6,7 +6,7 @@ import, so it never joins the `^build` critical path.
 
 ## What lives here
 
-Exactly two kinds of exports, nothing else:
+Exactly three kinds of exports, nothing else:
 
 1. **`make*` factories** — pure builders over `@george43g/shared-types` types,
    each taking a shallow `Partial<T>` override and nesting via composition
@@ -44,11 +44,22 @@ Exactly two kinds of exports, nothing else:
    - `fakes/websocket.ts` (the `./node` subpath) — `installNodeWebSocket()`:
      `globalThis.WebSocket = ws.WebSocket`.
 
+3. **App contract checkers** (the `./contracts` subpath) — pure functions
+   every MCP app runs against its own registry and commander tree:
+   `ledgerProblems` (the surface-coverage ledger, scoped by `app`),
+   `parityProblems`, `annotationProblems`, `readmeToolTableProblems`, plus
+   the `cliCommandNames` / `cliOnlySurfaces` walkers. Each returns a list of
+   problems (empty = holds); the caller asserts it is empty. Shared because
+   `browser-tab-mcp` and `tmux-control-mcp` both run them, and
+   `apps/browser-tab-mcp/tests/app-admission.contract.test.ts` requires every
+   MCP app to.
+
 ## Import surface
 
 ```ts
 import { makeSnapshot, installFakeChrome } from "@george43g/test-kit";
 import { installNodeWebSocket } from "@george43g/test-kit/node"; // pulls `ws`
+import { ledgerProblems } from "@george43g/test-kit/contracts"; // node:fs only
 ```
 
 The main barrel (`.`) has **zero runtime dependencies**; only the `./node`
@@ -57,8 +68,8 @@ subpath pulls `ws` (an optional peer). A package importing only factories +
 
 ## Keep it lean (rules)
 
-- **Only the two export kinds above.** No assertions, no snapshots of real
-  data, no domain logic — that belongs in the test that needs it.
+- **Only the three export kinds above.** No vitest assertions, no snapshots of
+  real data, no domain logic — that belongs in the test that needs it.
 - **No app imports, ever.** test-kit depends only on `@george43g/shared-types`
   (type-only) and `ws` (peer, `./node` only). Importing `extension-core` or
   `browser-tab-mcp` would create a cycle — those packages are test-kit's

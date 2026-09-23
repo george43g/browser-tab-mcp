@@ -20,37 +20,30 @@
 import { existsSync, readFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { type Ledger, ledgerProblems } from "@george43g/test-kit/contracts";
 import { describe, expect, it } from "vitest";
 import { makeAppRegistry } from "../src/tools/registry.js";
-import { cliFormOf, cliOnlySurfaces } from "./helpers/cli-surface.js";
+import { cliOnlySurfaces } from "./helpers/cli-surface.js";
 
 const REPO_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..", "..", "..");
 const LEDGER_PATH = resolve(REPO_ROOT, "docs/surfaces/effect-coverage.json");
 
-interface CoverageEntry {
-  tier: string;
-  covers: string;
-  evidence: string;
-}
-interface SurfaceRow {
-  surface: string;
-  kind: "tool" | "cli";
-  coverage: CoverageEntry[];
-}
-interface Ledger {
-  tiers: Record<string, string>;
-  surfaces: SurfaceRow[];
-}
+/**
+ * This app's rows only. The ledger holds every MCP app's surfaces, and several
+ * names repeat across apps (health_check, get_logs, mcp, tui…) — read
+ * unscoped, another app's row would keep a deleted browser-tab surface
+ * "covered". Measured when tmux-control's rows landed: the unscoped gap/orphan
+ * check still passed; only the duplicate check went red.
+ */
+const APP = "browser-tab-mcp";
 
-const ledger = JSON.parse(readFileSync(LEDGER_PATH, "utf8")) as Ledger;
+const fullLedger = JSON.parse(readFileSync(LEDGER_PATH, "utf8")) as Ledger;
+const ledger: Ledger = {
+  ...fullLedger,
+  surfaces: fullLedger.surfaces.filter((s) => s.app === APP),
+};
 const toolNames = makeAppRegistry().tools.map((t) => t.name);
 const cliOnly = [...cliOnlySurfaces(toolNames)];
-
-/** surface name → the kind the enumeration says it is. */
-const enumerated = new Map<string, "tool" | "cli">([
-  ...toolNames.map((n) => [n, "tool"] as const),
-  ...cliOnly.map((n) => [n, "cli"] as const),
-]);
 
 describe("surface-coverage ledger", () => {
   it("enumerates a plausible number of surfaces (canary on both readers)", () => {
@@ -59,97 +52,18 @@ describe("surface-coverage ledger", () => {
     // now shipped five times in other shapes.
     expect(toolNames.length, "registry returned no tools").toBeGreaterThan(10);
     expect(cliOnly.length, "commander returned no CLI-only commands").toBeGreaterThan(5);
+    expect(ledger.surfaces.length, `no ledger rows carry "app": "${APP}"`).toBeGreaterThan(10);
   });
 
-  it("covers exactly the surfaces that exist", () => {
-    const listed = ledger.surfaces.map((s) => s.surface);
-    const missing = [...enumerated.keys()].filter((s) => !listed.includes(s));
-    const orphaned = listed.filter((s) => !enumerated.has(s));
-
-    expect(
-      missing,
-      `surface(s) with no ledger row: ${missing.join(", ")}. Add each to ` +
-        `docs/surfaces/effect-coverage.json with the tier that will prove its EFFECT ` +
-        `and evidence "pending" until something does. A surface with no row is a ` +
-        `coverage claim nobody made.`,
-    ).toEqual([]);
-    expect(
-      orphaned,
-      `ledger names surface(s) that no longer exist: ${orphaned.join(", ")}. A stale ` +
-        `row makes the table look longer than the bin is.`,
-    ).toEqual([]);
-  });
-
-  it("has no duplicate rows", () => {
-    const listed = ledger.surfaces.map((s) => s.surface);
-    expect(listed.length, `duplicate surface rows: ${listed.join(", ")}`).toBe(
-      new Set(listed).size,
+  it("covers exactly the surfaces that exist, each with a declared tier and stated evidence", () => {
+    // Gaps, orphans, duplicates, kind, tier, `covers`, `evidence`, and that a
+    // non-pending evidence path exists — shared with every other MCP app via
+    // @george43g/test-kit/contracts. A surface with no row is a coverage claim
+    // nobody made; add it with the tier that will prove its EFFECT and
+    // evidence "pending" until something does.
+    expect(ledgerProblems({ ledger, app: APP, toolNames, cliOnly, repoRoot: REPO_ROOT })).toEqual(
+      [],
     );
-  });
-
-  it("agrees with the enumeration about what kind each surface is", () => {
-    for (const row of ledger.surfaces) {
-      const kind = enumerated.get(row.surface);
-      if (!kind) continue; // already reported by the gap/orphan test
-      expect(row.kind, `"${row.surface}" is a ${kind} surface, ledger says "${row.kind}"`).toBe(
-        kind,
-      );
-    }
-  });
-
-  it("gives every surface at least one pathway, on a declared tier, with stated evidence", () => {
-    const tiers = new Set(Object.keys(ledger.tiers));
-    expect(tiers.size, "the tiers block is empty").toBeGreaterThan(0);
-
-    for (const row of ledger.surfaces) {
-      expect(
-        row.coverage.length,
-        `"${row.surface}" has no coverage entry. Every surface has at least one ` +
-          `pathway; if nothing will ever prove it, say so in \`covers\` and leave ` +
-          `\`evidence\` pending rather than omitting the row.`,
-      ).toBeGreaterThan(0);
-
-      const seen = new Set<string>();
-      for (const c of row.coverage) {
-        expect(
-          tiers.has(c.tier),
-          `"${row.surface}" claims unknown tier "${c.tier}" (known: ${[...tiers].join(", ")})`,
-        ).toBe(true);
-        expect(
-          seen.has(c.tier),
-          `"${row.surface}" has two "${c.tier}" entries — merge them, or the second ` +
-            `one silently never gets read.`,
-        ).toBe(false);
-        seen.add(c.tier);
-        // `covers` is what keeps a row from meaning "done" when it means "done
-        // through one pathway". An empty one is a row that says nothing.
-        expect(
-          c.covers.trim().length,
-          `"${row.surface}" (${c.tier}) has empty \`covers\``,
-        ).toBeGreaterThan(0);
-        expect(
-          c.evidence.trim().length,
-          `"${row.surface}" (${c.tier}) has empty \`evidence\` — use "pending", which ` +
-            `claims nothing, rather than an empty string, which looks like a claim.`,
-        ).toBeGreaterThan(0);
-      }
-    }
-  });
-
-  it("points every non-pending evidence path at a file that exists", () => {
-    // The cheap half of anti-vacuity: a claim naming a deleted file is caught
-    // here in seconds. The expensive half — that the named test actually RAN
-    // and PASSED for this surface — is e2e/run-guard.ts's job.
-    for (const row of ledger.surfaces) {
-      for (const c of row.coverage) {
-        if (c.evidence === "pending") continue;
-        const p = resolve(REPO_ROOT, c.evidence.split(":")[0] ?? "");
-        expect(
-          existsSync(p),
-          `"${row.surface}" (${c.tier}) cites "${c.evidence}", which does not exist.`,
-        ).toBe(true);
-      }
-    }
   });
 
   it("backs every macos-local claim with a PASSING row in the sweep report", () => {

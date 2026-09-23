@@ -202,6 +202,9 @@ importers:
       '@george43g/build-config':
         specifier: workspace:*
         version: link:../../packages/build-config
+      '@george43g/test-kit':
+        specifier: workspace:*
+        version: link:../../packages/test-kit
       '@george43g/tsconfig':
         specifier: workspace:*
         version: link:../../packages/tsconfig
