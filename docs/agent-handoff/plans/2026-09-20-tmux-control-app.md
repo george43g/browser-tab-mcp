@@ -1,6 +1,10 @@
 # tmux-control — the second application, and the reuse it has to prove
 
-> **STATUS 2026-09-22 — PROPOSED; all six decisions answered by George.** Two
+> **STATUS 2026-09-24 — APPROVED by George; Phase 0 may start.** D7 is
+> answered: window placement is wm-stack's, and this monorepo stops at the OS
+> window boundary (§11). Phase 8 is withdrawn.
+>
+> *Earlier status, kept for the record —* **2026-09-22 — PROPOSED; all six decisions answered by George.** Two
 > corrections so far: the 2026-09-21 revision replaced the first draft's premise
 > (the test is structural reuse, not a second scaffold), and George's D5 answer
 > replaced the managed command runner with a thin layer that mirrors tmux, with
@@ -81,8 +85,8 @@ Drilled through the layers it touches:
 | Layer | What the story needs | What exists or was measured | Where it lives | When |
 |---|---|---|---|---|
 | Voice, phone, agents | an intent spoken to one agent and finished later by another | the chief-of-staff and executive sessions; Twilio | outside this repo | — |
-| Window manager (yabai) | put an OS window on display 1 or 3 | `rust-accel` already enumerates displays and CG windows; browser-tab deliberately does no yabai actuation | decision D7 (§11) | Phase 8 |
-| Terminal emulator (kitty) | open, identify and close OS windows that host tmux clients | kitty runs `--single-instance` with remote control off; yabai's title for a kitty window is tmux's `set-titles-string` output | a terminal-emulator library, later | Phase 7 |
+| Window manager (yabai) | put an OS window on display 1 or 3 | wm-stack is already building agent-facing placement | **wm-stack, not this repo** (D7, §11) | — |
+| Terminal emulator (kitty) | open, identify and close kitty OS windows, and control everything inside them (tabs, kitty windows); report each OS window's identity so wm-stack can place it | kitty runs `--single-instance` with remote control off; yabai's title for a kitty window is tmux's `set-titles-string` output | a terminal-emulator library, later | Phase 7 |
 | Shell (zsh) | nothing new: the shell lives inside a pane | `send` pastes, because keystrokes fail against autopair (§5) | tmux library | Phase 5 |
 | tmux: server and clients | a server that is running; clients created on demand, one kind for programs and one for George to see | a presentation client resizes shared windows unless it attaches with `-f ignore-size` (§5.3) | tmux library | Phase 5 |
 | tmux: sessions, windows, panes | a session whose windows are the agents' windows; a claude/yazi split in each | a session of links shows the live agent windows; a split made through it also appears in `claude`; killing that session leaves every agent running (§5.3) | tmux library | M3–M4, Phase 5 |
@@ -91,11 +95,13 @@ Drilled through the layers it touches:
 
 Three parts of the story cut across layers, and each changes the plan now:
 
-1. **One intent, several applications.** tmux, kitty and yabai each get their
-   own library, but the story is one operation. The session must exist before a
-   kitty window attaches to it, and the kitty window before yabai can place it.
-   That needs one preview, one apply, one verify and one teardown across all
-   three. §2 says not to extract a shared plan envelope until two domains prove
+1. **One intent, several applications.** tmux and kitty each get their own
+   library here, and placement is wm-stack's (D7), but the story is one
+   operation. The session must exist before a kitty window attaches to it, and
+   the kitty window must exist — and be reported by identity — before wm-stack
+   can place it. Across tmux and kitty that needs one preview, one apply, one
+   verify and one teardown; the handoff to wm-stack is an identity, exactly as
+   browser-tab hands over `cgWindowId`. §2 says not to extract a shared plan envelope until two domains prove
    the need, and this story is where that proof will come from, so §2 now
    states the trigger.
 2. **The operation outlives the agent that started it.** The chief of staff
@@ -196,8 +202,8 @@ pinned by a contract test. Extraction becomes a measured follow-up the moment
 both planners exist: that is the second application doing its job.
 
 **The trigger for extraction, stated 2026-09-22:** the first operation that
-spans applications (§1a, Phase 9). A plan that orders steps across tmux, kitty
-and yabai needs one envelope — plan, preconditions, staleness, apply, verify,
+spans applications (§1a, Phase 9). A plan that orders steps across tmux and
+kitty needs one envelope — plan, preconditions, staleness, apply, verify,
 teardown. Otherwise each library invents its own and the cross-application
 layer has to reconcile them. Extraction is scheduled there and measured against
 the two planners that exist by then. The **operation journal** is the likeliest
@@ -222,8 +228,8 @@ lives inside its app.
 | 2 application library | `packages/tmux-control` (new) | the tmux model (server, session, slot, window, pane, client), the `SelectionDomain` binding, capabilities, tmux effects + risk table, the planner, preconditions, the snapshot token, the safe runner, ownership and retention policy. Pure except where it calls layer 3. |
 | 3 endpoint adapter | inside `packages/tmux-control` (`adapter/`) | the ONLY code that spawns `tmux`: argv arrays, `-F` rows in, parsed data out. One adapter does not justify its own package; it gets one when a second endpoint (control mode, a remote server) exists. |
 | 4 surfaces | `apps/tmux-control-mcp` (new) | CLI + MCP from one bin, consuming layer 2. No tmux knowledge of its own. |
-| 2, later | a terminal-emulator library (kitty first) | open, identify and close emulator windows that host tmux clients. Not approved (Phase 7). |
-| 2, later | a window-manager library (yabai) | read displays, spaces and OS windows; place a window. Not approved; where it lives is D7. |
+| 2, later | a terminal-emulator library (kitty first) | open, identify and close kitty OS windows, and control what is inside them: tabs and kitty windows, created, closed, reordered, moved. Reports each OS window's identity; never places it. Not approved (Phase 7). |
+| — | ~~a window-manager library (yabai)~~ | **Withdrawn by D7 (2026-09-24).** Placement belongs to wm-stack. |
 
 ## 4. The reuse milestone — the first proof
 
@@ -534,7 +540,7 @@ during Phases 0–1. A sixth, or any redesign, fails Gate B — and the honest
 outcome is then a separate repository, which costs Gate C its cheap iteration
 on `control-language`: the price George's premise is really about.
 
-## 11. Decisions — all six answered by George
+## 11. Decisions — all seven answered by George
 
 | # | Decision | George's answer |
 |---|---|---|
@@ -548,7 +554,18 @@ on `control-language`: the price George's premise is really about.
 None of D1–D6 is open. The milestone's next decision comes from M3, as a
 measured result: which of the two identity answers the slice needs.
 
-**D7 — raised by the scenario; proposed by this session; George has not ruled.**
+**D7 — ANSWERED 2026-09-24: all of it in wm-stack.** George: *"we want to
+control everything \*inside\* the kitty window"*. The seam is the one browser-tab
+already keeps: *"once a new browser window is created, our software only cares
+about what tabs it moved into it and in what order, at a different layer
+(wm-stack and yabai) those apps worry about where the browser window is
+visible, what monitor its on"* — *"the same seam / separation of concerns
+applies to kitty windows."* wm-stack is already building agent-facing placement
+and may later use the selection library; that is not this plan's concern. This
+monorepo never calls yabai. It may create and close kitty OS windows, and it
+reports their identity so wm-stack can place them.
+
+*The proposal it replaced, kept for the record:*
 *Where window-manager actuation lives.* browser-tab's contract says it
 deliberately does no yabai actuation ("spaces and visibility are the window
 manager's job"), and wm-stack owns yabai's configuration. The scenario needs a
@@ -603,10 +620,10 @@ Each is its own PR. None starts without George's go-ahead.
     title token, and closed by detaching its client so the child exits, all
     without kitty remote control? Turning remote control on is a change to
     George's kitty config, which dotfiles owns.
-  - **Phase 8 — window manager (yabai).** Placing windows on displays, subject
-    to D7.
-  - **Phase 9 — the scenario end to end,** as one named operation across tmux,
-    kitty and yabai, torn down by a different agent session from the one that
+  - ~~**Phase 8 — window manager (yabai).**~~ **Withdrawn by D7.** Placement
+    is wm-stack's; the kitty library's output to it is an OS window identity.
+  - **Phase 9 — the scenario end to end,** as one named operation across tmux
+    and kitty, with placement requested from wm-stack, torn down by a different agent session from the one that
     built it. The shared plan envelope is extracted here (§2).
 
 ## 13. Existing solutions — the record
