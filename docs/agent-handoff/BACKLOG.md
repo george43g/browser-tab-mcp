@@ -1773,8 +1773,8 @@ consolidation reported an empty journal; that reading was wrong.
 Pass 1 was refused correctly: a tab moved on its own between plan and apply, so
 the stale plan was rejected. That is the staleness guard working.
 
-Owner: this session. Not started, because unrelated work is parked until George
-has reviewed the tmux-control plan (B35).
+Owner: this session. Not started. It was parked until George reviewed the
+tmux-control plan (B35), which he approved on 2026-09-24, so it is now unblocked.
 
 ### B35. tmux-control — the second application, and the reuse it has to prove
 
