@@ -1,4 +1,4 @@
-import { defineConfig } from "vitest/config";
+import { defineConfig, mergeConfig, type UserConfig } from "vitest/config";
 
 /**
  * Shared Vitest preset for `packages/*` (library code).
@@ -41,5 +41,31 @@ export const shared = defineConfig({
     },
   },
 });
+
+/** Measured coverage a workspace must not fall below. */
+export interface CoverageFloor {
+  statements: number;
+  branches: number;
+  functions: number;
+  lines: number;
+}
+
+/**
+ * Pin a workspace's coverage gate to what it ACTUALLY achieves today.
+ *
+ * Copied from mcp-cli-starter-template's `packages/vitest-config` (the
+ * scaffolder's app template imports it). One local difference: this repo's
+ * gate is two-flag, so the floor only applies under `COVERAGE_GATE=1`, the
+ * same as the thresholds above. `COVERAGE=1` alone stays non-gating.
+ *
+ * These numbers are a ratchet, not a target: a floor at the measured value
+ * cannot be met by accident and fails the moment coverage regresses. Move
+ * floors up as tests land; never down. A floor that equals the target should
+ * be deleted in favour of inheriting the preset.
+ */
+export function withCoverageFloor(base: UserConfig, floor: CoverageFloor): UserConfig {
+  if (process.env.COVERAGE_GATE !== "1") return base;
+  return mergeConfig(base, defineConfig({ test: { coverage: { thresholds: floor } } }));
+}
 
 export default shared;
