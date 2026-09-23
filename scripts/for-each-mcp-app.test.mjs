@@ -69,7 +69,7 @@ describe("for-each-mcp-app", () => {
       "apps/server-mcp/package.json": app("@x/server-mcp", { scripts: ECHO }),
     });
     assert.equal(r.status, 0, r.stdout + r.stderr);
-    assert.match(r.stdout, /GATE-RAN:.*apps\/server-mcp/);
+    assert.match(r.stdout, /GATE-RAN:.*apps[\\/]server-mcp/);
     assert.match(r.stdout, /passed for 1 MCP app\(s\): @x\/server-mcp/);
   });
 
@@ -79,8 +79,8 @@ describe("for-each-mcp-app", () => {
       "apps/cli-tool/package.json": app("@x/cli-tool", { marked: false, scripts: ECHO }),
     });
     assert.equal(r.status, 0, r.stdout + r.stderr);
-    assert.match(r.stdout, /apps\/server-mcp/);
-    assert.doesNotMatch(r.stdout, /GATE-RAN:.*apps\/cli-tool/);
+    assert.match(r.stdout, /apps[\\/]server-mcp/);
+    assert.doesNotMatch(r.stdout, /GATE-RAN:.*apps[\\/]cli-tool/);
   });
 
   // THE RED DRILL. The whole defect was that this case exited 0.
@@ -98,7 +98,7 @@ describe("for-each-mcp-app", () => {
       "apps/plainly-named/package.json": app("@x/plainly-named", { scripts: ECHO }),
     });
     assert.equal(r.status, 0, r.stdout + r.stderr);
-    assert.match(r.stdout, /GATE-RAN:.*apps\/plainly-named/);
+    assert.match(r.stdout, /GATE-RAN:.*apps[\\/]plainly-named/);
     assert.match(r.stdout, /passed for 2 MCP app\(s\)/);
   });
 
@@ -110,7 +110,7 @@ describe("for-each-mcp-app", () => {
     assert.equal(r.status, 1, r.stdout + r.stderr);
     assert.match(r.stderr, /@x\/bad-mcp: exited 3/);
     // The good app still ran — a failure must not hide the rest of the picture.
-    assert.match(r.stdout, /GATE-RAN:.*apps\/good-mcp/);
+    assert.match(r.stdout, /GATE-RAN:.*apps[\\/]good-mcp/);
   });
 
   it("fails when a marked app is missing the script entirely", () => {
