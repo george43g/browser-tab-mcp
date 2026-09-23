@@ -123,6 +123,13 @@ directory, and `packages/tmux-control` (Phase 3) must NOT simply be added to
 `"."`'s `exclude-paths` — that measured as "released by nobody". It needs a
 line of its own or a decided home. The `node-workspace` plugin does not change
 either row (measured).
+
+**Decided 2026-09-24 (George): measure a linked fix, then apply it.** Each
+shared package gets its own release-please entry (versioned, never published),
+so the `node-workspace` plugin can bump every app that depends on it. It is
+applied only if the same offline planner shows a `control-language` commit
+bumping BOTH lines. Until then this gap is known and recorded, not accepted.
+It must close before tmux-control's first release.
 `scripts/verify-release.mjs` and the Summarize step in `release.yml` handle
 every line; `tests/release-versions.contract.test.ts` checks each line's
 files against its own manifest version.
