@@ -82,8 +82,50 @@ artifact.
 
 So the release line is the repo root, and `extra-files` mirrors the version
 into `apps/browser-tab-mcp/package.json` — which is what `src/meta.ts` reads at
-runtime for `--version` and the TUI header. Tags stay plain `vX.Y.Z`
-(`include-component-in-tag: false`) because there is exactly one release line.
+runtime for `--version` and the TUI header. Its tags stay plain `vX.Y.Z`
+(`include-component-in-tag: false`).
+
+## Two release lines (D4, 2026-09-24)
+
+`apps/tmux-control-mcp` has its own line: component `tmux-control`, tags
+`tmux-control-vX.Y.Z`, `initial-version: 0.1.0`, and its own release PR
+(`chore(main): release tmux-control X.Y.Z` on
+`release-please--branches--main--components--tmux-control`). The `"."` line
+carries `exclude-paths: ["apps/tmux-control-mcp"]`, and
+`"separate-pull-requests": true` is now set explicitly. With two packages
+release-please's default flips to `false`, which merges both lines into one PR
+titled `chore: release main` on the componentless branch
+`release-please--branches--main` (measured). The cut itself still tags both
+lines in that case (measured, offline, 17.11.2), but the title carries no
+version or component, so `scripts/verify-release.mjs` could not map a merged
+PR to its line, and the two lines could no longer be released independently.
+
+Measured 2026-09-24 by running release-please 17.11.2's own
+`Manifest.buildPullRequests()` offline against this config (fake SCM: files
+from the worktree, `v1.14.0` as the last release, one synthetic commit per
+case):
+
+| A commit touching | browser-tab line | tmux-control line |
+|---|---|---|
+| `apps/browser-tab-mcp/**` | bumps | — |
+| `apps/tmux-control-mcp/**` only | — (excluded) | bumps (first release: 0.1.0) |
+| `packages/control-language/**` | bumps | **does not bump** |
+| a tmux file AND a shared package | bumps | bumps |
+| `packages/build-config/**` (only tmux-control uses it) | bumps | — |
+| a path excluded from `"."` that no line owns | — | — (**no release PR at all**) |
+
+The cut was measured the same way (`Manifest.buildReleases()` over the two
+candidate PRs marked merged): it tags `v1.14.1` and `tmux-control-v0.1.0`.
+
+Two consequences, both open: a fix in a shared package that tmux-control
+bundles does not release tmux-control unless the same commit touches its
+directory, and `packages/tmux-control` (Phase 3) must NOT simply be added to
+`"."`'s `exclude-paths` — that measured as "released by nobody". It needs a
+line of its own or a decided home. The `node-workspace` plugin does not change
+either row (measured).
+`scripts/verify-release.mjs` and the Summarize step in `release.yml` handle
+every line; `tests/release-versions.contract.test.ts` checks each line's
+files against its own manifest version.
 
 ## What is deliberately NOT released
 
