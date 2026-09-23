@@ -3,8 +3,9 @@ description: browser-tab project conventions — symlinked from AGENTS.md so Cur
 alwaysApply: true
 ---
 
-See `AGENTS.md` in the repo root for the canonical guide. CLAUDE.md and
-.cursorrules are also symlinks to AGENTS.md — keep the single source.
+See `AGENTS.md` in the repo root for the canonical guide (a router; the
+detail lives in `docs/agents/`). CLAUDE.md is a symlink to AGENTS.md — keep
+the single source.
 
 Key rules every agent must follow:
 

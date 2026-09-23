@@ -4,7 +4,7 @@
 > → 07-29 Codex interlude never happened — the tree was untouched and Claude
 > resumed on 07-29.) **This directory is the single source of truth
 > for in-flight work** — it replaces any private agent memory, which the other
-> agent cannot read. Repo architecture/conventions live in `AGENTS.md`; this
+> agent cannot read. Repo architecture/conventions live in `AGENTS.md` and the `docs/agents/` it routes to; this
 > directory holds what the code can't tell you: status, the next task,
 > decisions, backlog, and gotchas.
 >

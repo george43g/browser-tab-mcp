@@ -23,7 +23,7 @@ Safari); these are hardening / productization items, not blockers.
 > CI gained the coverage step, a shellcheck step, and a gated-off Playwright
 > stub job; the stress harness now writes its report. Acceptance verified: the
 > three sabotages below each turn a test RED. The taxonomy + "where a new test
-> goes" decision tree now live in `AGENTS.md` (§ Testing posture & taxonomy).
+> goes" decision tree now live in `docs/agents/testing.md` (§ Testing posture & taxonomy; moved out of `AGENTS.md` 2026-09-24).
 > The sections below are the original plan, kept as the implementation record.
 > **P3 Playwright E2E is now DONE** (full round-trip — see below). Still open
 > here: coverage **gating** (flip `COVERAGE_GATE=1` in CI when the suite matures).

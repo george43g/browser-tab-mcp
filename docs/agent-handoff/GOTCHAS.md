@@ -1,8 +1,8 @@
 # Operational gotchas (this machine + this repo's CI)
 
 Architecture-level invariants (merge authority, IIFE extension build,
-dual background keys, test taxonomy, env layout) live in `AGENTS.md` — read it
-first. This file is the *operational* layer: traps that cost real debugging
+dual background keys, test taxonomy, env layout) live in `docs/agents/`, routed
+from `AGENTS.md` — read it first. This file is the *operational* layer: traps that cost real debugging
 time and will bite again. Append new ones as you hit them.
 
 ## This machine
