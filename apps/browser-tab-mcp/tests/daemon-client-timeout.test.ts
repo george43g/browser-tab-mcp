@@ -5,8 +5,7 @@
  */
 
 import { createServer, type Server } from "node:net";
-import { join } from "node:path";
-import { makeTmpDir } from "@george43g/test-kit";
+import { defaultIpcEndpoint, makeTmpDir } from "@george43g/test-kit";
 import { afterEach, describe, expect, it } from "vitest";
 import { DaemonClient, DaemonTimeoutError } from "../src/client/daemon-client.js";
 import { APPLY_TAB_LAYOUT_TIMEOUT_MS, applyTimeoutError } from "../src/client/tabs-service.js";
@@ -20,7 +19,8 @@ afterEach(() => {
 
 /** A daemon that accepts the connection and never answers. */
 async function silentDaemon(): Promise<string> {
-  const path = join(makeTmpDir("silent-daemon-"), "d.sock");
+  // A named pipe on Windows, a socket file elsewhere (a file path is EACCES there).
+  const path = defaultIpcEndpoint(makeTmpDir("silent-daemon-"));
   server = createServer(() => {});
   await new Promise<void>((resolve) => server?.listen(path, resolve));
   return path;
