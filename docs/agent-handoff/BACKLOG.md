@@ -1741,6 +1741,59 @@ message, and check the Windows runner's resource pressure at that timestamp.
 Frequency so far: 2 in roughly a day of CI runs across ~15 PRs. Owner:
 unclaimed.
 
+### B35. tmux-control — the second application, and the reuse it has to prove
+
+> **2026-09-22, later — George's north-star scenario added (plan §1a).** By
+> voice he asks for a tmux session of his agent windows (claude left, yazi
+> right), project groups shown in kitty windows on specific monitors, and later
+> has a different agent tear it all down. That runs through the window manager,
+> kitty, the shell and tmux, down to the CLI tools in the panes. It changes what
+> the milestone and the tmux surface must support: selection fields measured on
+> his server, M3's acceptance case, durable named operations with exact
+> teardown, and presentation clients that attach with `-f ignore-size`
+> (measured: without it they resize his shared windows). It adds Phases 7–9
+> (not approved) and decision D7 (where yabai actuation lives). It changes none
+> of D1–D6.
+>
+> **2026-09-22 — all six decisions answered by George (plan §11).** His D5
+> answer reshaped the app into a thin layer that mirrors tmux, with window
+> lifecycle left to the agent. The managed runner's retention and pruning rules
+> are withdrawn. Sending input is in, and defaults to bracketed paste, measured as
+> the only mode that survives his shell's autopair. History comes from a
+> hook-based tmux plugin with no daemon. Separate release lines (D4).
+>
+> **REVISED 2026-09-21 after George's review; still PROPOSED, nothing built.**
+> The 2026-09-20 framing below the line was wrong in its premise and is kept
+> only as history. George: the reason tmux joins this monorepo is *"to develop
+> and test a reusable foundation for deeper application control"* — shared core,
+> application libraries, endpoint adapters, surfaces; *"We centralize the core
+> logic."* A second app that scaffolds and runs commands safely does not test
+> that, and the first draft explicitly deferred the `control-language` binding.
+> Plan: `plans/2026-09-20-tmux-control-app.md`. Six decisions (D1–D6) are open
+> and are his; this revision approves no implementation and no Phase 0 run.
+>
+> **The finding that justifies the work.** `control-language` is cleanly
+> reusable for 13 of 17 selector node kinds with no change. But its occurrence
+> model is declared and contradicted: the resolver dedupes by `stableKey`
+> (`resolve.ts:80-89`), `occurrenceId`/`projectionId` are written once and read
+> nowhere, `parentOf`/`siblingsOf` are single-valued, and the browser consumer
+> discards the occurrence. Measured from tmux the same day: one linked window
+> is one `@id` and one `%id` at three different session slots. And no binding
+> conformance suite exists — every core test pins the synthetic fixture at
+> module scope — so that suite is the first justified extraction (M1).
+> Architecture acceptance is Gate C (M1–M5), not the scaffold experiment.
+
+Filed 2026-09-20 from George's request: *"its time you generate a new app … it
+really puts the monorepo to the test - if the test fails, that determines we
+cant put multiple app control tools in here."* Asked which capability should
+lead v1 he chose **agent-safe driving**; that choice stands and is sequenced
+with the reuse milestone as decision D2. The earlier tmux MCP
+(`bnomei/tmux-mcp`) was adopted and removed as "not stable" on 2026-08-30
+(`76fb159`). This request lifts the architecture document's USER-GATE for the
+tmux app only; its other gated choices — including extracting
+`packages/browser-control`, which tmux now makes timely — stay gated. Owner:
+this session, pending George's review and his six decisions.
+
 ### B34. Should `deploy:local` grow an opt-in `--safari` sideload step?
 
 > **CLOSED 2026-09-20 — merged as `9955a50` (#190), first live run measured.**
