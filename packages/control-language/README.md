@@ -45,6 +45,38 @@ tmux) own the entities, and bind in through one interface.
 - **A synthetic fixture** (`makeSyntheticDomain()` — a music library, on
   purpose not a browser) plus property-based tests for the algebra laws.
 
+## Binding conformance (`@george43g/control-language/conformance`)
+
+`runDomainConformance(domain, { cases })` is how a `SelectionDomain` binding
+proves it is correct, rather than merely that it compiles. It returns a report
+(no test framework is imported; assert `expect(report.failures).toEqual([])`)
+and checks two things:
+
+- **Binding invariants** (`INVARIANTS`, each with a stable id): stable keys
+  are stable, unique per entity and round-trip through `byKey`, and an absent
+  key reads `undefined`; scope and relation members have their declared kind;
+  a relation's applicability depends only on the parent's kind; no ordered
+  sequence repeats a key or changes order between calls; fields read their
+  declared type, are stable, and each is defined somewhere (or listed in
+  `sparseFields`). The sibling view adds: `siblingsOf` contains the ref, is
+  one kind, is the same sequence for every sibling, equals some relation of
+  `parentOf`, and is determined by kind + parent — the assumption `between`
+  makes when it checks for a common parent.
+- **Resolution cases** the binding's author supplies: a selector plus the
+  expected keys (optionally kind, branch paths, warning count) or `E_*` code.
+  Every node kind in a group being run must root at least one case.
+
+Node kinds come in two groups. `SIBLING_DEPENDENT_KINDS` (`offset expand
+between siblings`) read `parentOf`/`siblingsOf`; the 13 `SIBLING_FREE_KINDS`
+never do. `groups: ["siblingFree"]` runs only the latter, against a proxy whose
+sibling view throws, so a binding whose ordering model is not settled yet (a
+tmux window linked into two sessions) can still prove the 13. A case goes in
+the sibling-dependent group if any node in its tree does.
+
+Run today against the synthetic fixture (`src/conformance.test.ts`, with the
+inversion tests that break it on purpose) and the browser binding
+(`apps/browser-tab-mcp/src/select/browser-domain.conformance.test.ts`).
+
 ## What this package deliberately does NOT own
 
 No daemons, persistence, MCP tools, effects/transformations (`move`, `copy`,
