@@ -1743,6 +1743,16 @@ unclaimed.
 
 ### B36. A long apply reports a timeout while the daemon keeps moving tabs
 
+> **2026-09-24: the verdict half is FIXED; the speed half is OPEN.** The IPC
+> request now carries apply's own budget (`APPLY_TAB_LAYOUT_TIMEOUT_MS`, 30s,
+> which replaces the fixed 15s), and the tool's budget encloses it by 5s, so
+> the honest error always arrives before the dispatcher's generic one. A timeout
+> now reads *"its outcome is unknown, not failed"* and points at `browser-tab
+> operations` (`tests/daemon-client-timeout.test.ts`, red before the fix).
+> **Still unmeasured:** why moves run at about one tab every two seconds. A
+> 25-tab consolidation still outlasts 30s. It needs a timing measurement in the
+> Playwright harness, not on George's own Chrome.
+
 Filed 2026-09-22 from George's request to consolidate his Chrome tabs. The job
 itself succeeded: 25 tabs in four windows became one window of 25, the emptied
 windows closed, and the count was 25 before and after. It took three passes.

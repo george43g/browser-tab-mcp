@@ -30,6 +30,26 @@ export class DaemonUnavailableError extends Error {
   }
 }
 
+/**
+ * The daemon did not answer within the request's budget. For a mutating
+ * request this means the outcome is UNKNOWN — the daemon may still be working —
+ * so callers must not report it as a failure (B36).
+ */
+export class DaemonTimeoutError extends Error {
+  constructor(
+    readonly method: string,
+    readonly timeoutMs: number,
+  ) {
+    super(`daemon request "${method}" timed out after ${timeoutMs}ms`);
+    this.name = "DaemonTimeoutError";
+  }
+}
+
+export interface RequestOptions {
+  /** Overrides the default request budget — for calls whose tool declares a longer one. */
+  timeoutMs?: number;
+}
+
 export class DaemonClient {
   private socket: Socket | null = null;
   private buffer = "";
@@ -114,14 +134,19 @@ export class DaemonClient {
     }
   }
 
-  async request<T = unknown>(method: string, params?: Record<string, unknown>): Promise<T> {
+  async request<T = unknown>(
+    method: string,
+    params?: Record<string, unknown>,
+    options: RequestOptions = {},
+  ): Promise<T> {
     await this.connect();
     const id = this.nextId++;
+    const timeoutMs = options.timeoutMs ?? REQUEST_TIMEOUT_MS;
     const response = await new Promise<IpcResponse>((resolve, reject) => {
       const timer = setTimeout(() => {
         this.pending.delete(id);
-        reject(new Error(`daemon request "${method}" timed out`));
-      }, REQUEST_TIMEOUT_MS);
+        reject(new DaemonTimeoutError(method, timeoutMs));
+      }, timeoutMs);
       timer.unref();
       this.pending.set(id, (r) => {
         clearTimeout(timer);
