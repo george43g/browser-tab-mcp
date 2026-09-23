@@ -38,7 +38,7 @@ import { fakeAdapterEnabled } from "../detect/adapters/fake.js";
 import { resolveWindowBounds } from "../detect/displays.js";
 import { enabledBrowsers, makeAdapter, readSnapshot } from "../detect/engine.js";
 import { parseTabId, parseWindowId } from "../detect/ids.js";
-import { DaemonClient, DaemonUnavailableError } from "./daemon-client.js";
+import { DaemonClient, DaemonTimeoutError, DaemonUnavailableError } from "./daemon-client.js";
 
 async function viaDaemon<T>(fn: (client: DaemonClient) => Promise<T>): Promise<T> {
   const client = new DaemonClient();
@@ -379,6 +379,25 @@ export async function cutTabs(params: Record<string, unknown>): Promise<unknown>
 }
 
 /**
+ * apply_tab_layout's budget, shared by the tool definition and the IPC request.
+ * The IPC client's 15s default used to cut the tool's own 30s short (B36).
+ */
+export const APPLY_TAB_LAYOUT_TIMEOUT_MS = 30_000;
+
+/**
+ * What a timed-out apply means: the daemon runs the plan to completion on its
+ * own, so the caller's clock running out says nothing about the result. B36:
+ * two applies reported a timeout and both finished.
+ */
+export function applyTimeoutError(timeoutMs: number): Error {
+  return new Error(
+    `apply_tab_layout did not answer within ${timeoutMs / 1000}s. The daemon may still be applying ` +
+      "the plan — its outcome is unknown, not failed. Check `browser-tab operations --json` " +
+      "before planning again.",
+  );
+}
+
+/**
  * Apply a live-layout plan. Daemon-only; the daemon refuses stale plans and
  * any plan whose riskClass is not live-layout.
  */
@@ -389,8 +408,11 @@ export async function applyTabLayout(params: Record<string, unknown>): Promise<u
     );
   }
   try {
-    return await viaDaemon((c) => c.request<unknown>("applyTabLayout", params));
+    return await viaDaemon((c) =>
+      c.request<unknown>("applyTabLayout", params, { timeoutMs: APPLY_TAB_LAYOUT_TIMEOUT_MS }),
+    );
   } catch (err) {
+    if (err instanceof DaemonTimeoutError) throw applyTimeoutError(err.timeoutMs);
     if (err instanceof DaemonUnavailableError) {
       throw new Error(
         "apply_tab_layout requires the daemon. Start it with `browser-tab daemon run`.",

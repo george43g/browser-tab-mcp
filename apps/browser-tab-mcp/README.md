@@ -387,6 +387,11 @@ has returned indices past the end of the window. After any write, the
 extension pushes a fresh snapshot immediately, so a read that follows a write
 sees the write.
 
+**A timed-out `apply_tab_layout` is not a failed one.** The daemon runs a plan
+to completion whether or not the caller is still waiting, so when the 30s
+request budget runs out, the error says the outcome is *unknown* and points at
+`browser-tab operations --json`. Check the journal before planning again (B36).
+
 Beyond reads + `focus`/`move`/`open`/`close`, the tool can drive tabs and
 windows imperatively:
 

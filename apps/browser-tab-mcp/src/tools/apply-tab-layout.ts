@@ -9,7 +9,7 @@
 
 import type { ToolDefinition } from "@george43g/mcp-kit";
 import { z } from "zod";
-import { applyTabLayout } from "../client/tabs-service.js";
+import { APPLY_TAB_LAYOUT_TIMEOUT_MS, applyTabLayout } from "../client/tabs-service.js";
 
 export const ApplyTabLayoutInputSchema = z.object({
   planId: z
@@ -84,7 +84,9 @@ export const applyTabLayoutTool: ToolDefinition<
     idempotentHint: false,
     openWorldHint: false,
   },
-  timeoutMs: 30_000,
+  // Strictly LONGER than the IPC budget, so the request's own "outcome unknown"
+  // error always arrives before the dispatcher's generic timeout (B36).
+  timeoutMs: APPLY_TAB_LAYOUT_TIMEOUT_MS + 5_000,
   handler: async (input, signal) => {
     if (signal?.aborted) throw new Error("Cancelled by client");
     return (await applyTabLayout({
