@@ -29,6 +29,7 @@ describe("registry", () => {
     const r = makeAppRegistry();
     const names = r.tools.map((t) => t.name);
     expect(names).toContain("health_check");
+    expect(names).toContain("list");
     expect(names).toContain("noop");
   });
 

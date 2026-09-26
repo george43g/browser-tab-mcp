@@ -17,7 +17,7 @@
  *     see the devOnlyEnabled note below.
  */
 
-import { buildDispatcher, type Dispatch } from "@george43g/mcp-kit";
+import { buildDispatcher, type Dispatch, sanitize, wrapUntrusted } from "@george43g/mcp-kit";
 import { recordToolCall, recordToolError } from "./counters.js";
 import { engineLabel } from "./native-bridge.js";
 import { devModeEnabled, makeAppRegistry } from "./tools/registry.js";
@@ -26,7 +26,7 @@ let _dispatch: Dispatch | null = null;
 
 export function getDispatcher(): Dispatch {
   if (!_dispatch) {
-    _dispatch = buildDispatcher({
+    const baseDispatch = buildDispatcher({
       registry: makeAppRegistry(),
       onCall: () => recordToolCall(),
       onError: () => recordToolError(),
@@ -39,6 +39,20 @@ export function getDispatcher(): Dispatch {
       // that does not exist.
       devOnlyEnabled: devModeEnabled,
     });
+    _dispatch = async (name, args, signal) => {
+      const result = await baseDispatch(name, args, signal);
+      if (name !== "list" || result.isError) return result;
+      // Keep exact values in structuredContent for scripts and selection.
+      // The text projection is what an LLM reads, so mark it as external data.
+      return {
+        ...result,
+        content: result.content.map((block) =>
+          block.type === "text"
+            ? { ...block, text: wrapUntrusted(sanitize(block.text) ?? "") }
+            : block,
+        ),
+      };
+    };
   }
   return _dispatch;
 }

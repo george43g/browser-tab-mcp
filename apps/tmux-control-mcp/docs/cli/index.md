@@ -28,6 +28,7 @@ Disable colors
 - [`tmux-control mcp [FLAGS]`](/mcp.md)
 - [`tmux-control tui`](/tui.md)
 - [`tmux-control doctor`](/doctor.md)
+- [`tmux-control list [--socket-name <name>]`](/list.md)
 - [`tmux-control repl`](/repl.md)
 - [`tmux-control health`](/health.md)
 - [`tmux-control noop <--input <text>> [--upper]`](/noop.md)

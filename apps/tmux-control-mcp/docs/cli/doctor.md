@@ -3,4 +3,4 @@
 
 - **Usage**: `tmux-control doctor`
 
-Run preflight checks (Node version, native module, config dir)
+Run preflight checks (Node version, tmux, native module, config dir)
