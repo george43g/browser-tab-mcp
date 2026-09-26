@@ -130,6 +130,21 @@ so the `node-workspace` plugin can bump every app that depends on it. It is
 applied only if the same offline planner shows a `control-language` commit
 bumping BOTH lines. Until then this gap is known and recorded, not accepted.
 It must close before tmux-control's first release.
+
+**Re-measured and re-decided 2026-09-27 (George: wait for upstream).** The
+workflow's `release-please-action@v4` bundles release-please **17.3.0**, not
+17.11.2; both versions give identical tables. The `control-language` row above
+is correct behaviour: tmux-control does not depend on it until Phase 3's
+`packages/tmux-control` does. The live gap is the packages it does use
+(`shared-types`, `build-config`, `test-kit`, `tsconfig`, `vitest-config`): a
+commit to them bumps `"."` only. Measured candidates: own release lines plus
+`node-workspace` works but opens 3–4 release PRs per shared fix, releases
+tmux-control first as 0.0.1 (skipping `initial-version`), and loses the
+dependent bump if only the shared package's PR merges; `additional-paths` is
+not in 17.3.0 or 17.11.2 (silently ignored; upstream PR #2534 open);
+`linked-versions` breaks the cut (no tags). Decision: no config change now;
+tmux-control does not release until it has features, and the gap is re-decided
+then, with `additional-paths` preferred if it has shipped.
 `scripts/verify-release.mjs` and the Summarize step in `release.yml` handle
 every line; `tests/release-versions.contract.test.ts` checks each line's
 files against its own manifest version.

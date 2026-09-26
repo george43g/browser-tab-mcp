@@ -3957,3 +3957,65 @@ tmux-control is in the monorepo as a second MCP app (#199, `c80a625`), with its 
 
 ### Resume
 Merge this PR, then run `mcpsync sync --scope project` and start `agents-md-split`. Phase 2 of the tmux plan (the skeleton plus M2) follows. M1 is already merged.
+
+## Checkpoint · browser-tab-mcp · 2026-09-24
+
+Where this block and a conversation summary disagree, this block is correct.
+
+### State
+tmux-control is admitted as a second app and the `AGENTS.md` split is merged; main is at `2a8953a` and deployed, and nothing of mine is mid-flight.
+
+### Constraints
+- George, 2026-09-24, D7: *"we want to control everything \*inside\* the kitty window"*; *"the same seam / separation of concerns applies to kitty windows"*. This repo never calls yabai.
+- George, 2026-09-24: Gate B **"Pass: 5 lifts"** (D8). Shared-core bumps: **"Measure a linked fix, then apply"** (D9).
+- George, 2026-09-24, on the split: *"get help and advice from the skills agent and the executive to help you properly organise this"*.
+- George, 2026-09-24: *"use shot to check the state of the safari helper … the helper tool isnt detecting it (maybe get a subagent to look into this so you dont get distracted"*.
+- George, via /ask-each-question: *"interview me to clarify anything remaining, as i believe i have given you large feedback briefs that have already perfected the direction"*. Ask only what the briefs leave open.
+
+### Done
+- Plan approved and merged with D7, D8 and D9 recorded: #194 `f4b1c20` and the plan's §11.
+- M1 conformance suite: #196 `ae2f469`. `between` typed error: #197 `96b127c`. B36 filed and B35 updated: #195 `27cbc1e`.
+- Phase 1, the second app: #199 `c80a625`. Every CI leg is green, including Windows, where tmux-control's tests are excluded by name in `ci.yml`.
+- Deploy installs before building: #201 `66391fb`. MCP configs regenerated: #202 `4ad4af6`. Verdict wording: #203 `c7c7927`. B36 verdict half: #204 `101901e`.
+- `AGENTS.md` is a 7,900 B router: #205 `1f24a9d`. This closes `instruction-conventions-vs-b28`. `head -c 32768 AGENTS.md | cmp - AGENTS.md` shows the whole file fits, and 415 of the old 424 non-blank lines are unchanged in the router or `docs/agents/`.
+- Safari helper fix: #206 `2a8953a`. The helper had frozen on one transient `SFErrorDomain error 1` reading, and a rebuild never replaced a running copy. The post-merge sideload printed `replacing the running container app (pid 67992)`, and a `shot` capture at 08:11 shows a green dot, "on and connected", with Running, Bundled and Daemon all at `1.14.0+204.2a8953a`.
+- The last deploy was `deploy:local ok — daemon 1.14.0+204.2a8953a…, extensions [chrome, safari]`.
+
+### Open
+- `measure-sferror-duration` · browser-tab-mcp — the helper's 60s retry step is a guess; how long `SFErrorDomain error 1` lasts after a rebuild was never measured.
+- `tmux-release-hold` · browser-tab-mcp — PR #200 "release tmux-control 0.1.0" is open and held: it would release an empty scaffold. Held until Phase 3+ gives tmux-control features AND `shared-core-release-link` is re-decided.
+- `release-1-15-0` · browser-tab-mcp — PR #198 "release 1.15.0" is open and not merged. Releases have been cut on George's word.
+- `shared-core-release-link` · browser-tab-mcp — D9 measured 2026-09-27 (harness in session scratchpad, not kept): no config makes a control-language commit bump tmux-control, correctly, since tmux-control does not depend on it yet. George re-decided: **wait for upstream** `additional-paths` (release-please PR #2534); no config change now. Recorded in `docs/RELEASE.md` and plan §11 D9. Deferred, revisit at Phase 3+.
+- `phase-2-tmux-skeleton-m2` · browser-tab-mcp — never attempted: no `packages/tmux-control` on main.
+- `b36-move-rate` · browser-tab-mcp — about 2s per tab, unmeasured; see B36's 2026-09-24 note.
+- `stale-agents-md-src-comments` · browser-tab-mcp — `src/` comments still point at old `AGENTS.md` sections (mcp-kit `dispatch.ts`, shared-types `tools.ts`, vitest-config `vitest.shared.ts`, `env-flags.ts`), per #205's own report. Not re-grepped.
+- `phase-5-zoom`, `phases-6-11`, `sideload-branch-guard` · browser-tab-mcp — carried, not re-measured since 2026-09-23 (zoom and phases) and 2026-09-20 (the guard).
+
+### Corrections
+- "The first two Gate A items are already fixed upstream" meant build-config and the Biome layout, not the three generated-app defects. mcp-starter-template then fixed all five (#128).
+- Phase 1's report said the POSIX native-build line falls through to exit 0 on Windows. It fails the build (`. was unexpected at this time.`).
+- g-agent-skills said no chain-byte check ships. executive's does (`141eb48`), but it sums the root plus `team/*`, not `git ls-files`.
+
+### Traps
+- A merge that adds a workspace package broke the auto-deploy until #201 added the install step.
+- On Windows a socket path must be a named pipe (`defaultIpcEndpoint` from test-kit). A file path gives EACCES.
+- The scaffolder's `--target` defaults to cwd, and the harness resets cwd to the primary checkout.
+- A new worktree has no `node_modules` or `dist`: tests fail to resolve workspace packages until `pnpm install --frozen-lockfile && pnpm build`, and the pre-push hook fails without them.
+
+### Tree
+`browser-tab-mcp` `main` at `2a8953a`, level with origin. This checkpoint edit to `docs/agent-handoff/PROGRESS-LOG.md` is uncommitted on main, in a tree other sessions share.
+
+### Blocked on you
+- `release-1-15-0` — merge #198 (browser-tab v1.15.0) when you want the release. #200 (tmux-control) stays held; see Open.
+
+### Elsewhere
+- `mcp-starter-template` — fixed all five generated-app defects (#128) and is adding a Windows CI job to measure the HTTP test's silent exit 0.
+
+### Resume
+Relaunch requested by executive 2026-09-26; nothing mid-flight. Next work: Phase 3 of the tmux plan (`packages/tmux-control` skeleton + M2) — the checkpoint slug `phase-2-tmux-skeleton-m2` means plan Phase 3; plan Phase 2 (M1) merged as #196.
+
+## History
+
+<!-- BEGIN checkpoint-history (generated; do not edit) -->
+- 2026-09-24 · browser-tab-mcp · tmux-control is admitted as a second app and the `AGENTS.md` split is merged; main is at `1f24a9d`, deployed, and nothing of mine is mid-edit except a running Safari-helper diagnosis. · open: `safari-helper-detection`, `tmux-release-hold`, `release-1-15-0`, `shared-core-release-link`, `phase-2-tmux-skeleton-m2`, `b36-move-rate`, `stale-agents-md-src-comments`, `sideload-branch-guard` · [full text](handoff-archive/browser-tab-mcp/2026-09-24.md)
+<!-- END checkpoint-history -->
