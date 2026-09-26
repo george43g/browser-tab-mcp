@@ -10,6 +10,7 @@
 import { existsSync, statSync } from "node:fs";
 import { homedir } from "node:os";
 import { join } from "node:path";
+import { probeTmuxBinary, TmuxUnavailableError } from "@george43g/tmux-control";
 import { APP_NAME } from "./meta.js";
 import { hasNativeModule } from "./native-bridge.js";
 
@@ -106,7 +107,16 @@ function checkConfigDir(): AccessCheckItem {
 }
 
 export async function checkLocalAccess(): Promise<AccessReport> {
-  const items = [checkNode(), checkNative(), checkConfigDir()];
+  let tmux: AccessCheckItem;
+  try {
+    const version = await probeTmuxBinary();
+    tmux = { key: "tmux", label: "tmux", status: "ok", detail: version };
+  } catch (error) {
+    const message =
+      error instanceof TmuxUnavailableError ? error.message : (error as Error).message;
+    tmux = { key: "tmux", label: "tmux", status: "error", detail: message };
+  }
+  const items = [checkNode(), tmux, checkNative(), checkConfigDir()];
   const ok = items.every((i) => i.status !== "error");
   return { ok, items };
 }

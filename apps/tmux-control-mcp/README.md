@@ -11,13 +11,19 @@ pnpm test            # run unit + integration tests
 pnpm stress          # 15-assertion robustness harness
 ```
 
-## Bins
+`tmux-control --json list` reads the current tmux server without changing it. Use
+`tmux-control --json list --socket-name <name>` for a server started with
+`tmux -L <name>`. The result separates session window slots from underlying
+windows, so a window linked into two sessions appears as two slots and one
+window. Names and selector fields in JSON are exact; the MCP text response
+marks the whole snapshot as untrusted data. `doctor` reports when tmux is not
+on PATH.
+
+## Bin
 
 | Bin | Purpose | Default transport |
 |-----|---------|-------------------|
-| `tmux-control-mcp` | MCP server | stdio (`--http` for Streamable HTTP) |
-| `tmux-control-cli` | Commander CLI: `mcp`, `http`, `tui`, `doctor`, `health`, `noop`, `cli` (REPL) | n/a (in-process dispatch) |
-| `tmux-control-tui` | Ink TUI | n/a |
+| `tmux-control` | One Commander bin: `mcp`, `tui`, `doctor`, `health`, `list`, `noop`, `repl` | `mcp` uses stdio (`--http` for Streamable HTTP) |
 
 ## Tools
 
@@ -27,6 +33,7 @@ if this table and `src/tools/registry.ts` disagree.
 | Tool | CLI | What it does |
 |------|-----|--------------|
 | `health_check` | `health` | Server health snapshot; answers without external I/O |
+| `list` | `list [--socket-name <name>]` | Read the live tmux server, sessions, window slots, windows, panes and clients |
 | `noop` | `noop --input <text>` | Scaffold demo: echoes its input |
 | `get_logs` | none yet | Recent log lines; dev-only (`MCP_DEV=1`), refused otherwise |
 

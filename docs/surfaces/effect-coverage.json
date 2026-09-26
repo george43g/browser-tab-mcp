@@ -29,7 +29,8 @@
   "tiers": {
     "chromium-e2e": "Playwright, apps/chrome-extension/e2e/ — the built dist/ in a real Chromium/Edge against a throwaway daemon. Runs in CI on all three legs.",
     "cli-process": "vitest, apps/<app>/tests/ — the app's built dist/cli.js spawned as a real process (for browser-tab-mcp, against a fake-adapter daemon). No browser. Runs in CI.",
-    "macos-local": "pnpm sweep:macos, a developer's Mac only. Real osascript / screencapture / Safari History.db. CANNOT run in CI: GitHub's macOS runners have no logged-in GUI session, so `tell application` cannot work."
+    "macos-local": "pnpm sweep:macos, a developer's Mac only. Real osascript / screencapture / Safari History.db. CANNOT run in CI: GitHub's macOS runners have no logged-in GUI session, so `tell application` cannot work.",
+    "tmux-effect": "vitest, apps/tmux-control-mcp/tests/ — the built tmux-control bin reads a real throwaway tmux server. Skips with an explicit reason when tmux is absent."
   },
   "surfaces": [
     {
@@ -622,6 +623,18 @@
           "tier": "cli-process",
           "covers": "dev-only log tail, refused without MCP_DEV; pending: scaffolded by mcp-scaffold add-mcp-app; nothing spawns tmux-control's built bin for this surface yet (the tmux effect tier arrives in Phase 3)",
           "evidence": "pending"
+        }
+      ]
+    },
+    {
+      "app": "tmux-control-mcp",
+      "surface": "list",
+      "kind": "tool",
+      "coverage": [
+        {
+          "tier": "tmux-effect",
+          "covers": "the built bin reads real sessions, slots, windows, panes and a control client from a throwaway tmux server, including a linked window without duplicating its window object",
+          "evidence": "apps/tmux-control-mcp/tests/list-effect.integration.test.ts"
         }
       ]
     },

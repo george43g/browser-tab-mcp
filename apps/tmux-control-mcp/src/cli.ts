@@ -30,6 +30,7 @@ import { runMcpServer } from "./index.js";
 import { APP_NAME, buildStamp } from "./meta.js";
 
 async function printResult(result: Awaited<ReturnType<typeof callMcpTool>>, json: boolean) {
+  if (result.isError) process.exitCode = 1;
   if (json) {
     process.stdout.write(`${JSON.stringify(result.structuredContent ?? result, null, 2)}\n`);
     return;
@@ -46,7 +47,6 @@ async function printResult(result: Awaited<ReturnType<typeof callMcpTool>>, json
       process.stdout.write(`[${item.type} ${item.mimeType}, ${(bytes / 1024).toFixed(1)} KB]\n`);
     }
   }
-  if (result.isError) process.exit(1);
 }
 
 /**
@@ -96,7 +96,7 @@ export function buildProgram(): Command {
 
   program
     .command("doctor")
-    .description("Run preflight checks (Node version, native module, config dir)")
+    .description("Run preflight checks (Node version, tmux, native module, config dir)")
     .action(async () => {
       const report = await checkLocalAccess();
       process.stdout.write(`${formatAccessReport(report)}\n`);
@@ -109,6 +109,16 @@ export function buildProgram(): Command {
     .action(async () => {
       const json = program.opts<{ json?: boolean }>().json ?? false;
       const result = await callMcpTool("health_check", {});
+      await printResult(result, json);
+    });
+
+  program
+    .command("list")
+    .description("Read sessions, window slots, windows, panes and clients")
+    .option("--socket-name <name>", "Use a named tmux socket (-L)")
+    .action(async (opts: { socketName?: string }) => {
+      const json = program.opts<{ json?: boolean }>().json ?? false;
+      const result = await callMcpTool("list", { socketName: opts.socketName });
       await printResult(result, json);
     });
 
@@ -149,6 +159,12 @@ export function buildProgram(): Command {
             command: "health",
             tool: "health_check",
             help: "Print server health snapshot",
+            buildArgs: () => ({}),
+          },
+          {
+            command: "list",
+            tool: "list",
+            help: "Read tmux structure",
             buildArgs: () => ({}),
           },
           {

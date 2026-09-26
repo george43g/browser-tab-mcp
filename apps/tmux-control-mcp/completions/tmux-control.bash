@@ -28,7 +28,12 @@ cmd mcp help="Run the MCP server (stdio default; --http for Streamable HTTP)" {
     }
 }
 cmd tui help="Launch the Ink TUI"
-cmd doctor help="Run preflight checks (Node version, native module, config dir)"
+cmd doctor help="Run preflight checks (Node version, tmux, native module, config dir)"
+cmd list help="Read sessions, window slots, windows, panes and clients" {
+    flag --socket-name help="Use a named tmux socket (-L)" {
+        arg <name>
+    }
+}
 cmd repl help="Interactive REPL driving the in-process dispatcher" {
     alias console
 }

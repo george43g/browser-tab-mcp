@@ -28,7 +28,10 @@ Run the MCP server (stdio default; \-\-http for Streamable HTTP)
 Launch the Ink TUI
 .TP
 \fBdoctor\fR
-Run preflight checks (Node version, native module, config dir)
+Run preflight checks (Node version, tmux, native module, config dir)
+.TP
+\fBlist\fR
+Read sessions, window slots, windows, panes and clients
 .TP
 \fBrepl\fR
 Interactive REPL driving the in\-process dispatcher
@@ -57,6 +60,16 @@ HTTP port (default 8080)
 .TP
 \fB\-\-bind\fR \fI<host>\fR
 HTTP bind addr (default 127.0.0.1)
+.SH "TMUX-CONTROL LIST"
+Read sessions, window slots, windows, panes and clients
+.PP
+\fBUsage:\fR tmux\-control list [OPTIONS]
+.PP
+\fBOptions:\fR
+.PP
+.TP
+\fB\-\-socket\-name\fR \fI<name>\fR
+Use a named tmux socket (\-L)
 .SH "TMUX-CONTROL NOOP"
 Demo: call the noop tool
 .PP

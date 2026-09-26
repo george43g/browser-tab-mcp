@@ -12,10 +12,11 @@ import { makeRegistry, type ToolRegistry } from "@george43g/mcp-kit";
 import { envBool } from "@george43g/robustness";
 import { getLogsTool } from "./get-logs.js";
 import { healthCheckTool } from "./health-check.js";
+import { listTool } from "./list.js";
 import { noopTool } from "./noop.js";
 
 export function makeAppRegistry(): ToolRegistry {
-  return makeRegistry([healthCheckTool, noopTool, getLogsTool]);
+  return makeRegistry([healthCheckTool, listTool, noopTool, getLogsTool]);
 }
 
 export function devModeEnabled(): boolean {

@@ -12,7 +12,7 @@
  * Cases:
  *   1. handshake + tools/list returns the catalog
  *   2. health_check returns Status: healthy
- *   3. 20 parallel health_check stay healthy
+ *   3. 20 parallel health_check stay healthy while a tmux read fails
  *   4. unknown tool name rejected
  *   5. malformed schema rejected with usable error
  *   6. MCP_TOOL_TIMEOUT_FORCE_MS=1 produces clean timeout
@@ -245,12 +245,18 @@ async function caseHealthUnderLoad(): Promise<void> {
   const c = new McpClient();
   try {
     await c.initialize();
+    const socketName = `stress-no-server-${randomBytes(8).toString("hex")}`;
+    const list = c.request("tools/call", { name: "list", arguments: { socketName } }, 8_000);
     const calls = Array.from({ length: 20 }, () =>
       c.request("tools/call", { name: "health_check", arguments: {} }, 5_000),
     );
-    const responses = await Promise.all(calls);
+    const [listResponse, ...responses] = await Promise.all([list, ...calls]);
     const allOk = responses.every((r) => (r.result?.content?.[0]?.text ?? "").includes("healthy"));
-    record("20 parallel health_check stay healthy", allOk);
+    const listText = listResponse.result?.content?.[0]?.text ?? "";
+    const failedRead =
+      listResponse.result?.isError === true &&
+      (/No tmux server is running/.test(listText) || /tmux is not installed/.test(listText));
+    record("20 health checks survive a failed tmux read", allOk && failedRead);
   } finally {
     c.kill();
     await c.waitExit();

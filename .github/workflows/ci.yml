@@ -179,6 +179,11 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v6
 
+      # The effect tier must exercise a real server, not pass via its
+      # documented no-tmux skip on a changing runner image.
+      - name: Install tmux for effect tests
+        run: sudo apt-get update -qq && sudo apt-get install -y tmux
+
       - name: Setup pnpm
         uses: pnpm/action-setup@v6
         with:
