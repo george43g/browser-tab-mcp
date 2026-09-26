@@ -165,7 +165,7 @@ describe("docs integrity", () => {
     ).toEqual([]);
   });
 
-  it(".agents/skills entries link into .claude/skills — never a divergeable copy", () => {
+  it(".claude/skills entries link into .agents/skills — never a divergeable copy", () => {
     // The audit's root cause for the diverged PR SOP: an independent copy of
     // the skill that only one tool's edits reached. The invariant is
     // NON-DIVERGENCE, and its on-disk shape is platform-dependent: POSIX
@@ -174,7 +174,9 @@ describe("docs integrity", () => {
     // PLAIN FILE whose content is the link target. Both forms are the one
     // git object and both are asserted; a real DIRECTORY is the hazard and
     // always fails.
-    const dir = join(ROOT, ".agents/skills");
+    // Direction flipped 2026-09-27 (link-repo-skills): .agents/skills holds the
+    // real dirs so Codex and every other tool read them; Claude Code follows links.
+    const dir = join(ROOT, ".claude/skills");
     const entries = readdirSync(dir).filter((e) => !e.startsWith("."));
     expect(entries.length).toBeGreaterThan(0);
     for (const e of entries) {
@@ -187,14 +189,14 @@ describe("docs integrity", () => {
         target = readFileSync(p, "utf8").trim();
       } else {
         expect.fail(
-          `${p} is a real directory — .agents/skills/* must be links into .claude/skills ` +
+          `${p} is a real directory — .claude/skills/* must be links into .agents/skills ` +
             `(an independent copy is how the PR SOP silently diverged; 2026-09-02 audit)`,
         );
       }
-      expect(target.replaceAll("\\", "/")).toBe(`../../.claude/skills/${e}`);
+      expect(target.replaceAll("\\", "/")).toBe(`../../.agents/skills/${e}`);
       expect(
-        existsSync(join(ROOT, ".claude/skills", e, "SKILL.md")),
-        `link target .claude/skills/${e} must hold a SKILL.md`,
+        existsSync(join(ROOT, ".agents/skills", e, "SKILL.md")),
+        `link target .agents/skills/${e} must hold a SKILL.md`,
       ).toBe(true);
     }
   });
