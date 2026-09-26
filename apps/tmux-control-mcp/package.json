@@ -1,6 +1,6 @@
 {
   "name": "@george43g/tmux-control-mcp",
-  "version": "0.0.0",
+  "version": "0.1.0",
   "description": "tmux-control — MCP server + CLI + TUI. Cloned from mcp-cli-starter-template; ready to extend with your own tools.",
   "type": "module",
   "license": "MIT",
