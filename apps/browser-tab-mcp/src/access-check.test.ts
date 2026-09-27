@@ -13,6 +13,7 @@ import { describe, expect, it } from "vitest";
 import {
   type AccessCheckItem,
   buildReport,
+  checkBrowser,
   extensionCheckItems,
   formatAccessReport,
   headlineFor,
@@ -23,6 +24,16 @@ const item = (status: AccessCheckItem["status"], key: string = status): AccessCh
   label: key,
   status,
   detail: "detail",
+});
+
+describe("extension-only browser preflight", () => {
+  it("reports ChatGPT without probing Automation", async () => {
+    await expect(checkBrowser("chatgpt")).resolves.toMatchObject({
+      key: "browser:chatgpt",
+      status: "info",
+      detail: expect.stringContaining("Automation permission probe skipped"),
+    });
+  });
 });
 
 describe("doctor verdict", () => {

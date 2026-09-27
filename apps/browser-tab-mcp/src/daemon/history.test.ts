@@ -65,6 +65,13 @@ describe("history — chrome-family (extension) path", () => {
     expect(out.rows.every((r) => r.browser === "chrome")).toBe(true);
     expect(out.rows[0]?.visitTime).toBe(3000); // newest first
   });
+
+  it("includes ChatGPT Desktop Browser when its extension is connected", async () => {
+    const { ext, sendCommand } = makeExt(["chatgpt"]);
+    const out = await history({ maxResults: 10 }, { ext });
+    expect(sendCommand).toHaveBeenCalledWith("chatgpt", "history_search", expect.any(Object));
+    expect(out.rows.every((row) => row.browser === "chatgpt")).toBe(true);
+  });
 });
 
 describe("history — safari (sqlite) path", () => {
@@ -108,6 +115,7 @@ describe("history — per-source reporting", () => {
     const out = await history({}, { ext });
     expect(out.sources.map((s) => s.browser).sort()).toEqual([
       "brave",
+      "chatgpt",
       "chrome",
       "chromium",
       "edge",
@@ -142,6 +150,7 @@ describe("history — per-source reporting", () => {
       chromium: "unavailable",
       brave: "unavailable",
       edge: "unavailable",
+      chatgpt: "unavailable",
       safari: "unavailable",
     });
     expect(out.sources.find((s) => s.browser === "safari")?.reason).toMatch(

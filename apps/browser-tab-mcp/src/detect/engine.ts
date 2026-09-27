@@ -6,8 +6,8 @@
  * (M4) wraps the same adapters in a polling loop and serves merged
  * extension+AppleScript state.
  *
- * Env: BROWSER_TAB_BROWSERS — comma list of chrome|chromium|brave|edge|safari
- *      (default "chrome,chromium,brave,edge,safari").
+ * Env: BROWSER_TAB_BROWSERS — comma list of chrome|chromium|brave|edge|chatgpt|safari
+ *      (default includes all six; ChatGPT is extension-only).
  *      BROWSER_TAB_FAKE_ADAPTER=1 — fixture adapters for tests/stress.
  */
 
@@ -36,10 +36,18 @@ export const DEFAULT_BROWSERS: readonly BrowserId[] = [
   "chromium",
   "brave",
   "edge",
+  "chatgpt",
   "safari",
 ];
 
-const ALL_SPECS: readonly AdapterSpec[] = [...CHROMIUM_SPECS, SAFARI_SPEC];
+const CHATGPT_SPEC: AdapterSpec = {
+  browser: "chatgpt",
+  appName: "ChatGPT",
+  bundleId: "com.openai.codex",
+  processName: "ChatGPT",
+};
+
+const ALL_SPECS: readonly AdapterSpec[] = [...CHROMIUM_SPECS, CHATGPT_SPEC, SAFARI_SPEC];
 
 export function enabledBrowsers(): BrowserId[] {
   const rawList = (process.env.BROWSER_TAB_BROWSERS ?? "").trim();
@@ -95,6 +103,12 @@ export function specFor(browser: BrowserId): AdapterSpec {
 export function makeAdapter(browser: BrowserId): BrowserAdapter {
   const spec = specFor(browser);
   if (fakeAdapterEnabled()) return makeFakeAdapter(spec);
+  if (browser === "chatgpt") {
+    return makeUnavailableAdapter(
+      spec,
+      "ChatGPT Desktop Browser has no verified AppleScript fallback — its connector extension is required.",
+    );
+  }
   // Off macOS there is no `osascript` to talk to. Return an adapter that says
   // so rather than one that spawns a binary which is not there — see
   // adapters/unavailable.ts for why this is an adapter and not a branch.

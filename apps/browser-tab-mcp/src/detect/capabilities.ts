@@ -18,6 +18,7 @@ export function applescriptCaps(browser: BrowserId): Capabilities {
     string,
     boolean
   >;
+  if (browser === "chatgpt") return caps as Capabilities;
   // Window ops + navigation are AppleScript-able for every supported browser.
   caps.navigate = true;
   caps.reload = true;

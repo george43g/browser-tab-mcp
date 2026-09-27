@@ -40,7 +40,7 @@ export const CopyDestinationSchema = z.discriminatedUnion("kind", [
     .object({
       kind: z.literal("newWindow").describe("A new window in the named browser."),
       browser: z
-        .enum(["chrome", "chromium", "brave", "edge", "safari"])
+        .enum(["chrome", "chromium", "brave", "edge", "chatgpt", "safari"])
         .describe("Browser to open the new window in."),
     })
     .strict(),

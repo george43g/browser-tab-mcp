@@ -8,7 +8,7 @@ import { z } from "zod";
 
 /** Browsers the detection engine knows how to talk to. */
 export const BrowserIdSchema = z
-  .enum(["chrome", "chromium", "brave", "edge", "safari"])
+  .enum(["chrome", "chromium", "brave", "edge", "chatgpt", "safari"])
   .describe("Browser identifier.");
 export type BrowserId = z.infer<typeof BrowserIdSchema>;
 

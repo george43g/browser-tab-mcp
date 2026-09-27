@@ -154,6 +154,7 @@ from; nothing writes there now.
 |---|---|---|---|
 | Daemon (IPC, WS, snapshot, journal, history, page, tab-1 screenshots) | ✅ | ✅ | ✅ |
 | Connector extension (Chrome/Brave/Chromium/Edge) | ✅ | ✅ | ✅ |
+| ChatGPT Desktop Browser connector (extension-only) | ✅ | ✅ | — |
 | AppleScript fallback — works with NO extension installed | ✅ | — | — |
 | `cgWindowId` correlation (the wm-stack join key) | ✅ | — | — |
 | Tier-2 window capture (`screencapture -l`) | ✅ | — | — |

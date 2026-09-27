@@ -102,6 +102,19 @@ describe("opaque ids", () => {
     expect(parseTabId(id)).toEqual({ browser: "chrome", nativeId: "9931", ext: false });
   });
 
+  it("round-trips ChatGPT extension handles without treating them as Chrome", () => {
+    expect(parseTabId("t:chatgpt:x4001")).toEqual({
+      browser: "chatgpt",
+      nativeId: "4001",
+      ext: true,
+    });
+    expect(parseWindowId("w:chatgpt:x812")).toEqual({
+      browser: "chatgpt",
+      nativeId: "812",
+      ext: true,
+    });
+  });
+
   it("round-trips safari synthetic tab ids", () => {
     const id = makeSafariTabId(812, 3);
     expect(parseTabId(id)).toEqual({

@@ -16,7 +16,7 @@ no cycles):
 
 | Module | Owns |
 |---|---|
-| `base.ts` | primitives: `BrowserId`, `WindowBounds`, `Capabilities` + `CAPABILITY_KEYS` |
+| `base.ts` | primitives: `BrowserId` (including extension-only `chatgpt`), `WindowBounds`, `Capabilities` + `CAPABILITY_KEYS` |
 | `enrichment.ts` | the single-authoring tab/window enrichment schemas, `TAB_ENRICHMENT_FIELDS`, `pickEnrichment`, `sanitizeFavicon`, `WindowState` |
 | `page.ts` | page content & state — `PageState` (the one cross-cutting symbol, imported by wire + journal), extract/annotate I/O |
 | `native.ts` | rust-accel shapes: `CgWindowInfo`, `DisplayInfo` (Rust-mirrored) |

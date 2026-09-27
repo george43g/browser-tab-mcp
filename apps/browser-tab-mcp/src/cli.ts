@@ -365,8 +365,11 @@ export function buildProgram(): Command {
 
   program
     .command("list")
-    .description("List open browser windows and tabs (Chrome/Brave/Chromium/Edge/Safari)")
-    .option("--browser <name>", "Restrict to one browser: chrome|chromium|brave|edge|safari")
+    .description("List open browser windows and tabs (Chrome/Brave/Chromium/Edge/ChatGPT/Safari)")
+    .option(
+      "--browser <name>",
+      "Restrict to one browser: chrome|chromium|brave|edge|chatgpt|safari",
+    )
     .option("--window <id>", "Restrict to one window (opaque windowId from a previous list)")
     .option("--url <substring>", "Filter tabs by URL substring (drops non-matching windows)")
     // A ternary silently mapped every non-"core" value to "full", so
@@ -836,7 +839,7 @@ export function buildProgram(): Command {
   program
     .command("reload-extension")
     .description("Restart a browser's connector extension from disk (dev deploy loop)")
-    .option("--browser <name>", "chrome|chromium|brave|edge|safari", "chrome")
+    .option("--browser <name>", "chrome|chromium|brave|edge|chatgpt|safari", "chrome")
     .action(async (opts: { browser?: string }) => {
       const json = program.opts<{ json?: boolean }>().json ?? false;
       const browser = (opts.browser ?? "chrome") as BrowserId;
@@ -865,7 +868,7 @@ export function buildProgram(): Command {
     .command("open")
     .description("Open an http(s) URL in a new tab")
     .argument("<url>", "URL to open")
-    .option("--browser <name>", "chrome|chromium|brave|edge|safari")
+    .option("--browser <name>", "chrome|chromium|brave|edge|chatgpt|safari")
     .option("--window <id>", "Open in a specific window (opaque windowId)")
     .option("--no-activate", "Open in the background")
     .action(async (url: string, opts: { browser?: string; window?: string; activate: boolean }) => {
@@ -944,7 +947,7 @@ export function buildProgram(): Command {
     .argument("<action>", "create|add|remove|update|move")
     .option("--tabs <ids>", "Comma-separated tab handles (create/add/remove)")
     .option("--group <id>", "Group handle (add/remove/update/move)")
-    .option("--browser <name>", "chrome|chromium|brave|edge")
+    .option("--browser <name>", "chrome|chromium|brave|edge|chatgpt")
     .option("--title <title>", "Group title (create/update)")
     .option("--color <color>", "grey|blue|red|yellow|green|pink|purple|cyan|orange")
     .option("--collapsed", "Collapse the group (update)")
@@ -985,7 +988,7 @@ export function buildProgram(): Command {
     .command("open")
     .description("Open a new window with one or more URLs")
     .argument("<url...>", "http(s) URLs (first becomes active)")
-    .option("--browser <name>", "chrome|chromium|brave|edge|safari")
+    .option("--browser <name>", "chrome|chromium|brave|edge|chatgpt|safari")
     .option("--bounds <x,y,w,h>", "Global-coordinate frame")
     .option("--display <n>", "0-based display index (fills that monitor)")
     .option("--state <state>", "normal|minimized|maximized|fullscreen")

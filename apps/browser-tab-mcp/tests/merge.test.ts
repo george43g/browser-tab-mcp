@@ -39,6 +39,29 @@ const polled = (): Snapshot => makeSnapshot({ source: "osascript-direct" });
 const chromeOf = (s: Snapshot) => s.browsers.find((b) => b.browser === "chrome");
 
 describe("SourceMerger liveness", () => {
+  it("includes a live extension whose browser is absent from the AppleScript poll", async () => {
+    const merger = new SourceMerger();
+    const chatgpt = makeBrowserState({
+      browser: "chatgpt",
+      bundleId: "com.openai.codex",
+      pid: null,
+      extensionConnected: true,
+      dataSource: "extension",
+      windows: [
+        makeContractWindow({
+          windowId: "w:chatgpt:x800",
+          tabs: [makeContractTab({ tabId: "t:chatgpt:x900" })],
+        }),
+      ],
+    });
+    merger.setExtensionState("chatgpt", chatgpt);
+    const merged = await merger.merge(polled(), 1_000);
+    const row = merged.browsers.find((browser) => browser.browser === "chatgpt");
+    expect(row?.dataSource).toBe("extension");
+    expect(row?.running).toBe(true);
+    expect(row?.windows[0]?.tabs[0]?.tabId).toBe("t:chatgpt:x900");
+  });
+
   it("extension feed wins while fresh", async () => {
     const merger = new SourceMerger();
     merger.setExtensionState("chrome", extChrome());

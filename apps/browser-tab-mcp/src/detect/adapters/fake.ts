@@ -28,6 +28,7 @@ const FAKE_BUNDLES: Record<BrowserId, string> = {
   brave: "com.brave.Browser",
   chromium: "org.chromium.Chromium",
   edge: "com.microsoft.edgemac",
+  chatgpt: "com.openai.codex",
   safari: "com.apple.Safari",
 };
 

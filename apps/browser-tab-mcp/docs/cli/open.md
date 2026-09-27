@@ -13,7 +13,7 @@ Open an http(s) URL in a new tab
 
 ### `--browser <name>`
 
-chrome|chromium|brave|edge|safari
+chrome|chromium|brave|edge|chatgpt|safari
 
 ### `--window <id>`
 

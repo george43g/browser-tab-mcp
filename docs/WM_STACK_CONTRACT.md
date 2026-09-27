@@ -26,7 +26,7 @@ The interface `~/dotfiles/wm-stack` rewires around, replacing
   "source": "daemon",                     // "daemon" | "osascript-direct" (degraded)
   "focusedBrowser": "chrome",             // v2; optional — OS-frontmost browser (native CG tier only)
   "browsers": [{
-    "browser": "chrome",                  // chrome | brave | chromium | edge | safari (edge added 2026-08-22; additive, v2 unchanged)
+    "browser": "chrome",                  // chrome | brave | chromium | edge | chatgpt | safari (additive, v2 unchanged)
     "bundleId": "com.google.Chrome",
     "pid": 878,                           // null when not running
     "running": true,

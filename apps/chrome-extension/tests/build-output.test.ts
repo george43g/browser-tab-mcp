@@ -87,6 +87,10 @@ describe("built manifest.json", () => {
   it("wires the popup and options pages", () => {
     expect(manifest().action?.default_popup).toBeTruthy();
     expect(manifest().options_page).toBeTruthy();
+    const optionsHtml = readFileSync(join(DIST, "options.html"), "utf8");
+    expect(optionsHtml).toContain('option value="auto"');
+    expect(optionsHtml).toContain('option value="chatgpt"');
+    expect(optionsHtml).toContain('id="browser-hint"');
   });
 
   it("declares the v2 capability permissions + host access", () => {

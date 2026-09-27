@@ -13,7 +13,7 @@ import { listClosedTabs } from "../client/tabs-service.js";
 
 export const ClosedTabsInputSchema = z.object({
   browser: z
-    .enum(["chrome", "brave", "chromium", "edge", "safari"])
+    .enum(["chrome", "brave", "chromium", "edge", "chatgpt", "safari"])
     .optional()
     .describe("Only this browser's closures. Omit for all of them."),
   limit: z.number().int().min(1).max(200).default(20).describe("How many, newest first."),

@@ -49,6 +49,21 @@ describe("detectBrowserName", () => {
     expect(detectBrowserName()).toBe("edge");
   });
 
+  it("returns chatgpt when the built-in browser reports its product in the UA", () => {
+    vi.stubGlobal("navigator", {
+      userAgent: "Mozilla/5.0 Chrome/152.0 Safari/537.36 ChatGPT Desktop Browser/1.0",
+    });
+    expect(detectBrowserName()).toBe("chatgpt");
+  });
+
+  it("returns chatgpt when UA Client Hints report a ChatGPT brand", () => {
+    vi.stubGlobal("navigator", {
+      userAgent: "Mozilla/5.0 Chrome/152.0 Safari/537.36",
+      userAgentData: { brands: [{ brand: "Chromium" }, { brand: "ChatGPT" }] },
+    });
+    expect(detectBrowserName()).toBe("chatgpt");
+  });
+
   it("returns chrome when navigator is absent", () => {
     vi.stubGlobal("navigator", undefined);
     expect(detectBrowserName()).toBe("chrome");
