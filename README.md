@@ -17,7 +17,7 @@
 
 ---
 
-Knows which tabs are open in which browser windows (Chrome, Brave, Chromium, Edge, Safari), joins them to yabai window ids (`cgWindowId` == CGWindowID), and executes tab commands — including **true state-preserving cross-window moves** via the bundled browser extension (`chrome.tabs.move`; AppleScript can't do that). Built for [wm-stack](https://github.com/george43g) but generally useful: a launchd daemon polls via AppleScript, extensions push live events over a localhost WebSocket, and MCP/CLI/TUI/unix-socket clients all consume the same merged snapshot. See [`docs/WM_STACK_CONTRACT.md`](docs/WM_STACK_CONTRACT.md) for the consumer contract.
+Knows which tabs are open in which browser windows (Chrome, Brave, Chromium, Edge, ChatGPT Desktop Browser, Safari), joins them to yabai window ids where a browser PID is known (`cgWindowId` == CGWindowID), and executes tab commands — including **true state-preserving cross-window moves** via the bundled browser extension (`chrome.tabs.move`; AppleScript can't do that). Built for [wm-stack](https://github.com/george43g) but generally useful: a launchd daemon polls via AppleScript, extensions push live events over a localhost WebSocket, and MCP/CLI/TUI/unix-socket clients all consume the same merged snapshot. ChatGPT Desktop Browser needs the connector extension; in its options, select **ChatGPT Desktop Browser** if Auto reports Chrome so both browsers keep separate connections. See [`docs/WM_STACK_CONTRACT.md`](docs/WM_STACK_CONTRACT.md) for the consumer contract.
 
 ## Install
 

@@ -3,13 +3,13 @@
 
 - **Usage**: `browser-tab list [FLAGS]`
 
-List open browser windows and tabs (Chrome/Brave/Chromium/Edge/Safari)
+List open browser windows and tabs (Chrome/Brave/Chromium/Edge/ChatGPT/Safari)
 
 ## Flags
 
 ### `--browser <name>`
 
-Restrict to one browser: chrome|chromium|brave|edge|safari
+Restrict to one browser: chrome|chromium|brave|edge|chatgpt|safari
 
 ### `--window <id>`
 

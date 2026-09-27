@@ -4,7 +4,7 @@ export { type CommandArgs, type CommandOutcome, executeCommand } from "./command
 export { debounce, type ExtEventInput, wireEvents } from "./events.js";
 export { EXTRACT_FILE, injectExtract } from "./inject.js";
 export { log, logError, logWarn } from "./log.js";
-export { type ConnectorOptions, loadOptions, saveOptions } from "./options.js";
+export { type BrowserChoice, type ConnectorOptions, loadOptions, saveOptions } from "./options.js";
 export { api, type BrowserName, detectBrowserName } from "./runtime.js";
 export {
   buildSnapshot,

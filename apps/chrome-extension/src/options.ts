@@ -5,7 +5,13 @@
  * so a failure surfaces instead of leaving a blank page.
  */
 
-import { type ConnectorOptions, loadOptions, saveOptions } from "@george43g/extension-core";
+import {
+  type BrowserChoice,
+  type ConnectorOptions,
+  detectBrowserName,
+  loadOptions,
+  saveOptions,
+} from "@george43g/extension-core";
 import { renderStatus, requestReconnect, showFatal, startStatusPolling } from "./status-view.js";
 
 function el<T extends HTMLElement>(id: string): T {
@@ -18,9 +24,18 @@ async function main(): Promise<void> {
   const tokenInput = el<HTMLInputElement>("token");
   const portInput = el<HTMLInputElement>("port");
   const browserSelect = el<HTMLSelectElement>("browser");
+  const browserHint = el<HTMLSpanElement>("browser-hint");
   const saveButton = el<HTMLButtonElement>("save");
   const testButton = el<HTMLButtonElement>("test");
   const note = el<HTMLSpanElement>("note");
+  const detected = detectBrowserName();
+  const updateBrowserHint = () => {
+    const mismatched = detected === "chatgpt" && browserSelect.value === "chrome";
+    browserHint.hidden = !mismatched;
+    browserHint.textContent = mismatched
+      ? "This looks like ChatGPT Desktop Browser. Select it so Chrome stays connected."
+      : "";
+  };
 
   // Populate the form from stored options — before wiring, so a load failure
   // still leaves usable inputs rather than a dead page.
@@ -28,17 +43,26 @@ async function main(): Promise<void> {
     const options = await loadOptions();
     tokenInput.value = options.token;
     portInput.value = String(options.port);
-    browserSelect.value = options.browser;
+    const detectedLabel = browserSelect.querySelector<HTMLOptionElement>(
+      `option[value="${detected}"]`,
+    )?.textContent;
+    const autoOption = browserSelect.querySelector<HTMLOptionElement>('option[value="auto"]');
+    if (autoOption) autoOption.textContent = `Auto (${detectedLabel ?? detected})`;
+    browserSelect.value = options.browserChoice ?? options.browser;
+    updateBrowserHint();
   } catch (err) {
     showFatal(`couldn't read saved settings: ${(err as Error).message}`);
   }
+  browserSelect.addEventListener("change", updateBrowserHint);
 
   saveButton.addEventListener("click", () => {
     void (async () => {
+      const browserChoice = browserSelect.value as BrowserChoice;
       const options: ConnectorOptions = {
         token: tokenInput.value.trim(),
         port: Number.parseInt(portInput.value, 10) || 8790,
-        browser: browserSelect.value as ConnectorOptions["browser"],
+        browser: browserChoice === "auto" ? detectBrowserName() : browserChoice,
+        browserChoice,
       };
       await saveOptions(options);
       note.textContent = "saved ✓";

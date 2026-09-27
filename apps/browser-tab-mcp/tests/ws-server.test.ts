@@ -34,6 +34,7 @@ const WS_PORT = randomWsPort();
 
 beforeEach(async () => {
   tmp = makeTmpDir("browser-tab-ws-test-");
+  // Models an existing explicit browser list saved before `chatgpt` existed.
   env = withDaemonEnv(tmp, { browsers: "chrome", wsPort: WS_PORT });
   token = ensureToken();
   daemon = await startDaemon();
@@ -133,6 +134,54 @@ describe("extIsStale", () => {
 });
 
 describe("extension WebSocket server", () => {
+  it("keeps Chrome and ChatGPT Desktop Browser connected as separate sessions", async () => {
+    expect(daemon?.store.getSnapshot().browsers.some((b) => b.browser === "chatgpt")).toBe(false);
+    const chrome = await connectFakeExtension(token, {
+      browser: "chrome",
+      extVersion: "chrome-test",
+    });
+    const chatgpt = await connectFakeExtension(token, {
+      browser: "chatgpt",
+      extVersion: "chatgpt-test",
+    });
+    try {
+      await Promise.all([
+        chrome.next((m) => m.type === "helloAck"),
+        chatgpt.next((m) => m.type === "helloAck"),
+      ]);
+      chrome.send(EXT_SNAPSHOT);
+      chatgpt.send(EXT_SNAPSHOT);
+      await new Promise((r) => setTimeout(r, 150));
+      expect(daemon?.ext?.connectedBrowsers().sort()).toEqual(["chatgpt", "chrome"]);
+      expect(chrome.ws.readyState).toBe(WebSocket.OPEN);
+      expect(chatgpt.ws.readyState).toBe(WebSocket.OPEN);
+
+      const client = new DaemonClient();
+      try {
+        const snapshot = await client.request<Snapshot>("getSnapshot");
+        const byId = new Map(snapshot.browsers.map((b) => [b.browser, b]));
+        expect(byId.get("chrome")?.windows[0]?.tabs[0]?.tabId).toBe("t:chrome:x4001");
+        expect(byId.get("chatgpt")?.windows[0]?.tabs[0]?.tabId).toBe("t:chatgpt:x4001");
+        expect(byId.get("chatgpt")?.dataSource).toBe("extension");
+
+        chatgpt.close();
+        for (let attempt = 0; attempt < 30 && daemon?.ext?.isConnected("chatgpt"); attempt += 1) {
+          await new Promise((resolve) => setTimeout(resolve, 20));
+        }
+        expect(daemon?.ext?.isConnected("chatgpt")).toBe(false);
+        await daemon?.loop.remerge();
+        const after = await client.request<Snapshot>("getSnapshot");
+        expect(after.browsers.some((b) => b.browser === "chatgpt")).toBe(false);
+        expect(after.browsers.find((b) => b.browser === "chrome")?.dataSource).toBe("extension");
+      } finally {
+        client.close();
+      }
+    } finally {
+      chrome.close();
+      chatgpt.close();
+    }
+  });
+
   it("rejects a bad token", async () => {
     const ws = new WebSocket(`ws://127.0.0.1:${WS_PORT}/`);
     const closed = new Promise<number>((resolve) => ws.on("close", (code) => resolve(code)));

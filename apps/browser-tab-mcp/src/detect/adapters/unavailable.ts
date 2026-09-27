@@ -32,16 +32,17 @@ import type {
 import { platformId, unavailableBecause } from "../../platform.js";
 import type { AdapterSpec, BrowserAdapter, FocusTabOptions } from "./types.js";
 
-/** Every command surfaces the same explanation, named for what was attempted. */
-function refuse(what: string): never {
-  throw new Error(
-    `${unavailableBecause(`${what} without the connector extension`)} ` +
-      `Load the extension in this browser and retry — it executes this command directly.`,
-  );
-}
-
-export function makeUnavailableAdapter(spec: AdapterSpec): BrowserAdapter {
-  const reason = `No AppleScript on ${platformId()} — the connector extension is the only source of browser state here.`;
+export function makeUnavailableAdapter(spec: AdapterSpec, customReason?: string): BrowserAdapter {
+  const reason =
+    customReason ??
+    `No AppleScript on ${platformId()} — the connector extension is the only source of browser state here.`;
+  /** Every command surfaces the same explanation, named for what was attempted. */
+  function refuse(what: string): never {
+    const why = customReason ?? unavailableBecause(`${what} without the connector extension`);
+    throw new Error(
+      `${why} Load the extension in this browser and retry — it executes ${what} directly.`,
+    );
+  }
   return {
     spec,
     // `running: false` rather than a guess. The daemon must not claim a browser

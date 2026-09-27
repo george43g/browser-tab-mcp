@@ -17,4 +17,5 @@ Which browser's extension to reload
 - `chromium`
 - `brave`
 - `edge`
+- `chatgpt`
 - `safari`

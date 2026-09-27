@@ -25,11 +25,20 @@ export const api: typeof chrome = new Proxy({} as typeof chrome, {
 
 // Hand-duplicates BrowserIdSchema (in shared-types) ON PURPOSE — extension-core
 // bundles standalone and must not import it. Keep the two in sync manually.
-export type BrowserName = "chrome" | "chromium" | "brave" | "edge" | "safari";
+export type BrowserName = "chrome" | "chromium" | "brave" | "edge" | "chatgpt" | "safari";
 
 /** Best-effort self-identification, overridable from the options page. */
 export function detectBrowserName(): BrowserName {
-  const ua = (globalThis.navigator?.userAgent ?? "").toLowerCase();
+  const navigator = globalThis.navigator as
+    | (Navigator & { userAgentData?: { brands?: readonly { brand: string }[] } })
+    | undefined;
+  const ua = (navigator?.userAgent ?? "").toLowerCase();
+  const brands = (navigator?.userAgentData?.brands ?? [])
+    .map(({ brand }) => brand.toLowerCase())
+    .join(" ");
+  // The built-in browser may expose a product marker in UA or UA-CH. Match
+  // that before Chrome: Chromium hosts normally include Chrome/Safari tokens.
+  if (/chatgpt|codex browser|codex\//.test(`${ua} ${brands}`)) return "chatgpt";
   if (ua.includes("safari") && !ua.includes("chrome") && !ua.includes("chromium")) {
     return "safari";
   }

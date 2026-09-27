@@ -7,6 +7,7 @@
  */
 
 import { afterEach, describe, expect, it } from "vitest";
+import { applescriptCaps } from "../capabilities.js";
 import { makeAdapter, specFor } from "../engine.js";
 import { makeUnavailableAdapter } from "./unavailable.js";
 
@@ -54,5 +55,18 @@ describe("unavailable adapter commands", () => {
   ])("%s refuses with a sentence, not an errno", async (_name, call) => {
     // Each message must name the platform AND the fix; "ENOENT" teaches nothing.
     await expect(call()).rejects.toThrow(/connector extension/);
+  });
+});
+
+describe("ChatGPT Desktop Browser without its connector", () => {
+  it("has no AppleScript fallback, even on macOS", async () => {
+    process.env.BROWSER_TAB_PLATFORM = "darwin";
+    delete process.env.BROWSER_TAB_FAKE_ADAPTER;
+    const adapter = makeAdapter("chatgpt");
+    const state = await adapter.readState();
+    expect(state.running).toBe(false);
+    expect(state.error).toMatch(/connector extension is required/);
+    expect(Object.values(applescriptCaps("chatgpt")).some(Boolean)).toBe(false);
+    await expect(adapter.focusTab("t:chatgpt:1")).rejects.toThrow(/Load the extension/);
   });
 });

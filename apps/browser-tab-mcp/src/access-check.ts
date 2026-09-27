@@ -8,15 +8,12 @@
  */
 
 import { accessSync, existsSync, constants as fsConstants, statSync } from "node:fs";
-import { homedir } from "node:os";
-import { join } from "node:path";
 import { envBool } from "@george43g/robustness";
 import { stateDir } from "./daemon/paths.js";
 import { safariHistoryDbPath } from "./daemon/safari-history.js";
 import { correlationTier } from "./detect/correlate.js";
 import { enabledBrowsers, specFor } from "./detect/engine.js";
 import { OsaPermissionError, osaQuote, probeProcess, runOsa } from "./detect/osascript.js";
-import { APP_NAME } from "./meta.js";
 import { hasNativeModule, tryLoadNative } from "./native-bridge.js";
 import { hasAppleScript, hasWindowCapture, platformId, unavailableBecause } from "./platform.js";
 
@@ -125,16 +122,26 @@ function checkConfigDir(): AccessCheckItem {
 }
 
 /**
- * Per-browser Automation (TCC Apple Events) probe. Only probes browsers
- * that are actually running — an osascript against a stopped app would
+ * Per-browser Automation (TCC Apple Events) probe. ChatGPT Desktop Browser is
+ * extension-only and never reaches osascript. Other browsers are probed only
+ * when actually running — an osascript against a stopped app would
  * LAUNCH it. Denied permission (AppleScript -1743) is the classic silent
  * failure under launchd, so it's an explicit doctor error with the fix.
  */
-async function checkBrowser(
+export async function checkBrowser(
   browser: ReturnType<typeof enabledBrowsers>[number],
 ): Promise<AccessCheckItem> {
   const spec = specFor(browser);
   const key = `browser:${browser}`;
+  if (browser === "chatgpt") {
+    return {
+      key,
+      label: "ChatGPT Desktop Browser",
+      status: "info",
+      detail:
+        "extension-only — Automation permission probe skipped; load its connector extension for browser state.",
+    };
+  }
   const { running } = await probeProcess(spec.processName);
   if (!running) {
     return {

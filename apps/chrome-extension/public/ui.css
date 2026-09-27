@@ -234,6 +234,15 @@ body {
   border-color: var(--accent-border);
   box-shadow: inset 2px 0 0 0 var(--accent);
 }
+.wm-field-hint {
+  display: block;
+  margin-top: 6px;
+  color: var(--warn);
+  font-size: 11px;
+}
+.wm-field-hint[hidden] {
+  display: none;
+}
 
 /* ---- buttons ---- */
 .wm-actions {

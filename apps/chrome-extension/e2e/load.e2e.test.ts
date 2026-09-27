@@ -5,7 +5,7 @@
  * id from its service worker) and the options page renders without console errors.
  */
 
-import { expect, launchExtension, test } from "./fixtures.js";
+import { EXPECTED_BROWSER, expect, launchExtension, test } from "./fixtures.js";
 
 test("loads the built extension and renders its options page", async () => {
   const { context, extensionId, userDataDir } = await launchExtension();
@@ -20,6 +20,13 @@ test("loads the built extension and renders its options page", async () => {
     await page.goto(`chrome-extension://${extensionId}/options.html`);
     // The options page owns a token field — proof the DOM entry glue ran.
     await expect(page.locator("body")).toBeVisible();
+    await expect(page.locator("#browser")).toHaveValue("auto");
+    await expect(page.locator('#browser option[value="auto"]')).toHaveText(
+      `Auto (${EXPECTED_BROWSER === "edge" ? "Edge" : "Chrome"})`,
+    );
+    await expect(page.locator('#browser option[value="chatgpt"]')).toHaveText(
+      "ChatGPT Desktop Browser",
+    );
     expect(errors, `options page console errors: ${errors.join(" · ")}`).toEqual([]);
   } finally {
     await context.close();

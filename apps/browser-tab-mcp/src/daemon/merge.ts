@@ -54,6 +54,7 @@ export class SourceMerger {
   /** Merge the latest AppleScript poll with any live extension feeds. */
   async merge(polled: Snapshot, maxExtensionAgeMs: number): Promise<Snapshot> {
     const now = Date.now();
+    const polledIds = new Set(polled.browsers.map((state) => state.browser));
     const browsers = polled.browsers.map((polledState) => {
       const feed = this.extensionFeeds.get(polledState.browser);
       if (feed && now - feed.receivedAt <= maxExtensionAgeMs) {
@@ -76,6 +77,18 @@ export class SourceMerger {
       }
       return { ...polledState, extensionConnected: this.extensionFeeds.has(polledState.browser) };
     });
+    // A connected extension is authoritative even if an older
+    // BROWSER_TAB_BROWSERS override omitted its newly added browser ID. The
+    // override narrows AppleScript polling; it must not hide a live socket.
+    for (const [browser, feed] of this.extensionFeeds) {
+      if (polledIds.has(browser) || now - feed.receivedAt > maxExtensionAgeMs) continue;
+      browsers.push({
+        ...feed.state,
+        running: true,
+        extensionConnected: true,
+        dataSource: "extension",
+      });
+    }
     const merged: Snapshot = { ...polled, browsers, source: "daemon" };
     return enrichWithCgWindowIds(merged);
   }

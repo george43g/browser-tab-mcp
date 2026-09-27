@@ -3,7 +3,7 @@
 The connector extension for the `browser-tab` daemon. It streams live
 tab/window state to the daemon over a localhost WebSocket and executes **true
 state-preserving tab moves** (`chrome.tabs.move`) — the thing AppleScript
-can't do. One bundle serves Chrome, Brave, Chromium, Edge, and (packaged via
+can't do. One bundle serves Chrome, Brave, Chromium, Edge, ChatGPT Desktop Browser, and (packaged via
 `apps/safari-extension`) Safari.
 
 ## What it does
@@ -22,7 +22,7 @@ can't do. One bundle serves Chrome, Brave, Chromium, Edge, and (packaged via
   counts, last event time, and the real error if it can't connect. The
   background worker logs everything with a `[browser-tab]` prefix.
 
-## Load it (Chrome / Brave / Chromium)
+## Load it (Chrome / Brave / Chromium / Edge / ChatGPT Desktop Browser)
 
 ```bash
 pnpm --filter @george43g/chrome-extension build   # → dist/
@@ -32,6 +32,15 @@ pnpm --filter @george43g/chrome-extension build   # → dist/
 select `apps/chrome-extension/dist`. Open the extension's **options**, paste
 the token from `browser-tab daemon token`, set the browser, **Save**. The
 toolbar icon shows the live status; a green dot = connected.
+
+The browser field defaults to **Auto**. It recognizes Safari, Edge, and any
+ChatGPT host that reports its product name in the user agent or UA Client Hints.
+Some Chromium hosts report the same generic Chrome identity; if Auto says
+Chrome inside ChatGPT Desktop Browser, select **ChatGPT Desktop Browser** once
+and save. Do the same if an older saved **Chrome** choice is already selected.
+This gives it a separate daemon session from Google Chrome, so the
+two connectors cannot replace each other. ChatGPT Desktop Browser is
+extension-only here: without its connector, there is no AppleScript fallback.
 
 Safari packaging lives in `apps/safari-extension` (see its README).
 

@@ -56,12 +56,15 @@
       <div class="wm-field">
         <label for="browser">this browser is</label>
         <select id="browser">
+          <option value="auto">Auto (detect browser)</option>
           <option value="chrome">Chrome</option>
           <option value="brave">Brave</option>
           <option value="chromium">Chromium</option>
           <option value="edge">Edge</option>
+          <option value="chatgpt">ChatGPT Desktop Browser</option>
           <option value="safari">Safari</option>
         </select>
+        <span id="browser-hint" class="wm-field-hint" hidden></span>
       </div>
     </section>
 

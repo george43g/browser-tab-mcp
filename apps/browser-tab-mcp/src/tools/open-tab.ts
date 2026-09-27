@@ -17,7 +17,7 @@ const OpenTabInput = OpenTabInputSchema.extend({
 export const openTabTool: ToolDefinition<typeof OpenTabInput, typeof CommandResultSchema> = {
   name: "open_tab",
   description:
-    "Opens an http(s) URL in a new tab. Optionally target a browser (chrome|chromium|brave|edge|safari) " +
+    "Opens an http(s) URL in a new tab. Optionally target a browser (chrome|chromium|brave|edge|chatgpt|safari) " +
     "or a specific windowId from list_tabs; activate=false opens in the background.",
   input: OpenTabInput,
   output: CommandResultSchema,

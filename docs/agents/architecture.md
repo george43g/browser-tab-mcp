@@ -4,7 +4,7 @@ Moved verbatim from `AGENTS.md` on 2026-09-24 (BACKLOG B28 reopened); "this file
 
 ## What This Repo Is
 
-macOS browser-tab detection & management for the yabai/Hammerspoon wm-stack (`~/dotfiles/wm-stack`): which tabs are open in which browser windows (Chrome, Brave, Chromium, Edge, Safari), joined to yabai window ids via `cgWindowId` (== CGWindowID), plus tab commands — including true state-preserving cross-window moves via the connector browser extension. The consumer contract lives in `docs/WM_STACK_CONTRACT.md`.
+macOS browser-tab detection & management for the yabai/Hammerspoon wm-stack (`~/dotfiles/wm-stack`): which tabs are open in which browser windows (Chrome, Brave, Chromium, Edge, ChatGPT Desktop Browser, Safari), joined to yabai window ids via `cgWindowId` (== CGWindowID) when the browser PID is known, plus tab commands — including true state-preserving cross-window moves via the connector browser extension. The consumer contract lives in `docs/WM_STACK_CONTRACT.md`.
 
 A Turborepo monorepo shipping a **single bin** (`browser-tab`):
 
@@ -113,3 +113,5 @@ structured result it used to discard). Before bumping, run
 ## Extension–daemon merge (why the extension "wins")
 
 `src/daemon/merge.ts` decides, per browser, whether extension-fed state or the AppleScript poll wins. The extension only pushes a snapshot on tab/window **events** (no heartbeat), so gating on snapshot *age* made an idle-but-connected browser silently revert to AppleScript data + AppleScript handles — routing a subsequent `move` down the state-losing close+reopen path. Fixed: authority tracks **socket liveness, not snapshot freshness** — the WS server `touch()`es the feed on every inbound frame (a pong every ≤20s is enough), a ping/pong heartbeat (`ws-server.ts`) terminates genuinely-dead sessions so `onDisconnect`→`clearExtension` fires, and the feed TTL is floored at 60s (`extFeedTtlMs()` in `engine-loop.ts`). Don't re-gate the merge on snapshot age.
+
+A live extension feed is included even when an old `BROWSER_TAB_BROWSERS` setting does not poll its browser ID. That setting narrows AppleScript polling; it cannot hide a connected extension. ChatGPT Desktop Browser uses this path when its extension is loaded but no AppleScript adapter is available.
