@@ -43,8 +43,10 @@ tmux) own the entities, and bind in through one interface.
   hint. Documented complexity limits (`DEFAULT_LIMITS`: depth 16, nodes 256,
   list length 1024).
 - **Pure resolution** over the `SelectionDomain` ordered-view interface, with
-  `ResolvedOccurrence` provenance (entity/occurrence/projection separation,
-  architecture doc §4) so graph-shaped domains fit later without remodeling.
+  `ResolvedOccurrence` branch provenance. A graph-shaped binding gives each
+  ordered appearance its own stable entity key when sibling order differs;
+  tmux slots and shared windows are separate entity kinds. M3 removed the
+  unused `occurrenceId` and constant `projectionId` fields.
 - **A synthetic fixture** (`makeSyntheticDomain()` — a music library, on
   purpose not a browser) plus property-based tests for the algebra laws.
 
@@ -76,9 +78,10 @@ sibling view throws, so a binding whose ordering model is not settled yet (a
 tmux window linked into two sessions) can still prove the 13. A case goes in
 the sibling-dependent group if any node in its tree does.
 
-Run today against the synthetic fixture (`src/conformance.test.ts`, with the
-inversion tests that break it on purpose) and the browser binding
-(`apps/browser-tab-mcp/src/select/browser-domain.conformance.test.ts`).
+Run against the synthetic fixture (`src/conformance.test.ts`, with inversion
+tests that break it on purpose), the browser binding
+(`apps/browser-tab-mcp/src/select/browser-domain.conformance.test.ts`), and
+the tmux binding (`packages/tmux-control/src/binding.test.ts`).
 
 ## What this package deliberately does NOT own
 

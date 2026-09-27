@@ -15,3 +15,4 @@ export type {
   TmuxSnapshot,
   TmuxWindow,
 } from "./model.js";
+export { previewSplitImpact, type SharedSlotImpact } from "./preview.js";

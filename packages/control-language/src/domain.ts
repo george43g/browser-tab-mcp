@@ -28,7 +28,7 @@ export type FieldType = "string" | "number" | "boolean";
 export interface SelectionDomain<Ref> {
   /** Entity kind of a ref, e.g. "tab" | "window" (browser) or "track" (fixture). */
   kindOf(ref: Ref): string;
-  /** Stable identity key: dedupe, ids-selectors, and occurrence identity all use it. */
+  /** Stable identity key used for dedupe and ids selectors. */
   stableKey(ref: Ref): string;
   /** Look up a ref by stable key; undefined when the snapshot does not contain it. */
   byKey(key: string): Ref | undefined;
@@ -55,21 +55,16 @@ export interface SelectionDomain<Ref> {
 }
 
 /**
- * One resolved occurrence of an entity in an ordered view (architecture doc
- * §4). Browsers have one occurrence per tab so entity ≡ occurrence there;
- * the distinction exists for graph-shaped domains (a tmux window linked into
- * two sessions) and stays invisible in ordinary results.
+ * One resolved entity in an ordered view. Graph-shaped domains expose a
+ * distinct entity for each ordered appearance (a tmux slot) when selectors
+ * need to distinguish them from the underlying shared object (the window).
  */
 export interface ResolvedOccurrence<Ref> {
   /** The underlying entity. */
   entity: Ref;
   /** stableKey(entity) — identity used for dedupe. */
   key: string;
-  /** Projection/view the ordering was interpreted in ("primary" for now). */
-  projectionId: string;
-  /** Occurrence identity: projection + branch path + entity key. */
-  occurrenceId: string;
-  /** Provenance: stable keys of the branch(es) this occurrence came through. */
+  /** Provenance: stable keys of the branch this result came through. */
   branchPath: readonly string[];
   /** Position within the resolved total order (0-based). */
   ordinal: number;

@@ -30,8 +30,6 @@ import { evalPredicate } from "./predicate.js";
 import type { Selector } from "./schema.js";
 import { analyzeComplexity, DEFAULT_LIMITS, type Limits } from "./validate.js";
 
-const PRIMARY_PROJECTION = "primary";
-
 interface Ctx<Ref> {
   domain: SelectionDomain<Ref>;
   warnings: string[];
@@ -476,8 +474,6 @@ export function resolveSelector<Ref>(
     return {
       entity: r,
       key,
-      projectionId: PRIMARY_PROJECTION,
-      occurrenceId: `${PRIMARY_PROJECTION}:${branchPath.join("/")}:${key}`,
       branchPath,
       ordinal: i,
     };

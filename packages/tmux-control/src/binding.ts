@@ -34,7 +34,7 @@ const FIELDS = new Map<string, FieldType>([
   ["attached", "boolean"],
 ]);
 
-/** Bind the immutable read model to the unchanged control-language resolver. */
+/** Bind slot occurrences and shared window objects to the selection resolver. */
 export function makeTmuxDomain(snapshot: TmuxSnapshot): SelectionDomain<TmuxRef> {
   const refs: TmuxRef[] = [
     snapshot.server,
@@ -46,6 +46,12 @@ export function makeTmuxDomain(snapshot: TmuxSnapshot): SelectionDomain<TmuxRef>
   ];
   const byKey = new Map(refs.map((ref) => [ref.key, ref]));
   if (byKey.size !== refs.length) throw new Error("Duplicate tmux stable key in snapshot");
+
+  // This object view is intentionally independent of whichever linked session
+  // tmux listed first. Session-specific order exists only on slot entities.
+  const windowsById = [...snapshot.windows].sort((a, b) =>
+    a.id.localeCompare(b.id, "en", { numeric: true }),
+  );
 
   const slotsFor = (sessionId: string) =>
     snapshot.slots.filter((slot) => slot.sessionId === sessionId).sort((a, b) => a.index - b.index);
@@ -66,9 +72,9 @@ export function makeTmuxDomain(snapshot: TmuxSnapshot): SelectionDomain<TmuxRef>
         case "slots":
           return snapshot.sessions.flatMap((session) => slotsFor(session.id));
         case "windows":
-          return snapshot.windows;
+          return windowsById;
         case "panes":
-          return snapshot.windows.flatMap((window) => panesFor(window.id));
+          return windowsById.flatMap((window) => panesFor(window.id));
         case "clients":
           return snapshot.clients;
         default:
@@ -89,11 +95,37 @@ export function makeTmuxDomain(snapshot: TmuxSnapshot): SelectionDomain<TmuxRef>
       if (parent.kind === "window" && relation === "panes") return panesFor(parent.id);
       return undefined;
     },
-    parentOf: () => {
-      throw new Error("Tmux sibling-dependent selection awaits the linked-window M3 experiment.");
+    parentOf: (ref) => {
+      switch (ref.kind) {
+        case "session":
+        case "client":
+          return snapshot.server;
+        case "slot":
+          return snapshot.sessions.find((session) => session.id === ref.sessionId);
+        case "pane":
+          return snapshot.windows.find((window) => window.id === ref.windowId);
+        // A window can be linked through several slots, so it has no single
+        // session parent. Its global object view is separate from slot order.
+        case "server":
+        case "window":
+          return undefined;
+      }
     },
-    siblingsOf: () => {
-      throw new Error("Tmux sibling-dependent selection awaits the linked-window M3 experiment.");
+    siblingsOf: (ref) => {
+      switch (ref.kind) {
+        case "server":
+          return [snapshot.server];
+        case "session":
+          return snapshot.sessions;
+        case "client":
+          return snapshot.clients;
+        case "slot":
+          return slotsFor(ref.sessionId);
+        case "window":
+          return windowsById;
+        case "pane":
+          return panesFor(ref.windowId);
+      }
     },
     fields: () => FIELDS,
     readField: (ref, field) => {
