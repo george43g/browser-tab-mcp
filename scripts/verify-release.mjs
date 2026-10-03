@@ -226,11 +226,17 @@ export function verdict({
  * @param {{number: number, title: string}[]} prs
  * @param {(version: string, component: string | null) => boolean} isTagged
  *   `component` is the one the title names, or null for a bare `release X.Y.Z`
+ * @param {() => boolean} [isGroupTagged] verdict for a combined `release main`
+ *   PR, which names neither (see groupTagged)
  * @returns {string[]} human-readable descriptions of the genuinely untagged ones
  */
-export function untaggedPending(prs, isTagged) {
+export function untaggedPending(prs, isTagged, isGroupTagged = () => false) {
   const out = [];
   for (const pr of prs) {
+    if (isGroupReleaseTitle(pr.title)) {
+      if (!isGroupTagged()) out.push(`#${pr.number} ${pr.title}`);
+      continue;
+    }
     // `release 1.2.3` for a component-less line; `release <component> 0.1.0`
     // for a line that names its component (a separate release PR per line).
     const match = TITLE.exec(pr.title);
@@ -284,6 +290,14 @@ export function releaseLines(config, manifest, packageName) {
       pkg["include-component-in-tag"] ?? config["include-component-in-tag"] ?? true;
     const tagPrefix = withComponent ? `${component}-v` : "v";
     const version = manifest[path] ?? "0.0.0";
+    // A line with `separate-pull-requests: false` releases through the
+    // node-workspace plugin's combined PR (`chore: release main`, on the
+    // componentless branch). release-please's default for an unset value is
+    // "separate only when there is one package".
+    const separate =
+      pkg["separate-pull-requests"] ??
+      config["separate-pull-requests"] ??
+      Object.keys(config.packages ?? {}).length === 1;
     return {
       path,
       component,
@@ -291,10 +305,34 @@ export function releaseLines(config, manifest, packageName) {
       version,
       tagPrefix,
       expectedTag: `${tagPrefix}${version}`,
-      branch: `release-please--branches--main--components--${component}`,
+      grouped: !separate,
+      branch: separate
+        ? `release-please--branches--main--components--${component}`
+        : "release-please--branches--main",
       extraFiles: (pkg["extra-files"] ?? []).map((f) => (typeof f === "string" ? f : f.path)),
     };
   });
+}
+
+/**
+ * The combined release PR's title. It names no component and no version
+ * (release-please's `chore: release ${branch}`), so the line-by-title mapping
+ * below cannot read it; the lines it carries are the grouped ones.
+ */
+export function isGroupReleaseTitle(title) {
+  return /:\s*release\s+main\s*$/.test(title ?? "");
+}
+
+/**
+ * Is a merged combined release PR tagged? Its versions are the grouped lines'
+ * manifest versions (the merge wrote them), so every grouped line that has
+ * left the 0.0.0 sentinel must have its tag. No grouped line at all means a
+ * combined PR nobody configured — reported, not waved through.
+ */
+export function groupTagged(lines, tags) {
+  const grouped = lines.filter((l) => l.grouped);
+  if (grouped.length === 0) return false;
+  return grouped.filter((l) => l.version !== "0.0.0").every((l) => tags.has(l.expectedTag));
 }
 
 /**
@@ -407,10 +445,14 @@ function gatherFacts() {
       pendingMergedPrs =
         prs === null
           ? null
-          : untaggedPending(prs, (version, component) => {
-              const line = lineForComponent(lines, component);
-              return line ? tags.has(`${line.tagPrefix}${version}`) : false;
-            });
+          : untaggedPending(
+              prs,
+              (version, component) => {
+                const line = lineForComponent(lines, component);
+                return line ? tags.has(`${line.tagPrefix}${version}`) : false;
+              },
+              () => groupTagged(lines, tags),
+            );
     }
   }
 
@@ -434,7 +476,13 @@ function gatherFacts() {
     // words its note differently for each.
     openPrQueryFailed = raw === null;
     for (const pr of raw === null ? [] : safeJson(raw, [])) {
-      const line = lineForComponent(lines, TITLE.exec(pr.title ?? "")?.[1] ?? null);
+      // A title with no version (the combined `release main` PR, or anything
+      // unreadable) names no line. Read as "component-less" it would be
+      // checked against the root line's extra-files and fail for files it
+      // was never meant to touch.
+      const match = TITLE.exec(pr.title ?? "");
+      if (!match) continue;
+      const line = lineForComponent(lines, match[1] ?? null);
       if (!line || openByLine.has(line.path)) continue;
       // `files` is a per-PR field, so it needs a second call.
       const filesRaw = tryRun("gh", ["pr", "view", String(pr.number), "--json", "files"]);

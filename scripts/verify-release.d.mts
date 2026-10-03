@@ -49,6 +49,8 @@ export interface ReleaseLine {
   version: string;
   tagPrefix: string;
   expectedTag: string;
+  /** Released through the combined node-workspace PR (`separate-pull-requests: false`). */
+  grouped: boolean;
   branch: string;
   extraFiles: string[];
 }
@@ -97,4 +99,11 @@ export declare function verdict(facts: ReleaseFacts): ReleaseVerdict;
 export declare function untaggedPending(
   prs: { number: number; title: string }[],
   isTagged: (version: string, component: string | null) => boolean,
+  isGroupTagged?: () => boolean,
 ): string[];
+
+/** Is this the combined `chore: release main` PR title (no component, no version). */
+export declare function isGroupReleaseTitle(title: string | undefined): boolean;
+
+/** Every grouped line past 0.0.0 has its tag; false when no line is grouped. */
+export declare function groupTagged(lines: ReleaseLine[], tags: Set<string>): boolean;

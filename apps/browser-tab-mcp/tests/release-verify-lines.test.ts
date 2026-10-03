@@ -27,6 +27,8 @@ import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { afterAll, describe, expect, it } from "vitest";
 import {
+  groupTagged,
+  isGroupReleaseTitle,
   lineFacts,
   lineForComponent,
   parseRemoteTags,
@@ -52,6 +54,9 @@ const CONFIG = {
     },
   },
   "include-component-in-tag": false,
+  // As in the real config: unset, release-please merges every line into one
+  // PR whenever there is more than one package.
+  "separate-pull-requests": true,
 };
 
 function run(manifest: Record<string, string>, remoteTags: string[]) {
@@ -152,5 +157,80 @@ describe("releaseLines / lineFacts / untaggedPending — the per-line pieces", (
         isTagged,
       ),
     ).toEqual(["#2 chore(main): release 1.15.0"]);
+  });
+});
+
+describe("the combined node-workspace release PR (per-package lines, 2026-10-04)", () => {
+  // tmux-control and the shared packages it depends on set
+  // `separate-pull-requests: false`; the node-workspace plugin releases them in
+  // ONE PR titled `chore: release main` on the componentless branch, while the
+  // root line keeps its own PR. That title names no component and no version.
+  const GROUPED = {
+    packages: {
+      ".": { "release-type": "simple", component: "browser-tab" },
+      "apps/second-mcp": {
+        "release-type": "node",
+        component: "second",
+        "include-component-in-tag": true,
+        "separate-pull-requests": false,
+      },
+      "packages/shared": {
+        "release-type": "node",
+        component: "pkg-shared",
+        "include-component-in-tag": true,
+        "separate-pull-requests": false,
+      },
+      "packages/unreleased": {
+        "release-type": "node",
+        component: "pkg-unreleased",
+        "include-component-in-tag": true,
+        "separate-pull-requests": false,
+      },
+    },
+    "include-component-in-tag": false,
+    "separate-pull-requests": true,
+  };
+  const lines = releaseLines(
+    GROUPED,
+    {
+      ".": "1.15.0",
+      "apps/second-mcp": "0.1.1",
+      "packages/shared": "0.1.1",
+      "packages/unreleased": "0.0.0",
+    },
+    () => undefined,
+  );
+
+  it("puts grouped lines on the componentless branch and keeps the root line's own", () => {
+    expect(lines.map((l) => [l.path, l.grouped, l.branch])).toEqual([
+      [".", false, "release-please--branches--main--components--browser-tab"],
+      ["apps/second-mcp", true, "release-please--branches--main"],
+      ["packages/shared", true, "release-please--branches--main"],
+      ["packages/unreleased", true, "release-please--branches--main"],
+    ]);
+  });
+
+  it("recognises only the combined title as the group PR", () => {
+    expect(isGroupReleaseTitle("chore: release main")).toBe(true);
+    expect(isGroupReleaseTitle("chore(main): release 1.15.1")).toBe(false);
+    expect(isGroupReleaseTitle("chore(main): release tmux-control 0.1.0")).toBe(false);
+  });
+
+  it("calls a merged group PR tagged only when every released grouped line has its tag", () => {
+    const all = new Set(["v1.15.0", "second-v0.1.1", "pkg-shared-v0.1.1"]);
+    expect(groupTagged(lines, all)).toBe(true);
+    expect(groupTagged(lines, new Set(["v1.15.0", "second-v0.1.1"]))).toBe(false);
+  });
+
+  it("reports an untagged group PR instead of failing to parse its title", () => {
+    const pr = [{ number: 7, title: "chore: release main" }];
+    const never = () => false;
+    expect(untaggedPending(pr, never, () => true)).toEqual([]);
+    expect(untaggedPending(pr, never, () => false)).toEqual(["#7 chore: release main"]);
+  });
+
+  it("treats a group PR as untagged when no line is grouped", () => {
+    const separate = releaseLines(CONFIG, { ".": "1.14.0", "apps/second-mcp": "0.1.0" }, () => "x");
+    expect(groupTagged(separate, new Set(["v1.14.0", "second-v0.1.0"]))).toBe(false);
   });
 });
