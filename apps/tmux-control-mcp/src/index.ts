@@ -86,10 +86,18 @@ export async function runMcpServer(opts: { transport?: "stdio" | "http" } = {}):
 
 // Run when invoked directly (stress harness, manual node invocation).
 // The bin (dist/cli.js) goes through cli.ts and never trips this branch.
+//
+// process.argv[1] uses backslashes on Windows, so an unnormalized
+// endsWith("/src/index.ts") was never true there — the module loaded as a
+// library and exited 0 instead of serving (same fix as browser-tab-mcp).
+export function isDirectInvocation(argv1: string | undefined): boolean {
+  const arg = (argv1 ?? "").replace(/\\/g, "/");
+  return arg.endsWith("/dist/index.js") || arg.endsWith("/src/index.ts");
+}
+
 const isMain = (() => {
   try {
-    const arg = process.argv[1] ?? "";
-    return arg.endsWith("/dist/index.js") || arg.endsWith("/src/index.ts");
+    return isDirectInvocation(process.argv[1]);
   } catch {
     return false;
   }
