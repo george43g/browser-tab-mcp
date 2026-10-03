@@ -321,13 +321,28 @@ async function caseSigTermClean(): Promise<void> {
   const c = new McpClient();
   try {
     await c.initialize();
-    c.kill("SIGTERM");
-    const exit = await c.waitExit(3_000);
-    record(
-      "SIGTERM produces clean exit code 0",
-      exit.code === 0 && exit.signal === null,
-      `code=${exit.code} signal=${exit.signal}`,
-    );
+    if (process.platform === "win32") {
+      // Windows cannot deliver a catchable SIGTERM: child.kill() is
+      // TerminateProcess, so the shutdown handler never runs and the exit is
+      // (code null, signal SIGTERM) by design of the platform. The graceful
+      // trigger the shutdown registry receives there is stdin EOF, so that is
+      // what this case exercises (same split as browser-tab-mcp's harness).
+      c.closeStdin();
+      const exit = await c.waitExit(3_000);
+      record(
+        "graceful shutdown exits 0 (win32: stdin EOF)",
+        exit.code === 0 && exit.signal === null,
+        `code=${exit.code} signal=${exit.signal}`,
+      );
+    } else {
+      c.kill("SIGTERM");
+      const exit = await c.waitExit(3_000);
+      record(
+        "SIGTERM produces clean exit code 0",
+        exit.code === 0 && exit.signal === null,
+        `code=${exit.code} signal=${exit.signal}`,
+      );
+    }
   } finally {
     c.kill("SIGKILL");
   }
@@ -382,7 +397,17 @@ function readShutdownMarker(dir: string): { reason?: string } | null {
  */
 async function caseShutdownMarker(): Promise<void> {
   const paths: Array<[string, string, (c: McpClient) => void]> = [
-    ["SIGTERM", "signal:SIGTERM", (c) => c.kill("SIGTERM")],
+    // No SIGTERM row on Windows: TerminateProcess runs no handler, so no
+    // marker can be written there (see caseSigTermClean).
+    ...(process.platform === "win32"
+      ? []
+      : [
+          ["SIGTERM", "signal:SIGTERM", (c: McpClient) => c.kill("SIGTERM")] as [
+            string,
+            string,
+            (c: McpClient) => void,
+          ],
+        ]),
     ["stdin EOF", "stdin_eof", (c) => c.closeStdin()],
   ];
   for (const [label, expected, trigger] of paths) {
