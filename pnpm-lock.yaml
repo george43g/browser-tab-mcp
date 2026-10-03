@@ -82,8 +82,8 @@ importers:
         specifier: workspace:*
         version: link:../../packages/tsconfig
       '@george43g/tui-kit':
-        specifier: ^0.5.1
-        version: 0.5.1(@george43g/robustness@0.14.1)(@types/react@19.2.17)(ink@7.1.1(@types/react@19.2.17)(react@19.2.8))(react@19.2.8)
+        specifier: ^0.5.2
+        version: 0.5.2(@george43g/robustness@0.14.1)(@types/react@19.2.17)(ink@7.1.1(@types/react@19.2.17)(react@19.2.8))(react@19.2.8)
       '@george43g/vitest-config':
         specifier: workspace:*
         version: link:../../packages/vitest-config
@@ -184,8 +184,8 @@ importers:
         specifier: workspace:*
         version: link:../../packages/tmux-control
       '@george43g/tui-kit':
-        specifier: ^0.5.1
-        version: 0.5.1(@george43g/robustness@0.14.1)(@types/react@19.2.17)(ink@7.1.1(@types/react@19.2.17)(react@19.2.8))(react@19.2.8)
+        specifier: ^0.5.2
+        version: 0.5.2(@george43g/robustness@0.14.1)(@types/react@19.2.17)(ink@7.1.1(@types/react@19.2.17)(react@19.2.8))(react@19.2.8)
       '@modelcontextprotocol/sdk':
         specifier: ^1.29.0
         version: 1.29.0(zod@3.25.76)
@@ -869,8 +869,8 @@ packages:
     resolution: {integrity: sha512-Op3YZxFkvSJFEdHVYdGQy0VYF+VUjeaq85ou/N/qJoR8NmO3yhxmOAyodwHGxOh55vA8M+Elxy5tNuHnOLYdrg==}
     engines: {node: '>=24'}
 
-  '@george43g/tui-kit@0.5.1':
-    resolution: {integrity: sha512-O+QntIt37wONjtjmsEnFSSOC0j0ym//4F7tXkZTTabwPSDPltJbCkfR3gOB9YAvdbq/5RY+1BI5hP8b4mDHPfQ==}
+  '@george43g/tui-kit@0.5.2':
+    resolution: {integrity: sha512-8ZmFY2xI9eBPR6E+07VX7+ezWom+Xm0sBG4Cc1pPSlLCHOhGpRPkZKqGdsixirCNcqJjdqe/DSZqFe8Yc5ePFg==}
     engines: {node: '>=24'}
     peerDependencies:
       '@george43g/robustness': '>=0.1.1 <1'
@@ -3036,7 +3036,7 @@ snapshots:
 
   '@george43g/secret-store@0.2.2': {}
 
-  '@george43g/tui-kit@0.5.1(@george43g/robustness@0.14.1)(@types/react@19.2.17)(ink@7.1.1(@types/react@19.2.17)(react@19.2.8))(react@19.2.8)':
+  '@george43g/tui-kit@0.5.2(@george43g/robustness@0.14.1)(@types/react@19.2.17)(ink@7.1.1(@types/react@19.2.17)(react@19.2.8))(react@19.2.8)':
     dependencies:
       '@george43g/robustness': 0.14.1
       fullscreen-ink: 0.1.0(@types/react@19.2.17)
