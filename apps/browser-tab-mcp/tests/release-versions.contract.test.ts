@@ -104,13 +104,17 @@ function releaseLines(): ReleaseLine[] {
   // extension manifest the Chrome-grammar test reads.
   if (!packages["."]) throw new Error('release-please-config.json lost the root "." release line');
   return Object.entries(packages).map(([path, pkg]) => {
-    // The `node` release-type rewrites the line's own package.json; extra-file
+    // Every line rewrites its own package.json: a `node` line by release-type,
+    // the root `simple` line through its first extra-file (2026-10-04, so the
+    // node-workspace plugin leaves it out of the combined PR). Extra-file
     // paths are relative to the package path.
     const at = (rel: string) => (path === "." ? rel : `${path}/${rel}`);
     return {
       path,
       version: manifest[path] ?? UNVERSIONED,
-      files: [at("package.json"), ...(pkg["extra-files"] ?? []).map((f) => at(f.path))],
+      files: [
+        ...new Set([at("package.json"), ...(pkg["extra-files"] ?? []).map((f) => at(f.path))]),
+      ],
     };
   });
 }
@@ -120,7 +124,17 @@ const ownedFiles = (): string[] => releaseLines().flatMap((l) => l.files);
 
 describe("release version coherence", () => {
   it("reads more than one release line (canary on the line reader)", () => {
-    expect(releaseLines().map((l) => l.path)).toEqual([".", "apps/tmux-control-mcp"]);
+    expect(releaseLines().map((l) => l.path)).toEqual([
+      ".",
+      "apps/tmux-control-mcp",
+      "packages/build-config",
+      "packages/control-language",
+      "packages/shared-types",
+      "packages/test-kit",
+      "packages/tmux-control",
+      "packages/tsconfig",
+      "packages/vitest-config",
+    ]);
   });
 
   it("every file claiming a real version is one release-please rewrites", () => {

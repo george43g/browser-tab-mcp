@@ -23,8 +23,9 @@ Two files drive it:
 And one workflow, `.github/workflows/release.yml`:
 
 1. **Every push to `main`** → release-please reads the Conventional Commits
-   since the last release and opens (or updates) a single rolling **release
-   PR** titled `chore(main): release X.Y.Z`, on the head branch
+   since the last release and opens (or updates) browser-tab's rolling **release
+   PR** titled `chore(main): release X.Y.Z` (tmux-control and its shared packages
+   get a second, combined one: see *Per-package release lines*), on the head branch
    `release-please--branches--main--components--browser-tab`. That **branch
    name is load-bearing**: at cut time (v17) release-please compares the head
    branch's `--components--` suffix against the node package name and
@@ -149,12 +150,116 @@ then, with `additional-paths` preferred if it has shipped.
 every line; `tests/release-versions.contract.test.ts` checks each line's
 files against its own manifest version.
 
+## Per-package release lines (re-decided 2026-10-04)
+
+**Re-decided 2026-10-04 (George): per-package release lines.** The
+2026-09-27 "wait for upstream" decision above is superseded: `additional-paths`
+([release-please#2534](https://github.com/googleapis/release-please/pull/2534))
+is still unmerged, and the gap had to close before tmux-control's first
+release. Every workspace package that `apps/tmux-control-mcp` depends on,
+directly or transitively (`shared-types`, `test-kit`, `tsconfig`,
+`vitest-config`, `build-config`, `tmux-control`, and `control-language`
+through `tmux-control`), now has a release line of its own, and the
+`node-workspace` plugin cascades a dependency bump from a shared package to
+tmux-control. The graph only spans configured lines, which is why the
+intermediate packages need lines too.
+
+The config, and why each piece is there:
+
+- **Shared lines**: `release-type: node`, `component: pkg-<dir>`, tags
+  `pkg-<dir>-vX.Y.Z`, `initial-version: 0.1.0`. The `pkg-` prefix is needed
+  because `packages/tmux-control`'s default component would be `tmux-control`,
+  the app's component. They are private and never published, but each still
+  gets a tag and a GitHub Release. release-please finds a line's last release
+  by its tag, so `skip-github-release` would make it re-propose the same
+  commits on every run.
+- **One combined PR for tmux-control and its packages**: those lines set
+  `separate-pull-requests: false`, and the plugin runs with `merge: true`.
+  The plugin's internal Merge only folds in candidates whose own
+  `separate-pull-requests` is false. Shared and dependent bumps therefore
+  arrive in one PR, `chore: release main` on `release-please--branches--main`.
+  Merging it releases them together, so a partial merge cannot split them.
+- **browser-tab stays separate and keeps everything it had**: the root line is
+  now `release-type: simple` with `component: browser-tab`, and root
+  `package.json` is its first extra-file. It must be outside the plugin's
+  scope (the plugin takes every `node` line): with `"."` as `node` the planner
+  emitted an extra, empty `chore: release main` candidate next to every
+  browser-tab-only release (measured). Its title, branch
+  (`--components--browser-tab`), tag (`vX.Y.Z`), file set and changelog are
+  byte-for-byte the same as before (measured: same five files plus the manifest, same
+  CHANGELOG entry). `version.txt` is `createIfMissing: false` and absent, so
+  it is skipped.
+- **`"."` still covers the shared packages browser-tab bundles**, so a shared
+  fix bumps browser-tab directly, as before. Root `package.json` does not list
+  those packages, so the plugin cannot cascade to it. `"."` now also excludes
+  `packages/build-config` and `packages/tmux-control`, which only tmux-control
+  uses. They have their own lines, so they are no longer "released by nobody".
+- **Tags**: browser-tab's stay `vX.Y.Z` (`include-component-in-tag: false` at
+  the top level). Every other line sets `include-component-in-tag: true`; a
+  shared line without it would tag `v0.1.0` into browser-tab's namespace.
+- **No `linked-versions`** (measured earlier to break the cut) and no
+  publish step. `release.yml` needed no change: it has no job keyed on a
+  release output, and its Summarize step already lists every line's outputs.
+
+Measured 2026-10-04 with release-please **17.3.0** (what
+`release-please-action@v4` bundles), `Manifest.buildPullRequests()` and
+`buildReleases()` driven offline against a fake SCM. The fake was seeded with
+this repo's real first-parent history and tags, so S4 is the live state. For
+S1–S3 and S5–S7 every line was first released by merging and cutting S4's PR:
+
+| Scenario | Release PRs opened | Versions |
+|---|---|---|
+| S4: current state (tmux-control never released) | 1 combined | tmux-control **0.1.0**; build-config, control-language, shared-types, test-kit, tmux-control pkg, vitest-config 0.1.0; tsconfig none (only `chore:` history). Cut tags all seven; next run opens nothing |
+| S1 (unreleased): `fix:` in `packages/shared-types` | browser-tab + 1 combined | browser-tab 1.15.1; the S4 PR (tmux-control still **0.1.0**) |
+| S1: `fix:` in `packages/shared-types` | browser-tab + 1 combined | browser-tab 1.15.1; shared-types 0.1.1, test-kit 0.1.1 (dependent), tmux-control 0.1.1 (dependent) |
+| S2: `feat:` in `apps/tmux-control-mcp` only | 1 combined | tmux-control 0.2.0; browser-tab untouched. Cut tags `tmux-control-v0.2.0` |
+| S3: `fix:` in `apps/browser-tab-mcp` only | browser-tab only | 1.15.1 |
+| S5: `docs:` + `chore:` in shared packages | none | — (hidden types never bump, as before) |
+| S6: `fix:` in `packages/control-language` | browser-tab + 1 combined | browser-tab 1.15.1; control-language, tmux-control pkg and tmux-control 0.1.1 (transitive) |
+| S7: `fix:` in `packages/build-config` | 1 combined | build-config 0.1.1, tmux-control 0.1.1; browser-tab untouched (excluded) |
+
+**Partial merge (S1, merging one of the two PRs, then a cut and a re-plan).**
+Merge browser-tab's PR only: it tags `v1.15.1`, and the next run re-proposes
+the combined PR unchanged (shared-types, test-kit and tmux-control 0.1.1).
+Merge the combined PR only: it tags all three, writes all three into the
+manifest, and the next run re-proposes browser-tab 1.15.1 unchanged. Nothing is
+lost either way. The plugin writes the manifest entries for dependent bumps
+only into the first candidate, so the partial-merge loss in the earlier
+measurement came from splitting one cascade across several PRs; the combined
+PR keeps the whole cascade in one PR.
+
+**Still true, and why they do not bite:**
+
+- A bump that comes only from a dependency is a patch from the line's
+  `package.json` version, and it ignores `initial-version`. That only matters
+  for a line that has never been released and has no releasable commits of its
+  own. tmux-control's own `feat:` commits make it a real candidate until its
+  first release, so it is 0.1.0 (S4, S1 unreleased). After the first combined
+  release every line with dependents has a tag. `tsconfig` stays at 0.0.0
+  until a `fix:`/`feat:` touches it, and its first release is then 0.1.0. It
+  has no workspace dependencies, so a dependency bump can never reach it.
+- The combined PR's title names no component and no version.
+  `scripts/verify-release.mjs` recognises it: it counts a merged one as
+  tagged when every grouped line past 0.0.0 has its tag, and it never
+  attributes it to the root line's extra-files check.
+- The first run after this lands opens the S4 PR, and every shared line's
+  first CHANGELOG lists its whole history. That happens once.
+- **Release PR #200** (`chore(main): release tmux-control 0.1.0`, branch
+  `--components--tmux-control`) is superseded by the combined PR. release-please
+  17.3.0 does not close stale release PRs, so close #200 by hand. Merging it
+  would release tmux-control alone and leave its shared packages behind.
+
+Not measured: a live run against GitHub. The offline planner is
+release-please's own code, but PR creation, labels and the action's outputs
+were not exercised. Check the first live run's PRs against the S4 row.
+
 ## What is deliberately NOT released
 
 | Package | Why not |
 |---|---|
 | `@george43g/cli-kit`, `@george43g/tui-kit`, `@george43g/robustness` | Not workspace code any more — consumed from npm (published from `mcp-cli-starter-template`; the frozen workspace copies were deleted 2026-08-09). Their versions move upstream. |
-| `@george43g/mcp-kit`, `shared-types`, `extension-core`, `test-kit`, `env-loader`, `tsconfig`, `biome-config`, `vitest-config` | Internal, unpublished, no external consumer to version for. They ship *inside* the bin, and the root release line already covers changes to them. |
+| `@george43g/mcp-kit`, `extension-core`, `env-loader`, `biome-config` | Internal, unpublished, no external consumer to version for. They ship *inside* the bin, and the root release line already covers changes to them. |
+| `shared-types`, `test-kit`, `tsconfig`, `vitest-config`, `build-config`, `control-language`, `tmux-control` (packages) | **Versioned since 2026-10-04, still never published.** Each has a release line (tags `pkg-<dir>-vX.Y.Z`) only so the `node-workspace` plugin can carry a fix in them into tmux-control's version. See *Per-package release lines*. |
 | `@george43g/rust-accel` | Build input, not a distributed artifact. |
 | `@george43g/safari-extension` | Packaging only. Its Xcode project is gitignored and regenerated, so there is no tracked file to version; `MARKETING_VERSION` is stamped from the connector manifest at build time (`scripts/convert.sh`, `scripts/rebuild.sh`). |
 
@@ -318,6 +423,14 @@ only with neither present. The day a second `release-type: node` line is
 added, re-adding `node-workspace` (for intra-workspace dependency bumps) is
 part of that work — and whoever does it must re-verify that a merged release
 PR actually produces a tag.
+
+**2026-10-04: `node-workspace` is back, scoped so neither failure can recur.**
+The root line is `release-type: simple`, so the plugin never touches it, and it
+keeps its own branch through `component: browser-tab`. Only tmux-control and its
+shared packages opt into the combined PR (`separate-pull-requests: false` per
+line, never at the top level). Re-verified offline with 17.3.0: a merged combined
+PR produces every tag it lists, and a merged browser-tab PR produces `vX.Y.Z`
+(see *Per-package release lines*).
 
 ## Release identity vs build identity
 

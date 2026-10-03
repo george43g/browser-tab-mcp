@@ -2,9 +2,15 @@
   "$schema": "https://raw.githubusercontent.com/googleapis/release-please/main/schemas/config.json",
   "packages": {
     ".": {
-      "release-type": "node",
+      "release-type": "simple",
+      "component": "browser-tab",
       "changelog-path": "CHANGELOG.md",
       "extra-files": [
+        {
+          "type": "json",
+          "path": "package.json",
+          "jsonpath": "$.version"
+        },
         {
           "type": "json",
           "path": "apps/browser-tab-mcp/package.json",
@@ -21,16 +27,74 @@
           "jsonpath": "$.version"
         }
       ],
-      "exclude-paths": ["apps/tmux-control-mcp"]
+      "exclude-paths": ["apps/tmux-control-mcp", "packages/build-config", "packages/tmux-control"]
     },
     "apps/tmux-control-mcp": {
       "release-type": "node",
       "component": "tmux-control",
       "include-component-in-tag": true,
       "changelog-path": "CHANGELOG.md",
-      "initial-version": "0.1.0"
+      "initial-version": "0.1.0",
+      "separate-pull-requests": false
+    },
+    "packages/build-config": {
+      "release-type": "node",
+      "component": "pkg-build-config",
+      "include-component-in-tag": true,
+      "changelog-path": "CHANGELOG.md",
+      "initial-version": "0.1.0",
+      "separate-pull-requests": false
+    },
+    "packages/control-language": {
+      "release-type": "node",
+      "component": "pkg-control-language",
+      "include-component-in-tag": true,
+      "changelog-path": "CHANGELOG.md",
+      "initial-version": "0.1.0",
+      "separate-pull-requests": false
+    },
+    "packages/shared-types": {
+      "release-type": "node",
+      "component": "pkg-shared-types",
+      "include-component-in-tag": true,
+      "changelog-path": "CHANGELOG.md",
+      "initial-version": "0.1.0",
+      "separate-pull-requests": false
+    },
+    "packages/test-kit": {
+      "release-type": "node",
+      "component": "pkg-test-kit",
+      "include-component-in-tag": true,
+      "changelog-path": "CHANGELOG.md",
+      "initial-version": "0.1.0",
+      "separate-pull-requests": false
+    },
+    "packages/tmux-control": {
+      "release-type": "node",
+      "component": "pkg-tmux-control",
+      "include-component-in-tag": true,
+      "changelog-path": "CHANGELOG.md",
+      "initial-version": "0.1.0",
+      "separate-pull-requests": false
+    },
+    "packages/tsconfig": {
+      "release-type": "node",
+      "component": "pkg-tsconfig",
+      "include-component-in-tag": true,
+      "changelog-path": "CHANGELOG.md",
+      "initial-version": "0.1.0",
+      "separate-pull-requests": false
+    },
+    "packages/vitest-config": {
+      "release-type": "node",
+      "component": "pkg-vitest-config",
+      "include-component-in-tag": true,
+      "changelog-path": "CHANGELOG.md",
+      "initial-version": "0.1.0",
+      "separate-pull-requests": false
     }
   },
+  "plugins": [{ "type": "node-workspace", "merge": true }],
   "bump-minor-pre-major": true,
   "include-component-in-tag": false,
   "separate-pull-requests": true
