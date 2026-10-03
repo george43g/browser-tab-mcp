@@ -1,4 +1,4 @@
 {
   ".": "1.14.0",
-  "apps/tmux-control-mcp": "0.0.0"
+  "apps/tmux-control-mcp": "0.1.0"
 }
