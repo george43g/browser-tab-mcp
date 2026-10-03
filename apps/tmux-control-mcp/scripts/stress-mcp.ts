@@ -194,7 +194,9 @@ const results: CaseResult[] = [];
  * twice from one loop and `caseHttpTransport` records five times, so a naive
  * grep returns 14.
  */
-const EXPECTED_ASSERTIONS = 15;
+// 15 everywhere except win32, where caseShutdownMarker has no SIGTERM row
+// (TerminateProcess runs no handler, so no marker can exist).
+const EXPECTED_ASSERTIONS = 15 - (process.platform === "win32" ? 1 : 0);
 
 function record(name: string, pass: boolean, detail?: string) {
   results.push({ name, pass, ...(detail !== undefined ? { detail } : {}) });
