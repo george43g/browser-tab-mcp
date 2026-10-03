@@ -1,5 +1,25 @@
 # Changelog
 
+## [1.15.0](https://github.com/george43g/browser-tab-mcp/compare/v1.14.0...v1.15.0) (2026-10-03)
+
+
+### Features
+
+* admit a second MCP app — tmux-control scaffolded, single-app assumptions lifted (Phase 1, Gate B) ([#199](https://github.com/george43g/browser-tab-mcp/issues/199)) ([c80a625](https://github.com/george43g/browser-tab-mcp/commit/c80a625fd8470a0e3dfda919b51b32a226d5fdd0))
+* **browser-tab:** support ChatGPT desktop browser connector ([#208](https://github.com/george43g/browser-tab-mcp/issues/208)) ([60e4271](https://github.com/george43g/browser-tab-mcp/commit/60e4271cbb9c70b4c1de2f598b7ed87edb77bba7))
+* **control-language:** binding conformance suite for SelectionDomain ([#196](https://github.com/george43g/browser-tab-mcp/issues/196)) ([ae2f469](https://github.com/george43g/browser-tab-mcp/commit/ae2f469b81d7c5fe196c004ad76438d2806ad532))
+* **tmux-control:** add read-only snapshot and selector binding ([#207](https://github.com/george43g/browser-tab-mcp/issues/207)) ([17a9d68](https://github.com/george43g/browser-tab-mcp/commit/17a9d684ecaf401c744b6bada8422ad526f164db))
+* **tmux-control:** resolve linked-window identity through slots ([#209](https://github.com/george43g/browser-tab-mcp/issues/209)) ([0bf3e47](https://github.com/george43g/browser-tab-mcp/commit/0bf3e472d40bcc8aea1a82914bf5a2bf0c1029a9))
+
+
+### Bug Fixes
+
+* **apply:** a long apply reports its outcome as unknown, not failed (B36) ([#204](https://github.com/george43g/browser-tab-mcp/issues/204)) ([101901e](https://github.com/george43g/browser-tab-mcp/commit/101901e923c4d73e782ab4f573d722055c27526f))
+* **control-language:** between fails typed when anchors share a parent but not a run ([#197](https://github.com/george43g/browser-tab-mcp/issues/197)) ([96b127c](https://github.com/george43g/browser-tab-mcp/commit/96b127c25875036c0880ee7db38970be40b410d1))
+* **deploy:** a non-Safari reload note no longer borrows Safari's explanation [skip-readme] ([#203](https://github.com/george43g/browser-tab-mcp/issues/203)) ([c7c7927](https://github.com/george43g/browser-tab-mcp/commit/c7c79274bc9ecab6f536607b0a16684c44674ddf))
+* **deploy:** install with a frozen lockfile before building; checkpoints [#26](https://github.com/george43g/browser-tab-mcp/issues/26)–[#27](https://github.com/george43g/browser-tab-mcp/issues/27) ([#201](https://github.com/george43g/browser-tab-mcp/issues/201)) ([66391fb](https://github.com/george43g/browser-tab-mcp/commit/66391fbbb2d4f059a57932c6130f230f94922701))
+* **safari:** the helper window recovers from Safari's transient error, and a rebuild replaces a stale helper ([#206](https://github.com/george43g/browser-tab-mcp/issues/206)) ([2a8953a](https://github.com/george43g/browser-tab-mcp/commit/2a8953a3983f2fd75ed1aff35fa3a04c4784dff1))
+
 ## [1.14.0](https://github.com/george43g/browser-tab-mcp/compare/v1.13.1...v1.14.0) (2026-09-19)
 
 
