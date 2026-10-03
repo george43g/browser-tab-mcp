@@ -58,7 +58,49 @@ here.** Nothing about this work may live only in an agent's private memory.
 6. **No AI inside the tool.** browser-tab serves data/actuation; the consumer
    AI interprets. (`annotate` is a cache substrate, never intelligence.)
 
-## Status (2026-08-22) — v1.4.0 released · Windows+Edge live-verified · zero open PRs
+## Status (2026-09-30) — ChatGPT identity verified; connector stamp older than the daemon
+
+`main` = **`0bf3e47`**. PR #208 added ChatGPT Desktop Browser as a distinct,
+extension-only browser ID and an explicit Auto choice in the connector's
+settings. All eight CI checks passed. The post-merge deploy restarted the
+daemon on build `1.14.0+208.60e4271.dirty.0927T1107` and rebuilt Safari.
+
+**ChatGPT identity, measured 2026-09-29T17:52Z:** six `daemon status` reads
+showed `chatgpt` and `chrome` both connected, `stale:false`, with no stamp swap.
+`browser-tab list` returned 5 `t:chatgpt:` tabs and 36 `t:chrome:` tabs and no
+shared ids. ChatGPT's `extVersion` is `1.14.0+207.17a9d68.dirty.0927T1054`; the
+daemon and Chrome are `1.14.0+209.0bf3e47.dirty.0928T0300`. B37 is closed on
+that split. Earlier samples (alternating `chrome` stamps, then `chatgpt`
+disconnected) stay in B37 as history. v1.14.0 remains the latest release; #198
+is open with an empty check rollup (`gh pr view 198`, 2026-09-30) so it stays
+unmerged, and #200 remains held for D9. The latest checkpoint in `PROGRESS-LOG.md` has the
+exact resume action.
+
+George authenticated his 2026-09-28 02:22 AEST `ag-all` blanket go-ahead on
+`george-broadcast` at 02:30. Phase 4 / M3 of the approved tmux plan merged as
+#209 (`0bf3e47`) after eight green CI checks. The session-slot identity answer
+and its measured consequence are in `DECISIONS.md`. Main's post-merge stress
+passed 15 tmux and 44 browser cases; the release workflow succeeded. The
+broadcast leaves multiple-choice decisions requiring his direct choice.
+
+## Historical status (2026-09-27) — tmux-control Phase 3 / M2 merged
+
+`main` = **`17a9d68`**. PR #207 merged after eight green checks. The new
+`packages/tmux-control` reads real tmux `-F` rows into sessions, slots, shared
+windows, panes and clients; its binding passes the 13 sibling-free
+`control-language` cases unchanged. The real tmux effect tier ran in the
+dedicated CI job. Phase 4 / M3 (linked-window identity) was pending a separate
+go-ahead at the time; the current Status above supersedes that gate.
+
+**Release state:** v1.14.0 is the latest released version recorded here. PR
+#198 (browser-tab 1.15.0) and #200 (tmux-control 0.1.0) remain open. #200 is
+held while D9's shared-package release link waits for upstream
+`additional-paths` (#2534, still open on 2026-09-27). The post-merge hook
+skipped browser deployment for #207's tmux-only changes; live browser fleet
+versions were not remeasured this session. The detailed status and next action
+are in the latest checkpoint in `PROGRESS-LOG.md`.
+
+## Historical status (2026-08-22) — v1.4.0 released · Windows+Edge live-verified · zero open PRs
 
 `main` = **`4bd864b`**. Working tree clean apart from two UNTRACKED specs that
 are not this session's (`docs/tab-selection-transformation-language-spec.md` and

@@ -3958,64 +3958,57 @@ tmux-control is in the monorepo as a second MCP app (#199, `c80a625`), with its 
 ### Resume
 Merge this PR, then run `mcpsync sync --scope project` and start `agents-md-split`. Phase 2 of the tmux plan (the skeleton plus M2) follows. M1 is already merged.
 
-## Checkpoint · browser-tab-mcp · 2026-09-24
+## Checkpoint · browser-tab-mcp · 2026-09-29
 
-Where this block and a conversation summary disagree, this block is correct.
+Where this block and any summary disagree, this block is correct.
+
+### Start here
+Read this block, then `docs/agent-handoff/DECISIONS.md` (2026-09-28 blanket) and BACKLOG B37. The Codex rollout this pane replaced is `~/.codex/sessions/2026/09/27/rollout-2026-09-27T05-20-40-01a0df29-9843-7681-a0a5-2a4dfee8344e.jsonl`; it is not imported here. Do not merge #198, do not start Phase 5, and do not treat B37's "chatgpt disconnected" paragraph as current — re-check with the commands in Open.
 
 ### State
-tmux-control is admitted as a second app and the `AGENTS.md` split is merged; main is at `2a8953a` and deployed, and nothing of mine is mid-flight.
+B37's identity check passed at 2026-09-29T17:52Z: chatgpt and chrome stayed split, with distinct handles. ChatGPT's extension stamp is still older than the daemon. #198 has no checks; #200 stays held.
+
+### Now
+
+- 2026-09-29T17:59Z B37 closed 2026-09-29T17:52Z: chatgpt and chrome stable, distinct handles. Stamp skew remains. Next: leave #198 unmerged until checks exist; #200 held for D9.
 
 ### Constraints
-- George, 2026-09-24, D7: *"we want to control everything \*inside\* the kitty window"*; *"the same seam / separation of concerns applies to kitty windows"*. This repo never calls yabai.
-- George, 2026-09-24: Gate B **"Pass: 5 lifts"** (D8). Shared-core bumps: **"Measure a linked fix, then apply"** (D9).
-- George, 2026-09-24, on the split: *"get help and advice from the skills agent and the executive to help you properly organise this"*.
-- George, 2026-09-24: *"use shot to check the state of the safari helper … the helper tool isnt detecting it (maybe get a subagent to look into this so you dont get distracted"*.
-- George, via /ask-each-question: *"interview me to clarify anything remaining, as i believe i have given you large feedback briefs that have already perfected the direction"*. Ask only what the briefs leave open.
+- George, 2026-09-27, verbatim: "just a quick one for browser tab chome ext - we need to add "chatGPT Desktop Browser" to the list, it takes chrome extensions as well. btw, is there no auto preselect with that field? surely it can usually detect its own env?"
+- George, 2026-09-27, verbatim: "also, its doing something strange - when i loaded the unpaked version from dist, its now showing an error daemon unreachable every 1 second exactly, and every other second it shows a green connected dot - and its just oscilating between them"
+- George, 2026-09-28, verbatim on `ag-all` (full text in `DECISIONS.md`): "you may merge any outstanding PRs, and go ahead with any work awaiting my go ahead. Obviously, show some common sense - if the thing is out of the ordinary, or you think id want to take a close look at it before approving, then you may defer approval until i give it specifically to the question seeking approval. And finally, things that are gated on a multiple choice DECISION must still wait for me to directly check and approve and select the option first."
+- This pane, 2026-09-29, verbatim: "Become ready, not busy: do not continue the task that session was in the middle of."
 
 ### Done
-- Plan approved and merged with D7, D8 and D9 recorded: #194 `f4b1c20` and the plan's §11.
-- M1 conformance suite: #196 `ae2f469`. `between` typed error: #197 `96b127c`. B36 filed and B35 updated: #195 `27cbc1e`.
-- Phase 1, the second app: #199 `c80a625`. Every CI leg is green, including Windows, where tmux-control's tests are excluded by name in `ci.yml`.
-- Deploy installs before building: #201 `66391fb`. MCP configs regenerated: #202 `4ad4af6`. Verdict wording: #203 `c7c7927`. B36 verdict half: #204 `101901e`.
-- `AGENTS.md` is a 7,900 B router: #205 `1f24a9d`. This closes `instruction-conventions-vs-b28`. `head -c 32768 AGENTS.md | cmp - AGENTS.md` shows the whole file fits, and 415 of the old 424 non-blank lines are unchanged in the router or `docs/agents/`.
-- Safari helper fix: #206 `2a8953a`. The helper had frozen on one transient `SFErrorDomain error 1` reading, and a rebuild never replaced a running copy. The post-merge sideload printed `replacing the running container app (pid 67992)`, and a `shot` capture at 08:11 shows a green dot, "on and connected", with Running, Bundled and Daemon all at `1.14.0+204.2a8953a`.
-- The last deploy was `deploy:local ok — daemon 1.14.0+204.2a8953a…, extensions [chrome, safari]`.
+- Rollout `01a0df29-9843-7681-a0a5-2a4dfee8344e` ends at `task_complete` 2026-09-27T17:08:06.505Z (line 5156), after the M3 bus note. Later lines are only `thread_settings_applied` (2026-09-28T05:37:59Z, 2026-09-29T08:42:52Z, 2026-09-29T08:43:04Z). No half-applied edit.
+- Six `node apps/browser-tab-mcp/dist/cli.js --json daemon status` reads ~1s apart at 2026-09-29T11:55Z: `extensions` `["chatgpt","chrome"]`, both `stale:false`, `focusedBrowser` `chrome`, daemon `build` `1.14.0+209.0bf3e47.dirty.0928T0300`. Chrome `extVersion` matches that build. ChatGPT `extVersion` is `1.14.0+207.17a9d68.dirty.0927T1054`. No stamp moved between the two IDs in that window.
+- `gh pr view 198` → OPEN, mergeable, `statusCheckRollup` empty, body mentions ChatGPT, `updatedAt` 2026-09-29T05:48:45Z. `gh pr view 200` → OPEN, same `updatedAt`; generated notes include #207. `gh pr view 2534 --repo googleapis/release-please` → OPEN, `updatedAt` 2026-09-28T09:25:00Z.
+- `git rev-parse HEAD` = `0bf3e472d40bcc8aea1a82914bf5a2bf0c1029a9`. `git rev-list --left-right --count origin/main...HEAD` = `0 0`. `git worktree list` shows only this checkout.
+- `chatgpt-browser-live-verify` closed 2026-09-29T17:52Z. Six `daemon status` reads: both IDs connected, `stale:false`, stamps unchanged (`chatgpt` `1.14.0+207.17a9d68.dirty.0927T1054`, daemon and `chrome` `1.14.0+209.0bf3e47.dirty.0928T0300`). `list --fields core`: 5 `t:chatgpt:` tabs, 36 `t:chrome:` tabs, 0 shared tab ids, 0 shared window ids.
 
 ### Open
-- `measure-sferror-duration` · browser-tab-mcp — the helper's 60s retry step is a guess; how long `SFErrorDomain error 1` lasts after a rebuild was never measured.
-- `tmux-release-hold` · browser-tab-mcp — PR #200 "release tmux-control 0.1.0" is open and held: it would release an empty scaffold. Held until Phase 3+ gives tmux-control features AND `shared-core-release-link` is re-decided.
-- `release-1-15-0` · browser-tab-mcp — PR #198 "release 1.15.0" is open and not merged. Releases have been cut on George's word.
-- `shared-core-release-link` · browser-tab-mcp — D9 measured 2026-09-27 (harness in session scratchpad, not kept): no config makes a control-language commit bump tmux-control, correctly, since tmux-control does not depend on it yet. George re-decided: **wait for upstream** `additional-paths` (release-please PR #2534); no config change now. Recorded in `docs/RELEASE.md` and plan §11 D9. Deferred, revisit at Phase 3+.
-- `phase-2-tmux-skeleton-m2` · browser-tab-mcp — never attempted: no `packages/tmux-control` on main.
-- `b36-move-rate` · browser-tab-mcp — about 2s per tab, unmeasured; see B36's 2026-09-24 note.
-- `stale-agents-md-src-comments` · browser-tab-mcp — `src/` comments still point at old `AGENTS.md` sections (mcp-kit `dispatch.ts`, shared-types `tools.ts`, vitest-config `vitest.shared.ts`, `env-flags.ts`), per #205's own report. Not re-grepped.
-- `phase-5-zoom`, `phases-6-11`, `sideload-branch-guard` · browser-tab-mcp — carried, not re-measured since 2026-09-23 (zoom and phases) and 2026-09-20 (the guard).
+- `release-1-15-0` · browser-tab-mcp — #198 is OPEN, mergeable, `statusCheckRollup` empty (`gh pr view 198`, 2026-09-30). The live-identity hold is lifted; the empty check rollup still blocks a merge.
+- `tmux-release-hold` · browser-tab-mcp — #200 is OPEN (`gh pr view 200 --json state`). Hold it while D9 waits on upstream.
+- `shared-core-release-link` · browser-tab-mcp — release-please #2534 is OPEN (`gh pr view 2534 --repo googleapis/release-please --json state`, 2026-09-29). D9 says wait.
+- `chatgpt-auto-signal` · browser-tab-mcp — the rollout never records a ChatGPT extension-context UA or UA Client Hints measurement. Not re-measured on a live host this session.
 
 ### Corrections
-- "The first two Gate A items are already fixed upstream" meant build-config and the Biome layout, not the three generated-app defects. mcp-starter-template then fixed all five (#128).
-- Phase 1's report said the POSIX native-build line falls through to exit 0 on Windows. It fails the build (`. was unexpected at this time.`).
-- g-agent-skills said no chain-byte check ships. executive's does (`141eb48`), but it sums the root plus `team/*`, not `git ls-files`.
+- The live checkpoint this block replaces, and BACKLOG B37's "2026-09-28 03:04 AEST" paragraph, say `chatgpt` was disconnected. Six `daemon status` reads at 2026-09-29T11:55Z show `extensions: ["chatgpt","chrome"]`, both `stale:false`. That disconnected claim is void. Handles were read at 2026-09-29T17:52Z and B37 is closed; the ChatGPT `extVersion` is still `1.14.0+207.17a9d68.dirty.0927T1054`.
 
 ### Traps
-- A merge that adds a workspace package broke the auto-deploy until #201 added the install step.
-- On Windows a socket path must be a named pipe (`defaultIpcEndpoint` from test-kit). A file path gives EACCES.
-- The scaffolder's `--target` defaults to cwd, and the harness resets cwd to the primary checkout.
-- A new worktree has no `node_modules` or `dist`: tests fail to resolve workspace packages until `pnpm install --frozen-lockfile && pnpm build`, and the pre-push hook fails without them.
+- `extensions` containing `chatgpt` is not "the current bundle". Compare `extensionInfo[].extVersion` to `build` before closing B37.
+- This Cursor pane has no import of the Codex thread. After this block, do not re-read the 12 MB rollout to recover state.
 
 ### Tree
-`browser-tab-mcp` `main` at `2a8953a`, level with origin. This checkpoint edit to `docs/agent-handoff/PROGRESS-LOG.md` is uncommitted on main, in a tree other sessions share.
-
-### Blocked on you
-- `release-1-15-0` — merge #198 (browser-tab v1.15.0) when you want the release. #200 (tmux-control) stays held; see Open.
-
-### Elsewhere
-- `mcp-starter-template` — fixed all five generated-app defects (#128) and is adding a Windows CI job to measure the HTTP test's silent exit 0.
+`/Users/george/repos/browser-tab-mcp` on `main`, level with `origin/main` (0 ahead, 0 behind) at `0bf3e47`, measured 2026-09-29T11:55Z — confirm with `git status -sb` and `git rev-list --left-right --count origin/main...HEAD`. Uncommitted, in a tree other sessions share: `docs/agent-handoff/{BACKLOG,DECISIONS,PROGRESS-LOG,README}.md` (the replaced Codex session's handoff edits, plus this rotate and the 2026-09-28 blanket quote appended to DECISIONS) and untracked archives `docs/agent-handoff/handoff-archive/browser-tab-mcp/2026-09-24-2.md`, `2026-09-27.md`, and `2026-09-27-2.md` (the block this one replaced, written by rotate). Not committed or pushed. `git worktree list` shows only main. No staged index.
 
 ### Resume
-Relaunch requested by executive 2026-09-26; nothing mid-flight. Next work: Phase 3 of the tmux plan (`packages/tmux-control` skeleton + M2) — the checkpoint slug `phase-2-tmux-skeleton-m2` means plan Phase 3; plan Phase 2 (M1) merged as #196.
+B37 is closed. Do not merge #198 until `gh pr view 198 --json statusCheckRollup` shows green checks. Keep #200 unmerged while release-please #2534 is open. Do not start Phase 5 from the 2026-09-28 blanket. ChatGPT's older extension stamp is recorded on B37; reloading that unpacked extension was not part of this close.
 
 ## History
 
 <!-- BEGIN checkpoint-history (generated; do not edit) -->
-- 2026-09-24 · browser-tab-mcp · tmux-control is admitted as a second app and the `AGENTS.md` split is merged; main is at `1f24a9d`, deployed, and nothing of mine is mid-edit except a running Safari-helper diagnosis. · open: `safari-helper-detection`, `tmux-release-hold`, `release-1-15-0`, `shared-core-release-link`, `phase-2-tmux-skeleton-m2`, `b36-move-rate`, `stale-agents-md-src-comments`, `sideload-branch-guard` · [full text](handoff-archive/browser-tab-mcp/2026-09-24.md)
+- 2026-09-27 · browser-tab-mcp · The ChatGPT Desktop Browser code is merged as #208 (`60e4271`), and main is now at #209 (`0bf3e47`). The ChatGPT connector still has no separate `chatgpt` session. Six reads around 2026-09-27T17:04Z… · open: `chatgpt-browser-live-verify`, `chatgpt-auto-signal`, `shared-core-release-link`, `tmux-release-hold`, `release-1-15-0` · [full text](handoff-archive/browser-tab-mcp/2026-09-27-2.md)
+- 2026-09-27 · browser-tab-mcp · Phase 3 / M2 is merged as #207 (`17a9d68`), installed and stress-checked from main. No code or background task is mid-flight. Phase 4 / M3 waits for George's go-ahead. · open: `phase-4-tmux-identity-m3`, `shared-core-release-link`, `tmux-release-hold`, `release-1-15-0`, `sideload-branch-guard` · [full text](handoff-archive/browser-tab-mcp/2026-09-27.md)
+- 2026-09-24 · browser-tab-mcp · tmux-control is admitted as a second app and the `AGENTS.md` split is merged; main is at `2a8953a` and deployed, and nothing of mine is mid-flight. · open: `measure-sferror-duration`, `tmux-release-hold`, `release-1-15-0`, `shared-core-release-link`, `phase-2-tmux-skeleton-m2`, `b36-move-rate`, `stale-agents-md-src-comments`, `sideload-branch-guard` · [full text](handoff-archive/browser-tab-mcp/2026-09-24-2.md)
+- 2026-09-24 · browser-tab-mcp · tmux-control is admitted as a second app and the `AGENTS.md` split is merged; main is at `1f24a9d`, deployed, and nothing of mine is mid-edit except a running Safari-helper diagnosis. · [full text](handoff-archive/browser-tab-mcp/2026-09-24.md)
 <!-- END checkpoint-history -->

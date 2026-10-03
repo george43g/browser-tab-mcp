@@ -1741,6 +1741,31 @@ message, and check the Windows runner's resource pressure at that timestamp.
 Frequency so far: 2 in roughly a day of CI runs across ~15 PRs. Owner:
 unclaimed.
 
+### B37. ChatGPT Desktop Browser connector — finish the live identity switch
+
+> **Code DONE 2026-09-27:** PR #208 merged as `60e4271` after eight green CI
+> checks. The connector and daemon now have a distinct `chatgpt` ID; the
+> options page offers Auto and ChatGPT Desktop Browser, and a daemon test keeps
+> Chrome and ChatGPT connected simultaneously under an old browser-list
+> override. The local daemon runs the merged build, Safari is current, and
+> `mcp__browser-tab-mcp-dev__list_tabs` accepts `browser:chatgpt`.
+>
+> **2026-09-28 03:04 AEST read:** after #209's local rebuild, six daemon
+> samples showed the current Chrome extension build connected and `chatgpt`
+> disconnected. This short window did not reproduce the earlier alternation;
+> it does not prove the ChatGPT connector is fixed.
+>
+> **CLOSED 2026-09-30 03:52 AEST (`2026-09-29T17:52Z`) · owner browser-tab-mcp:**
+> six `daemon status` reads, all `stale:false`, `extensions` `["chatgpt","chrome"]`,
+> no stamp swap. `browser-tab list --browser chatgpt` returned 5 tabs, every handle
+> `t:chatgpt:`; `--browser chrome` returned 36 tabs, every handle `t:chrome:`;
+> shared tab ids 0, shared window ids 0. ChatGPT `extVersion` is still
+> `1.14.0+207.17a9d68.dirty.0927T1054`; the daemon and Chrome are
+> `1.14.0+209.0bf3e47.dirty.0928T0300`. The identity split is stable. The connector
+> bundle is older than the daemon; that skew is recorded here and is not a failed
+> identity check. The 2026-09-28 03:04 AEST read above is the earlier measurement,
+> not the current one.
+
 ### B36. A long apply reports a timeout while the daemon keeps moving tabs
 
 > **2026-09-24: the verdict half is FIXED; the speed half is OPEN.** The IPC
@@ -1788,6 +1813,25 @@ tmux-control plan (B35), which he approved on 2026-09-24, so it is now unblocked
 
 ### B35. tmux-control — the second application, and the reuse it has to prove
 
+> **2026-09-28 — Phase 4 / M3 DONE:** George confirmed his blanket go-ahead
+> on `george-broadcast` at 02:30 AEST. #209 squash-merged as `0bf3e47` after
+> eight green CI checks. Slots are the ordered session entities; shared windows
+> remain distinct objects. All 17 selector kinds pass conformance, and a
+> throwaway tmux server confirmed a split through a linked presentation slot
+> changes the same window in the source session and group. `DECISIONS.md`
+> records the answer. The preview is read-only library code; effectful verbs
+> belong to Phase 5. #200 remains held for D9.
+>
+> **2026-09-27 — Phase 3 / M2 DONE:** #207 squash-merged as `17a9d68` after
+> eight green CI checks. `packages/tmux-control` reads a real tmux server into
+> distinct session slots, shared windows, panes and clients, and its binding
+> passes all 13 sibling-free M1 conformance cases without changing the shared
+> core. The built-bin effect tier exercised a linked window and control client
+> on a throwaway server. **Next is Phase 4 / M3**, the linked-window identity
+> experiment; the plan's §12 requires George's go-ahead before it starts.
+> Release PR #200 remains held. D9 still waits for upstream release-please
+> `additional-paths` (#2534, open when checked 2026-09-27).
+>
 > **2026-09-24 — APPROVED and started.** George approved the plan (merged #194,
 > `f4b1c20`) and answered D7: window placement is wm-stack's; this monorepo
 > controls everything *inside* a kitty window and never where it sits, the seam

@@ -296,3 +296,33 @@ for B** — the designed fallback (a MAIN-world shim via
 `scripting.executeScript({world:"MAIN"})` relaying over `window.postMessage`) is
 a materially different design, and which one is correct is decided by that one
 result.
+
+## 2026-09-28 — M3 linked-window identity uses slots
+
+**Decision:** use the session slot as the entity in ordered session views;
+keep the shared tmux window as a separate global object. This is candidate
+(i) from the approved tmux plan's M3 rule, chosen by the test result rather
+than a new user choice. PR #209 (`0bf3e47`) merged the implementation.
+
+**Evidence:** the linked-window and session-group cases pass all 17
+`control-language` selector kinds, including `offset`, `expand`, `between`
+and `siblings`, without changing the resolver algorithm. A throwaway tmux
+server showed that splitting a window reached through `presentation` adds the
+same pane to that window as seen in `claude` and its session group. The
+read-only `previewSplitImpact` names those other sessions. The unused
+`occurrenceId` and constant `projectionId` fields were removed from the
+resolved result.
+
+**Cost and boundary:** consumers must distinguish slot keys from window keys;
+global window objects now have a documented numeric ID order, while session
+order is on slots. The preview is a library function; the effectful split
+command belongs to a later phase. The remaining tmux-control release PR #200
+stays held for D9.
+
+## 2026-09-28 — blanket go-ahead, with two exceptions
+
+George on `ag-all` (authenticated on `george-broadcast`; quote copied 2026-09-29 from Codex rollout `01a0df29-9843-7681-a0a5-2a4dfee8344e`, which had no later user turn):
+
+> I'm falling a bit behind so I wanted to give a blanket approval and go ahead - for those agents currently waiting on me to review a PR or authorise the next step - you may merge any outstanding PRs, and go ahead with any work awaiting my go ahead. Obviously, show some common sense - if the thing is out of the ordinary, or you think id want to take a close look at it before approving, then you may defer approval until i give it specifically to the question seeking approval. And finally, things that are gated on a multiple choice DECISION must still wait for me to directly check and approve and select the option first.
+
+M3 (#209) already used this. It does not by itself authorize Phase 5, and it does not override a multiple-choice decision. Ground rule 1 (green CI) still applies.
