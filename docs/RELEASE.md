@@ -477,12 +477,20 @@ after differential `--dry-run` verification of the proposed branch name.
 
 ## Operational notes
 
-- **The release PR does not run CI.** GitHub deliberately does not trigger
-  workflows for events raised by the default `GITHUB_TOKEN`, so the rolling
-  release PR shows no checks. This is acceptable because its diff is
-  version-strings + changelog, and `ci.yml` runs on the resulting push to
-  `main`. If checks on the release PR are ever wanted, swap
-  `token: ${{ secrets.GITHUB_TOKEN }}` for a PAT / GitHub App token.
+- **Release PRs run CI through `RELEASE_PLEASE_TOKEN`.** With the default
+  `GITHUB_TOKEN`, release PRs did not run CI on their own: measured 2026-10-03,
+  their CI and README-check runs sat at `action_required` until someone
+  approved them by hand (#198, #200, #212). George approved the durable fix
+  2026-10-04: both release-please steps use
+  `secrets.RELEASE_PLEASE_TOKEN || secrets.GITHUB_TOKEN`. The secret is a
+  fine-grained PAT on this repo only, with Contents, Pull requests and Issues
+  set to read and write (labels need Issues). It's stored as
+  `op://key-vault/GITHUB_PAT_BROWSER_TAB_MCP_RELEASE_PLEASE/credential`.
+  Without the secret, the workflow falls back to `GITHUB_TOKEN` and the manual
+  approval is needed again: approve only the runs for the PR's current head
+  commit (`gh api -X POST repos/{owner}/{repo}/actions/runs/<id>/approve`). If
+  you also approve a run from an older head, the CI concurrency group cancels
+  the current one.
 - **Forks are excluded** via `if: github.repository == 'george43g/browser-tab-mcp'`.
 - **Manual run**: the workflow also accepts `workflow_dispatch` if you need to
   re-drive it without a new push.

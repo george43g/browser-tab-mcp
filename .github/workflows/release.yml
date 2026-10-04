@@ -107,9 +107,15 @@ jobs:
       - name: Run release-please
         id: release
         continue-on-error: true
+        # RELEASE_PLEASE_TOKEN is a fine-grained PAT scoped to this repo
+        # (contents, pull requests, issues: write). Release PRs opened with the
+        # default GITHUB_TOKEN never trigger CI on their own: GitHub holds the
+        # runs at "action required" until someone approves them by hand. With
+        # the PAT they run like any PR. Falls back to GITHUB_TOKEN when the
+        # secret is absent (forks, or before it is provisioned).
         uses: googleapis/release-please-action@v4
         with:
-          token: ${{ secrets.GITHUB_TOKEN }}
+          token: ${{ secrets.RELEASE_PLEASE_TOKEN || secrets.GITHUB_TOKEN }}
           config-file: release-please-config.json
           manifest-file: .release-please-manifest.json
 
@@ -129,7 +135,7 @@ jobs:
         if: steps.release.outcome == 'failure'
         uses: googleapis/release-please-action@v4
         with:
-          token: ${{ secrets.GITHUB_TOKEN }}
+          token: ${{ secrets.RELEASE_PLEASE_TOKEN || secrets.GITHUB_TOKEN }}
           config-file: release-please-config.json
           manifest-file: .release-please-manifest.json
 
