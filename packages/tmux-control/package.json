@@ -1,6 +1,6 @@
 {
   "name": "@george43g/tmux-control",
-  "version": "0.0.0",
+  "version": "0.1.0",
   "private": true,
   "description": "Read-only tmux snapshot model and control-language binding",
   "type": "module",
