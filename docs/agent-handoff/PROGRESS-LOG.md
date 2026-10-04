@@ -3970,6 +3970,7 @@ B37's identity check passed at 2026-09-29T17:52Z: chatgpt and chrome stayed spli
 
 ### Now
 
+- 2026-10-04T00:15Z (Claude) v1.15.0 released (#198, `2f54f9c`). Upstream starter-template fixes merged (#210, `43d4c53`; ACK sent). D9 re-decided by George: per-package release lines (#211, `84e4cad`). First combined cut #212 (`5e7bf6d`) tagged `tmux-control-v0.1.0` + six `pkg-*-v0.1.0`; #200 closed as superseded. Release-PR CI needs a manual approve (`gh api -X POST …/actions/runs/<id>/approve`) because the bot's token opens them; approve ONLY the current head's runs or the concurrency group cancels them.
 - 2026-09-29T17:59Z B37 closed 2026-09-29T17:52Z: chatgpt and chrome stable, distinct handles. Stamp skew remains. Next: leave #198 unmerged until checks exist; #200 held for D9.
 
 ### Constraints
@@ -3986,9 +3987,11 @@ B37's identity check passed at 2026-09-29T17:52Z: chatgpt and chrome stayed spli
 - `chatgpt-browser-live-verify` closed 2026-09-29T17:52Z. Six `daemon status` reads: both IDs connected, `stale:false`, stamps unchanged (`chatgpt` `1.14.0+207.17a9d68.dirty.0927T1054`, daemon and `chrome` `1.14.0+209.0bf3e47.dirty.0928T0300`). `list --fields core`: 5 `t:chatgpt:` tabs, 36 `t:chrome:` tabs, 0 shared tab ids, 0 shared window ids.
 
 ### Open
-- `release-1-15-0` · browser-tab-mcp — #198 is OPEN, mergeable, `statusCheckRollup` empty (`gh pr view 198`, 2026-09-30). The live-identity hold is lifted; the empty check rollup still blocks a merge.
-- `tmux-release-hold` · browser-tab-mcp — #200 is OPEN (`gh pr view 200 --json state`). Hold it while D9 waits on upstream.
-- `shared-core-release-link` · browser-tab-mcp — release-please #2534 is OPEN (`gh pr view 2534 --repo googleapis/release-please --json state`, 2026-09-29). D9 says wait.
+- `release-1-15-0` · browser-tab-mcp — CLOSED 2026-10-04: #198 merged `2f54f9c`, tag `v1.15.0`.
+- `tmux-release-hold` · browser-tab-mcp — CLOSED 2026-10-04: #200 closed (superseded); `tmux-control-v0.1.0` cut from #212 `5e7bf6d`.
+- `shared-core-release-link` · browser-tab-mcp — CLOSED 2026-10-04: per-package release lines (#211); D9 in DECISIONS.md.
+- `release-latest-badge` · browser-tab-mcp — every combined cut marks a `pkg-*` release as GitHub "Latest"; fixed by hand with `gh release edit v1.15.0 --latest` 2026-10-04. Nothing in the repo reads `releases/latest` (rg, 2026-10-04). Durable fix not started.
+- `release-pr-ci-approval` · browser-tab-mcp — release PRs opened by GITHUB_TOKEN need manual run approval; durable fix (App/PAT token for release-please) needs a secret, George's call. Not started.
 - `chatgpt-auto-signal` · browser-tab-mcp — the rollout never records a ChatGPT extension-context UA or UA Client Hints measurement. Not re-measured on a live host this session.
 
 ### Corrections
