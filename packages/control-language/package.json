@@ -1,6 +1,6 @@
 {
   "name": "@george43g/control-language",
-  "version": "0.0.0",
+  "version": "0.1.0",
   "private": true,
   "description": "Pure, domain-agnostic selection language: versioned Zod selector AST, signed positional semantics, same-kind ordered-set algebra, explicit member projection, and snapshot-bound resolution over a SelectionDomain ordered view. Selection only — no effects, no daemons, no MCP.",
   "type": "module",

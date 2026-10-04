@@ -1,6 +1,6 @@
 {
   "name": "@george43g/shared-types",
-  "version": "0.0.0",
+  "version": "0.1.0",
   "private": true,
   "description": "Zod schemas + hand-mirrored Rust structs for cross-language tool I/O. Includes a drift-check test that parses apps/rust-accel/src/types.rs and fails CI if field names diverge.",
   "type": "module",
