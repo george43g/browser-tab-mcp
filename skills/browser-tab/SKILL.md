@@ -1,6 +1,6 @@
 ---
 name: browser-tab
-description: Use when working with the browser-tab tool — listing/inspecting open browser tabs (Chrome, Brave, Chromium, Safari) with yabai-joinable window ids, focusing/moving/opening/closing tabs, managing its daemon, or debugging its extension connectivity. Loaded when the user references browser-tab, its bin, or asks about browser tabs on macOS.
+description: Browser TAB management (list, focus, move, open, close tabs), not browser control. Use when working with the browser-tab tool — listing/inspecting open browser tabs (Chrome, Brave, Chromium, Edge, Safari, ChatGPT desktop) with yabai-joinable window ids, focusing/moving/opening/closing tabs, managing its daemon, or debugging its extension connectivity. Not for clicking, typing in or scripting pages; use a browser-automation tool for that.
 ---
 
 # browser-tab
@@ -10,6 +10,14 @@ description: Use when working with the browser-tab tool — listing/inspecting o
 > (live events + true state-preserving tab moves). MCP tools, CLI
 > subcommands, the TUI, and a unix socket all serve the same merged
 > snapshot. Contract: `docs/WM_STACK_CONTRACT.md`.
+
+> **Tab management, not browser control.** This manages which tabs exist and
+> where they are. Driving a page (clicking, typing, reading the DOM) is a
+> browser-automation tool's job, and agents already have one.
+>
+> **This tool is still young and its surface is still settling.** If a command,
+> flag or tool name here doesn't match what the bin or `tools/list` reports,
+> trust the tool, and update this skill in the browser-tab-mcp repo.
 
 ## When to invoke this skill
 
