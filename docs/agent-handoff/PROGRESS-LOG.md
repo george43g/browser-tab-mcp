@@ -3963,7 +3963,7 @@ Merge this PR, then run `mcpsync sync --scope project` and start `agents-md-spli
 Where this block and any summary disagree, this block is correct.
 
 ### Resume
-Nothing is mid-flight. Next action is waiting on George: once `op://key-vault/GITHUB_PAT_BROWSER_TAB_MCP_RELEASE_PLEASE/credential` exists, pipe it with `opkeep read` (never `get`) into `gh secret set RELEASE_PLEASE_TOKEN -R george43g/browser-tab-mcp` without printing it. Then append a `deployed value` row to the item's notes ledger (credential-convention) and confirm the next release PR runs CI with no manual approve.
+Nothing is mid-flight. `RELEASE_PLEASE_TOKEN` is set (2026-10-07T08:00Z, from `op://key-vault/GH_PAT_BROWSER_TAB_RELEASE_PLEASE/credential`; the item notes carry the usage ledger). Next: when the first `feat:`/`fix:` after `ec9069a` merges, confirm its release PR's CI runs with no `action_required`. If it still holds, check the Release run's logs for which token it used.
 
 ### State
 v1.15.0 and tmux-control 0.1.0 are released, and per-package release lines are live. Release PRs still need a manual CI approve until the RELEASE_PLEASE_TOKEN secret exists. Main is at `767feb4`, level with origin, and the tree is clean.
@@ -3983,8 +3983,8 @@ v1.15.0 and tmux-control 0.1.0 are released, and per-package release lines are l
 - Handoff edits left by the Cursor pane are committed (`6ca694f`).
 
 ### Open
-- `release-pr-token-mint` · browser-tab-mcp — blocked on George: create the fine-grained PAT (only this repo; Contents, Pull requests and Issues read/write) and save it as `key-vault/GITHUB_PAT_BROWSER_TAB_MCP_RELEASE_PLEASE`, field `credential`. `gh secret list` shows no RELEASE_PLEASE_TOKEN (2026-10-04).
-- `release-pr-token-provision` · browser-tab-mcp — set the repo secret, add the ledger row, and verify a release PR gets CI unprompted. Never attempted, because the token doesn't exist.
+- `release-pr-token-mint` · browser-tab-mcp — CLOSED 2026-10-07: George minted `GH_PAT_BROWSER_TAB_RELEASE_PLEASE` (same name on GitHub and in 1Password; browser-tab-mcp only; Contents/Issues/PRs read/write; expires 2027-10-10).
+- `release-pr-token-verify` · browser-tab-mcp — the secret is set (`gh secret list`, 2026-10-07T08:00:45Z) and the ledger is written. Not yet observed working: no release PR has been opened since (no releasable commits after `5e7bf6d`).
 - `release-latest-badge` · browser-tab-mcp — each combined cut marks a `pkg-*` release as GitHub "Latest". Fixed by hand on 2026-10-04 (`gh release edit v1.15.0 --latest`). The durable fix (a release.yml step) isn't started. Nothing in the repo reads releases/latest (rg, 2026-10-04).
 - `chatgpt-auto-signal` · browser-tab-mcp — the ChatGPT extension-context UA was never measured on a live host.
 

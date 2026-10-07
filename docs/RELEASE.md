@@ -485,7 +485,7 @@ after differential `--dry-run` verification of the proposed branch name.
   `secrets.RELEASE_PLEASE_TOKEN || secrets.GITHUB_TOKEN`. The secret is a
   fine-grained PAT on this repo only, with Contents, Pull requests and Issues
   set to read and write (labels need Issues). It's stored as
-  `op://key-vault/GITHUB_PAT_BROWSER_TAB_MCP_RELEASE_PLEASE/credential`.
+  `op://key-vault/GH_PAT_BROWSER_TAB_RELEASE_PLEASE/credential`.
   Without the secret, the workflow falls back to `GITHUB_TOKEN` and the manual
   approval is needed again: approve only the runs for the PR's current head
   commit (`gh api -X POST repos/{owner}/{repo}/actions/runs/<id>/approve`). If
