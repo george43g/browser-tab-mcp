@@ -117,6 +117,102 @@ Three parts of the story cut across layers, and each changes the plan now:
 whose windows are in order, or several kitty windows tiled side by side. It is
 recorded rather than guessed, and settled when Phase 9 is specified.
 
+## 1b. Use case: which terminal window shows what (George, 2026-10-09)
+
+> **Required use case, not yet scheduled.** George, 2026-10-09: *"does the
+> tmux control tool have the ability to quickly and easily identify which pane,
+> window and session is visible in a particular window (could be any terminal,
+> kitty, etc...)"* — *"consider this a required 'user story'"*. And: *"maybe it
+> should also be possible to identify which process or pid any particular pane
+> belongs to, both the shell and process running if there's an active command
+> or TUI, unless this is already trivially easy with a direct tmux command —
+> that's what we wanna watch out for, no need to wrap tmux commands that agents
+> will have no trouble with on their own."*
+
+**The story.** An agent looking at George's screen wants to answer, for every
+terminal OS window: *which tmux session, window and pane does it show, on which
+monitor, and what is running in each pane?* The agent asks yabai for the OS
+windows (display, space, visibility, focus). It asks tmux-control which OS
+window each tmux client lives in, and what each pane is running. Joining the two
+answers the question in one step, with no guessing from window titles.
+
+**The seam stays D7's.** tmux-control never calls yabai. It reports a join key,
+and the agent (or wm-stack) does the join. That's the same contract browser-tab
+keeps: its `cgWindowId` equals yabai's window `id`, and it's computed from
+CoreGraphics, not from yabai.
+
+### What an agent can already do with plain tmux — do not wrap
+
+Measured on gmac 2026-10-09:
+
+- `tmux list-clients -F '#{client_tty} #{client_pid} #{client_session} #{window_id} #{pane_id}'`
+  gives each attached client's terminal device, its process, its session, the
+  window it is showing and that window's active pane, in one call. The pane and
+  window formats resolve against the client's current window
+  (`/dev/ttys020 pid=7059 sess=claude win=@1 pane=%1`).
+- `#{pane_pid}` is the pane's shell, and `#{pane_current_command}` names the
+  foreground program.
+
+tmux-control's `list` already returns clients (tty, pid, session) and panes
+(pid, command). This story adds nothing for these facts.
+
+### What is not trivial — this is what the story needs
+
+1. **Client → terminal app.** The tmux client's parent is not the terminal: it
+   is the login shell the terminal started. Measured chain:
+   `7059 tmux` → `2070 zsh` → `2035 kitty`. An agent has to walk `ps` ancestry
+   until it reaches a GUI app, which differs per terminal (kitty, Ghostty,
+   WezTerm, iTerm2, Terminal.app).
+2. **Terminal app → the OS window.** yabai lists windows by app pid, so an app
+   with one OS window joins on pid alone. That was the case here: yabai window
+   6183, pid 2035, display 1, space 5. With several OS windows, the pid is
+   ambiguous. The window title carries tmux's `set-titles-string`
+   (`#h ❐ #S ● #I #W`: `Georges-MacBook-Pro ❐ claude ● 1 dotfiles`), which
+   tells windows apart only while they show different session/window pairs. Two
+   clients on one window get identical titles.
+3. **A pane's foreground process id.** `#{pane_pid}` is the shell, and
+   `#{pane_current_command}` is only a name. The running program's pid is the
+   process-group leader matching the tty's foreground group (`tpgid`). Measured
+   on pane %1: shell `8272 -zsh`, foreground group `39402`, leader
+   `39402 claude`, and its children (MCP servers) share the group. Getting there
+   takes `ps -t <tty> -o pid,pgid,tpgid,comm` and a filter, so agents get it
+   wrong. Background helpers (`gitstatusd`) sit on the same tty in another group.
+
+### What tmux-control would return
+
+- **Per client:** `terminal: { app, pid }` (the nearest GUI ancestor) and
+  `osWindow: { cgWindowId, title } | null`, plus `ambiguous: reason` when it
+  can't pick one window. `cgWindowId` equals yabai's window `id`, so the agent
+  joins directly to yabai's display, space, visibility and focus.
+- **Per pane:** `shell: { pid, command }` and
+  `foreground: { pid, pgid, command, args } | null`, which is null when the
+  shell itself is in the foreground (idle prompt).
+- Read-only, `list`-style, and fast enough to run on every agent check. Titles
+  and args are untrusted data and are wrapped as such.
+
+### Telling two OS windows of one terminal apart — open design choice
+
+| Option | Exact? | Cost |
+|---|---|---|
+| A. CoreGraphics pid + title match, `null` with a reason when ambiguous | no; exact only when titles differ | none; the same mechanism browser-tab already ships |
+| B. A per-client marker in `set-titles-string`, e.g. `#{client_tty}` | yes | changes every terminal title George sees, which is his global tmux config |
+| C. The terminal's own remote control (`kitty @ ls` lists OS windows with their child pids) | yes, for kitty | kitty-only; remote control is off today (`kitten @ ls` fails) |
+
+Proposal: A now, with B or C as the opt-in fix for exactness. This is George's
+call before it's built.
+
+### Acceptance
+
+- With two kitty OS windows on different monitors, each attached to a different
+  session, one read names, for each window: its `cgWindowId`, session, window,
+  active pane, and that pane's foreground program and pid. yabai confirms the
+  monitor for that id.
+- An idle pane reports `foreground: null`. A pane running a TUI reports the
+  TUI's pid, not the shell's.
+- A case it can't resolve (two clients on one window, option A) returns
+  `ambiguous` with the reason, never a guessed window.
+- The control comes first: one terminal with one OS window joins on pid alone.
+
 ## 2. What exists — rechecked against the tree, 2026-09-21
 
 Every line below was read on `main` (`e6820aa`), not taken from the review.
