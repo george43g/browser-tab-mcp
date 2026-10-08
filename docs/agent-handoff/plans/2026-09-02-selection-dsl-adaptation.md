@@ -1,5 +1,7 @@
 # Selection-DSL workstream — adaptation record and phase map
 
+> **STATUS 2026-10-08 — PARKED.** No commit since 2026-09-07, and no session is working it. Resume it only on George's go. The status below is the plan's state when work stopped, kept as written.
+
 > **STATUS 2026-09-07 — LIVE REFERENCE, not a plan to execute.** This is the
 > binding adaptation record: George's accepted decisions verbatim, rulings
 > R1-R8, and eleven frozen edge policies. It is cited when a later phase asks

@@ -1,5 +1,7 @@
 # cgWindowId oscillation — instrumentation-first Implementation Plan
 
+> **STATUS 2026-10-08 — PARKED.** No commit since 2026-09-07, and no session is working it. Resume it only on George's go. The status below is the plan's state when work stopped, kept as written.
+
 > **STATUS 2026-09-07 — LIVE, HALF DONE. Do not archive this one.** The
 > instrumentation shipped (`src/detect/correlate.ts` carries it), but the
 > measurement-gated FIX did not: cgWindowId oscillation is still an open bug in

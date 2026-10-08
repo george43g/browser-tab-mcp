@@ -1,5 +1,7 @@
 # Control-surface roadmap — George's 2026-09-04 idea dump, analysed and triaged
 
+> **STATUS 2026-10-08 — PARKED.** No commit since 2026-09-07, and no session is working it. Resume it only on George's go. The status below is the plan's state when work stopped, kept as written.
+
 > **STATUS 2026-09-07 — LIVE.** Every phase here is APPROVED (George,
 > 2026-09-05: *"i approve the entire plan."*) and phases 6-11 are NOT started.
 > This file is the running order; it becomes terminal only when the last phase
