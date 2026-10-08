@@ -1,5 +1,7 @@
 # Phase 5 — act on a selection (closes G1/G2), with close, closed-tab memory and reopen
 
+> **STATUS 2026-10-08 — PARKED.** No commit since 2026-09-07, and no session is working it. Resume it only on George's go. The status below is the plan's state when work stopped, kept as written.
+
 > **STATUS 2026-09-07 — LIVE, nearly done.** PR-M (act transform), PR-N
 > (destructive door), PR-O (closed-tab memory) and PR-P (reopen) are all
 > merged and released through v1.13.0. Outstanding: **zoom** (gap G6), whose

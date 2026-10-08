@@ -139,6 +139,31 @@ jobs:
           config-file: release-please-config.json
           manifest-file: .release-please-manifest.json
 
+      # GitHub marks the most recently CREATED release "Latest", so a combined
+      # tmux-control + pkg-* cut steals the badge from browser-tab (measured
+      # 2026-10-04: pkg-vitest-config v0.1.0 took it from v1.15.0). "Latest" is
+      # what the repo's front page and /releases/latest show, and browser-tab is
+      # the product, so this re-points it at the highest vX.Y.Z on every run.
+      # Idempotent, and it also repairs a badge moved by hand. Cosmetic, so a
+      # failure here warns instead of failing the run.
+      - name: Keep browser-tab as the Latest release
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          want=$(gh release list --limit 200 --exclude-drafts --exclude-pre-releases --json tagName -q '.[].tagName' \
+            | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' | sort -V | tail -1)
+          if [ -z "$want" ]; then echo "::warning::no browser-tab vX.Y.Z release found"; exit 0; fi
+          have=$(gh api "repos/$GH_REPO/releases/latest" -q .tag_name 2>/dev/null || true)
+          if [ "$have" = "$want" ]; then
+            echo "Latest is already $want"
+          else
+            gh release edit "$want" --latest
+            echo "Latest: ${have:-none} -> $want"
+            echo "- Latest release re-pointed: \`${have:-none}\` -> \`$want\`" >> "$GITHUB_STEP_SUMMARY"
+          fi
+
       # Visibility only: the step summary records whether this run opened a
       # release PR or cut a release, so the Actions tab answers "did anything
       # happen" without opening logs.
