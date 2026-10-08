@@ -199,6 +199,63 @@ describe("same-tick key bursts (useVimKeys fan-out)", () => {
   });
 });
 
+describe("line and page scroll keys (ctrl-e/y, PageDown/PageUp, ctrl-f/b)", () => {
+  // This list has no viewport offset separate from the cursor, so ^e/^y move
+  // the selection by one row and the page keys by a viewport (clamped).
+  // rows: browser(0) → window(1) → tab0(2)="Tab 0" → target-tab(3).
+  it("^e moves down one row and ^y back up", async () => {
+    state.extraWindow = false;
+    const inst = await renderApp();
+    cleanup = inst.unmount;
+    inst.stdin.write("\x05");
+    await tick();
+    inst.stdin.write("\x05");
+    await tick();
+    expect(highlightedRow(inst)).toContain("Tab 0");
+    inst.stdin.write("\x19");
+    await tick();
+    expect(highlightedRow(inst)).not.toContain("Tab 0");
+  });
+
+  it("a count multiplies ^e (2^e == two rows)", async () => {
+    state.extraWindow = false;
+    const inst = await renderApp();
+    cleanup = inst.unmount;
+    inst.stdin.write("2");
+    await tick();
+    inst.stdin.write("\x05");
+    await tick();
+    expect(highlightedRow(inst)).toContain("Tab 0");
+  });
+
+  it.each([
+    ["PageDown", "\x1b[6~"],
+    ["^f", "\x06"],
+  ])("%s jumps toward the bottom, clamped to the last row", async (_n, seq) => {
+    state.extraWindow = false;
+    const inst = await renderApp();
+    cleanup = inst.unmount;
+    inst.stdin.write(seq);
+    await tick();
+    expect(highlightedRow(inst)).toContain("target-tab");
+  });
+
+  it.each([
+    ["PageUp", "\x1b[5~"],
+    ["^b", "\x02"],
+  ])("%s jumps back to the top, clamped to the first row", async (_n, seq) => {
+    state.extraWindow = false;
+    const inst = await renderApp();
+    cleanup = inst.unmount;
+    inst.stdin.write("G");
+    await tick();
+    expect(highlightedRow(inst)).toContain("target-tab");
+    inst.stdin.write(seq);
+    await tick();
+    expect(highlightedRow(inst)).not.toContain("target-tab");
+  });
+});
+
 describe("cursor follows its row across a snapshot shape change", () => {
   it("stays on the same tab when a window opens ABOVE the cursor", async () => {
     state.extraWindow = false;

@@ -20,6 +20,8 @@ const ITEMS = Array.from({ length: 30 }, (_, i) => ({
   label: `Item ${i + 1} — replace this with your own data source`,
 }));
 
+const PAGE = 20;
+
 export function App() {
   const theme = useTheme();
   const { exit } = useApp();
@@ -32,6 +34,13 @@ export function App() {
     onBottom: () => setCursor(ITEMS.length - 1),
     onHalfPageDown: () => setCursor((c) => Math.min(ITEMS.length - 1, c + 10)),
     onHalfPageUp: () => setCursor((c) => Math.max(0, c - 10)),
+    // ^e/^y scroll one line. The window is derived from the cursor (no
+    // separate viewport offset), so this moves the selection by one.
+    onLineDown: (n) => setCursor((c) => Math.min(ITEMS.length - 1, c + n)),
+    onLineUp: (n) => setCursor((c) => Math.max(0, c - n)),
+    // PageDown/^f, PageUp/^b: one 20-row window (the rendered slice).
+    onPageDown: (n) => setCursor((c) => Math.min(ITEMS.length - 1, c + n * PAGE)),
+    onPageUp: (n) => setCursor((c) => Math.max(0, c - n * PAGE)),
     onUnhandled: () => {},
   });
 
@@ -41,7 +50,7 @@ export function App() {
   });
 
   const visibleStart = Math.max(0, cursor - 10);
-  const visibleEnd = Math.min(ITEMS.length, visibleStart + 20);
+  const visibleEnd = Math.min(ITEMS.length, visibleStart + PAGE);
   const visible = ITEMS.slice(visibleStart, visibleEnd);
 
   return (
@@ -87,6 +96,7 @@ export function App() {
           { key: "j/k", label: "move" },
           { key: "gg/G", label: "top/bottom" },
           { key: "^d/^u", label: "half-page" },
+          { key: "^f/^b", label: "page" },
           { key: "d", label: "dev stats" },
           { key: "q", label: "quit" },
         ]}

@@ -57,7 +57,7 @@
     "@george43g/secret-store": "^0.2.2",
     "@george43g/shared-types": "workspace:*",
     "@george43g/tmux-control": "workspace:*",
-    "@george43g/tui-kit": "^0.5.2",
+    "@george43g/tui-kit": "^0.6.0",
     "@modelcontextprotocol/sdk": "^1.29.0",
     "commander": "^14.0.0",
     "fullscreen-ink": "^0.1.0",

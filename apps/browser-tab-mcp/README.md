@@ -660,6 +660,13 @@ changes (a window opens, tabs reload), the cursor follows the *row* by identity
 rather than numeric index, so focus stays on the tab you were browsing even if
 other rows shift above or below it.
 
+Scroll keys: `^e`/`^y` move one line down/up, `PageDown`/`^f` and `PageUp`/`^b`
+move a full viewport (a count multiplies them, `3^e`). The list has no viewport
+offset separate from the cursor — the visible window follows the selection — so
+these move the selection, not just the view. `^e`/`^y` stay active in modal
+pickers (like `j`/`k`); the page keys are disabled there, like `^d`/`^u`. They
+are not in the help bar, which is width-budgeted to one row.
+
 Half-page motions (`^d` down, `^u` up) are disabled in modal modes (move/action
 pickers, close confirmation), since modal lists are shorter than a full page and
 the motion keys would scroll an empty or misaligned view. `gg`/`G` (jump to
