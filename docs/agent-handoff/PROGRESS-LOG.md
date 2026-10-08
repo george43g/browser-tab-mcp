@@ -3984,7 +3984,10 @@ v1.15.0 and tmux-control 0.1.0 are released, and per-package release lines are l
 
 ### Open
 - `release-pr-token-mint` · browser-tab-mcp — CLOSED 2026-10-07: George minted `GH_PAT_BROWSER_TAB_RELEASE_PLEASE` (same name on GitHub and in 1Password; browser-tab-mcp only; Contents/Issues/PRs read/write; expires 2027-10-10).
-- `release-pr-token-verify` · browser-tab-mcp — the secret is set (`gh secret list`, 2026-10-07T08:00:45Z) and the ledger is written. Not yet observed working: no release PR has been opened since (no releasable commits after `5e7bf6d`).
+- `release-pr-token-verify` · browser-tab-mcp — CLOSED 2026-10-08: after #215 (`0202058`), release PRs #216 (combined) and #217 (browser-tab 1.16.0) were opened as george43g and their CI ran with no approval.
+- `tui-kit-0-6` · browser-tab-mcp — CLOSED 2026-10-08: #215 merged (tui-kit ^0.6.0, ^e/^y and page keys in both TUIs). ACK sent to mcp-cli-starter-template.
+- `release-1-16-0` · browser-tab-mcp — #217 (browser-tab 1.16.0) and #216 (combined tmux-control/pkg-*) are OPEN with green CI and left for George to merge when he wants a release.
+- `prepush-flaky-test` · browser-tab-mcp — 2026-10-08: one pre-push `pnpm test` on main failed, then passed on a full rerun. The failing test wasn't captured. The same intermittent failure appeared once on 2026-10-04 (starter-sync worktree, 4 failures, unidentified).
 - `release-latest-badge` · browser-tab-mcp — CLOSED 2026-10-08: #214 (`cf0c4a6`) adds a release-job step that re-points Latest at the highest `vX.Y.Z`. Inversion-tested: forced `pkg-vitest-config-v0.1.0` as Latest, dispatched Release run 37707525354, and Latest went back to `v1.15.0`.
 - `parked-plans` · browser-tab-mcp — 2026-10-08: four plans (cg-oscillation, selection-dsl, control-surface roadmap, phase-5) were marked PARKED in #214 after crossing the plans-freshness 30-day limit. Resume any of them only on George's go.
 - `chatgpt-auto-signal` · browser-tab-mcp — the ChatGPT extension-context UA was never measured on a live host.
