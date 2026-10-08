@@ -3985,7 +3985,8 @@ v1.15.0 and tmux-control 0.1.0 are released, and per-package release lines are l
 ### Open
 - `release-pr-token-mint` · browser-tab-mcp — CLOSED 2026-10-07: George minted `GH_PAT_BROWSER_TAB_RELEASE_PLEASE` (same name on GitHub and in 1Password; browser-tab-mcp only; Contents/Issues/PRs read/write; expires 2027-10-10).
 - `release-pr-token-verify` · browser-tab-mcp — the secret is set (`gh secret list`, 2026-10-07T08:00:45Z) and the ledger is written. Not yet observed working: no release PR has been opened since (no releasable commits after `5e7bf6d`).
-- `release-latest-badge` · browser-tab-mcp — each combined cut marks a `pkg-*` release as GitHub "Latest". Fixed by hand on 2026-10-04 (`gh release edit v1.15.0 --latest`). The durable fix (a release.yml step) isn't started. Nothing in the repo reads releases/latest (rg, 2026-10-04).
+- `release-latest-badge` · browser-tab-mcp — CLOSED 2026-10-08: #214 (`cf0c4a6`) adds a release-job step that re-points Latest at the highest `vX.Y.Z`. Inversion-tested: forced `pkg-vitest-config-v0.1.0` as Latest, dispatched Release run 37707525354, and Latest went back to `v1.15.0`.
+- `parked-plans` · browser-tab-mcp — 2026-10-08: four plans (cg-oscillation, selection-dsl, control-surface roadmap, phase-5) were marked PARKED in #214 after crossing the plans-freshness 30-day limit. Resume any of them only on George's go.
 - `chatgpt-auto-signal` · browser-tab-mcp — the ChatGPT extension-context UA was never measured on a live host.
 
 ### Corrections
