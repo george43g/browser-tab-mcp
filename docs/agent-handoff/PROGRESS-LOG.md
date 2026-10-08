@@ -3984,7 +3984,10 @@ v1.15.0 and tmux-control 0.1.0 are released, and per-package release lines are l
 
 ### Open
 - `release-pr-token-mint` · browser-tab-mcp — CLOSED 2026-10-07: George minted `GH_PAT_BROWSER_TAB_RELEASE_PLEASE` (same name on GitHub and in 1Password; browser-tab-mcp only; Contents/Issues/PRs read/write; expires 2027-10-10).
-- `release-pr-token-verify` · browser-tab-mcp — the secret is set (`gh secret list`, 2026-10-07T08:00:45Z) and the ledger is written. Not yet observed working: no release PR has been opened since (no releasable commits after `5e7bf6d`).
+- `release-pr-token-verify` · browser-tab-mcp — CLOSED 2026-10-08: after #215 (`0202058`), release PRs #216 (combined) and #217 (browser-tab 1.16.0) were opened as george43g and their CI ran with no approval.
+- `tui-kit-0-6` · browser-tab-mcp — CLOSED 2026-10-08: #215 merged (tui-kit ^0.6.0, ^e/^y and page keys in both TUIs). ACK sent to mcp-cli-starter-template.
+- `release-1-16-0` · browser-tab-mcp — #217 (browser-tab 1.16.0) and #216 (combined tmux-control/pkg-*) are OPEN with green CI and left for George to merge when he wants a release.
+- `prepush-flaky-test` · browser-tab-mcp — CORRECTED 2026-10-08: not flaky. Main's node_modules held tui-kit 0.5.2 against a lockfile at 0.6.0 after `git pull --rebase` (no post-merge install/deploy ran), so the six new ^e/^y/page tests failed every time. A worktree with a fresh install passed 3/3 in full uncached turbo runs. Fixed with `pnpm install && pnpm deploy:local`: daemon `1.15.0+223.af0c3f4`, 9/9 nav tests. The 2026-10-04 pre-push failure stays unexplained (4 failures, not captured).
 - `release-latest-badge` · browser-tab-mcp — CLOSED 2026-10-08: #214 (`cf0c4a6`) adds a release-job step that re-points Latest at the highest `vX.Y.Z`. Inversion-tested: forced `pkg-vitest-config-v0.1.0` as Latest, dispatched Release run 37707525354, and Latest went back to `v1.15.0`.
 - `parked-plans` · browser-tab-mcp — 2026-10-08: four plans (cg-oscillation, selection-dsl, control-surface roadmap, phase-5) were marked PARKED in #214 after crossing the plans-freshness 30-day limit. Resume any of them only on George's go.
 - `chatgpt-auto-signal` · browser-tab-mcp — the ChatGPT extension-context UA was never measured on a live host.
@@ -3994,6 +3997,7 @@ v1.15.0 and tmux-control 0.1.0 are released, and per-package release lines are l
 - D9's "wait for upstream" (2026-09-27) was superseded on 2026-10-04 by per-package lines. The executive's later relay of "guard, then release" was stale, and the executive withdrew it.
 
 ### Traps
+- After `git pull --rebase` on main, check that node_modules matches the lockfile (e.g. the tui-kit version) and run `pnpm install && pnpm deploy:local` if it doesn't. A stale install shows up as new tests failing every time, which looks like flakiness.
 - When approving runs on a release PR, approve only the current head's runs. Approving an older head's CI run makes the concurrency group cancel the current one, so re-run it.
 - A `gh run rerun` replays the original event payload, so a PR-title change ([skip-readme]) needs a close and reopen (or a push) to be seen.
 - A new worktree needs `pnpm install` before `git push`, because the pre-push hook builds.
