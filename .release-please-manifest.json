@@ -1,6 +1,6 @@
 {
   ".": "1.16.0",
-  "apps/tmux-control-mcp": "0.1.0",
+  "apps/tmux-control-mcp": "0.2.0",
   "packages/build-config": "0.1.0",
   "packages/control-language": "0.1.0",
   "packages/shared-types": "0.1.0",

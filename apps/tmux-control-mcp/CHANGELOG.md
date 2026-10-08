@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.2.0](https://github.com/george43g/browser-tab-mcp/compare/tmux-control-v0.1.0...tmux-control-v0.2.0) (2026-10-08)
+
+
+### Features
+
+* **tui:** adopt tui-kit 0.6.0 with ^e/^y line and ^f/^b page keys ([#215](https://github.com/george43g/browser-tab-mcp/issues/215)) ([0202058](https://github.com/george43g/browser-tab-mcp/commit/0202058f6768453c61244dc7100ab4cf6587ecc8))
+
 ## 0.1.0 (2026-10-04)
 
 
