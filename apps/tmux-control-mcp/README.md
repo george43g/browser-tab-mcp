@@ -25,6 +25,8 @@ on PATH.
 |-----|---------|-------------------|
 | `tmux-control` | One Commander bin: `mcp`, `tui`, `doctor`, `health`, `list`, `noop`, `repl` | `mcp` uses stdio (`--http` for Streamable HTTP) |
 
+The `tui` keys are vim-style, from `@george43g/tui-kit`'s `useVimKeys`: `j`/`k` move (with a count), `gg`/`G` top and bottom, `^d`/`^u` half a page, `^e`/`^y` one line, `^f`/`^b` or PageDown/PageUp a page, `d` dev stats and `q` to quit.
+
 ## Tools
 
 Every tool the registry exposes. `tests/docs-integrity.contract.test.ts` fails
