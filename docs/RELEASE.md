@@ -491,6 +491,11 @@ after differential `--dry-run` verification of the proposed branch name.
   commit (`gh api -X POST repos/{owner}/{repo}/actions/runs/<id>/approve`). If
   you also approve a run from an older head, the CI concurrency group cancels
   the current one.
+- **browser-tab keeps GitHub's "Latest" badge.** GitHub badges the most
+  recently created release, so a combined tmux-control/`pkg-*` cut would take it
+  (measured 2026-10-04). The release job's "Keep browser-tab as the Latest
+  release" step re-points it at the highest `vX.Y.Z` on every run. It's
+  idempotent, and a failure there only warns.
 - **Forks are excluded** via `if: github.repository == 'george43g/browser-tab-mcp'`.
 - **Manual run**: the workflow also accepts `workflow_dispatch` if you need to
   re-drive it without a new push.

@@ -36,4 +36,16 @@ describe("release workflow", () => {
       .join("\n");
     expect(steps).not.toMatch(/\b(npm|pnpm|yarn) publish\b/);
   });
+
+  it("re-points GitHub's Latest badge at the highest browser-tab vX.Y.Z", () => {
+    // A combined tmux-control + pkg-* cut is created last, so GitHub would
+    // otherwise badge a pkg-* release as Latest (measured 2026-10-04).
+    const start = yml.indexOf("- name: Keep browser-tab as the Latest release");
+    expect(start).toBeGreaterThan(yml.indexOf("- name: Run release-please (retry)"));
+    const step = yml.slice(start, yml.indexOf("- name: Summarize"));
+    expect(step).toMatch(/\^v\[0-9\]\+/);
+    expect(step).toMatch(/sort -V/);
+    expect(step).toMatch(/gh release edit "\$want" --latest/);
+    expect(step).toMatch(/continue-on-error: true/);
+  });
 });
