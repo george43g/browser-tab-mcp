@@ -224,34 +224,42 @@ export function App() {
     dispatchNav({ kind: dir === 1 ? "pageDown" : "pageUp" });
   };
 
+  const moveBy = (delta: number) => {
+    if (mode.kind === "action") {
+      setActionIdx((i) => Math.max(0, Math.min(mode.choices.length - 1, i + delta)));
+    } else if (mode.kind === "move") {
+      setTargetIdx((i) => Math.max(0, Math.min(moveTargets.length - 1, i + delta)));
+    } else {
+      // Any browse-mode motion retires the last action's message. It used to
+      // persist for the rest of the session, permanently replacing the
+      // row-count/liveness indicator with a stale success string.
+      //
+      // useVimKeys already resolves the vim count prefix (`5j` → a single
+      // `onMove(5)` call) before this fires, so the delta here is already
+      // the final repeat-multiplied step — this dispatches an absolute `set`
+      // rather than feeding a `down`/`up` intent, so navReduce's OWN count
+      // machinery (the `digit` intent, `state.count`) is never touched and
+      // the two count models can't double-apply a repeat.
+      //
+      // The target index is computed from `s.cursor` INSIDE the setState
+      // updater, not from the outer `nav.cursor` closure: useVimKeys fans a
+      // single stdin chunk out across multiple synchronous `onMove` calls
+      // (a fast "jj" burst or a paste), all before React re-renders. Reading
+      // the closure would compute the same stale target for every call in
+      // the burst and collapse them into one net move.
+      setMessage("");
+      setNav((s) => navReduce(s, { kind: "set", index: s.cursor + delta }, navCtx));
+    }
+  };
+
+  const pageBy = (pages: number) => {
+    if (mode.kind !== "browse") return;
+    setMessage("");
+    setNav((s) => navReduce(s, { kind: "set", index: s.cursor + pages * viewport }, navCtx));
+  };
+
   useVimKeys({
-    onMove: (delta) => {
-      if (mode.kind === "action") {
-        setActionIdx((i) => Math.max(0, Math.min(mode.choices.length - 1, i + delta)));
-      } else if (mode.kind === "move") {
-        setTargetIdx((i) => Math.max(0, Math.min(moveTargets.length - 1, i + delta)));
-      } else {
-        // Any browse-mode motion retires the last action's message. It used to
-        // persist for the rest of the session, permanently replacing the
-        // row-count/liveness indicator with a stale success string.
-        //
-        // useVimKeys already resolves the vim count prefix (`5j` → a single
-        // `onMove(5)` call) before this fires, so the delta here is already
-        // the final repeat-multiplied step — this dispatches an absolute `set`
-        // rather than feeding a `down`/`up` intent, so navReduce's OWN count
-        // machinery (the `digit` intent, `state.count`) is never touched and
-        // the two count models can't double-apply a repeat.
-        //
-        // The target index is computed from `s.cursor` INSIDE the setState
-        // updater, not from the outer `nav.cursor` closure: useVimKeys fans a
-        // single stdin chunk out across multiple synchronous `onMove` calls
-        // (a fast "jj" burst or a paste), all before React re-renders. Reading
-        // the closure would compute the same stale target for every call in
-        // the burst and collapse them into one net move.
-        setMessage("");
-        setNav((s) => navReduce(s, { kind: "set", index: s.cursor + delta }, navCtx));
-      }
-    },
+    onMove: moveBy,
     onTop: () => {
       if (mode.kind !== "browse") return; // same guard as halfPage: gg has nothing to do in a modal list
       setMessage("");
@@ -269,6 +277,16 @@ export function App() {
     // undefined.
     onHalfPageDown: () => halfPage(1),
     onHalfPageUp: () => halfPage(-1),
+    // ^e/^y: one line (times the count). This list has NO viewport offset of
+    // its own — the window is derived from the cursor (visibleWindow), so a
+    // line scroll IS a cursor move of 1, same path and same modal steering as
+    // j/k.
+    onLineDown: (count) => moveBy(count),
+    onLineUp: (count) => moveBy(-count),
+    // PageDown/^f and PageUp/^b: a full viewport, browse mode only (the
+    // modal-list guard as ^d/^u). Cursor move, for the same reason.
+    onPageDown: (count) => pageBy(count),
+    onPageUp: (count) => pageBy(-count),
     onUnhandled: () => {},
   });
 
