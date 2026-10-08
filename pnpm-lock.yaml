@@ -82,8 +82,8 @@ importers:
         specifier: workspace:*
         version: link:../../packages/tsconfig
       '@george43g/tui-kit':
-        specifier: ^0.5.2
-        version: 0.5.2(@george43g/robustness@0.14.1)(@types/react@19.2.17)(ink@7.1.1(@types/react@19.2.17)(react@19.2.8))(react@19.2.8)
+        specifier: ^0.6.0
+        version: 0.6.0(@george43g/robustness@0.14.1)(@types/react@19.2.17)(ink@7.1.1(@types/react@19.2.17)(react@19.2.8))(react@19.2.8)
       '@george43g/vitest-config':
         specifier: workspace:*
         version: link:../../packages/vitest-config
@@ -184,8 +184,8 @@ importers:
         specifier: workspace:*
         version: link:../../packages/tmux-control
       '@george43g/tui-kit':
-        specifier: ^0.5.2
-        version: 0.5.2(@george43g/robustness@0.14.1)(@types/react@19.2.17)(ink@7.1.1(@types/react@19.2.17)(react@19.2.8))(react@19.2.8)
+        specifier: ^0.6.0
+        version: 0.6.0(@george43g/robustness@0.14.1)(@types/react@19.2.17)(ink@7.1.1(@types/react@19.2.17)(react@19.2.8))(react@19.2.8)
       '@modelcontextprotocol/sdk':
         specifier: ^1.29.0
         version: 1.29.0(zod@3.25.76)
@@ -855,6 +855,11 @@ packages:
     peerDependencies:
       commander: ^14.0.0
 
+  '@george43g/keymap@0.1.0':
+    resolution: {integrity: sha512-zBrmI6G5up9esvtg1GtNkszJTRuxWCz4E5FIRqp9ezqr+rNy2QfGxIHtXV3SFLVOWN1V5WHE6w/5ttM95ZnqCA==}
+    engines: {node: '>=24'}
+    hasBin: true
+
   '@george43g/mcp-kit@2.0.0':
     resolution: {integrity: sha512-lbdwMlfPTFlT6ZREjsOO9pMFuXQSvB+SCIjwg7imDm2nY40NqYXDqgRWdXLDP8V8qoAVeR2bhvliuo5MJZGmIA==}
     engines: {node: '>=24'}
@@ -869,8 +874,8 @@ packages:
     resolution: {integrity: sha512-Op3YZxFkvSJFEdHVYdGQy0VYF+VUjeaq85ou/N/qJoR8NmO3yhxmOAyodwHGxOh55vA8M+Elxy5tNuHnOLYdrg==}
     engines: {node: '>=24'}
 
-  '@george43g/tui-kit@0.5.2':
-    resolution: {integrity: sha512-8ZmFY2xI9eBPR6E+07VX7+ezWom+Xm0sBG4Cc1pPSlLCHOhGpRPkZKqGdsixirCNcqJjdqe/DSZqFe8Yc5ePFg==}
+  '@george43g/tui-kit@0.6.0':
+    resolution: {integrity: sha512-0tGjhD9Uen0ThZ3I0gMrtESBnqX3a9qSkxYm+CP1I9zNb0gBwWe1heR758TKyjAFBEdfqtAM4JfoHVnCFMHtCA==}
     engines: {node: '>=24'}
     peerDependencies:
       '@george43g/robustness': '>=0.1.1 <1'
@@ -3022,6 +3027,8 @@ snapshots:
       commander: 14.0.3
       picocolors: 1.1.1
 
+  '@george43g/keymap@0.1.0': {}
+
   '@george43g/mcp-kit@2.0.0(@george43g/robustness@0.14.1)':
     dependencies:
       '@george43g/robustness': 0.14.1
@@ -3036,8 +3043,9 @@ snapshots:
 
   '@george43g/secret-store@0.2.2': {}
 
-  '@george43g/tui-kit@0.5.2(@george43g/robustness@0.14.1)(@types/react@19.2.17)(ink@7.1.1(@types/react@19.2.17)(react@19.2.8))(react@19.2.8)':
+  '@george43g/tui-kit@0.6.0(@george43g/robustness@0.14.1)(@types/react@19.2.17)(ink@7.1.1(@types/react@19.2.17)(react@19.2.8))(react@19.2.8)':
     dependencies:
+      '@george43g/keymap': 0.1.0
       '@george43g/robustness': 0.14.1
       fullscreen-ink: 0.1.0(@types/react@19.2.17)
       ink: 7.1.1(@types/react@19.2.17)(react@19.2.8)
