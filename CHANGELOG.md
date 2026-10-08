@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.16.0](https://github.com/george43g/browser-tab-mcp/compare/v1.15.0...v1.16.0) (2026-10-08)
+
+
+### Features
+
+* **tui:** adopt tui-kit 0.6.0 with ^e/^y line and ^f/^b page keys ([#215](https://github.com/george43g/browser-tab-mcp/issues/215)) ([0202058](https://github.com/george43g/browser-tab-mcp/commit/0202058f6768453c61244dc7100ab4cf6587ecc8))
+
 ## [1.15.0](https://github.com/george43g/browser-tab-mcp/compare/v1.14.0...v1.15.0) (2026-10-03)
 
 
