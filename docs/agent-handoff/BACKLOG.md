@@ -1741,6 +1741,19 @@ message, and check the Windows runner's resource pressure at that timestamp.
 Frequency so far: 2 in roughly a day of CI runs across ~15 PRs. Owner:
 unclaimed.
 
+### B38. tmux-control: which terminal OS window shows which session, and what each pane runs
+
+**Owner:** browser-tab-mcp. **Status:** OPEN, required use case (George,
+2026-10-09), not scheduled. **Spec:** `plans/2026-09-20-tmux-control-app.md`
+§1b.
+
+Per tmux client: the terminal app and its OS window (`cgWindowId` == yabai
+window `id`, `null` with a reason when ambiguous). Per pane: the shell pid and
+the foreground process (pid, pgid, command, args). Plain tmux already gives a
+client's session, window, active pane and the pane's shell pid, and none of that
+gets wrapped. **Waits on George:** how to tell apart two OS windows of the same
+terminal (§1b options A/B/C; proposal A now, then B or C opt-in).
+
 ### B37. ChatGPT Desktop Browser connector — finish the live identity switch
 
 > **Code DONE 2026-09-27:** PR #208 merged as `60e4271` after eight green CI
