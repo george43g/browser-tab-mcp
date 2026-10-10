@@ -3968,6 +3968,10 @@ Nothing is mid-flight. `RELEASE_PLEASE_TOKEN` is set (2026-10-07T08:00Z, from `o
 ### State
 v1.15.0 and tmux-control 0.1.0 are released, and per-package release lines are live. Release PRs still need a manual CI approve until the RELEASE_PLEASE_TOKEN secret exists. Main is at `767feb4`, level with origin, and the tree is clean.
 
+### Now
+
+- 2026-10-10T18:19Z 2026-10-10T18:19:35Z Idle, nothing mid-flight; main clean. v1.16.0 + tmux-control-v0.2.0 released. EQStack tmux window restored to 6. Open: tmux-terminal-mapping waits on George's A/B/C pick (plan §1b, B38); chatgpt-auto-signal unmeasured.
+
 ### Constraints
 - George, 2026-10-04, verbatim (answer to the D9 question): "Per-package release lines".
 - George, 2026-10-04, verbatim: "release-pr-ci-approval: approved".
