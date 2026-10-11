@@ -1,6 +1,9 @@
 ---
 name: mcp-tool-author
 description: Authoring checklist for adding new MCP tools to a browser-tab-mcp tool. Use whenever the user asks to add or modify a tool.
+metadata:
+  owner: browser-tab-mcp
+  origin: fleet
 ---
 
 # Adding an MCP tool — canonical checklist

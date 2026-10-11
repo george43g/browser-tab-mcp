@@ -1,6 +1,9 @@
 ---
 name: browser-tab
 description: Browser TAB management (list, focus, move, open, close tabs), not browser control. Use when working with the browser-tab tool — listing/inspecting open browser tabs (Chrome, Brave, Chromium, Edge, Safari, ChatGPT desktop) with yabai-joinable window ids, focusing/moving/opening/closing tabs, managing its daemon, or debugging its extension connectivity. Not for clicking, typing in or scripting pages; use a browser-automation tool for that.
+metadata:
+  owner: browser-tab-mcp
+  origin: fleet
 ---
 
 # browser-tab

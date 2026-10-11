@@ -1,6 +1,9 @@
 ---
 name: pr-review-sop
 description: Mandatory security + quality SOP for reviewing pull requests against a browser-tab-mcp repo. Use whenever the user asks to review, audit, or merge a PR.
+metadata:
+  owner: browser-tab-mcp
+  origin: fleet
 ---
 
 # PR review SOP
