@@ -1,0 +1,782 @@
+# itemlog-events: the append-only event log beside itemlog.rec. Folding it# reproduces every Item there (`itemlog check`). Write only through `itemlog`.
+
+%rec: Event
+%doc: 
++ One line of the append-only log. Folding a repo's events in At order
++ (file order breaks ties) reproduces its Items: the first event for an Item
++ creates it with Slug = Item; an event sets Field to its Value; an event
++ with no Value clears Field. For a repeatable field (DependsOn, By, Link)
++ the event's Value lines are the field's whole new list. The fold is
++ last-writer-wins per field.
+%mandatory: Item At Agent Field
+%allowed: Item At Agent Field Value
+%unique: Item At Agent Field
+%typedef: Slug_t regexp /^[a-z0-9]+(-[a-z0-9]+)*$/
+%typedef: Agent_t regexp #^[A-Za-z0-9][A-Za-z0-9._-]{0,63}(/[A-Za-z0-9._-]+)?$#
+%typedef: Stamp_t regexp /^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$/
+%type: Item Slug_t
+%type: Agent Agent_t
+%type: At Stamp_t
+%type: Field enum Type Status Owner Title Definition Created Updated Repo MovedTo BlockedOn Asks AskId Answer AnsweredBy Trigger DependsOn Parent Plan Priority Due Progress ProgressAt By Model Evidence Source Link Started Paused Ended
+
+Item: release-pr-token-mint
+At: 2026-10-15T04:43:24Z
+Agent: browser-tab-mcp
+Field: Type
+Value: task
+
+Item: release-pr-token-mint
+At: 2026-10-15T04:43:24Z
+Agent: browser-tab-mcp
+Field: Status
+Value: next
+
+Item: release-pr-token-mint
+At: 2026-10-15T04:43:24Z
+Agent: browser-tab-mcp
+Field: Owner
+Value: browser-tab-mcp
+
+Item: release-pr-token-mint
+At: 2026-10-15T04:43:24Z
+Agent: browser-tab-mcp
+Field: Title
+Value: Mint the release-please fine-grained PAT
+
+Item: release-pr-token-mint
+At: 2026-10-15T04:43:24Z
+Agent: browser-tab-mcp
+Field: Created
+Value: 2026-10-15T04:43:24Z
+
+Item: release-pr-token-mint
+At: 2026-10-15T04:43:24Z
+Agent: browser-tab-mcp
+Field: Updated
+Value: 2026-10-15T04:43:24Z
+
+Item: release-pr-token-mint
+At: 2026-10-15T04:43:24Z
+Agent: browser-tab-mcp
+Field: Repo
+Value: browser-tab-mcp
+
+Item: release-pr-token-mint
+At: 2026-10-15T04:43:24Z
+Agent: browser-tab-mcp
+Field: Status
+Value: done
+
+Item: release-pr-token-mint
+At: 2026-10-15T04:43:24Z
+Agent: browser-tab-mcp
+Field: Evidence
+Value: George minted GH_PAT_BROWSER_TAB_RELEASE_PLEASE 2026-10-07; secret RELEASE_PLEASE_TOKEN set
+
+Item: release-pr-token-mint
+At: 2026-10-15T04:43:24Z
+Agent: browser-tab-mcp
+Field: Ended
+Value: 2026-10-15T04:43:24Z
+
+Item: release-pr-token-verify
+At: 2026-10-15T04:43:24Z
+Agent: browser-tab-mcp
+Field: Type
+Value: task
+
+Item: release-pr-token-verify
+At: 2026-10-15T04:43:24Z
+Agent: browser-tab-mcp
+Field: Status
+Value: next
+
+Item: release-pr-token-verify
+At: 2026-10-15T04:43:24Z
+Agent: browser-tab-mcp
+Field: Owner
+Value: browser-tab-mcp
+
+Item: release-pr-token-verify
+At: 2026-10-15T04:43:24Z
+Agent: browser-tab-mcp
+Field: Title
+Value: Verify release PRs run CI without manual approval
+
+Item: release-pr-token-verify
+At: 2026-10-15T04:43:24Z
+Agent: browser-tab-mcp
+Field: Created
+Value: 2026-10-15T04:43:24Z
+
+Item: release-pr-token-verify
+At: 2026-10-15T04:43:24Z
+Agent: browser-tab-mcp
+Field: Updated
+Value: 2026-10-15T04:43:24Z
+
+Item: release-pr-token-verify
+At: 2026-10-15T04:43:24Z
+Agent: browser-tab-mcp
+Field: Repo
+Value: browser-tab-mcp
+
+Item: release-pr-token-verify
+At: 2026-10-15T04:43:25Z
+Agent: browser-tab-mcp
+Field: Status
+Value: done
+
+Item: release-pr-token-verify
+At: 2026-10-15T04:43:25Z
+Agent: browser-tab-mcp
+Field: Updated
+Value: 2026-10-15T04:43:25Z
+
+Item: release-pr-token-verify
+At: 2026-10-15T04:43:25Z
+Agent: browser-tab-mcp
+Field: Evidence
+Value: #216/#217 opened as george43g, CI ran unprompted (2026-10-08)
+
+Item: release-pr-token-verify
+At: 2026-10-15T04:43:25Z
+Agent: browser-tab-mcp
+Field: Ended
+Value: 2026-10-15T04:43:25Z
+
+Item: tui-kit-0-6
+At: 2026-10-15T04:43:25Z
+Agent: browser-tab-mcp
+Field: Type
+Value: task
+
+Item: tui-kit-0-6
+At: 2026-10-15T04:43:25Z
+Agent: browser-tab-mcp
+Field: Status
+Value: next
+
+Item: tui-kit-0-6
+At: 2026-10-15T04:43:25Z
+Agent: browser-tab-mcp
+Field: Owner
+Value: browser-tab-mcp
+
+Item: tui-kit-0-6
+At: 2026-10-15T04:43:25Z
+Agent: browser-tab-mcp
+Field: Title
+Value: Adopt tui-kit 0.6.0 with ^e/^y and page keys
+
+Item: tui-kit-0-6
+At: 2026-10-15T04:43:25Z
+Agent: browser-tab-mcp
+Field: Created
+Value: 2026-10-15T04:43:25Z
+
+Item: tui-kit-0-6
+At: 2026-10-15T04:43:25Z
+Agent: browser-tab-mcp
+Field: Updated
+Value: 2026-10-15T04:43:25Z
+
+Item: tui-kit-0-6
+At: 2026-10-15T04:43:25Z
+Agent: browser-tab-mcp
+Field: Repo
+Value: browser-tab-mcp
+
+Item: tui-kit-0-6
+At: 2026-10-15T04:43:25Z
+Agent: browser-tab-mcp
+Field: Status
+Value: done
+
+Item: tui-kit-0-6
+At: 2026-10-15T04:43:25Z
+Agent: browser-tab-mcp
+Field: Evidence
+Value: #215 merged 0202058; ACK sent upstream
+
+Item: tui-kit-0-6
+At: 2026-10-15T04:43:25Z
+Agent: browser-tab-mcp
+Field: Ended
+Value: 2026-10-15T04:43:25Z
+
+Item: release-1-16-0
+At: 2026-10-15T04:43:26Z
+Agent: browser-tab-mcp
+Field: Type
+Value: task
+
+Item: release-1-16-0
+At: 2026-10-15T04:43:26Z
+Agent: browser-tab-mcp
+Field: Status
+Value: next
+
+Item: release-1-16-0
+At: 2026-10-15T04:43:26Z
+Agent: browser-tab-mcp
+Field: Owner
+Value: browser-tab-mcp
+
+Item: release-1-16-0
+At: 2026-10-15T04:43:26Z
+Agent: browser-tab-mcp
+Field: Title
+Value: Release browser-tab 1.16.0 and the combined tmux-control cut
+
+Item: release-1-16-0
+At: 2026-10-15T04:43:26Z
+Agent: browser-tab-mcp
+Field: Created
+Value: 2026-10-15T04:43:26Z
+
+Item: release-1-16-0
+At: 2026-10-15T04:43:26Z
+Agent: browser-tab-mcp
+Field: Updated
+Value: 2026-10-15T04:43:26Z
+
+Item: release-1-16-0
+At: 2026-10-15T04:43:26Z
+Agent: browser-tab-mcp
+Field: Repo
+Value: browser-tab-mcp
+
+Item: release-1-16-0
+At: 2026-10-15T04:43:26Z
+Agent: browser-tab-mcp
+Field: Status
+Value: done
+
+Item: release-1-16-0
+At: 2026-10-15T04:43:26Z
+Agent: browser-tab-mcp
+Field: Evidence
+Value: v1.16.0 (#217 1730422) and tmux-control-v0.2.0 (#216 7edd74a); George: Merge both now
+
+Item: release-1-16-0
+At: 2026-10-15T04:43:26Z
+Agent: browser-tab-mcp
+Field: Ended
+Value: 2026-10-15T04:43:26Z
+
+Item: release-latest-badge
+At: 2026-10-15T04:43:26Z
+Agent: browser-tab-mcp
+Field: Type
+Value: task
+
+Item: release-latest-badge
+At: 2026-10-15T04:43:26Z
+Agent: browser-tab-mcp
+Field: Status
+Value: next
+
+Item: release-latest-badge
+At: 2026-10-15T04:43:26Z
+Agent: browser-tab-mcp
+Field: Owner
+Value: browser-tab-mcp
+
+Item: release-latest-badge
+At: 2026-10-15T04:43:26Z
+Agent: browser-tab-mcp
+Field: Title
+Value: Keep browser-tab vX.Y.Z as GitHub's Latest release
+
+Item: release-latest-badge
+At: 2026-10-15T04:43:26Z
+Agent: browser-tab-mcp
+Field: Created
+Value: 2026-10-15T04:43:26Z
+
+Item: release-latest-badge
+At: 2026-10-15T04:43:26Z
+Agent: browser-tab-mcp
+Field: Updated
+Value: 2026-10-15T04:43:26Z
+
+Item: release-latest-badge
+At: 2026-10-15T04:43:26Z
+Agent: browser-tab-mcp
+Field: Repo
+Value: browser-tab-mcp
+
+Item: release-latest-badge
+At: 2026-10-15T04:43:27Z
+Agent: browser-tab-mcp
+Field: Status
+Value: done
+
+Item: release-latest-badge
+At: 2026-10-15T04:43:27Z
+Agent: browser-tab-mcp
+Field: Updated
+Value: 2026-10-15T04:43:27Z
+
+Item: release-latest-badge
+At: 2026-10-15T04:43:27Z
+Agent: browser-tab-mcp
+Field: Evidence
+Value: #214 cf0c4a6, inversion-tested via dispatched run 37707525354
+
+Item: release-latest-badge
+At: 2026-10-15T04:43:27Z
+Agent: browser-tab-mcp
+Field: Ended
+Value: 2026-10-15T04:43:27Z
+
+Item: prepush-flaky-test
+At: 2026-10-15T04:43:27Z
+Agent: browser-tab-mcp
+Field: Type
+Value: incident
+
+Item: prepush-flaky-test
+At: 2026-10-15T04:43:27Z
+Agent: browser-tab-mcp
+Field: Status
+Value: next
+
+Item: prepush-flaky-test
+At: 2026-10-15T04:43:27Z
+Agent: browser-tab-mcp
+Field: Owner
+Value: browser-tab-mcp
+
+Item: prepush-flaky-test
+At: 2026-10-15T04:43:27Z
+Agent: browser-tab-mcp
+Field: Title
+Value: Pre-push test failures on main
+
+Item: prepush-flaky-test
+At: 2026-10-15T04:43:27Z
+Agent: browser-tab-mcp
+Field: Created
+Value: 2026-10-15T04:43:27Z
+
+Item: prepush-flaky-test
+At: 2026-10-15T04:43:27Z
+Agent: browser-tab-mcp
+Field: Updated
+Value: 2026-10-15T04:43:27Z
+
+Item: prepush-flaky-test
+At: 2026-10-15T04:43:27Z
+Agent: browser-tab-mcp
+Field: Repo
+Value: browser-tab-mcp
+
+Item: prepush-flaky-test
+At: 2026-10-15T04:43:28Z
+Agent: browser-tab-mcp
+Field: Status
+Value: done
+
+Item: prepush-flaky-test
+At: 2026-10-15T04:43:28Z
+Agent: browser-tab-mcp
+Field: Updated
+Value: 2026-10-15T04:43:28Z
+
+Item: prepush-flaky-test
+At: 2026-10-15T04:43:28Z
+Agent: browser-tab-mcp
+Field: Evidence
+Value: Not flaky: stale node_modules after git pull --rebase (tui-kit 0.5.2 vs lock 0.6.0); fixed by pnpm install + deploy:local
+
+Item: prepush-flaky-test
+At: 2026-10-15T04:43:28Z
+Agent: browser-tab-mcp
+Field: Ended
+Value: 2026-10-15T04:43:28Z
+
+Item: parked-plans
+At: 2026-10-15T04:43:28Z
+Agent: browser-tab-mcp
+Field: Type
+Value: info
+
+Item: parked-plans
+At: 2026-10-15T04:43:28Z
+Agent: browser-tab-mcp
+Field: Status
+Value: next
+
+Item: parked-plans
+At: 2026-10-15T04:43:28Z
+Agent: browser-tab-mcp
+Field: Owner
+Value: browser-tab-mcp
+
+Item: parked-plans
+At: 2026-10-15T04:43:28Z
+Agent: browser-tab-mcp
+Field: Title
+Value: Four plans parked after 30 days idle (cg-oscillation, selection-dsl, control-surface roadmap, phase-5)
+
+Item: parked-plans
+At: 2026-10-15T04:43:28Z
+Agent: browser-tab-mcp
+Field: Created
+Value: 2026-10-15T04:43:28Z
+
+Item: parked-plans
+At: 2026-10-15T04:43:28Z
+Agent: browser-tab-mcp
+Field: Updated
+Value: 2026-10-15T04:43:28Z
+
+Item: parked-plans
+At: 2026-10-15T04:43:28Z
+Agent: browser-tab-mcp
+Field: Repo
+Value: browser-tab-mcp
+
+Item: parked-plans
+At: 2026-10-15T04:43:28Z
+Agent: browser-tab-mcp
+Field: Status
+Value: later
+
+Item: chatgpt-auto-signal
+At: 2026-10-15T04:43:29Z
+Agent: browser-tab-mcp
+Field: Type
+Value: task
+
+Item: chatgpt-auto-signal
+At: 2026-10-15T04:43:29Z
+Agent: browser-tab-mcp
+Field: Status
+Value: next
+
+Item: chatgpt-auto-signal
+At: 2026-10-15T04:43:29Z
+Agent: browser-tab-mcp
+Field: Owner
+Value: browser-tab-mcp
+
+Item: chatgpt-auto-signal
+At: 2026-10-15T04:43:29Z
+Agent: browser-tab-mcp
+Field: Title
+Value: Measure whether the extension can detect it runs inside ChatGPT Desktop (UA / Client Hints)
+
+Item: chatgpt-auto-signal
+At: 2026-10-15T04:43:29Z
+Agent: browser-tab-mcp
+Field: Created
+Value: 2026-10-15T04:43:29Z
+
+Item: chatgpt-auto-signal
+At: 2026-10-15T04:43:29Z
+Agent: browser-tab-mcp
+Field: Updated
+Value: 2026-10-15T04:43:29Z
+
+Item: chatgpt-auto-signal
+At: 2026-10-15T04:43:29Z
+Agent: browser-tab-mcp
+Field: Repo
+Value: browser-tab-mcp
+
+Item: tmux-terminal-mapping
+At: 2026-10-15T04:43:30Z
+Agent: browser-tab-mcp
+Field: Type
+Value: task
+
+Item: tmux-terminal-mapping
+At: 2026-10-15T04:43:30Z
+Agent: browser-tab-mcp
+Field: Status
+Value: next
+
+Item: tmux-terminal-mapping
+At: 2026-10-15T04:43:30Z
+Agent: browser-tab-mcp
+Field: Owner
+Value: browser-tab-mcp
+
+Item: tmux-terminal-mapping
+At: 2026-10-15T04:43:30Z
+Agent: browser-tab-mcp
+Field: Title
+Value: tmux-control: per-client terminal app + OS window (cgWindowId, ambiguous otherwise), per-pane shell + foreground pid (plan 1b, B38, option A)
+
+Item: tmux-terminal-mapping
+At: 2026-10-15T04:43:30Z
+Agent: browser-tab-mcp
+Field: Created
+Value: 2026-10-15T04:43:30Z
+
+Item: tmux-terminal-mapping
+At: 2026-10-15T04:43:30Z
+Agent: browser-tab-mcp
+Field: Updated
+Value: 2026-10-15T04:43:30Z
+
+Item: tmux-terminal-mapping
+At: 2026-10-15T04:43:30Z
+Agent: browser-tab-mcp
+Field: Repo
+Value: browser-tab-mcp
+
+Item: tmux-terminal-mapping
+At: 2026-10-15T04:43:30Z
+Agent: browser-tab-mcp
+Field: DependsOn
+Value: tmux-terminal-mapping-choice
+
+Item: mcp-kit-schema-label-strip
+At: 2026-10-15T04:43:30Z
+Agent: browser-tab-mcp
+Field: Type
+Value: task
+
+Item: mcp-kit-schema-label-strip
+At: 2026-10-15T04:43:30Z
+Agent: browser-tab-mcp
+Field: Status
+Value: next
+
+Item: mcp-kit-schema-label-strip
+At: 2026-10-15T04:43:30Z
+Agent: browser-tab-mcp
+Field: Owner
+Value: browser-tab-mcp
+
+Item: mcp-kit-schema-label-strip
+At: 2026-10-15T04:43:30Z
+Agent: browser-tab-mcp
+Field: Title
+Value: Drop the draft-07 $schema label from tool schemas (eqstack hotfix pattern)
+
+Item: mcp-kit-schema-label-strip
+At: 2026-10-15T04:43:30Z
+Agent: browser-tab-mcp
+Field: Created
+Value: 2026-10-15T04:43:30Z
+
+Item: mcp-kit-schema-label-strip
+At: 2026-10-15T04:43:30Z
+Agent: browser-tab-mcp
+Field: Updated
+Value: 2026-10-15T04:43:30Z
+
+Item: mcp-kit-schema-label-strip
+At: 2026-10-15T04:43:30Z
+Agent: browser-tab-mcp
+Field: Repo
+Value: browser-tab-mcp
+
+Item: transcript-sweep
+At: 2026-10-15T04:43:31Z
+Agent: browser-tab-mcp
+Field: Type
+Value: task
+
+Item: transcript-sweep
+At: 2026-10-15T04:43:31Z
+Agent: browser-tab-mcp
+Field: Status
+Value: next
+
+Item: transcript-sweep
+At: 2026-10-15T04:43:31Z
+Agent: browser-tab-mcp
+Field: Owner
+Value: browser-tab-mcp
+
+Item: transcript-sweep
+At: 2026-10-15T04:43:31Z
+Agent: browser-tab-mcp
+Field: Title
+Value: Week-back transcript sweep for lost items (executive, D40)
+
+Item: transcript-sweep
+At: 2026-10-15T04:43:31Z
+Agent: browser-tab-mcp
+Field: Created
+Value: 2026-10-15T04:43:31Z
+
+Item: transcript-sweep
+At: 2026-10-15T04:43:31Z
+Agent: browser-tab-mcp
+Field: Updated
+Value: 2026-10-15T04:43:31Z
+
+Item: transcript-sweep
+At: 2026-10-15T04:43:31Z
+Agent: browser-tab-mcp
+Field: Repo
+Value: browser-tab-mcp
+
+Item: mcp-kit-3-migration
+At: 2026-10-15T04:43:31Z
+Agent: browser-tab-mcp
+Field: Type
+Value: task
+
+Item: mcp-kit-3-migration
+At: 2026-10-15T04:43:31Z
+Agent: browser-tab-mcp
+Field: Status
+Value: next
+
+Item: mcp-kit-3-migration
+At: 2026-10-15T04:43:31Z
+Agent: browser-tab-mcp
+Field: Owner
+Value: browser-tab-mcp
+
+Item: mcp-kit-3-migration
+At: 2026-10-15T04:43:31Z
+Agent: browser-tab-mcp
+Field: Title
+Value: zod 4 + mcp-kit ^3 migration (needs the B4 de-vendor decision)
+
+Item: mcp-kit-3-migration
+At: 2026-10-15T04:43:31Z
+Agent: browser-tab-mcp
+Field: Created
+Value: 2026-10-15T04:43:31Z
+
+Item: mcp-kit-3-migration
+At: 2026-10-15T04:43:31Z
+Agent: browser-tab-mcp
+Field: Updated
+Value: 2026-10-15T04:43:31Z
+
+Item: mcp-kit-3-migration
+At: 2026-10-15T04:43:31Z
+Agent: browser-tab-mcp
+Field: Repo
+Value: browser-tab-mcp
+
+Item: mcp-kit-3-migration
+At: 2026-10-15T04:43:32Z
+Agent: browser-tab-mcp
+Field: Status
+Value: later
+
+Item: mcp-kit-3-migration
+At: 2026-10-15T04:43:32Z
+Agent: browser-tab-mcp
+Field: Updated
+Value: 2026-10-15T04:43:32Z
+
+Item: tmux-terminal-mapping-choice
+At: 2026-10-15T04:43:38Z
+Agent: browser-tab-mcp
+Field: Type
+Value: question
+
+Item: tmux-terminal-mapping-choice
+At: 2026-10-15T04:43:38Z
+Agent: browser-tab-mcp
+Field: Status
+Value: next
+
+Item: tmux-terminal-mapping-choice
+At: 2026-10-15T04:43:38Z
+Agent: browser-tab-mcp
+Field: Owner
+Value: browser-tab-mcp
+
+Item: tmux-terminal-mapping-choice
+At: 2026-10-15T04:43:38Z
+Agent: browser-tab-mcp
+Field: Title
+Value: How tmux-control tells apart two OS windows of one terminal
+
+Item: tmux-terminal-mapping-choice
+At: 2026-10-15T04:43:38Z
+Agent: browser-tab-mcp
+Field: Definition
+Value: Plan 1b: several OS windows of one terminal share a pid and can share a title. A = CoreGraphics pid+title match, ambiguous when unsure; B = client tty in set-titles-string; C = kitty remote control. The answer unblocks building tmux-terminal-mapping.
+
+Item: tmux-terminal-mapping-choice
+At: 2026-10-15T04:43:38Z
+Agent: browser-tab-mcp
+Field: Created
+Value: 2026-10-15T04:43:38Z
+
+Item: tmux-terminal-mapping-choice
+At: 2026-10-15T04:43:38Z
+Agent: browser-tab-mcp
+Field: Updated
+Value: 2026-10-15T04:43:38Z
+
+Item: tmux-terminal-mapping-choice
+At: 2026-10-15T04:43:38Z
+Agent: browser-tab-mcp
+Field: Repo
+Value: browser-tab-mcp
+
+Item: tmux-terminal-mapping-choice
+At: 2026-10-15T04:43:38Z
+Agent: browser-tab-mcp
+Field: BlockedOn
+Value: george
+
+Item: tmux-terminal-mapping-choice
+At: 2026-10-15T04:43:38Z
+Agent: browser-tab-mcp
+Field: Asks
+Value: Pick A, B or C (plan section 1b)
+
+Item: tmux-terminal-mapping-choice
+At: 2026-10-15T04:43:38Z
+Agent: browser-tab-mcp
+Field: Status
+Value: done
+
+Item: tmux-terminal-mapping-choice
+At: 2026-10-15T04:43:38Z
+Agent: browser-tab-mcp
+Field: Answer
+Value: go with A for tmux terminal mapping
+
+Item: tmux-terminal-mapping-choice
+At: 2026-10-15T04:43:38Z
+Agent: browser-tab-mcp
+Field: AnsweredBy
+Value: george
+
+Item: tmux-terminal-mapping-choice
+At: 2026-10-15T04:43:38Z
+Agent: browser-tab-mcp
+Field: Evidence
+Value: answered by george
+
+Item: tmux-terminal-mapping-choice
+At: 2026-10-15T04:43:38Z
+Agent: browser-tab-mcp
+Field: Ended
+Value: 2026-10-15T04:43:38Z
+
+Item: tmux-terminal-mapping
+At: 2026-10-15T04:43:39Z
+Agent: browser-tab-mcp
+Field: Status
+Value: started
+
+Item: tmux-terminal-mapping
+At: 2026-10-15T04:43:39Z
+Agent: browser-tab-mcp
+Field: Updated
+Value: 2026-10-15T04:43:39Z
+
+Item: tmux-terminal-mapping
+At: 2026-10-15T04:43:39Z
+Agent: browser-tab-mcp
+Field: Started
+Value: 2026-10-15T04:43:39Z

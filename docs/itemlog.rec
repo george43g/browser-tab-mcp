@@ -1,0 +1,199 @@
+# itemlog: this repo's items and their comments. Write only through `itemlog`# (skills/itemlog in g-agent-skills); never recins or recset by hand.# The descriptors below are copied verbatim from the canonical# skills/itemlog/itemlog.descriptor.rec; `itemlog check` fails on drift.
+
+%rec: Item
+%doc: 
++ One fleet item. Slug is unique fleet-wide (itemlog check --fleet), so
++ DependsOn, Parent and a done(<slug>) Trigger may name an item in another
++ repo. needs-you is derived, never stored: BlockedOn = george and Status not
++ done or dropped. MovedTo names the repo an item was moved to (`itemlog
++ move`); only a dropped copy carries it, and it is the one copy of a slug
++ that may share the slug with another ledger. A question keeps why it was
++ asked (Definition) and, once answered, the answer verbatim (Answer, may
++ span lines) and who gave it (AnsweredBy); `itemlog done` requires both on
++ a question, the descriptor does not (questions done before 2026-10-15). Priority is a per-owner rank, 1 =
++ that owner's most important; Due is a date or an ISO 8601 time.
++ Repeatable: DependsOn, By, Link; every other field at most once. Write only through `itemlog`, which
++ holds the doclock and appends the matching Event records: a bare recins or
++ recset loses writes silently.
+%key: Slug
+%mandatory: Type Status Owner Title Created Updated Repo
+%allowed: Slug Type Status Owner Title Definition Created Updated Repo MovedTo BlockedOn Asks AskId Answer AnsweredBy Trigger DependsOn Parent Plan Priority Due Progress ProgressAt By Model Evidence Source Link Started Paused Ended
+%unique: Type Status Owner Title Definition Created Updated Repo MovedTo BlockedOn Asks AskId Answer AnsweredBy Trigger Parent Plan Priority Due Progress ProgressAt Model Evidence Source Started Paused Ended
+%typedef: Slug_t regexp /^[a-z0-9]+(-[a-z0-9]+)*$/
+%typedef: Agent_t regexp #^[A-Za-z0-9][A-Za-z0-9._-]{0,63}(/[A-Za-z0-9._-]+)?$#
+%typedef: Stamp_t regexp /^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$/
+%type: Slug,DependsOn,Parent Slug_t
+%type: Owner,By,AnsweredBy Agent_t
+%type: BlockedOn regexp /^(george|[A-Za-z0-9][A-Za-z0-9._-]{0,63})$/
+%type: Repo,MovedTo regexp /^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$/
+%type: Type enum question task decision idea info message cron incident commitment
+%type: Status enum next started later circle-back paused done dropped
+%type: Created,Updated,Started,Paused,Ended,ProgressAt Stamp_t
+%type: Title,Asks,Trigger line
+%type: AskId regexp /^ask-[0-9]+-[0-9]+$/
+%type: Plan range 0 MAX
+%type: Priority int
+%type: Due regexp /^[0-9]{4}-[0-9]{2}-[0-9]{2}(T[0-9]{2}:[0-9]{2}:[0-9]{2}(Z|[+-][0-9]{2}:[0-9]{2}))?$/
+%type: Progress regexp /^([0-9]|[1-9][0-9]|100|[a-z][a-z0-9-]*)$/
+%constraint: Status = 'next' => #Started = 0
+%constraint: Status = 'started' => #Started > 0
+%constraint: Status = 'done' => (#Ended > 0 && #Evidence > 0)
+%constraint: Status = 'dropped' => (#Ended > 0 && #Evidence > 0)
+%constraint: Status = 'circle-back' => #Trigger > 0
+%constraint: Status = 'paused' => #Paused > 0
+%constraint: Type = 'question' => #BlockedOn > 0
+%constraint: Type = 'question' => #Definition > 0
+%constraint: #BlockedOn > 0 => #Asks > 0
+%constraint: #Progress > 0 => #ProgressAt > 0
+%constraint: #Priority = 0 || Priority >= 1
+%constraint: !#MovedTo || Status = 'dropped'
+
+Slug: release-pr-token-mint
+Type: task
+Status: done
+Owner: browser-tab-mcp
+Title: Mint the release-please fine-grained PAT
+Created: 2026-10-15T04:43:24Z
+Updated: 2026-10-15T04:43:24Z
+Repo: browser-tab-mcp
+Evidence: George minted GH_PAT_BROWSER_TAB_RELEASE_PLEASE 2026-10-07; secret RELEASE_PLEASE_TOKEN set
+Ended: 2026-10-15T04:43:24Z
+
+Slug: release-pr-token-verify
+Type: task
+Status: done
+Owner: browser-tab-mcp
+Title: Verify release PRs run CI without manual approval
+Created: 2026-10-15T04:43:24Z
+Updated: 2026-10-15T04:43:25Z
+Repo: browser-tab-mcp
+Evidence: #216/#217 opened as george43g, CI ran unprompted (2026-10-08)
+Ended: 2026-10-15T04:43:25Z
+
+Slug: tui-kit-0-6
+Type: task
+Status: done
+Owner: browser-tab-mcp
+Title: Adopt tui-kit 0.6.0 with ^e/^y and page keys
+Created: 2026-10-15T04:43:25Z
+Updated: 2026-10-15T04:43:25Z
+Repo: browser-tab-mcp
+Evidence: #215 merged 0202058; ACK sent upstream
+Ended: 2026-10-15T04:43:25Z
+
+Slug: release-1-16-0
+Type: task
+Status: done
+Owner: browser-tab-mcp
+Title: Release browser-tab 1.16.0 and the combined tmux-control cut
+Created: 2026-10-15T04:43:26Z
+Updated: 2026-10-15T04:43:26Z
+Repo: browser-tab-mcp
+Evidence: v1.16.0 (#217 1730422) and tmux-control-v0.2.0 (#216 7edd74a); George: Merge both now
+Ended: 2026-10-15T04:43:26Z
+
+Slug: release-latest-badge
+Type: task
+Status: done
+Owner: browser-tab-mcp
+Title: Keep browser-tab vX.Y.Z as GitHub's Latest release
+Created: 2026-10-15T04:43:26Z
+Updated: 2026-10-15T04:43:27Z
+Repo: browser-tab-mcp
+Evidence: #214 cf0c4a6, inversion-tested via dispatched run 37707525354
+Ended: 2026-10-15T04:43:27Z
+
+Slug: prepush-flaky-test
+Type: incident
+Status: done
+Owner: browser-tab-mcp
+Title: Pre-push test failures on main
+Created: 2026-10-15T04:43:27Z
+Updated: 2026-10-15T04:43:28Z
+Repo: browser-tab-mcp
+Evidence: Not flaky: stale node_modules after git pull --rebase (tui-kit 0.5.2 vs lock 0.6.0); fixed by pnpm install + deploy:local
+Ended: 2026-10-15T04:43:28Z
+
+Slug: parked-plans
+Type: info
+Status: later
+Owner: browser-tab-mcp
+Title: Four plans parked after 30 days idle (cg-oscillation, selection-dsl, control-surface roadmap, phase-5)
+Created: 2026-10-15T04:43:28Z
+Updated: 2026-10-15T04:43:28Z
+Repo: browser-tab-mcp
+
+Slug: chatgpt-auto-signal
+Type: task
+Status: next
+Owner: browser-tab-mcp
+Title: Measure whether the extension can detect it runs inside ChatGPT Desktop (UA / Client Hints)
+Created: 2026-10-15T04:43:29Z
+Updated: 2026-10-15T04:43:29Z
+Repo: browser-tab-mcp
+
+Slug: tmux-terminal-mapping
+Type: task
+Status: started
+Owner: browser-tab-mcp
+Title: tmux-control: per-client terminal app + OS window (cgWindowId, ambiguous otherwise), per-pane shell + foreground pid (plan 1b, B38, option A)
+Created: 2026-10-15T04:43:30Z
+Updated: 2026-10-15T04:43:39Z
+Repo: browser-tab-mcp
+DependsOn: tmux-terminal-mapping-choice
+Started: 2026-10-15T04:43:39Z
+
+Slug: mcp-kit-schema-label-strip
+Type: task
+Status: next
+Owner: browser-tab-mcp
+Title: Drop the draft-07 $schema label from tool schemas (eqstack hotfix pattern)
+Created: 2026-10-15T04:43:30Z
+Updated: 2026-10-15T04:43:30Z
+Repo: browser-tab-mcp
+
+Slug: transcript-sweep
+Type: task
+Status: next
+Owner: browser-tab-mcp
+Title: Week-back transcript sweep for lost items (executive, D40)
+Created: 2026-10-15T04:43:31Z
+Updated: 2026-10-15T04:43:31Z
+Repo: browser-tab-mcp
+
+Slug: mcp-kit-3-migration
+Type: task
+Status: later
+Owner: browser-tab-mcp
+Title: zod 4 + mcp-kit ^3 migration (needs the B4 de-vendor decision)
+Created: 2026-10-15T04:43:31Z
+Updated: 2026-10-15T04:43:32Z
+Repo: browser-tab-mcp
+
+Slug: tmux-terminal-mapping-choice
+Type: question
+Status: done
+Owner: browser-tab-mcp
+Title: How tmux-control tells apart two OS windows of one terminal
+Definition: Plan 1b: several OS windows of one terminal share a pid and can share a title. A = CoreGraphics pid+title match, ambiguous when unsure; B = client tty in set-titles-string; C = kitty remote control. The answer unblocks building tmux-terminal-mapping.
+Created: 2026-10-15T04:43:38Z
+Updated: 2026-10-15T04:43:38Z
+Repo: browser-tab-mcp
+BlockedOn: george
+Asks: Pick A, B or C (plan section 1b)
+Answer: go with A for tmux terminal mapping
+AnsweredBy: george
+Evidence: answered by george
+Ended: 2026-10-15T04:43:38Z
+
+%rec: Comment
+%doc: A note on an item, by an agent or George. Append-only.
+%mandatory: Item Author At Text
+%allowed: Item Author At Text
+%unique: Item Author At Text
+%typedef: Slug_t regexp /^[a-z0-9]+(-[a-z0-9]+)*$/
+%typedef: Agent_t regexp #^[A-Za-z0-9][A-Za-z0-9._-]{0,63}(/[A-Za-z0-9._-]+)?$#
+%typedef: Stamp_t regexp /^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$/
+%type: Item Slug_t
+%type: Author Agent_t
+%type: At Stamp_t
