@@ -71,17 +71,39 @@ export interface ToolRegistry {
 }
 
 /**
- * Drop the top-level `$schema` dialect label from a generated JSON schema.
+ * Make a generated JSON schema acceptable to a JSON Schema 2020-12 validator.
  *
- * zodToJsonSchema stamps `"$schema": "http://json-schema.org/draft-07/schema#"`
- * on every schema. eqstack reported (their PR #184, telephony `server.ts`
- * `withoutSchemaDialect`) that Claude Code 2.1.292 rejects draft-07-labelled
- * tool schemas. We could not reproduce that on 2.1.300, but the label carries
- * no information the client needs, so it is stripped as a cheap guard.
+ * zodToJsonSchema emits draft-07. Claude's tool validator rejects it
+ * (verbatim, relayed by eqstack 2026-10-15: "JSON Schema declares an
+ * unsupported dialect ("$schema": "http://json-schema.org/draft-07/schema#").
+ * The default validator supports JSON Schema 2020-12 only"; it didn't
+ * reproduce with `claude -p` on 2.1.300, so the failing surface is narrower).
+ * Two draft-07 forms a 2020-12 validator refuses, so both are rewritten:
+ * - the top-level `$schema` label is dropped (eqstack #184's fix);
+ * - tuple `items: [..]` becomes `prefixItems: [..]`, with `additionalItems`
+ *   moved to `items` (z.tuple, e.g. select_tabs' two `anchors`).
+ * `definitions` and `dependencies` are never emitted by our schemas
+ * (tool-registry.test.ts asserts the whole output is clean).
  */
-function withoutSchemaDialect(schema: object): object {
+function toDialect2020(schema: object): object {
   const { $schema: _dialect, ...rest } = schema as Record<string, unknown>;
-  return rest;
+  return rewriteTuples(rest) as object;
+}
+
+function rewriteTuples(node: unknown): unknown {
+  if (Array.isArray(node)) return node.map(rewriteTuples);
+  if (!node || typeof node !== "object") return node;
+  const out: Record<string, unknown> = {};
+  for (const [k, v] of Object.entries(node)) out[k] = rewriteTuples(v);
+  if (Array.isArray(out.items)) {
+    out.prefixItems = out.items;
+    delete out.items;
+    if ("additionalItems" in out) {
+      out.items = out.additionalItems;
+      delete out.additionalItems;
+    }
+  }
+  return out;
 }
 
 export function makeRegistry(defs: AnyToolDefinition[]): ToolRegistry {
@@ -104,8 +126,8 @@ export function makeRegistry(defs: AnyToolDefinition[]): ToolRegistry {
               name: d.name,
               description: d.description,
               annotations: d.annotations,
-              inputSchema: withoutSchemaDialect(zodToJsonSchema(d.input)),
-              outputSchema: withoutSchemaDialect(zodToJsonSchema(d.output)),
+              inputSchema: toDialect2020(zodToJsonSchema(d.input)),
+              outputSchema: toDialect2020(zodToJsonSchema(d.output)),
             }) as unknown as Tool,
         );
     },

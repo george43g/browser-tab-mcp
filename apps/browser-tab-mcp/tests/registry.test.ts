@@ -73,6 +73,27 @@ describe("makeAppRegistry", () => {
       expect(t.outputSchema).not.toHaveProperty("$schema");
     }
   });
+
+  it("emits no draft-07-only keyword a 2020-12 validator rejects, on any tool", () => {
+    // select_tabs, plan_tab_change, copy_tabs and cut_tabs carry a z.tuple
+    // (anchors); draft-07 emits it as array-form `items`, 2020-12 as prefixItems.
+    const draft07Only = (n: unknown, at: string): string[] =>
+      Array.isArray(n)
+        ? n.flatMap((x, i) => draft07Only(x, `${at}[${i}]`))
+        : n && typeof n === "object"
+          ? Object.entries(n).flatMap(([k, v]) => [
+              ...((k === "items" && Array.isArray(v)) ||
+              k === "definitions" ||
+              k === "dependencies" ||
+              k === "additionalItems"
+                ? [`${at}.${k}`]
+                : []),
+              ...draft07Only(v, `${at}.${k}`),
+            ])
+          : [];
+    const tools = reg.toMcpTools(true) as unknown as Array<{ name: string }>;
+    expect(tools.flatMap((t) => draft07Only(t, t.name))).toEqual([]);
+  });
 });
 
 describe("devModeEnabled", () => {

@@ -61,6 +61,35 @@ describe("makeRegistry", () => {
     }
   });
 
+  it("emits tuples as 2020-12 prefixItems, never draft-07 array-form items", () => {
+    const tuple: ToolDefinition = {
+      ...prod,
+      name: "tuple_tool",
+      input: z.object({ pair: z.tuple([z.string(), z.number()]) }),
+    };
+    const [t] = makeRegistry([tuple]).toMcpTools() as unknown as Array<{
+      inputSchema: { properties: { pair: Record<string, unknown> } };
+    }>;
+    const pair = t.inputSchema.properties.pair;
+    expect(pair.prefixItems).toEqual([{ type: "string" }, { type: "number" }]);
+    expect(Array.isArray(pair.items)).toBe(false);
+    const draft07Only = (n: unknown): string[] =>
+      Array.isArray(n)
+        ? n.flatMap(draft07Only)
+        : n && typeof n === "object"
+          ? Object.entries(n).flatMap(([k, v]) => [
+              ...((k === "items" && Array.isArray(v)) ||
+              k === "definitions" ||
+              k === "dependencies" ||
+              k === "additionalItems"
+                ? [k]
+                : []),
+              ...draft07Only(v),
+            ])
+          : [];
+    expect(draft07Only(t)).toEqual([]);
+  });
+
   it("passes annotations through to tools/list verbatim, title included", () => {
     const annotated: ToolDefinition = {
       ...prod,
