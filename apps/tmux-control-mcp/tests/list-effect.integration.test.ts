@@ -127,6 +127,40 @@ effectIt(
   },
 );
 
+effectIt("--processes redacts a secret-shaped value in a foreground command line", async () => {
+  // A command line can carry a credential, and this output lands in a model
+  // transcript. `sh -c '…; true'` keeps sh as the group leader (one command
+  // would exec into sleep and drop the argument).
+  const token = "sk-ant-api03-abcdefghijklmnopqrstuvwxyz0123456789";
+  expect(runTmux("new-window", "-d", "-t", "sample", "-n", "secret", "/bin/sh").status).toBe(0);
+  expect(
+    runTmux(
+      "send-keys",
+      "-t",
+      "sample:secret",
+      `sh -c 'sleep 60; true' x --token=${token}`,
+      "Enter",
+    ).status,
+  ).toBe(0);
+  const read = () => {
+    const result = spawnSync(
+      process.execPath,
+      [BIN, "--json", "list", "--socket-name", socket, "--processes"],
+      { encoding: "utf8", timeout: 10_000, env: { ...process.env, MCP_DISABLE_NATIVE: "1" } },
+    );
+    expect(result.status, result.stderr).toBe(0);
+    return result.stdout;
+  };
+  let out = read();
+  for (let i = 0; i < 20 && !out.includes("--token="); i++) {
+    await new Promise((r) => setTimeout(r, 250));
+    out = read();
+  }
+  expect(out).toContain("--token=[redacted]");
+  expect(out).not.toContain(token);
+  runTmux("kill-window", "-t", "sample:secret");
+});
+
 effectIt("built --json list exits nonzero when its tmux socket has no server", () => {
   const result = spawnSync(
     process.execPath,

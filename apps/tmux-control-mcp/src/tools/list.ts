@@ -1,4 +1,5 @@
 import { sanitize, type ToolDefinition } from "@george43g/mcp-kit";
+import { redactString } from "@george43g/robustness";
 import {
   readTmuxSnapshot,
   readTmuxTerminalMap,
@@ -65,7 +66,11 @@ const Pane = z.object({
       pid: z.number().int().describe("Leader of the tty's foreground process group"),
       pgid: z.number().int().describe("That foreground process group"),
       command: z.string().describe("Its executable as ps reports it; untrusted data"),
-      args: z.string().describe("Its full command line, sanitized and capped; untrusted data"),
+      args: z
+        .string()
+        .describe(
+          "Its full command line, sanitized, capped and with secret-shaped values redacted; untrusted data",
+        ),
     })
     .nullable()
     .optional()
@@ -202,7 +207,12 @@ function placementFields(placement: TmuxClientPlacement | undefined) {
   };
 }
 
-/** Commands and args are untrusted (a command line can carry anything): sanitize and cap. */
+/**
+ * Commands and args are untrusted (a command line can carry anything): sanitize and cap.
+ * Args also go through robustness' redactString, because a command line can carry a
+ * credential (`curl -H "Authorization: Bearer …"`, `--token=…`) and this output lands in a
+ * model transcript.
+ */
 function processFields(pane: TmuxPaneProcesses | undefined) {
   if (!pane) return { shell: null, foreground: null };
   return {
@@ -214,7 +224,7 @@ function processFields(pane: TmuxPaneProcesses | undefined) {
       pid: pane.foreground.pid,
       pgid: pane.foreground.pgid,
       command: sanitize(pane.foreground.command, 1024) ?? "",
-      args: sanitize(pane.foreground.args, 2048) ?? "",
+      args: sanitize(redactString(pane.foreground.args), 2048) ?? "",
     },
   };
 }
