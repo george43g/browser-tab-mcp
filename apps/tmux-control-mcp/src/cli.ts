@@ -116,9 +116,16 @@ export function buildProgram(): Command {
     .command("list")
     .description("Read sessions, window slots, windows, panes and clients")
     .option("--socket-name <name>", "Use a named tmux socket (-L)")
-    .action(async (opts: { socketName?: string }) => {
+    .option(
+      "--processes",
+      "Also map clients to terminal OS windows (cgWindowId) and panes to their foreground program",
+    )
+    .action(async (opts: { socketName?: string; processes?: boolean }) => {
       const json = program.opts<{ json?: boolean }>().json ?? false;
-      const result = await callMcpTool("list", { socketName: opts.socketName });
+      const result = await callMcpTool("list", {
+        socketName: opts.socketName,
+        ...(opts.processes ? { processes: true } : {}),
+      });
       await printResult(result, json);
     });
 

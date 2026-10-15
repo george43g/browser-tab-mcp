@@ -55,11 +55,23 @@ pub fn noop_accel(input: NoopInput) -> Result<NoopOutput, Error> {
 /// Screen Recording TCC permission; ids/pids/bounds do not.
 #[napi]
 pub fn list_cg_windows() -> Vec<CgWindowInfo> {
-    list_cg_windows_impl()
+    list_cg_windows_impl(None)
+}
+
+/// The CoreGraphics windows owned by one process, WITH their titles
+/// (kCGWindowName) when this process holds Screen Recording consent; without
+/// it macOS omits the name and `title` stays absent. Never prompts.
+///
+/// Scoped to one pid on purpose: tmux-control tells a terminal app's OS
+/// windows apart by the title tmux renders into them, and has no reason to
+/// read any other app's window titles.
+#[napi]
+pub fn list_cg_windows_of_pid(pid: i32) -> Vec<CgWindowInfo> {
+    list_cg_windows_impl(Some(pid))
 }
 
 #[cfg(target_os = "macos")]
-fn list_cg_windows_impl() -> Vec<CgWindowInfo> {
+fn list_cg_windows_impl(only_pid: Option<i32>) -> Vec<CgWindowInfo> {
     use core_foundation::array::CFArray;
     use core_foundation::base::{CFType, TCFType};
     use core_foundation::dictionary::CFDictionary;
@@ -94,6 +106,7 @@ fn list_cg_windows_impl() -> Vec<CgWindowInfo> {
     let key_y = CFString::from_static_string("Y");
     let key_w = CFString::from_static_string("Width");
     let key_h = CFString::from_static_string("Height");
+    let key_name = CFString::from_static_string("kCGWindowName");
 
     let num = |dict: &CFDictionary<CFString, CFType>, key: &CFString| -> Option<f64> {
         dict.find(key)
@@ -107,6 +120,15 @@ fn list_cg_windows_impl() -> Vec<CgWindowInfo> {
         else {
             continue;
         };
+        if only_pid.is_some_and(|pid| pid as f64 != owner_pid) {
+            continue;
+        }
+        // Titles only on the pid-scoped path: listCgWindows stays title-free.
+        let title = only_pid.and_then(|_| {
+            dict.find(&key_name)
+                .and_then(|v| v.downcast::<CFString>())
+                .map(|t| t.to_string())
+        });
         let layer = num(&dict, &key_layer).unwrap_or(0.0);
         let bounds = dict
             .find(&key_bounds)
@@ -130,13 +152,14 @@ fn list_cg_windows_impl() -> Vec<CgWindowInfo> {
             w: bounds.2,
             h: bounds.3,
             layer: layer as i32,
+            title,
         });
     }
     out
 }
 
 #[cfg(not(target_os = "macos"))]
-fn list_cg_windows_impl() -> Vec<CgWindowInfo> {
+fn list_cg_windows_impl(_only_pid: Option<i32>) -> Vec<CgWindowInfo> {
     Vec::new()
 }
 

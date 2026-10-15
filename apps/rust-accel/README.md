@@ -17,6 +17,17 @@ implementation.
 
 `MCP_DISABLE_NATIVE=1` forces the TS fallback even when the binary is built.
 
+## Exports
+
+| Function | Returns | Used by |
+|---|---|---|
+| `listCgWindows()` | every on-screen CoreGraphics window: id, owner pid, bounds, layer. **No titles**, because reading them needs Screen Recording consent | browser-tab (cgWindowId correlation) |
+| `listCgWindowsOfPid(pid)` | the same, for one process, **with** `title` when consent exists | tmux-control (`list --processes`: which OS window a tmux client is in) |
+| `listDisplays()` | displays with id and `isMain` | browser-tab |
+
+`listCgWindowsOfPid` is the only call that reads window titles, so the consent
+cost stays with the one consumer that needs it.
+
 ## Type contract
 
 The Rust types in `src/types.rs` are **hand-mirrored** counterparts of

@@ -19,7 +19,7 @@ no cycles):
 | `base.ts` | primitives: `BrowserId` (including extension-only `chatgpt`), `WindowBounds`, `Capabilities` + `CAPABILITY_KEYS` |
 | `enrichment.ts` | the single-authoring tab/window enrichment schemas, `TAB_ENRICHMENT_FIELDS`, `pickEnrichment`, `sanitizeFavicon`, `WindowState` |
 | `page.ts` | page content & state — `PageState` (the one cross-cutting symbol, imported by wire + journal), extract/annotate I/O |
-| `native.ts` | rust-accel shapes: `CgWindowInfo`, `DisplayInfo` (Rust-mirrored) |
+| `native.ts` | rust-accel shapes: `CgWindowInfo` (optional `title`, filled only by `listCgWindowsOfPid`), `DisplayInfo` (Rust-mirrored) |
 | `contract.ts` | the daemon Snapshot contract: `Tab`/`BrowserWindow`/`BrowserState`/`Snapshot` |
 | `wire.ts` | the extension ↔ daemon WebSocket protocol (`Ext*`) |
 | `tools.ts` | MCP tool I/O schemas (noop/health/logs + tab/window commands + screenshots) |

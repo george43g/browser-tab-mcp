@@ -48,7 +48,7 @@ export const MIRRORED_SCHEMAS = [
   {
     tsName: "CgWindowInfoSchema",
     rustName: "CgWindowInfo",
-    fields: ["windowId", "ownerPid", "x", "y", "w", "h", "layer"],
+    fields: ["windowId", "ownerPid", "x", "y", "w", "h", "layer", "title"],
   },
   {
     tsName: "DisplayInfoSchema",

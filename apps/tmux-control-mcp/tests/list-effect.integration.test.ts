@@ -86,6 +86,81 @@ effectIt("built list reads a real throwaway tmux server (requires tmux on PATH)"
   expect(data.panes.some((pane) => pane.project === "browser-tab-mcp")).toBe(true);
 });
 
+effectIt(
+  "built list --processes adds pane processes and client placement; plain list does not",
+  () => {
+    const run = (extra: string[], env: NodeJS.ProcessEnv = process.env) => {
+      const result = spawnSync(
+        process.execPath,
+        [BIN, "--json", "list", "--socket-name", socket, ...extra],
+        { encoding: "utf8", timeout: 10_000, env },
+      );
+      expect(result.status, result.stderr).toBe(0);
+      return JSON.parse(result.stdout) as {
+        panes: {
+          pid: number;
+          shell?: { pid: number; command: string } | null;
+          foreground?: unknown;
+        }[];
+        clients: { terminal?: unknown; osWindow?: unknown; ambiguous?: string }[];
+      };
+    };
+    const plain = run([]);
+    expect(plain.panes.every((pane) => !("shell" in pane) && !("foreground" in pane))).toBe(true);
+    expect(plain.clients.every((client) => !("osWindow" in client))).toBe(true);
+
+    const mapped = run(["--processes"], { ...process.env, MCP_DISABLE_NATIVE: "1" });
+    // Every pane here runs `sleep 60` as its own process: that is the shell slot,
+    // and nothing else holds the foreground.
+    for (const pane of mapped.panes) {
+      expect(pane.shell?.pid).toBe(pane.pid);
+      expect(pane.shell?.command).toMatch(/sleep$/);
+      expect(pane.foreground).toBeNull();
+    }
+    expect(mapped.clients).toHaveLength(1);
+    const [placement] = mapped.clients;
+    expect(placement?.osWindow).toBeNull();
+    // CI: no app ancestor. A desktop: the runner's terminal app, but no native module.
+    expect(placement?.ambiguous).toMatch(
+      /no macOS app among the client's ancestors|MCP_DISABLE_NATIVE=1|only on macOS/,
+    );
+  },
+);
+
+effectIt("--processes redacts a secret-shaped value in a foreground command line", async () => {
+  // A command line can carry a credential, and this output lands in a model
+  // transcript. `sh -c '…; true'` keeps sh as the group leader (one command
+  // would exec into sleep and drop the argument).
+  const token = "sk-ant-api03-abcdefghijklmnopqrstuvwxyz0123456789";
+  expect(runTmux("new-window", "-d", "-t", "sample", "-n", "secret", "/bin/sh").status).toBe(0);
+  expect(
+    runTmux(
+      "send-keys",
+      "-t",
+      "sample:secret",
+      `sh -c 'sleep 60; true' x --token=${token}`,
+      "Enter",
+    ).status,
+  ).toBe(0);
+  const read = () => {
+    const result = spawnSync(
+      process.execPath,
+      [BIN, "--json", "list", "--socket-name", socket, "--processes"],
+      { encoding: "utf8", timeout: 10_000, env: { ...process.env, MCP_DISABLE_NATIVE: "1" } },
+    );
+    expect(result.status, result.stderr).toBe(0);
+    return result.stdout;
+  };
+  let out = read();
+  for (let i = 0; i < 20 && !out.includes("--token="); i++) {
+    await new Promise((r) => setTimeout(r, 250));
+    out = read();
+  }
+  expect(out).toContain("--token=[redacted]");
+  expect(out).not.toContain(token);
+  runTmux("kill-window", "-t", "sample:secret");
+});
+
 effectIt("built --json list exits nonzero when its tmux socket has no server", () => {
   const result = spawnSync(
     process.execPath,
@@ -106,6 +181,15 @@ effectIt("MCP text marks the snapshot as untrusted while structured names stay e
   }
   const structured = result.structuredContent as { windows: { name: string }[] };
   expect(structured.windows.map((window) => window.name)).toContain("Agent| One");
+});
+
+effectIt("MCP text stays marked untrusted with processes on", async () => {
+  const result = await callMcpTool("list", { socketName: socket, processes: true });
+  expect(result.isError).toBeUndefined();
+  const text = result.content[0]?.type === "text" ? result.content[0].text : "";
+  expect(text).toMatch(/^<untrusted>\n/);
+  expect(text).toContain('"foreground"');
+  expect(text).toContain('"osWindow"');
 });
 
 it("missing tmux binary gives an install hint without starting a server", () => {

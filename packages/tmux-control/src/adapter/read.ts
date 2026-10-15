@@ -109,6 +109,11 @@ function projectOf(path: string): string | undefined {
   }
 }
 
+/** Run one tmux command on the selected socket; argv only, never a shell. */
+export async function runTmux(connection: TmuxConnection, args: string[]): Promise<string> {
+  return run(connection, args);
+}
+
 async function run(connection: TmuxConnection, args: string[]): Promise<string> {
   const binary = connection.binary ?? "tmux";
   const socket = connection.socketName === undefined ? [] : ["-L", connection.socketName];
