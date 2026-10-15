@@ -15,8 +15,32 @@ import { healthCheckTool } from "./health-check.js";
 import { listTool } from "./list.js";
 import { noopTool } from "./noop.js";
 
+/**
+ * Drop the top-level `$schema` dialect label from a tool schema.
+ *
+ * The published @george43g/mcp-kit stamps `"$schema": "http://json-schema.org/draft-07/schema#"`
+ * on every schema. eqstack reported (their PR #184, telephony `server.ts`
+ * `withoutSchemaDialect`) that Claude Code 2.1.292 rejects draft-07-labelled
+ * tool schemas; not reproduced on 2.1.300, so this is a cheap guard. The vendored
+ * kit in browser-tab-mcp does the same inside `makeRegistry`.
+ */
+function withoutSchemaDialect<T>(schema: T): T {
+  const { $schema: _dialect, ...rest } = schema as Record<string, unknown>;
+  return rest as T;
+}
+
 export function makeAppRegistry(): ToolRegistry {
-  return makeRegistry([healthCheckTool, listTool, noopTool, getLogsTool]);
+  const registry = makeRegistry([healthCheckTool, listTool, noopTool, getLogsTool]);
+  return {
+    ...registry,
+    toMcpTools(includeDevOnly = false) {
+      return registry.toMcpTools(includeDevOnly).map((t) => ({
+        ...t,
+        inputSchema: withoutSchemaDialect(t.inputSchema),
+        ...(t.outputSchema ? { outputSchema: withoutSchemaDialect(t.outputSchema) } : {}),
+      }));
+    },
+  };
 }
 
 export function devModeEnabled(): boolean {
