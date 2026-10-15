@@ -60,6 +60,19 @@ describe("makeAppRegistry", () => {
     expect(reg.toMcpTools(false).map((t) => t.name)).not.toContain("get_logs");
     expect(reg.toMcpTools(true).map((t) => t.name)).toContain("get_logs");
   });
+
+  it("emits no $schema dialect label on any tool schema (eqstack #184 guard)", () => {
+    const tools = reg.toMcpTools(true) as unknown as Array<{
+      inputSchema: Record<string, unknown>;
+      outputSchema?: Record<string, unknown>;
+    }>;
+    expect(tools.length).toBeGreaterThan(0);
+    for (const t of tools) {
+      expect(t.inputSchema).not.toHaveProperty("$schema");
+      expect(t.outputSchema).toBeDefined();
+      expect(t.outputSchema).not.toHaveProperty("$schema");
+    }
+  });
 });
 
 describe("devModeEnabled", () => {

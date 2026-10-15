@@ -48,6 +48,19 @@ describe("makeRegistry", () => {
     expect(tool?.outputSchema).toBeDefined();
   });
 
+  it("emits no $schema dialect label on any tool schema (eqstack #184 guard)", () => {
+    const tools = makeRegistry([prod, dev]).toMcpTools(true) as unknown as Array<{
+      inputSchema: Record<string, unknown>;
+      outputSchema?: Record<string, unknown>;
+    }>;
+    expect(tools.length).toBeGreaterThan(0);
+    for (const t of tools) {
+      expect(t.inputSchema).not.toHaveProperty("$schema");
+      expect(t.outputSchema).toBeDefined();
+      expect(t.outputSchema).not.toHaveProperty("$schema");
+    }
+  });
+
   it("passes annotations through to tools/list verbatim, title included", () => {
     const annotated: ToolDefinition = {
       ...prod,

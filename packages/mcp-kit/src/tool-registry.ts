@@ -70,6 +70,20 @@ export interface ToolRegistry {
   toMcpTools(includeDevOnly?: boolean): Tool[];
 }
 
+/**
+ * Drop the top-level `$schema` dialect label from a generated JSON schema.
+ *
+ * zodToJsonSchema stamps `"$schema": "http://json-schema.org/draft-07/schema#"`
+ * on every schema. eqstack reported (their PR #184, telephony `server.ts`
+ * `withoutSchemaDialect`) that Claude Code 2.1.292 rejects draft-07-labelled
+ * tool schemas. We could not reproduce that on 2.1.300, but the label carries
+ * no information the client needs, so it is stripped as a cheap guard.
+ */
+function withoutSchemaDialect(schema: object): object {
+  const { $schema: _dialect, ...rest } = schema as Record<string, unknown>;
+  return rest;
+}
+
 export function makeRegistry(defs: AnyToolDefinition[]): ToolRegistry {
   const byName = new Map(defs.map((d) => [d.name, d]));
   return {
@@ -90,8 +104,8 @@ export function makeRegistry(defs: AnyToolDefinition[]): ToolRegistry {
               name: d.name,
               description: d.description,
               annotations: d.annotations,
-              inputSchema: zodToJsonSchema(d.input),
-              outputSchema: zodToJsonSchema(d.output),
+              inputSchema: withoutSchemaDialect(zodToJsonSchema(d.input)),
+              outputSchema: withoutSchemaDialect(zodToJsonSchema(d.output)),
             }) as unknown as Tool,
         );
     },
