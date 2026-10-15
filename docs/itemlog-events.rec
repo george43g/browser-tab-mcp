@@ -1284,3 +1284,21 @@ At: 2026-10-15T05:29:09Z
 Agent: browser-tab-mcp
 Field: Repo
 Value: browser-tab-mcp
+
+Item: release-1-16-1
+At: 2026-10-15T05:29:52Z
+Agent: browser-tab-mcp
+Field: Updated
+Value: 2026-10-15T05:29:52Z
+
+Item: release-1-16-1
+At: 2026-10-15T05:29:52Z
+Agent: browser-tab-mcp
+Field: BlockedOn
+Value: george
+
+Item: release-1-16-1
+At: 2026-10-15T05:29:52Z
+Agent: browser-tab-mcp
+Field: Asks
+Value: Merge release PRs #221 (browser-tab 1.16.1) and #220 (tmux-control + shared packages), or hold them
