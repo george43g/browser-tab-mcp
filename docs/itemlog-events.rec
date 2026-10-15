@@ -1302,3 +1302,81 @@ At: 2026-10-15T05:29:52Z
 Agent: browser-tab-mcp
 Field: Asks
 Value: Merge release PRs #221 (browser-tab 1.16.1) and #220 (tmux-control + shared packages), or hold them
+
+Item: release-1-16-1
+At: 2026-10-15T05:30:05Z
+Agent: browser-tab-mcp
+Field: Status
+Value: dropped
+
+Item: release-1-16-1
+At: 2026-10-15T05:30:05Z
+Agent: browser-tab-mcp
+Field: Updated
+Value: 2026-10-15T05:30:05Z
+
+Item: release-1-16-1
+At: 2026-10-15T05:30:05Z
+Agent: browser-tab-mcp
+Field: Evidence
+Value: superseded by release-1-17-0: #222 (feat) turned #221 into 1.17.0
+
+Item: release-1-16-1
+At: 2026-10-15T05:30:05Z
+Agent: browser-tab-mcp
+Field: Ended
+Value: 2026-10-15T05:30:05Z
+
+Item: release-1-17-0
+At: 2026-10-15T05:30:06Z
+Agent: browser-tab-mcp
+Field: Type
+Value: task
+
+Item: release-1-17-0
+At: 2026-10-15T05:30:06Z
+Agent: browser-tab-mcp
+Field: Status
+Value: next
+
+Item: release-1-17-0
+At: 2026-10-15T05:30:06Z
+Agent: browser-tab-mcp
+Field: Owner
+Value: browser-tab-mcp
+
+Item: release-1-17-0
+At: 2026-10-15T05:30:06Z
+Agent: browser-tab-mcp
+Field: Title
+Value: Release PRs #221 (browser-tab 1.17.0) and #220 (tmux-control + shared packages)
+
+Item: release-1-17-0
+At: 2026-10-15T05:30:06Z
+Agent: browser-tab-mcp
+Field: Created
+Value: 2026-10-15T05:30:06Z
+
+Item: release-1-17-0
+At: 2026-10-15T05:30:06Z
+Agent: browser-tab-mcp
+Field: Updated
+Value: 2026-10-15T05:30:06Z
+
+Item: release-1-17-0
+At: 2026-10-15T05:30:06Z
+Agent: browser-tab-mcp
+Field: Repo
+Value: browser-tab-mcp
+
+Item: release-1-17-0
+At: 2026-10-15T05:30:06Z
+Agent: browser-tab-mcp
+Field: BlockedOn
+Value: george
+
+Item: release-1-17-0
+At: 2026-10-15T05:30:06Z
+Agent: browser-tab-mcp
+Field: Asks
+Value: Merge release PRs #221 (browser-tab 1.17.0) and #220 (tmux-control + shared packages), or hold them

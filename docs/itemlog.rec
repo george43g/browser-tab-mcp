@@ -256,14 +256,27 @@ Repo: browser-tab-mcp
 
 Slug: release-1-16-1
 Type: task
-Status: next
+Status: dropped
 Owner: browser-tab-mcp
 Title: Release PRs #221 (browser-tab 1.16.1) and #220 (combined) open after #219/#222
 Created: 2026-10-15T05:29:09Z
-Updated: 2026-10-15T05:29:52Z
+Updated: 2026-10-15T05:30:05Z
 Repo: browser-tab-mcp
 BlockedOn: george
 Asks: Merge release PRs #221 (browser-tab 1.16.1) and #220 (tmux-control + shared packages), or hold them
+Evidence: superseded by release-1-17-0: #222 (feat) turned #221 into 1.17.0
+Ended: 2026-10-15T05:30:05Z
+
+Slug: release-1-17-0
+Type: task
+Status: next
+Owner: browser-tab-mcp
+Title: Release PRs #221 (browser-tab 1.17.0) and #220 (tmux-control + shared packages)
+Created: 2026-10-15T05:30:06Z
+Updated: 2026-10-15T05:30:06Z
+Repo: browser-tab-mcp
+BlockedOn: george
+Asks: Merge release PRs #221 (browser-tab 1.17.0) and #220 (tmux-control + shared packages), or hold them
 
 %rec: Comment
 %doc: A note on an item, by an agent or George. Append-only.
