@@ -19,6 +19,40 @@ window. Names and selector fields in JSON are exact; the MCP text response
 marks the whole snapshot as untrusted data. `doctor` reports when tmux is not
 on PATH.
 
+### Which terminal window shows what: `list --processes`
+
+`list --processes` (MCP: `processes: true`) answers "which OS window shows
+which tmux client, and what runs in each pane" in the same read. It is off by
+default because it adds two `ps` scans and a CoreGraphics query, about 0.15 s,
+and plain `list` stays fast. It adds fields to the objects `list` already
+returns, and repeats no tmux fact:
+
+- **Each client:** `terminal: { app, pid } | null` is the nearest macOS
+  app-bundle ancestor of the tmux client (tmux → shell → kitty).
+  `osWindow: { cgWindowId, title } | null` is that app's OS window.
+  `cgWindowId` equals yabai's window `id`, so an agent joins it to yabai's
+  display, space, visibility and focus itself; tmux-control never calls yabai.
+  When the window can't be named exactly, `osWindow` is `null` and `ambiguous`
+  says why.
+- **Each pane:** `shell: { pid, command }` is `#{pane_pid}`.
+  `foreground: { pid, pgid, command, args } | null` is the leader of the tty's
+  foreground process group, so a TUI reports its own pid, not the shell's. It
+  is `null` at an idle prompt. A background group on the same tty, such as
+  gitstatusd, is never picked.
+
+The window choice is option A of the plan (§1b). It takes the terminal app's
+normal CoreGraphics windows (layer 0, both sides at least 100 pt, excluding
+the menu-bar strips and 0x0 helpers kitty also owns). One window is the answer.
+With several, the one whose title is exactly what tmux renders for that client
+(`#{T:set-titles-string}`) is the answer. Anything else is `null` with a
+reason: identical titles, `set-titles` off, titles unreadable without Screen
+Recording consent, two clients claiming one window, no app ancestor (a
+control-mode or ssh client), or no native module (`apps/rust-accel` not built,
+or `MCP_DISABLE_NATIVE=1`). It never guesses.
+
+Titles, commands, args and reasons come from other programs. They are
+sanitized and capped in JSON, and the MCP text marks them untrusted.
+
 ## Bin
 
 | Bin | Purpose | Default transport |
@@ -35,7 +69,7 @@ if this table and `src/tools/registry.ts` disagree.
 | Tool | CLI | What it does |
 |------|-----|--------------|
 | `health_check` | `health` | Server health snapshot; answers without external I/O |
-| `list` | `list [--socket-name <name>]` | Read the live tmux server, sessions, window slots, windows, panes and clients |
+| `list` | `list [--socket-name <name>] [--processes]` | Read the live tmux server, sessions, window slots, windows, panes and clients; `--processes` adds each client's terminal OS window (`cgWindowId`) and each pane's foreground program |
 | `noop` | `noop --input <text>` | Scaffold demo: echoes its input |
 | `get_logs` | none yet | Recent log lines; dev-only (`MCP_DEV=1`), refused otherwise |
 

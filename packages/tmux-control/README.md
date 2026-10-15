@@ -11,3 +11,13 @@ The adapter compares server identity, session rows, client rows and structural w
 The `project` predicate field is the nearest Git checkout's repository name. For a linked worktree, the adapter follows the `.git` pointer to the common repository directory, so a pane in `tmux-m2` still reports `browser-tab-mcp`. If no Git checkout exists, the field is absent.
 
 Existing tmux libraries and MCP servers were evaluated in the approved plan's §13. `libtmux` is the closest TypeScript library; this slice uses direct `-F` reads because its purpose is to prove this repo's existing selection core over a small, inspectable tmux model, without adopting another tool's object identity or 45-tool surface. M3 added no dependency: tmux itself supplies linked-window and session-group identities, and the existing control-language resolver already handles distinct slot keys.
+
+## Terminal map (plan §1b, BACKLOG B38)
+
+`readTmuxTerminalMap(snapshot, options)` maps each client to its terminal app and OS window, and each pane to its shell and foreground process. It is read-only. `adapter/processes.ts` is the `ps` boundary. Its `ps` and `tmux` runners are injectable, so `processes.test.ts` runs on fakes. The rules in `terminal-map.ts` are pure:
+
+- **Terminal app:** walk the client's `ps` parent chain to the nearest top-level `X.app/Contents/MacOS/*` executable. A helper bundle nested inside another app is skipped.
+- **Foreground:** the shell row's `tpgid` names the tty's foreground group. Its leader (or its oldest member, if the leader exited) is the program. The answer is null when that group is the shell's own.
+- **OS window (option A):** the terminal pid's CoreGraphics windows, normal-sized (`MIN_WINDOW_SIDE`) and at layer 0. One window is the answer. With several, a unique exact match against the title tmux renders for that client decides. Otherwise the result is null with a reason.
+
+The window list is injected (`osWindows`), so the package has no native dependency. tmux-control-mcp passes rust-accel's `listCgWindowsOfPid`.

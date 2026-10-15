@@ -633,7 +633,7 @@
       "coverage": [
         {
           "tier": "tmux-effect",
-          "covers": "the built bin reads real sessions, slots, windows, panes and a control client from a throwaway tmux server, including a linked window without duplicating its window object",
+          "covers": "the built bin reads real sessions, slots, windows, panes and a control client from a throwaway tmux server, including a linked window without duplicating its window object; with --processes, each pane's shell and foreground and the control client's placement (null with a reason, since no native window list is used); the CoreGraphics window choice is unit-tested only (packages/tmux-control/src/terminal-map.test.ts), because no headless runner has terminal OS windows",
           "evidence": "apps/tmux-control-mcp/tests/list-effect.integration.test.ts"
         }
       ]

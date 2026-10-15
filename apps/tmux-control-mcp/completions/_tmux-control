@@ -37,6 +37,7 @@ cmd list help="Read sessions, window slots, windows, panes and clients" {
     flag --socket-name help="Use a named tmux socket (-L)" {
         arg <name>
     }
+    flag --processes help="Also map clients to terminal OS windows (cgWindowId) and panes to their foreground program"
 }
 cmd repl help="Interactive REPL driving the in-process dispatcher" {
     alias console

@@ -201,6 +201,56 @@ tmux-control's `list` already returns clients (tty, pid, session) and panes
 Proposal: A now, with B or C as the opt-in fix for exactness. This is George's
 call before it's built.
 
+**Decided 2026-10-15 (George): "go with A for tmux terminal mapping".**
+
+### Built (2026-10-15, branch `feat/tmux-terminal-mapping`)
+
+- **Surface:** an opt-in on the existing `list` (`processes: true`, CLI
+  `list --processes`), not a new tool. The new fields hang off the client and
+  pane objects `list` already returns, so the agent gets session, window, pane,
+  OS window and foreground program in one read (the acceptance asks for one
+  read). Nothing tmux already answers is repeated. The dispatcher's
+  untrusted-text wrapping for `list` covers the new fields too. It is off by
+  default because it costs about 0.15 s (two `ps -A` scans and one CoreGraphics
+  query), and plain `list` stays at its old cost.
+- **Shape:** the per-client and per-pane fields above, as specified.
+  `osWindow.title` is `null` without Screen Recording consent. `ambiguous` is
+  present exactly when `osWindow` is null, and it also carries the no-app and
+  no-native reasons.
+- **Code:** pure rules in `packages/tmux-control/src/terminal-map.ts`; the
+  `ps` boundary and orchestration in `adapter/processes.ts`; the MCP surface
+  in `apps/tmux-control-mcp/src/tools/list.ts`. Native:
+  `listCgWindowsOfPid(pid)` was added to `apps/rust-accel` and is the only
+  call that reads `kCGWindowName`. `listCgWindows()` stays title-free, so
+  browser-tab is unchanged. `CgWindowInfo` gained an optional `title`, mirrored
+  in shared-types.
+- **Deviations, all measured on gmac 2026-10-15:**
+  1. kitty pid 2035 owned **25** layer-0 CG windows, not one: menu-bar strips
+     (1920x24 or 2056x43, one per display and Space, title `""`), a 54x54
+     window and 0x0 helpers. "Joins on pid alone" therefore needs a filter:
+     layer 0, both sides ≥ 100 pt, and a non-empty title when titles are
+     readable. yabai listed only 6183, the one window that survives the
+     filter.
+  2. The native list had no titles: browser-tab borrows them from yabai,
+     which D7 rules out here. Hence the pid-scoped native call.
+  3. Each client's title comes from `list-clients -F '#{T:set-titles-string}'`.
+     `#{T;q:…}` quotes the template before expansion on tmux 3.7b, so the
+     title is the last field and is split off unquoted. `display -c` did not
+     scope the format to the client.
+  4. `ps -p <28 pids>` took 0.6 s on macOS (one scan per pid); `ps -A` takes
+     0.09 s. Command lines come from one `-A` scan.
+  5. Two clients whose titles both match one window are both refused: one of
+     them is in a background tab.
+- **Not covered:** iTerm2 (its sessions descend from `iTermServer`, not the
+  app) and ssh clients resolve to `terminal: null` with a reason. Two OS
+  windows showing the same session and window stay ambiguous under A; B or C
+  is the opt-in fix if George wants exactness there.
+- **Live, gmac 2026-10-15:** client 7059 → kitty 2035 → `cgWindowId` 6183.
+  yabai confirmed 6183 is kitty pid 2035 on display 1, space 5, visible and
+  focused, with the identical title. The crash-sentinel control client
+  returned null with its ancestry chain. 28 of 52 panes had a foreground
+  program; pane %1 named `claude`'s leader, not `-zsh` 8272.
+
 ### Acceptance
 
 - With two kitty OS windows on different monitors, each attached to a different
