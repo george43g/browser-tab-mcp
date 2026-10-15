@@ -3970,7 +3970,7 @@ v1.15.0 and tmux-control 0.1.0 are released, and per-package release lines are l
 
 ### Now
 
-- 2026-10-10T18:19Z 2026-10-10T18:19:35Z Idle, nothing mid-flight; main clean. v1.16.0 + tmux-control-v0.2.0 released. EQStack tmux window restored to 6. Open: tmux-terminal-mapping waits on George's A/B/C pick (plan §1b, B38); chatgpt-auto-signal unmeasured.
+- 2026-10-15T02:53Z 2026-10-15T02:53:24Z mcp-kit 3.0 note (draft-07 rejected by CC 2.1.292): NOT reproduced on CC 2.1.300. Fresh headless session loaded all 28+4 dev tools and called 3 OK. Asked upstream for the failing surface/error; migration (zod 4, kit ^3, B4 de-vendor George-gated) deferred until it reproduces.
 
 ### Constraints
 - George, 2026-10-04, verbatim (answer to the D9 question): "Per-package release lines".
