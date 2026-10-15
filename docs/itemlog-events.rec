@@ -1380,3 +1380,87 @@ At: 2026-10-15T05:30:06Z
 Agent: browser-tab-mcp
 Field: Asks
 Value: Merge release PRs #221 (browser-tab 1.17.0) and #220 (tmux-control + shared packages), or hold them
+
+Item: safari-helper-window-on-deploy
+At: 2026-10-15T05:33:03Z
+Agent: browser-tab-mcp
+Field: Type
+Value: incident
+
+Item: safari-helper-window-on-deploy
+At: 2026-10-15T05:33:03Z
+Agent: browser-tab-mcp
+Field: Status
+Value: next
+
+Item: safari-helper-window-on-deploy
+At: 2026-10-15T05:33:03Z
+Agent: browser-tab-mcp
+Field: Owner
+Value: browser-tab-mcp
+
+Item: safari-helper-window-on-deploy
+At: 2026-10-15T05:33:03Z
+Agent: browser-tab-mcp
+Field: Title
+Value: deploy:local's Safari sideload leaves the Browser Tab Helper window open on George's screen, showing a stale 'daemon unreachable'
+
+Item: safari-helper-window-on-deploy
+At: 2026-10-15T05:33:03Z
+Agent: browser-tab-mcp
+Field: Created
+Value: 2026-10-15T05:33:03Z
+
+Item: safari-helper-window-on-deploy
+At: 2026-10-15T05:33:03Z
+Agent: browser-tab-mcp
+Field: Updated
+Value: 2026-10-15T05:33:03Z
+
+Item: safari-helper-window-on-deploy
+At: 2026-10-15T05:33:03Z
+Agent: browser-tab-mcp
+Field: Repo
+Value: browser-tab-mcp
+
+Item: safari-helper-window-on-deploy
+At: 2026-10-15T05:33:04Z
+Agent: browser-tab-mcp
+Field: Status
+Value: started
+
+Item: safari-helper-window-on-deploy
+At: 2026-10-15T05:33:04Z
+Agent: browser-tab-mcp
+Field: Updated
+Value: 2026-10-15T05:33:04Z
+
+Item: safari-helper-window-on-deploy
+At: 2026-10-15T05:33:04Z
+Agent: browser-tab-mcp
+Field: Started
+Value: 2026-10-15T05:33:04Z
+
+Item: safari-helper-window-on-deploy
+At: 2026-10-15T05:40:59Z
+Agent: browser-tab-mcp
+Field: Status
+Value: done
+
+Item: safari-helper-window-on-deploy
+At: 2026-10-15T05:40:59Z
+Agent: browser-tab-mcp
+Field: Updated
+Value: 2026-10-15T05:40:59Z
+
+Item: safari-helper-window-on-deploy
+At: 2026-10-15T05:40:59Z
+Agent: browser-tab-mcp
+Field: Evidence
+Value: #223: automated sideload launches the helper with open -g -j; yabai-verified hidden (was visible on display 3)
+
+Item: safari-helper-window-on-deploy
+At: 2026-10-15T05:40:59Z
+Agent: browser-tab-mcp
+Field: Ended
+Value: 2026-10-15T05:40:59Z

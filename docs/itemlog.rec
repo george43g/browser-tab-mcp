@@ -278,6 +278,18 @@ Repo: browser-tab-mcp
 BlockedOn: george
 Asks: Merge release PRs #221 (browser-tab 1.17.0) and #220 (tmux-control + shared packages), or hold them
 
+Slug: safari-helper-window-on-deploy
+Type: incident
+Status: done
+Owner: browser-tab-mcp
+Title: deploy:local's Safari sideload leaves the Browser Tab Helper window open on George's screen, showing a stale 'daemon unreachable'
+Created: 2026-10-15T05:33:03Z
+Updated: 2026-10-15T05:40:59Z
+Repo: browser-tab-mcp
+Evidence: #223: automated sideload launches the helper with open -g -j; yabai-verified hidden (was visible on display 3)
+Started: 2026-10-15T05:33:04Z
+Ended: 2026-10-15T05:40:59Z
+
 %rec: Comment
 %doc: A note on an item, by an agent or George. Append-only.
 %mandatory: Item Author At Text
