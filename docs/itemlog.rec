@@ -197,3 +197,13 @@ Ended: 2026-10-15T04:43:38Z
 %type: Item Slug_t
 %type: Author Agent_t
 %type: At Stamp_t
+
+Item: mcp-kit-schema-label-strip
+Author: browser-tab-mcp
+At: 2026-10-15T04:45:29Z
+Text: Upstream retracted the 'CC 2.1.292 rejects draft-07' claim 2026-10-15 (eqstack's report, unreproduced) and recommends the strip as a cheap guard. Helper building it on fix/mcp-schema-label.
+
+Item: transcript-sweep
+Author: browser-tab-mcp
+At: 2026-10-15T04:45:29Z
+Text: Read-only sweep child launched 2026-10-15, window 2026-10-08..15.
