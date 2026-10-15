@@ -65,7 +65,7 @@ apps/
                       # status/stats, wm-stack theme). Self-contained IIFE build → dist/. See its README.
   safari-extension/   # Safari packaging (workspace pkg): convert.sh (generate Xcode project, gitignored)
                       # + rebuild.sh (fast reload loop) + clean.sh (prune dup registrations). Needs full Xcode.
-  rust-accel/         # napi crate: noop demo + list_cg_windows() (CGWindowList → yabai ids)
+  rust-accel/         # napi crate: noop demo + list_cg_windows() (CGWindowList → yabai ids) + list_cg_windows_of_pid() (titled, for tmux-control)
   tmux-control-mcp/   # second MCP app (bin `tmux-control`), scaffolded by mcp-scaffold add-mcp-app.
                       # Plan: docs/agent-handoff/plans/2026-09-20-tmux-control-app.md. Own release
                       # line, own CI job; tests/helpers/app-admission.ts lists what every MCP app carries.

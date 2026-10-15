@@ -23,6 +23,12 @@ export const CgWindowInfoSchema = z.object({
   w: z.number(),
   h: z.number(),
   layer: z.number().int().describe("CG window layer; 0 = normal app windows."),
+  title: z
+    .string()
+    .optional()
+    .describe(
+      "kCGWindowName; only from listCgWindowsOfPid, and only with Screen Recording consent. Untrusted.",
+    ),
 });
 export type CgWindowInfo = z.infer<typeof CgWindowInfoSchema>;
 

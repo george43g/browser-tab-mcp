@@ -128,6 +128,16 @@ const badWindow = windows.find(
 if (badWindow) die(`a CG window came back malformed: ${JSON.stringify(badWindow)}`);
 ok("CG windows carry numeric windowId + ownerPid");
 
+// tmux-control's `list --processes` window source: pid-scoped, titled when this
+// process has Screen Recording consent. A missing export means a stale binary.
+if (typeof native.listCgWindowsOfPid !== "function") die("listCgWindowsOfPid is not exported.");
+const someone = windows.find((w) => w.layer === 0)?.ownerPid ?? process.pid;
+const owned = native.listCgWindowsOfPid(someone);
+if (!Array.isArray(owned) || owned.some((w) => w.ownerPid !== someone)) {
+  die(`listCgWindowsOfPid(${someone}) returned another process's window.`);
+}
+ok(`listCgWindowsOfPid(${someone}) -> ${owned.length} window(s), all owned by that pid`);
+
 const badDisplay = displays.find(
   (d) => typeof d.displayId !== "number" || typeof d.isMain !== "boolean",
 );

@@ -3,8 +3,9 @@
 /**
  * One on-screen CoreGraphics window. windowId is the CGWindowID — the
  * same id namespace yabai reports, which makes it the join key between
- * browser windows and the window manager. No titles are read (that would
- * require the Screen Recording TCC permission).
+ * browser windows and the window manager. `listCgWindows` reads no titles
+ * (that would require the Screen Recording TCC permission); only the
+ * pid-scoped `listCgWindowsOfPid` fills `title`, and only when consent exists.
  */
 export interface CgWindowInfo {
   windowId: number
@@ -14,6 +15,7 @@ export interface CgWindowInfo {
   w: number
   h: number
   layer: number
+  title?: string
 }
 
 /**
@@ -42,6 +44,17 @@ export declare function hello(name: string): string
  * Screen Recording TCC permission; ids/pids/bounds do not.
  */
 export declare function listCgWindows(): Array<CgWindowInfo>
+
+/**
+ * The CoreGraphics windows owned by one process, WITH their titles
+ * (kCGWindowName) when this process holds Screen Recording consent; without
+ * it macOS omits the name and `title` stays absent. Never prompts.
+ *
+ * Scoped to one pid on purpose: tmux-control tells a terminal app's OS
+ * windows apart by the title tmux renders into them, and has no reason to
+ * read any other app's window titles.
+ */
+export declare function listCgWindowsOfPid(pid: number): Array<CgWindowInfo>
 
 /**
  * Enumerate active displays with their global-screen bounds. Feeds the
