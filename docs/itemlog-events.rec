@@ -780,3 +780,315 @@ At: 2026-10-15T04:43:39Z
 Agent: browser-tab-mcp
 Field: Started
 Value: 2026-10-15T04:43:39Z
+
+Item: phase-4-tmux-identity-m3
+At: 2026-10-15T04:49:15Z
+Agent: browser-tab-mcp
+Field: Type
+Value: task
+
+Item: phase-4-tmux-identity-m3
+At: 2026-10-15T04:49:15Z
+Agent: browser-tab-mcp
+Field: Status
+Value: next
+
+Item: phase-4-tmux-identity-m3
+At: 2026-10-15T04:49:15Z
+Agent: browser-tab-mcp
+Field: Owner
+Value: browser-tab-mcp
+
+Item: phase-4-tmux-identity-m3
+At: 2026-10-15T04:49:15Z
+Agent: browser-tab-mcp
+Field: Title
+Value: tmux-control Phase 4 / M3 identity experiment
+
+Item: phase-4-tmux-identity-m3
+At: 2026-10-15T04:49:15Z
+Agent: browser-tab-mcp
+Field: Created
+Value: 2026-10-15T04:49:15Z
+
+Item: phase-4-tmux-identity-m3
+At: 2026-10-15T04:49:15Z
+Agent: browser-tab-mcp
+Field: Updated
+Value: 2026-10-15T04:49:15Z
+
+Item: phase-4-tmux-identity-m3
+At: 2026-10-15T04:49:15Z
+Agent: browser-tab-mcp
+Field: Repo
+Value: browser-tab-mcp
+
+Item: phase-4-tmux-identity-m3
+At: 2026-10-15T04:49:16Z
+Agent: browser-tab-mcp
+Field: Status
+Value: done
+
+Item: phase-4-tmux-identity-m3
+At: 2026-10-15T04:49:16Z
+Agent: browser-tab-mcp
+Field: Updated
+Value: 2026-10-15T04:49:16Z
+
+Item: phase-4-tmux-identity-m3
+At: 2026-10-15T04:49:16Z
+Agent: browser-tab-mcp
+Field: Evidence
+Value: Shipped as #209 (0bf3e47, 2026-09-28); DECISIONS.md:300 'M3 linked-window identity uses slots'. Sweep flagged it open from a stale 09-27 archive line.
+
+Item: phase-4-tmux-identity-m3
+At: 2026-10-15T04:49:16Z
+Agent: browser-tab-mcp
+Field: Ended
+Value: 2026-10-15T04:49:16Z
+
+Item: b36-move-rate
+At: 2026-10-15T04:49:16Z
+Agent: browser-tab-mcp
+Field: Type
+Value: task
+
+Item: b36-move-rate
+At: 2026-10-15T04:49:16Z
+Agent: browser-tab-mcp
+Field: Status
+Value: next
+
+Item: b36-move-rate
+At: 2026-10-15T04:49:16Z
+Agent: browser-tab-mcp
+Field: Owner
+Value: browser-tab-mcp
+
+Item: b36-move-rate
+At: 2026-10-15T04:49:16Z
+Agent: browser-tab-mcp
+Field: Title
+Value: Measure why apply moves about one tab per 2s (B36 speed half)
+
+Item: b36-move-rate
+At: 2026-10-15T04:49:16Z
+Agent: browser-tab-mcp
+Field: Created
+Value: 2026-10-15T04:49:16Z
+
+Item: b36-move-rate
+At: 2026-10-15T04:49:16Z
+Agent: browser-tab-mcp
+Field: Updated
+Value: 2026-10-15T04:49:16Z
+
+Item: b36-move-rate
+At: 2026-10-15T04:49:16Z
+Agent: browser-tab-mcp
+Field: Repo
+Value: browser-tab-mcp
+
+Item: b36-move-rate
+At: 2026-10-15T04:49:17Z
+Agent: browser-tab-mcp
+Field: Status
+Value: later
+
+Item: b36-move-rate
+At: 2026-10-15T04:49:17Z
+Agent: browser-tab-mcp
+Field: Updated
+Value: 2026-10-15T04:49:17Z
+
+Item: sideload-branch-guard
+At: 2026-10-15T04:49:20Z
+Agent: browser-tab-mcp
+Field: Type
+Value: task
+
+Item: sideload-branch-guard
+At: 2026-10-15T04:49:20Z
+Agent: browser-tab-mcp
+Field: Status
+Value: next
+
+Item: sideload-branch-guard
+At: 2026-10-15T04:49:20Z
+Agent: browser-tab-mcp
+Field: Owner
+Value: browser-tab-mcp
+
+Item: sideload-branch-guard
+At: 2026-10-15T04:49:20Z
+Agent: browser-tab-mcp
+Field: Title
+Value: Add an on-main guard to the Safari rebuild.sh sideload
+
+Item: sideload-branch-guard
+At: 2026-10-15T04:49:20Z
+Agent: browser-tab-mcp
+Field: Created
+Value: 2026-10-15T04:49:20Z
+
+Item: sideload-branch-guard
+At: 2026-10-15T04:49:20Z
+Agent: browser-tab-mcp
+Field: Updated
+Value: 2026-10-15T04:49:20Z
+
+Item: sideload-branch-guard
+At: 2026-10-15T04:49:20Z
+Agent: browser-tab-mcp
+Field: Repo
+Value: browser-tab-mcp
+
+Item: sideload-branch-guard
+At: 2026-10-15T04:49:21Z
+Agent: browser-tab-mcp
+Field: Status
+Value: later
+
+Item: sideload-branch-guard
+At: 2026-10-15T04:49:21Z
+Agent: browser-tab-mcp
+Field: Updated
+Value: 2026-10-15T04:49:21Z
+
+Item: eqstack-draft07-error
+At: 2026-10-15T04:49:22Z
+Agent: browser-tab-mcp
+Field: Type
+Value: info
+
+Item: eqstack-draft07-error
+At: 2026-10-15T04:49:22Z
+Agent: browser-tab-mcp
+Field: Status
+Value: next
+
+Item: eqstack-draft07-error
+At: 2026-10-15T04:49:22Z
+Agent: browser-tab-mcp
+Field: Owner
+Value: browser-tab-mcp
+
+Item: eqstack-draft07-error
+At: 2026-10-15T04:49:22Z
+Agent: browser-tab-mcp
+Field: Title
+Value: Whether Claude Code's draft-07 rejection ever reproduces (eqstack's verbatim error awaited via mcp-cli-starter-template)
+
+Item: eqstack-draft07-error
+At: 2026-10-15T04:49:22Z
+Agent: browser-tab-mcp
+Field: Created
+Value: 2026-10-15T04:49:22Z
+
+Item: eqstack-draft07-error
+At: 2026-10-15T04:49:22Z
+Agent: browser-tab-mcp
+Field: Updated
+Value: 2026-10-15T04:49:22Z
+
+Item: eqstack-draft07-error
+At: 2026-10-15T04:49:22Z
+Agent: browser-tab-mcp
+Field: Repo
+Value: browser-tab-mcp
+
+Item: eqstack-draft07-error
+At: 2026-10-15T04:49:23Z
+Agent: browser-tab-mcp
+Field: Status
+Value: later
+
+Item: eqstack-draft07-error
+At: 2026-10-15T04:49:23Z
+Agent: browser-tab-mcp
+Field: Updated
+Value: 2026-10-15T04:49:23Z
+
+Item: mcp-kit-3-migration
+At: 2026-10-15T04:49:23Z
+Agent: browser-tab-mcp
+Field: Updated
+Value: 2026-10-15T04:49:23Z
+
+Item: mcp-kit-3-migration
+At: 2026-10-15T04:49:23Z
+Agent: browser-tab-mcp
+Field: DependsOn
+Value: eqstack-draft07-error
+
+Item: tmux-mapping-doc-drift
+At: 2026-10-15T04:49:24Z
+Agent: browser-tab-mcp
+Field: Type
+Value: task
+
+Item: tmux-mapping-doc-drift
+At: 2026-10-15T04:49:24Z
+Agent: browser-tab-mcp
+Field: Status
+Value: next
+
+Item: tmux-mapping-doc-drift
+At: 2026-10-15T04:49:24Z
+Agent: browser-tab-mcp
+Field: Owner
+Value: browser-tab-mcp
+
+Item: tmux-mapping-doc-drift
+At: 2026-10-15T04:49:24Z
+Agent: browser-tab-mcp
+Field: Title
+Value: Docs still say the terminal-mapping pick is pending (BACKLOG B38, checkpoint row, tmux plan header)
+
+Item: tmux-mapping-doc-drift
+At: 2026-10-15T04:49:24Z
+Agent: browser-tab-mcp
+Field: Created
+Value: 2026-10-15T04:49:24Z
+
+Item: tmux-mapping-doc-drift
+At: 2026-10-15T04:49:24Z
+Agent: browser-tab-mcp
+Field: Updated
+Value: 2026-10-15T04:49:24Z
+
+Item: tmux-mapping-doc-drift
+At: 2026-10-15T04:49:24Z
+Agent: browser-tab-mcp
+Field: Repo
+Value: browser-tab-mcp
+
+Item: tmux-mapping-doc-drift
+At: 2026-10-15T04:49:24Z
+Agent: browser-tab-mcp
+Field: DependsOn
+Value: tmux-terminal-mapping
+
+Item: transcript-sweep
+At: 2026-10-15T04:49:25Z
+Agent: browser-tab-mcp
+Field: Status
+Value: done
+
+Item: transcript-sweep
+At: 2026-10-15T04:49:25Z
+Agent: browser-tab-mcp
+Field: Updated
+Value: 2026-10-15T04:49:25Z
+
+Item: transcript-sweep
+At: 2026-10-15T04:49:25Z
+Agent: browser-tab-mcp
+Field: Evidence
+Value: Read-only child swept 2026-10-08..15: filed b36-move-rate, sideload-branch-guard, eqstack-draft07-error, tmux-mapping-doc-drift; phase-4-tmux-identity-m3 filed as done (#209). Gaps: bus and subagent transcripts not read (tool denials).
+
+Item: transcript-sweep
+At: 2026-10-15T04:49:25Z
+Agent: browser-tab-mcp
+Field: Ended
+Value: 2026-10-15T04:49:25Z

@@ -154,12 +154,14 @@ Repo: browser-tab-mcp
 
 Slug: transcript-sweep
 Type: task
-Status: next
+Status: done
 Owner: browser-tab-mcp
 Title: Week-back transcript sweep for lost items (executive, D40)
 Created: 2026-10-15T04:43:31Z
-Updated: 2026-10-15T04:43:31Z
+Updated: 2026-10-15T04:49:25Z
 Repo: browser-tab-mcp
+Evidence: Read-only child swept 2026-10-08..15: filed b36-move-rate, sideload-branch-guard, eqstack-draft07-error, tmux-mapping-doc-drift; phase-4-tmux-identity-m3 filed as done (#209). Gaps: bus and subagent transcripts not read (tool denials).
+Ended: 2026-10-15T04:49:25Z
 
 Slug: mcp-kit-3-migration
 Type: task
@@ -167,8 +169,9 @@ Status: later
 Owner: browser-tab-mcp
 Title: zod 4 + mcp-kit ^3 migration (needs the B4 de-vendor decision)
 Created: 2026-10-15T04:43:31Z
-Updated: 2026-10-15T04:43:32Z
+Updated: 2026-10-15T04:49:23Z
 Repo: browser-tab-mcp
+DependsOn: eqstack-draft07-error
 
 Slug: tmux-terminal-mapping-choice
 Type: question
@@ -185,6 +188,54 @@ Answer: go with A for tmux terminal mapping
 AnsweredBy: george
 Evidence: answered by george
 Ended: 2026-10-15T04:43:38Z
+
+Slug: phase-4-tmux-identity-m3
+Type: task
+Status: done
+Owner: browser-tab-mcp
+Title: tmux-control Phase 4 / M3 identity experiment
+Created: 2026-10-15T04:49:15Z
+Updated: 2026-10-15T04:49:16Z
+Repo: browser-tab-mcp
+Evidence: Shipped as #209 (0bf3e47, 2026-09-28); DECISIONS.md:300 'M3 linked-window identity uses slots'. Sweep flagged it open from a stale 09-27 archive line.
+Ended: 2026-10-15T04:49:16Z
+
+Slug: b36-move-rate
+Type: task
+Status: later
+Owner: browser-tab-mcp
+Title: Measure why apply moves about one tab per 2s (B36 speed half)
+Created: 2026-10-15T04:49:16Z
+Updated: 2026-10-15T04:49:17Z
+Repo: browser-tab-mcp
+
+Slug: sideload-branch-guard
+Type: task
+Status: later
+Owner: browser-tab-mcp
+Title: Add an on-main guard to the Safari rebuild.sh sideload
+Created: 2026-10-15T04:49:20Z
+Updated: 2026-10-15T04:49:21Z
+Repo: browser-tab-mcp
+
+Slug: eqstack-draft07-error
+Type: info
+Status: later
+Owner: browser-tab-mcp
+Title: Whether Claude Code's draft-07 rejection ever reproduces (eqstack's verbatim error awaited via mcp-cli-starter-template)
+Created: 2026-10-15T04:49:22Z
+Updated: 2026-10-15T04:49:23Z
+Repo: browser-tab-mcp
+
+Slug: tmux-mapping-doc-drift
+Type: task
+Status: next
+Owner: browser-tab-mcp
+Title: Docs still say the terminal-mapping pick is pending (BACKLOG B38, checkpoint row, tmux plan header)
+Created: 2026-10-15T04:49:24Z
+Updated: 2026-10-15T04:49:24Z
+Repo: browser-tab-mcp
+DependsOn: tmux-terminal-mapping
 
 %rec: Comment
 %doc: A note on an item, by an agent or George. Append-only.
@@ -207,3 +258,13 @@ Item: transcript-sweep
 Author: browser-tab-mcp
 At: 2026-10-15T04:45:29Z
 Text: Read-only sweep child launched 2026-10-15, window 2026-10-08..15.
+
+Item: b36-move-rate
+Author: browser-tab-mcp
+At: 2026-10-15T04:49:20Z
+Text: BACKLOG.md:1784-1790: verdict half fixed, speed half OPEN; needs a Playwright-harness timing measurement. Found by the 2026-10-15 sweep.
+
+Item: sideload-branch-guard
+Author: browser-tab-mcp
+At: 2026-10-15T04:49:22Z
+Text: apps/safari-extension/scripts/rebuild.sh has no branch check (re-measured 2026-10-15); gap described at PROGRESS-LOG.md:3853. Found by the sweep.
