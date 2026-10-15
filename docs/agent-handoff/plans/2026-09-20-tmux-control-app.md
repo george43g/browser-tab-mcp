@@ -1,6 +1,10 @@
 # tmux-control — the second application, and the reuse it has to prove
 
-> **STATUS 2026-09-24 — APPROVED by George; Phase 0 may start.** D7 is
+> **STATUS 2026-10-15 — LIVE.** Phases 0–3 and M3 shipped (#196, #207, #209), and
+> tmux-control 0.2.0 is released. §1b (terminal mapping, option A) merged as #222.
+> The later phases in §12 have not started.
+>
+> *Earlier status:* **2026-09-24 — APPROVED by George; Phase 0 may start.** D7 is
 > answered: window placement is wm-stack's, and this monorepo stops at the OS
 > window boundary (§11). Phase 8 is withdrawn.
 >

@@ -1743,8 +1743,7 @@ unclaimed.
 
 ### B38. tmux-control: which terminal OS window shows which session, and what each pane runs
 
-**Owner:** browser-tab-mcp. **Status:** BUILT on branch
-`feat/tmux-terminal-mapping` (2026-10-15), awaiting merge. George chose option
+**Owner:** browser-tab-mcp. **Status:** MERGED 2026-10-15 as #222 (`8fa9090`); live on gmac. George chose option
 A on 2026-10-15. Shipped as `list --processes` (MCP `processes: true`);
 details and measured deviations are in plan §1b "Built". **Spec:**
 `plans/2026-09-20-tmux-control-app.md` §1b.

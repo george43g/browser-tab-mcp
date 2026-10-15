@@ -134,23 +134,27 @@ Repo: browser-tab-mcp
 
 Slug: tmux-terminal-mapping
 Type: task
-Status: started
+Status: done
 Owner: browser-tab-mcp
 Title: tmux-control: per-client terminal app + OS window (cgWindowId, ambiguous otherwise), per-pane shell + foreground pid (plan 1b, B38, option A)
 Created: 2026-10-15T04:43:30Z
-Updated: 2026-10-15T04:43:39Z
+Updated: 2026-10-15T05:29:06Z
 Repo: browser-tab-mcp
 DependsOn: tmux-terminal-mapping-choice
+Evidence: #222 merged 8fa9090 (option A; list --processes); live: kitty client -> cgWindowId 6183, yabai-confirmed; args redacted via redactString (inversion-tested)
 Started: 2026-10-15T04:43:39Z
+Ended: 2026-10-15T05:29:06Z
 
 Slug: mcp-kit-schema-label-strip
 Type: task
-Status: next
+Status: done
 Owner: browser-tab-mcp
 Title: Drop the draft-07 $schema label from tool schemas (eqstack hotfix pattern)
 Created: 2026-10-15T04:43:30Z
-Updated: 2026-10-15T04:43:30Z
+Updated: 2026-10-15T05:29:07Z
 Repo: browser-tab-mcp
+Evidence: #219 merged a94c8b0: $schema stripped in both servers, tuples emitted as prefixItems; all 56 schemas compile under Ajv2020 strict+allowUnionTypes (kit 3 conformance settings)
+Ended: 2026-10-15T05:29:07Z
 
 Slug: transcript-sweep
 Type: task
@@ -220,22 +224,44 @@ Repo: browser-tab-mcp
 
 Slug: eqstack-draft07-error
 Type: info
-Status: later
+Status: done
 Owner: browser-tab-mcp
 Title: Whether Claude Code's draft-07 rejection ever reproduces (eqstack's verbatim error awaited via mcp-cli-starter-template)
 Created: 2026-10-15T04:49:22Z
-Updated: 2026-10-15T04:49:23Z
+Updated: 2026-10-15T05:29:08Z
 Repo: browser-tab-mcp
+Evidence: Verbatim error relayed 2026-10-15 15:51 (2020-12-only validator rejects the draft-07 label); fixed by #219
+Ended: 2026-10-15T05:29:08Z
 
 Slug: tmux-mapping-doc-drift
 Type: task
-Status: next
+Status: done
 Owner: browser-tab-mcp
 Title: Docs still say the terminal-mapping pick is pending (BACKLOG B38, checkpoint row, tmux plan header)
 Created: 2026-10-15T04:49:24Z
-Updated: 2026-10-15T04:49:24Z
+Updated: 2026-10-15T05:29:07Z
 Repo: browser-tab-mcp
 DependsOn: tmux-terminal-mapping
+Evidence: B38 status MERGED and plan header refreshed on main
+Ended: 2026-10-15T05:29:07Z
+
+Slug: tmux-mapping-two-window-check
+Type: task
+Status: later
+Owner: browser-tab-mcp
+Title: Verify the terminal-mapping tie-break with two kitty OS windows on different monitors (unit-tested only)
+Created: 2026-10-15T05:29:08Z
+Updated: 2026-10-15T05:29:09Z
+Repo: browser-tab-mcp
+
+Slug: release-1-16-1
+Type: task
+Status: next
+Owner: browser-tab-mcp
+Title: Release PRs #221 (browser-tab 1.16.1) and #220 (combined) open after #219/#222
+Created: 2026-10-15T05:29:09Z
+Updated: 2026-10-15T05:29:09Z
+Repo: browser-tab-mcp
 
 %rec: Comment
 %doc: A note on an item, by an agent or George. Append-only.

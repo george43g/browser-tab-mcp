@@ -1092,3 +1092,195 @@ At: 2026-10-15T04:49:25Z
 Agent: browser-tab-mcp
 Field: Ended
 Value: 2026-10-15T04:49:25Z
+
+Item: tmux-terminal-mapping
+At: 2026-10-15T05:29:06Z
+Agent: browser-tab-mcp
+Field: Status
+Value: done
+
+Item: tmux-terminal-mapping
+At: 2026-10-15T05:29:06Z
+Agent: browser-tab-mcp
+Field: Updated
+Value: 2026-10-15T05:29:06Z
+
+Item: tmux-terminal-mapping
+At: 2026-10-15T05:29:06Z
+Agent: browser-tab-mcp
+Field: Evidence
+Value: #222 merged 8fa9090 (option A; list --processes); live: kitty client -> cgWindowId 6183, yabai-confirmed; args redacted via redactString (inversion-tested)
+
+Item: tmux-terminal-mapping
+At: 2026-10-15T05:29:06Z
+Agent: browser-tab-mcp
+Field: Ended
+Value: 2026-10-15T05:29:06Z
+
+Item: mcp-kit-schema-label-strip
+At: 2026-10-15T05:29:07Z
+Agent: browser-tab-mcp
+Field: Status
+Value: done
+
+Item: mcp-kit-schema-label-strip
+At: 2026-10-15T05:29:07Z
+Agent: browser-tab-mcp
+Field: Updated
+Value: 2026-10-15T05:29:07Z
+
+Item: mcp-kit-schema-label-strip
+At: 2026-10-15T05:29:07Z
+Agent: browser-tab-mcp
+Field: Evidence
+Value: #219 merged a94c8b0: $schema stripped in both servers, tuples emitted as prefixItems; all 56 schemas compile under Ajv2020 strict+allowUnionTypes (kit 3 conformance settings)
+
+Item: mcp-kit-schema-label-strip
+At: 2026-10-15T05:29:07Z
+Agent: browser-tab-mcp
+Field: Ended
+Value: 2026-10-15T05:29:07Z
+
+Item: tmux-mapping-doc-drift
+At: 2026-10-15T05:29:07Z
+Agent: browser-tab-mcp
+Field: Status
+Value: done
+
+Item: tmux-mapping-doc-drift
+At: 2026-10-15T05:29:07Z
+Agent: browser-tab-mcp
+Field: Updated
+Value: 2026-10-15T05:29:07Z
+
+Item: tmux-mapping-doc-drift
+At: 2026-10-15T05:29:07Z
+Agent: browser-tab-mcp
+Field: Evidence
+Value: B38 status MERGED and plan header refreshed on main
+
+Item: tmux-mapping-doc-drift
+At: 2026-10-15T05:29:07Z
+Agent: browser-tab-mcp
+Field: Ended
+Value: 2026-10-15T05:29:07Z
+
+Item: eqstack-draft07-error
+At: 2026-10-15T05:29:08Z
+Agent: browser-tab-mcp
+Field: Status
+Value: done
+
+Item: eqstack-draft07-error
+At: 2026-10-15T05:29:08Z
+Agent: browser-tab-mcp
+Field: Updated
+Value: 2026-10-15T05:29:08Z
+
+Item: eqstack-draft07-error
+At: 2026-10-15T05:29:08Z
+Agent: browser-tab-mcp
+Field: Evidence
+Value: Verbatim error relayed 2026-10-15 15:51 (2020-12-only validator rejects the draft-07 label); fixed by #219
+
+Item: eqstack-draft07-error
+At: 2026-10-15T05:29:08Z
+Agent: browser-tab-mcp
+Field: Ended
+Value: 2026-10-15T05:29:08Z
+
+Item: tmux-mapping-two-window-check
+At: 2026-10-15T05:29:08Z
+Agent: browser-tab-mcp
+Field: Type
+Value: task
+
+Item: tmux-mapping-two-window-check
+At: 2026-10-15T05:29:08Z
+Agent: browser-tab-mcp
+Field: Status
+Value: next
+
+Item: tmux-mapping-two-window-check
+At: 2026-10-15T05:29:08Z
+Agent: browser-tab-mcp
+Field: Owner
+Value: browser-tab-mcp
+
+Item: tmux-mapping-two-window-check
+At: 2026-10-15T05:29:08Z
+Agent: browser-tab-mcp
+Field: Title
+Value: Verify the terminal-mapping tie-break with two kitty OS windows on different monitors (unit-tested only)
+
+Item: tmux-mapping-two-window-check
+At: 2026-10-15T05:29:08Z
+Agent: browser-tab-mcp
+Field: Created
+Value: 2026-10-15T05:29:08Z
+
+Item: tmux-mapping-two-window-check
+At: 2026-10-15T05:29:08Z
+Agent: browser-tab-mcp
+Field: Updated
+Value: 2026-10-15T05:29:08Z
+
+Item: tmux-mapping-two-window-check
+At: 2026-10-15T05:29:08Z
+Agent: browser-tab-mcp
+Field: Repo
+Value: browser-tab-mcp
+
+Item: tmux-mapping-two-window-check
+At: 2026-10-15T05:29:09Z
+Agent: browser-tab-mcp
+Field: Status
+Value: later
+
+Item: tmux-mapping-two-window-check
+At: 2026-10-15T05:29:09Z
+Agent: browser-tab-mcp
+Field: Updated
+Value: 2026-10-15T05:29:09Z
+
+Item: release-1-16-1
+At: 2026-10-15T05:29:09Z
+Agent: browser-tab-mcp
+Field: Type
+Value: task
+
+Item: release-1-16-1
+At: 2026-10-15T05:29:09Z
+Agent: browser-tab-mcp
+Field: Status
+Value: next
+
+Item: release-1-16-1
+At: 2026-10-15T05:29:09Z
+Agent: browser-tab-mcp
+Field: Owner
+Value: browser-tab-mcp
+
+Item: release-1-16-1
+At: 2026-10-15T05:29:09Z
+Agent: browser-tab-mcp
+Field: Title
+Value: Release PRs #221 (browser-tab 1.16.1) and #220 (combined) open after #219/#222
+
+Item: release-1-16-1
+At: 2026-10-15T05:29:09Z
+Agent: browser-tab-mcp
+Field: Created
+Value: 2026-10-15T05:29:09Z
+
+Item: release-1-16-1
+At: 2026-10-15T05:29:09Z
+Agent: browser-tab-mcp
+Field: Updated
+Value: 2026-10-15T05:29:09Z
+
+Item: release-1-16-1
+At: 2026-10-15T05:29:09Z
+Agent: browser-tab-mcp
+Field: Repo
+Value: browser-tab-mcp
