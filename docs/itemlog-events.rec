@@ -1464,3 +1464,57 @@ At: 2026-10-15T05:40:59Z
 Agent: browser-tab-mcp
 Field: Ended
 Value: 2026-10-15T05:40:59Z
+
+Item: daemon-slow-after-restart
+At: 2026-10-15T05:45:52Z
+Agent: browser-tab-mcp
+Field: Type
+Value: incident
+
+Item: daemon-slow-after-restart
+At: 2026-10-15T05:45:52Z
+Agent: browser-tab-mcp
+Field: Status
+Value: next
+
+Item: daemon-slow-after-restart
+At: 2026-10-15T05:45:52Z
+Agent: browser-tab-mcp
+Field: Owner
+Value: browser-tab-mcp
+
+Item: daemon-slow-after-restart
+At: 2026-10-15T05:45:52Z
+Agent: browser-tab-mcp
+Field: Title
+Value: After deploy:local restarted the daemon (2026-10-15 ~16:39), 'daemon status' timed out (15s) or took 7-16s for ~4 minutes, then answered in <1s
+
+Item: daemon-slow-after-restart
+At: 2026-10-15T05:45:52Z
+Agent: browser-tab-mcp
+Field: Created
+Value: 2026-10-15T05:45:52Z
+
+Item: daemon-slow-after-restart
+At: 2026-10-15T05:45:52Z
+Agent: browser-tab-mcp
+Field: Updated
+Value: 2026-10-15T05:45:52Z
+
+Item: daemon-slow-after-restart
+At: 2026-10-15T05:45:52Z
+Agent: browser-tab-mcp
+Field: Repo
+Value: browser-tab-mcp
+
+Item: daemon-slow-after-restart
+At: 2026-10-15T05:45:53Z
+Agent: browser-tab-mcp
+Field: Status
+Value: later
+
+Item: daemon-slow-after-restart
+At: 2026-10-15T05:45:53Z
+Agent: browser-tab-mcp
+Field: Updated
+Value: 2026-10-15T05:45:53Z

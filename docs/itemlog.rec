@@ -290,6 +290,15 @@ Evidence: #223: automated sideload launches the helper with open -g -j; yabai-ve
 Started: 2026-10-15T05:33:04Z
 Ended: 2026-10-15T05:40:59Z
 
+Slug: daemon-slow-after-restart
+Type: incident
+Status: later
+Owner: browser-tab-mcp
+Title: After deploy:local restarted the daemon (2026-10-15 ~16:39), 'daemon status' timed out (15s) or took 7-16s for ~4 minutes, then answered in <1s
+Created: 2026-10-15T05:45:52Z
+Updated: 2026-10-15T05:45:53Z
+Repo: browser-tab-mcp
+
 %rec: Comment
 %doc: A note on an item, by an agent or George. Append-only.
 %mandatory: Item Author At Text

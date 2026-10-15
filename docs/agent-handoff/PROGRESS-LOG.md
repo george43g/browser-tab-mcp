@@ -3958,67 +3958,62 @@ tmux-control is in the monorepo as a second MCP app (#199, `c80a625`), with its 
 ### Resume
 Merge this PR, then run `mcpsync sync --scope project` and start `agents-md-split`. Phase 2 of the tmux plan (the skeleton plus M2) follows. M1 is already merged.
 
-## Checkpoint · browser-tab-mcp · 2026-10-07
+## Checkpoint · browser-tab-mcp · 2026-10-15
 
-Where this block and any summary disagree, this block is correct.
+Where this block and any summary disagree, this block is correct. Open and Blocked rows come from `docs/itemlog.rec` (`itemlog summary --open/--blocked`); the ledger is the source of truth.
 
 ### Resume
-Nothing is mid-flight. `RELEASE_PLEASE_TOKEN` is set (2026-10-07T08:00Z, from `op://key-vault/GH_PAT_BROWSER_TAB_RELEASE_PLEASE/credential`; the item notes carry the usage ledger). Next: when the first `feat:`/`fix:` after `ec9069a` merges, confirm its release PR's CI runs with no `action_required`. If it still holds, check the Release run's logs for which token it used.
+Nothing is mid-flight: no worktrees, no running helpers, main clean at the commit carrying this block. First, run `itemlog summary`. The only George-gated item is `release-1-17-0`. If he says merge: merge #221 first, then #220. #220 will conflict on `.release-please-manifest.json`; fix it by merging origin/main into the release branch and keeping both version lines (see Traps). Then confirm Latest stays on `v1.17.0`.
 
 ### State
-v1.15.0 and tmux-control 0.1.0 are released, and per-package release lines are live. Release PRs still need a manual CI approve until the RELEASE_PLEASE_TOKEN secret exists. Main is at `767feb4`, level with origin, and the tree is clean.
-
-### Now
-
-- 2026-10-15T02:53Z 2026-10-15T02:53:24Z mcp-kit 3.0 note (draft-07 rejected by CC 2.1.292): NOT reproduced on CC 2.1.300. Fresh headless session loaded all 28+4 dev tools and called 3 OK. Asked upstream for the failing surface/error; migration (zod 4, kit ^3, B4 de-vendor George-gated) deferred until it reproduces.
+browser-tab 1.16.0 and tmux-control 0.2.0 are released. Merged since then: #219 (tool schemas are 2020-12-clean: no `$schema`, tuples as prefixItems), #222 (tmux-control `list --processes`, the §1b terminal mapping, option A), #223 (the Safari helper launches hidden on an automated sideload). Release PRs #221 (browser-tab 1.17.0) and #220 (combined) are open with green CI. The daemon `1.16.0+240.945fff2.dirty.1015T1639` is reachable, with the chatgpt and safari extensions on that build. The dirty stamp comes from ledger edits during the deploy; the next deploy clears it.
 
 ### Constraints
-- George, 2026-10-04, verbatim (answer to the D9 question): "Per-package release lines".
-- George, 2026-10-04, verbatim: "release-pr-ci-approval: approved".
-- George, 2026-09-28 blanket go-ahead (DECISIONS.md): merge outstanding PRs; a multiple-choice DECISION still waits for him.
-- George via g-agent-skills, 2026-10-06: the browser-tab skill goes global. It must say "tab management, not browser control" and that the tool is still settling.
+- George, 2026-10-15: "go with A for tmux terminal mapping".
+- George, 2026-10-09: the terminal-mapping use case is required; "no need to wrap tmux commands that agents will have no trouble with on their own".
+- George, 2026-10-04: "release-pr-ci-approval: approved" (RELEASE_PLEASE_TOKEN is provisioned and verified).
+- George, 2026-09-28 blanket: merge outstanding PRs; multiple-choice decisions still wait for him. Releases have gone to him each time (D-pattern).
+- Executive D40 (2026-10-15): every turn starts with `itemlog start <slug>`, summaries come from `itemlog summary`, and commits carry an `Item:` trailer.
 
 ### Done
-- v1.15.0: #198 merged as `2f54f9c`, tag `v1.15.0`. GitHub's Latest release is `v1.15.0` (`gh api …/releases/latest`, 2026-10-04).
-- Starter-template upstream fixes: #210 merged as `43d4c53`. The ACK was sent and logged by mcp-cli-starter-template ("4->5 of 6").
-- D9, per-package release lines: #211 merged as `84e4cad`. The first combined cut, #212 (`5e7bf6d`), tagged `tmux-control-v0.1.0` plus `pkg-{build-config,control-language,shared-types,test-kit,tmux-control,vitest-config}-v0.1.0`. #200 is closed.
-- Release token wiring: #213 merged as `767feb4`. release.yml uses `secrets.RELEASE_PLEASE_TOKEN || secrets.GITHUB_TOKEN`, documented in `docs/RELEASE.md` § Operational notes.
-- browser-tab skill wording: `7b4d4c9`, reported to g-agent-skills.
-- Handoff edits left by the Cursor pane are committed (`6ca694f`).
+See `itemlog summary --all`. Key anchors: #219 `a94c8b0`, #222 `8fa9090`, #223 `945fff2`. The ledger was started at `4c1ad54`, and the transcript sweep was filed at `7f15a5a`.
 
 ### Open
-- `release-pr-token-mint` · browser-tab-mcp — CLOSED 2026-10-07: George minted `GH_PAT_BROWSER_TAB_RELEASE_PLEASE` (same name on GitHub and in 1Password; browser-tab-mcp only; Contents/Issues/PRs read/write; expires 2027-10-10).
-- `release-pr-token-verify` · browser-tab-mcp — CLOSED 2026-10-08: after #215 (`0202058`), release PRs #216 (combined) and #217 (browser-tab 1.16.0) were opened as george43g and their CI ran with no approval.
-- `tui-kit-0-6` · browser-tab-mcp — CLOSED 2026-10-08: #215 merged (tui-kit ^0.6.0, ^e/^y and page keys in both TUIs). ACK sent to mcp-cli-starter-template.
-- `release-1-16-0` · browser-tab-mcp — CLOSED 2026-10-08 on George's go ("Merge both now"): #217 (`1730422`) tagged `v1.16.0`, and #216 (`7edd74a`) tagged `tmux-control-v0.2.0`. Latest stayed on `v1.16.0`, so the badge step works on a real cut.
-- `tmux-terminal-mapping` · browser-tab-mcp — OPEN, required use case (George 2026-10-09), specced in the tmux plan §1b and BACKLOG B38 (#218). Waits on George's pick of how to tell two OS windows of one terminal apart (options A/B/C, proposal A). Not scheduled.
-- `prepush-flaky-test` · browser-tab-mcp — CORRECTED 2026-10-08: not flaky. Main's node_modules held tui-kit 0.5.2 against a lockfile at 0.6.0 after `git pull --rebase` (no post-merge install/deploy ran), so the six new ^e/^y/page tests failed every time. A worktree with a fresh install passed 3/3 in full uncached turbo runs. Fixed with `pnpm install && pnpm deploy:local`: daemon `1.15.0+223.af0c3f4`, 9/9 nav tests. The 2026-10-04 pre-push failure stays unexplained (4 failures, not captured).
-- `release-latest-badge` · browser-tab-mcp — CLOSED 2026-10-08: #214 (`cf0c4a6`) adds a release-job step that re-points Latest at the highest `vX.Y.Z`. Inversion-tested: forced `pkg-vitest-config-v0.1.0` as Latest, dispatched Release run 37707525354, and Latest went back to `v1.15.0`.
-- `parked-plans` · browser-tab-mcp — 2026-10-08: four plans (cg-oscillation, selection-dsl, control-surface roadmap, phase-5) were marked PARKED in #214 after crossing the plans-freshness 30-day limit. Resume any of them only on George's go.
-- `chatgpt-auto-signal` · browser-tab-mcp — the ChatGPT extension-context UA was never measured on a live host.
+- `parked-plans` · browser-tab-mcp: Four plans parked after 30 days idle (cg-oscillation, selection-dsl, control-surface roadmap, phase-5)
+- `chatgpt-auto-signal` · browser-tab-mcp: Measure whether the extension can detect it runs inside ChatGPT Desktop (UA / Client Hints)
+- `mcp-kit-3-migration` · browser-tab-mcp: zod 4 + mcp-kit ^3 migration (needs the B4 de-vendor decision)
+- `b36-move-rate` · browser-tab-mcp: Measure why apply moves about one tab per 2s (B36 speed half)
+- `sideload-branch-guard` · browser-tab-mcp: Add an on-main guard to the Safari rebuild.sh sideload
+- `tmux-mapping-two-window-check` · browser-tab-mcp: Verify the terminal-mapping tie-break with two kitty OS windows on different monitors (unit-tested only)
+- `release-1-17-0` · browser-tab-mcp: Release PRs #221 (browser-tab 1.17.0) and #220 (tmux-control + shared packages)
+- `daemon-slow-after-restart` · browser-tab-mcp: After deploy:local restarted the daemon (2026-10-15 ~16:39), 'daemon status' timed out (15s) or took 7-16s for ~4 minutes, then answered in <1s
+
+### Blocked on you
+- `release-1-17-0`: Merge release PRs #221 (browser-tab 1.17.0) and #220 (tmux-control + shared packages), or hold them
 
 ### Corrections
-- The 2026-09-29 block's "#198 has no checks": the checks did exist. They were held at `action_required` because the bot's GITHUB_TOKEN opened the PR. They were approved by hand and went green.
-- D9's "wait for upstream" (2026-09-27) was superseded on 2026-10-04 by per-package lines. The executive's later relay of "guard, then release" was stale, and the executive withdrew it.
+- The "flaky pre-push test" of 2026-10-08 was a stale install, not flakiness (closed in the ledger).
+- mcp-cli-starter-template's "CC 2.1.292 rejects draft-07" was first unreproduced here (CC 2.1.300 `-p`). The verbatim error then surfaced: a 2020-12-only validator on some Claude surface. #219 fixes it.
 
 ### Traps
-- Merging one release PR makes the other conflict on `.release-please-manifest.json`, and release-please won't regenerate it (no content change, so no push). Fix: merge `origin/main` into the release branch, keep both version lines, push, and wait for CI. Measured on #216 (2026-10-08).
-- A failed CI job on a docs-only PR (the Edge-on-Windows build exiting 1 with no error) passed on a rerun of the failed job alone (#218).
-- After `git pull --rebase` on main, check that node_modules matches the lockfile (e.g. the tui-kit version) and run `pnpm install && pnpm deploy:local` if it doesn't. A stale install shows up as new tests failing every time, which looks like flakiness.
-- When approving runs on a release PR, approve only the current head's runs. Approving an older head's CI run makes the concurrency group cancel the current one, so re-run it.
-- A `gh run rerun` replays the original event payload, so a PR-title change ([skip-readme]) needs a close and reopen (or a push) to be seen.
-- A new worktree needs `pnpm install` before `git push`, because the pre-push hook builds.
-- zsh doesn't word-split `$VAR` path lists. Use an array.
+- Merging one release PR makes the other conflict on the manifest, and release-please won't regenerate it. Fix: merge origin/main into the release branch, keep both version lines, push.
+- On release PRs, approve only the current head's runs; an older approved run cancels the current one. This was moot after RELEASE_PLEASE_TOKEN.
+- A new worktree needs `pnpm install` and `pnpm build` before `git push` (the pre-push hook) and before vitest (workspace packages resolve from dist).
+- After `git pull --rebase`, check node_modules matches the lockfile; a stale install makes new tests fail every time.
+- `itemlog` isn't on PATH: use `~/.claude/skills/itemlog/bin/itemlog`, and in zsh a function, not `$var`.
+- `pgrep -lf` prints other processes' argv, which can contain secrets (an OpenRouter key leaked this way and was recorded). Use `pgrep -x` or `-l` without `-f`.
+- A Windows CI job can fail on a runner fault (rustc 0xC0000142, a stress server exit). Rerun the failed job once before debugging.
 
 ### Tree
-`/Users/george/repos/browser-tab-mcp` on `main` at `767feb4`, 0 ahead and 0 behind origin. The tree is clean apart from this checkpoint. `git worktree list` shows only main. No background tasks or subagents are running.
+`/Users/george/repos/browser-tab-mcp` on `main`, level with origin. No other worktrees. Clean except this checkpoint and the ledger commit.
 
 ## History
 
 <!-- BEGIN checkpoint-history (generated; do not edit) -->
+- 2026-10-07 · browser-tab-mcp · v1.15.0 and tmux-control 0.1.0 are released, and per-package release lines are live. Release PRs still need a manual CI approve until the RELEASE_PLEASE_TOKEN secret exists. Main is at `767feb4`, lev… · open: `release-pr-token-mint`, `release-pr-token-verify`, `tui-kit-0-6`, `release-1-16-0`, `tmux-terminal-mapping`, `prepush-flaky-test`, `release-latest-badge`, `parked-plans`, `chatgpt-auto-signal` · [full text](handoff-archive/browser-tab-mcp/2026-10-07.md)
 - 2026-09-29 · browser-tab-mcp · B37's identity check passed at 2026-09-29T17:52Z: chatgpt and chrome stayed split, with distinct handles. ChatGPT's extension stamp is still older than the daemon. #198 has no checks; #200 stays held. · open: `release-1-15-0`, `tmux-release-hold`, `shared-core-release-link`, `release-latest-badge`, `release-pr-ci-approval`, `chatgpt-auto-signal` · [full text](handoff-archive/browser-tab-mcp/2026-09-29.md)
 - 2026-09-27 · browser-tab-mcp · The ChatGPT Desktop Browser code is merged as #208 (`60e4271`), and main is now at #209 (`0bf3e47`). The ChatGPT connector still has no separate `chatgpt` session. Six reads around 2026-09-27T17:04Z… · open: `chatgpt-browser-live-verify`, `chatgpt-auto-signal`, `shared-core-release-link`, `tmux-release-hold`, `release-1-15-0` · [full text](handoff-archive/browser-tab-mcp/2026-09-27-2.md)
-- 2026-09-27 · browser-tab-mcp · Phase 3 / M2 is merged as #207 (`17a9d68`), installed and stress-checked from main. No code or background task is mid-flight. Phase 4 / M3 waits for George's go-ahead. · open: `phase-4-tmux-identity-m3`, `shared-core-release-link`, `tmux-release-hold`, `release-1-15-0`, `sideload-branch-guard` · [full text](handoff-archive/browser-tab-mcp/2026-09-27.md)
+- 2026-09-27 · browser-tab-mcp · Phase 3 / M2 is merged as #207 (`17a9d68`), installed and stress-checked from main. No code or background task is mid-flight. Phase 4 / M3 waits for George's go-ahead. · [full text](handoff-archive/browser-tab-mcp/2026-09-27.md)
 - 2026-09-24 · browser-tab-mcp · tmux-control is admitted as a second app and the `AGENTS.md` split is merged; main is at `2a8953a` and deployed, and nothing of mine is mid-flight. · [full text](handoff-archive/browser-tab-mcp/2026-09-24-2.md)
 - 2026-09-24 · browser-tab-mcp · tmux-control is admitted as a second app and the `AGENTS.md` split is merged; main is at `1f24a9d`, deployed, and nothing of mine is mid-edit except a running Safari-helper diagnosis. · [full text](handoff-archive/browser-tab-mcp/2026-09-24.md)
 <!-- END checkpoint-history -->
