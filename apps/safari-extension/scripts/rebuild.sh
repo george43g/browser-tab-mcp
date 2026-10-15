@@ -119,10 +119,14 @@ fi
 # need the app to run once — and because a human running `sideload` by hand
 # wants to see the status window it now shows.
 #
-# BT_OPEN_BACKGROUND=1 launches it without pulling focus, for an automated
-# sideload (e.g. from `pnpm deploy:local`) that must not interrupt anyone.
+# BT_OPEN_BACKGROUND=1 is the automated sideload (e.g. `pnpm deploy:local`),
+# which must not interrupt anyone. `-g` alone kept focus but still put the
+# status window on George's screen, showing "daemon unreachable" because it
+# checked while deploy:local was restarting the daemon (2026-10-15). `-j`
+# launches it hidden: the app still runs once (all a first install needs),
+# and no window appears.
 if [[ -n "${BT_OPEN_BACKGROUND:-}" ]]; then
-  open -g "$APP"
+  open -g -j "$APP"
 else
   open "$APP"
 fi
