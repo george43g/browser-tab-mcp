@@ -299,6 +299,17 @@ Created: 2026-10-15T05:45:52Z
 Updated: 2026-10-15T05:45:53Z
 Repo: browser-tab-mcp
 
+Slug: browser-tab-worktree-sweep
+Type: task
+Status: done
+Owner: browser-tab-mcp
+Title: Sweep left-behind worktrees and branches (George, george-broadcast 2026-10-16 00:33)
+Created: 2026-10-16T09:02:26Z
+Updated: 2026-10-16T09:02:27Z
+Repo: browser-tab-mcp
+Evidence: No stray worktrees; 15 merged local branches deleted; nothing unsaved
+Ended: 2026-10-16T09:02:27Z
+
 %rec: Comment
 %doc: A note on an item, by an agent or George. Append-only.
 %mandatory: Item Author At Text

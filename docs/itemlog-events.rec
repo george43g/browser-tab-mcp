@@ -1518,3 +1518,69 @@ At: 2026-10-15T05:45:53Z
 Agent: browser-tab-mcp
 Field: Updated
 Value: 2026-10-15T05:45:53Z
+
+Item: browser-tab-worktree-sweep
+At: 2026-10-16T09:02:26Z
+Agent: browser-tab-mcp
+Field: Type
+Value: task
+
+Item: browser-tab-worktree-sweep
+At: 2026-10-16T09:02:26Z
+Agent: browser-tab-mcp
+Field: Status
+Value: next
+
+Item: browser-tab-worktree-sweep
+At: 2026-10-16T09:02:26Z
+Agent: browser-tab-mcp
+Field: Owner
+Value: browser-tab-mcp
+
+Item: browser-tab-worktree-sweep
+At: 2026-10-16T09:02:26Z
+Agent: browser-tab-mcp
+Field: Title
+Value: Sweep left-behind worktrees and branches (George, george-broadcast 2026-10-16 00:33)
+
+Item: browser-tab-worktree-sweep
+At: 2026-10-16T09:02:26Z
+Agent: browser-tab-mcp
+Field: Created
+Value: 2026-10-16T09:02:26Z
+
+Item: browser-tab-worktree-sweep
+At: 2026-10-16T09:02:26Z
+Agent: browser-tab-mcp
+Field: Updated
+Value: 2026-10-16T09:02:26Z
+
+Item: browser-tab-worktree-sweep
+At: 2026-10-16T09:02:26Z
+Agent: browser-tab-mcp
+Field: Repo
+Value: browser-tab-mcp
+
+Item: browser-tab-worktree-sweep
+At: 2026-10-16T09:02:27Z
+Agent: browser-tab-mcp
+Field: Status
+Value: done
+
+Item: browser-tab-worktree-sweep
+At: 2026-10-16T09:02:27Z
+Agent: browser-tab-mcp
+Field: Updated
+Value: 2026-10-16T09:02:27Z
+
+Item: browser-tab-worktree-sweep
+At: 2026-10-16T09:02:27Z
+Agent: browser-tab-mcp
+Field: Evidence
+Value: No stray worktrees; 15 merged local branches deleted; nothing unsaved
+
+Item: browser-tab-worktree-sweep
+At: 2026-10-16T09:02:27Z
+Agent: browser-tab-mcp
+Field: Ended
+Value: 2026-10-16T09:02:27Z
