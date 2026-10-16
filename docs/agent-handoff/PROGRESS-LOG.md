@@ -3968,6 +3968,10 @@ Nothing is mid-flight: no worktrees, no running helpers, main clean at the commi
 ### State
 browser-tab 1.16.0 and tmux-control 0.2.0 are released. Merged since then: #219 (tool schemas are 2020-12-clean: no `$schema`, tuples as prefixItems), #222 (tmux-control `list --processes`, the §1b terminal mapping, option A), #223 (the Safari helper launches hidden on an automated sideload). Release PRs #221 (browser-tab 1.17.0) and #220 (combined) are open with green CI. The daemon `1.16.0+240.945fff2.dirty.1015T1639` is reachable, with the chatgpt and safari extensions on that build. The dirty stamp comes from ledger edits during the deploy; the next deploy clears it.
 
+### Now
+
+- 2026-10-16T09:01Z 2026-10-16T09:01:12Z Idle, nothing mid-flight, main clean. Next: release-1-17-0 waits on George (#221 then #220, manifest-conflict fix in Traps). Fleet throttle restricted until 2026-10-20; no new delegated work.
+
 ### Constraints
 - George, 2026-10-15: "go with A for tmux terminal mapping".
 - George, 2026-10-09: the terminal-mapping use case is required; "no need to wrap tmux commands that agents will have no trouble with on their own".
