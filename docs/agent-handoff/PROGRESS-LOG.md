@@ -3970,7 +3970,7 @@ browser-tab 1.16.0 and tmux-control 0.2.0 are released. Merged since then: #219 
 
 ### Now
 
-- 2026-10-16T09:01Z 2026-10-16T09:01:12Z Idle, nothing mid-flight, main clean. Next: release-1-17-0 waits on George (#221 then #220, manifest-conflict fix in Traps). Fleet throttle restricted until 2026-10-20; no new delegated work.
+- 2026-10-16T23:30Z 2026-10-16T23:30:07Z Idle, nothing mid-flight, main clean. Worktree sweep done (dad37b9). Next: release-1-17-0 waits on George (#221 then #220; manifest-conflict fix in Traps). Throttle restricted until 2026-10-20.
 
 ### Constraints
 - George, 2026-10-15: "go with A for tmux terminal mapping".
