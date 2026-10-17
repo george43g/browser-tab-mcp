@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.1.1](https://github.com/george43g/browser-tab-mcp/compare/pkg-test-kit-v0.1.0...pkg-test-kit-v0.1.1) (2026-10-17)
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * devDependencies
+    * @george43g/shared-types bumped to 0.2.0
+
 ## 0.1.0 (2026-10-04)
 
 

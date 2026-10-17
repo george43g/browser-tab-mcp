@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.2.0](https://github.com/george43g/browser-tab-mcp/compare/pkg-tmux-control-v0.1.0...pkg-tmux-control-v0.2.0) (2026-10-17)
+
+
+### Features
+
+* **tmux-control:** map clients to terminal OS windows and panes to foreground programs ([#222](https://github.com/george43g/browser-tab-mcp/issues/222)) ([8fa9090](https://github.com/george43g/browser-tab-mcp/commit/8fa90906e4d8087d18804962b890728270e9bcfd))
+
 ## 0.1.0 (2026-10-04)
 
 
