@@ -1,5 +1,18 @@
 # Changelog
 
+## [1.17.0](https://github.com/george43g/browser-tab-mcp/compare/v1.16.0...v1.17.0) (2026-10-24)
+
+
+### Features
+
+* **tmux-control:** map clients to terminal OS windows and panes to foreground programs ([#222](https://github.com/george43g/browser-tab-mcp/issues/222)) ([8fa9090](https://github.com/george43g/browser-tab-mcp/commit/8fa90906e4d8087d18804962b890728270e9bcfd))
+
+
+### Bug Fixes
+
+* **mcp:** strip the $schema dialect label from emitted tool schemas [skip-readme] ([#219](https://github.com/george43g/browser-tab-mcp/issues/219)) ([a94c8b0](https://github.com/george43g/browser-tab-mcp/commit/a94c8b0a7d0bd2416126eca733ca6e042dafebff))
+* **safari:** launch the helper hidden on an automated sideload [skip-readme] ([#223](https://github.com/george43g/browser-tab-mcp/issues/223)) ([945fff2](https://github.com/george43g/browser-tab-mcp/commit/945fff22f740a3848da2ac95bb343b3be15bd8e3))
+
 ## [1.16.0](https://github.com/george43g/browser-tab-mcp/compare/v1.15.0...v1.16.0) (2026-10-08)
 
 
