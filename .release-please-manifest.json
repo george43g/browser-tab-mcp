@@ -1,11 +1,11 @@
 {
   ".": "1.16.0",
-  "apps/tmux-control-mcp": "0.2.0",
+  "apps/tmux-control-mcp": "0.3.0",
   "packages/build-config": "0.1.0",
   "packages/control-language": "0.1.0",
-  "packages/shared-types": "0.1.0",
-  "packages/test-kit": "0.1.0",
-  "packages/tmux-control": "0.1.0",
+  "packages/shared-types": "0.2.0",
+  "packages/test-kit": "0.1.1",
+  "packages/tmux-control": "0.2.0",
   "packages/tsconfig": "0.0.0",
   "packages/vitest-config": "0.1.0"
 }
